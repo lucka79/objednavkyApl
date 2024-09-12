@@ -1,8 +1,7 @@
 {
   "name": "objednavkyapl",
   "private": true,
-  "version": "0.0.0",
-  "homepage": "https://lucka79.github.io/objednavkyApl",
+  "version": "0.0.0", 
   "type": "module",
   "scripts": {
     "dev": "vite",
