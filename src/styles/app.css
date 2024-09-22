@@ -11,4 +11,7 @@
   .using-mouse * {
     outline: none !important;
   }
+  :root {
+    --radius: 0.5rem;
+  }
 }

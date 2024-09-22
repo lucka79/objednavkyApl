@@ -1,0 +1,7 @@
+generuje database typescript
+npx supabase gen types --lang=typescript --project-id process.env.EXPO_PUBLIC_KEY_SUPABASE_PROJECT --schema public > src/database.types.ts
+
+
+npx supabase gen types --lang=typescript --project-id uhfjrtgewecohgmdgobh --schema public > src/database.types.ts
+
+npx supabase link --project-ref uhfjrtgewecohgmdgobh
