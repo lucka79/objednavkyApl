@@ -7,21 +7,26 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
-export const Route = createFileRoute("/login")({
-  component: Login,
+export const Route = createFileRoute("/register")({
+  component: Register,
 });
 
-function Login() {
+function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const signIn = useAuthStore((state) => state.signIn);
+  const [fullName, setFullName] = useState("");
+  const signUp = useAuthStore((state) => state.signUp);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const mutation = useMutation({
-    mutationFn: () => signIn(email, password),
+    mutationFn: () => signUp(email, password, fullName),
     onSuccess: () => {
-      navigate({ to: "/profile" });
+      toast({
+        title: "Success",
+        description: "Registration successful. Please log in.",
+      });
+      navigate({ to: "/login" });
     },
     onError: (error: Error) => {
       toast({
@@ -41,10 +46,17 @@ function Login() {
     <div className="flex justify-center items-center min-h-screen bg-background">
       <Card className="w-[350px]">
         <CardHeader>
-          <CardTitle>Login</CardTitle>
+          <CardTitle>Register</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              type="text"
+              placeholder="Full Name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+            />
             <Input
               type="email"
               placeholder="Email"
@@ -64,7 +76,7 @@ function Login() {
               className="w-full"
               disabled={mutation.isPending}
             >
-              {mutation.isPending ? "Logging in..." : "Login"}
+              {mutation.isPending ? "Registering..." : "Register"}
             </Button>
           </form>
         </CardContent>

@@ -1,7 +1,7 @@
 import { useAuth } from "@/providers/AuthProvider";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/_orders/admin")({
+export const Route = createFileRoute("/orders/admin")({
   component: AdminPage,
 });
 

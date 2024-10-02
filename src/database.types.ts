@@ -9,110 +9,71 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      order_items: {
+      categories: {
         Row: {
           created_at: string
           id: number
-          order_id: number
-          product_id: number
-          quantity: number
-          size: string
+          name: string
         }
         Insert: {
           created_at?: string
           id?: number
-          order_id: number
-          product_id: number
-          quantity?: number
-          size: string
+          name: string
         }
         Update: {
           created_at?: string
           id?: number
-          order_id?: number
-          product_id?: number
-          quantity?: number
-          size?: string
+          name?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "order_item_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_item_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      orders: {
-        Row: {
-          created_at: string
-          id: number
-          status: string
-          total: number
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: number
-          status?: string
-          total?: number
-          user_id?: string
-        }
-        Update: {
-          created_at?: string
-          id?: number
-          status?: string
-          total?: number
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "orders_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       products: {
         Row: {
+          category_id: number
           created_at: string
+          description: string | null
           id: number
           image: string | null
           name: string
           price: number
+          priceMob: number
         }
         Insert: {
+          category_id: number
           created_at?: string
+          description?: string | null
           id?: number
           image?: string | null
           name: string
-          price: number
+          price?: number
+          priceMob?: number
         }
         Update: {
+          category_id?: number
           created_at?: string
+          description?: string | null
           id?: number
           image?: string | null
           name?: string
           price?: number
+          priceMob?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
           avatar_url: string | null
           full_name: string | null
-          group: string
           id: string
+          role: Database["public"]["Enums"]["groupUser"]
           updated_at: string | null
           username: string | null
           website: string | null
@@ -120,8 +81,8 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           full_name?: string | null
-          group?: string
           id: string
+          role?: Database["public"]["Enums"]["groupUser"]
           updated_at?: string | null
           username?: string | null
           website?: string | null
@@ -129,8 +90,8 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           full_name?: string | null
-          group?: string
           id?: string
+          role?: Database["public"]["Enums"]["groupUser"]
           updated_at?: string | null
           username?: string | null
           website?: string | null
@@ -153,7 +114,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      groupUser: "admin" | "user" | "driver" | "expedition" | "prodejna"
     }
     CompositeTypes: {
       [_ in never]: never

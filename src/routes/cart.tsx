@@ -1,11 +1,12 @@
+//import * as React from "react";
 import { useAuth } from "@/providers/AuthProvider";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/_orders/user")({
-  component: UserIndex,
+export const Route = createFileRoute("/cart")({
+  component: Cart,
 });
 
-function UserIndex() {
+function Cart() {
   const { session } = useAuth();
 
   if (!session) {
@@ -13,7 +14,7 @@ function UserIndex() {
   }
   return (
     <div className="p-2">
-      <h3>User index</h3>
+      <h3>Košík</h3>
     </div>
   );
 }

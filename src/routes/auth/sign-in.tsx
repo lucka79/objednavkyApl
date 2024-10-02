@@ -29,6 +29,7 @@ function SignInScreen() {
       email,
       password,
     });
+    console.log(error);
 
     if (error) alert(error.message);
     setLoading(false);
@@ -69,7 +70,7 @@ function SignInScreen() {
         </CardContent>
         <CardFooter className="flex justify-between">
           <Button variant="outline" onClick={signInWithEmail} asChild>
-            <Link to={"/user"}>
+            <Link to={"/orders/user"}>
               {loading ? (
                 <Button disabled>
                   <ReloadIcon className="mr-2 h-4 w-4 animate-spin" />

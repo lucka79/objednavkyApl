@@ -8,6 +8,7 @@ import RemoteImage from "./RemoteImage";
 
 type ProductListItemProps = {
   product: Tables<"products">;
+
   // product: Product;
 };
 
@@ -40,6 +41,11 @@ const ProductItem = ({ product }: ProductListItemProps) => {
         <p>
           <Label style={{ color: "green", fontWeight: "bold" }}>
             $ {product.price}
+          </Label>
+        </p>
+        <p>
+          <Label style={{ color: "green", fontWeight: "bold" }}>
+            {product.priceMobile} Kč
           </Label>
         </p>
       </Card>

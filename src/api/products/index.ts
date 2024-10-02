@@ -1,5 +1,20 @@
 import { supabase } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Product } from "types";
+
+
+
+// Query functions
+export const fetchProducts = async (): Promise<Product[]> => {
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .order("name", { ascending: true });
+  if (error) throw new Error(error.message);
+  return data
+}
+
+
 
 export const useProductList = () => {
   return useQuery({
