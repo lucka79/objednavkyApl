@@ -13,16 +13,11 @@
 import { Route as rootRoute } from './routes/__root'
 import { Route as RegisterImport } from './routes/register'
 import { Route as ProfileImport } from './routes/profile'
-import { Route as Login2Import } from './routes/login2'
 import { Route as LoginImport } from './routes/login'
 import { Route as CartImport } from './routes/cart'
 import { Route as AdminImport } from './routes/admin'
 import { Route as LayoutImport } from './routes/_layout'
 import { Route as IndexImport } from './routes/index'
-import { Route as OrdersUserImport } from './routes/orders.user'
-import { Route as OrdersAdminImport } from './routes/orders.admin'
-import { Route as AuthSignUpImport } from './routes/auth/sign-up'
-import { Route as AuthSignInImport } from './routes/auth/sign-in'
 
 // Create/Update Routes
 
@@ -33,11 +28,6 @@ const RegisterRoute = RegisterImport.update({
 
 const ProfileRoute = ProfileImport.update({
   path: '/profile',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const Login2Route = Login2Import.update({
-  path: '/login2',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -63,26 +53,6 @@ const LayoutRoute = LayoutImport.update({
 
 const IndexRoute = IndexImport.update({
   path: '/',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const OrdersUserRoute = OrdersUserImport.update({
-  path: '/orders/user',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const OrdersAdminRoute = OrdersAdminImport.update({
-  path: '/orders/admin',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const AuthSignUpRoute = AuthSignUpImport.update({
-  path: '/auth/sign-up',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const AuthSignInRoute = AuthSignInImport.update({
-  path: '/auth/sign-in',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -125,13 +95,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginImport
       parentRoute: typeof rootRoute
     }
-    '/login2': {
-      id: '/login2'
-      path: '/login2'
-      fullPath: '/login2'
-      preLoaderRoute: typeof Login2Import
-      parentRoute: typeof rootRoute
-    }
     '/profile': {
       id: '/profile'
       path: '/profile'
@@ -146,34 +109,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RegisterImport
       parentRoute: typeof rootRoute
     }
-    '/auth/sign-in': {
-      id: '/auth/sign-in'
-      path: '/auth/sign-in'
-      fullPath: '/auth/sign-in'
-      preLoaderRoute: typeof AuthSignInImport
-      parentRoute: typeof rootRoute
-    }
-    '/auth/sign-up': {
-      id: '/auth/sign-up'
-      path: '/auth/sign-up'
-      fullPath: '/auth/sign-up'
-      preLoaderRoute: typeof AuthSignUpImport
-      parentRoute: typeof rootRoute
-    }
-    '/orders/admin': {
-      id: '/orders/admin'
-      path: '/orders/admin'
-      fullPath: '/orders/admin'
-      preLoaderRoute: typeof OrdersAdminImport
-      parentRoute: typeof rootRoute
-    }
-    '/orders/user': {
-      id: '/orders/user'
-      path: '/orders/user'
-      fullPath: '/orders/user'
-      preLoaderRoute: typeof OrdersUserImport
-      parentRoute: typeof rootRoute
-    }
   }
 }
 
@@ -185,13 +120,8 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/cart': typeof CartRoute
   '/login': typeof LoginRoute
-  '/login2': typeof Login2Route
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
-  '/auth/sign-in': typeof AuthSignInRoute
-  '/auth/sign-up': typeof AuthSignUpRoute
-  '/orders/admin': typeof OrdersAdminRoute
-  '/orders/user': typeof OrdersUserRoute
 }
 
 export interface FileRoutesByTo {
@@ -200,13 +130,8 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/cart': typeof CartRoute
   '/login': typeof LoginRoute
-  '/login2': typeof Login2Route
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
-  '/auth/sign-in': typeof AuthSignInRoute
-  '/auth/sign-up': typeof AuthSignUpRoute
-  '/orders/admin': typeof OrdersAdminRoute
-  '/orders/user': typeof OrdersUserRoute
 }
 
 export interface FileRoutesById {
@@ -216,44 +141,15 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/cart': typeof CartRoute
   '/login': typeof LoginRoute
-  '/login2': typeof Login2Route
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
-  '/auth/sign-in': typeof AuthSignInRoute
-  '/auth/sign-up': typeof AuthSignUpRoute
-  '/orders/admin': typeof OrdersAdminRoute
-  '/orders/user': typeof OrdersUserRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | ''
-    | '/admin'
-    | '/cart'
-    | '/login'
-    | '/login2'
-    | '/profile'
-    | '/register'
-    | '/auth/sign-in'
-    | '/auth/sign-up'
-    | '/orders/admin'
-    | '/orders/user'
+  fullPaths: '/' | '' | '/admin' | '/cart' | '/login' | '/profile' | '/register'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | ''
-    | '/admin'
-    | '/cart'
-    | '/login'
-    | '/login2'
-    | '/profile'
-    | '/register'
-    | '/auth/sign-in'
-    | '/auth/sign-up'
-    | '/orders/admin'
-    | '/orders/user'
+  to: '/' | '' | '/admin' | '/cart' | '/login' | '/profile' | '/register'
   id:
     | '__root__'
     | '/'
@@ -261,13 +157,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/cart'
     | '/login'
-    | '/login2'
     | '/profile'
     | '/register'
-    | '/auth/sign-in'
-    | '/auth/sign-up'
-    | '/orders/admin'
-    | '/orders/user'
   fileRoutesById: FileRoutesById
 }
 
@@ -277,13 +168,8 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   CartRoute: typeof CartRoute
   LoginRoute: typeof LoginRoute
-  Login2Route: typeof Login2Route
   ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
-  AuthSignInRoute: typeof AuthSignInRoute
-  AuthSignUpRoute: typeof AuthSignUpRoute
-  OrdersAdminRoute: typeof OrdersAdminRoute
-  OrdersUserRoute: typeof OrdersUserRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
@@ -292,13 +178,8 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   CartRoute: CartRoute,
   LoginRoute: LoginRoute,
-  Login2Route: Login2Route,
   ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
-  AuthSignInRoute: AuthSignInRoute,
-  AuthSignUpRoute: AuthSignUpRoute,
-  OrdersAdminRoute: OrdersAdminRoute,
-  OrdersUserRoute: OrdersUserRoute,
 }
 
 export const routeTree = rootRoute
@@ -318,13 +199,8 @@ export const routeTree = rootRoute
         "/admin",
         "/cart",
         "/login",
-        "/login2",
         "/profile",
-        "/register",
-        "/auth/sign-in",
-        "/auth/sign-up",
-        "/orders/admin",
-        "/orders/user"
+        "/register"
       ]
     },
     "/": {
@@ -342,26 +218,11 @@ export const routeTree = rootRoute
     "/login": {
       "filePath": "login.tsx"
     },
-    "/login2": {
-      "filePath": "login2.tsx"
-    },
     "/profile": {
       "filePath": "profile.tsx"
     },
     "/register": {
       "filePath": "register.tsx"
-    },
-    "/auth/sign-in": {
-      "filePath": "auth/sign-in.tsx"
-    },
-    "/auth/sign-up": {
-      "filePath": "auth/sign-up.tsx"
-    },
-    "/orders/admin": {
-      "filePath": "orders.admin.tsx"
-    },
-    "/orders/user": {
-      "filePath": "orders.user.tsx"
     }
   }
 }

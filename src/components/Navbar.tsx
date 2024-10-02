@@ -35,9 +35,9 @@ export function Navbar() {
                 <Link to="/login">
                   <Button variant="secondary">Login</Button>
                 </Link>
-                <Link to="/register">
+                {/* <Link to="/register">
                   <Button variant="secondary">Register</Button>
-                </Link>
+                </Link> */}
               </>
             )}
           </div>

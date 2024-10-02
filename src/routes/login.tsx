@@ -21,7 +21,7 @@ function Login() {
   const mutation = useMutation({
     mutationFn: () => signIn(email, password),
     onSuccess: () => {
-      navigate({ to: "/profile" });
+      navigate({ to: "/" });
     },
     onError: (error: Error) => {
       toast({

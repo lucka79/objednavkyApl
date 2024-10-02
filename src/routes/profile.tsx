@@ -57,7 +57,7 @@ function Profile() {
   return (
     <Card className="w-[350px] mx-auto">
       <CardHeader>
-        <CardTitle>User Profile</CardTitle>
+        <CardTitle>Profil uživatele</CardTitle>
       </CardHeader>
       <CardContent>
         <form
@@ -69,6 +69,7 @@ function Profile() {
           }}
           className="space-y-4"
         >
+          <div>Jméno: {profile?.full_name}</div>
           <Input
             name="full_name"
             placeholder="Full Name"
@@ -79,8 +80,8 @@ function Profile() {
             placeholder="Address"
             defaultValue={profile?.address || ""}
           />
-          <div>Role: {group}</div>
-          <Button type="submit">Update Profile</Button>
+          <div>Role: {profile?.role}</div>
+          <Button type="submit">Update profil</Button>
         </form>
       </CardContent>
     </Card>

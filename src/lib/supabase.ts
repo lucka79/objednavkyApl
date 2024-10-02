@@ -18,6 +18,7 @@ interface Profile {
 
 interface AuthState {
   user: Profile | null
+  isLoading: boolean
   signUp: (email: string, password: string, full_name: string) => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
@@ -26,6 +27,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
+  isLoading: true,
   signUp: async (email, password, full_name) => {
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) throw error

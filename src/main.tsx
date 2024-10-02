@@ -1,10 +1,12 @@
-import { StrictMode } from "react";
+import { StrictMode, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 // Import the generated route tree
 import { routeTree } from "./routeTree.gen";
 import AuthProvider, { useAuth } from "./providers/AuthProvider";
 import QueryProvider from "./providers/QueryProvider";
+import { useAuthStore } from "./lib/supabase";
+import RedirectPage from "./components/RedirectPage";
 
 // Create a new router instance
 const router = createRouter({
@@ -28,6 +30,12 @@ function InnerApp() {
 }
 
 function App() {
+  const fetchProfile = useAuthStore((state) => state.fetchProfile);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
   return (
     <AuthProvider>
       <InnerApp />
@@ -47,7 +55,7 @@ if (!rootElement.innerHTML) {
     // </StrictMode>
     <StrictMode>
       <QueryProvider>
-        <App />
+        <RedirectPage />
       </QueryProvider>
     </StrictMode>
   );
