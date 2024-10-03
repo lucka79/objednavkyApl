@@ -12,7 +12,6 @@ export const Route = createFileRoute("/profile")({
 
 function Profile() {
   const user = useAuthStore((state) => state.user);
-  const group = useAuthStore((state) => (state as any).group as string);
   const { toast } = useToast();
 
   const { data: profile, isLoading } = useQuery({

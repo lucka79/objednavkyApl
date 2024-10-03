@@ -14,6 +14,8 @@ import { Route as rootRoute } from './routes/__root'
 import { Route as RegisterImport } from './routes/register'
 import { Route as ProfileImport } from './routes/profile'
 import { Route as LoginImport } from './routes/login'
+import { Route as DriverImport } from './routes/driver'
+import { Route as CrossroadImport } from './routes/crossroad'
 import { Route as CartImport } from './routes/cart'
 import { Route as AdminImport } from './routes/admin'
 import { Route as LayoutImport } from './routes/_layout'
@@ -33,6 +35,16 @@ const ProfileRoute = ProfileImport.update({
 
 const LoginRoute = LoginImport.update({
   path: '/login',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const DriverRoute = DriverImport.update({
+  path: '/driver',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const CrossroadRoute = CrossroadImport.update({
+  path: '/crossroad',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -88,6 +100,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CartImport
       parentRoute: typeof rootRoute
     }
+    '/crossroad': {
+      id: '/crossroad'
+      path: '/crossroad'
+      fullPath: '/crossroad'
+      preLoaderRoute: typeof CrossroadImport
+      parentRoute: typeof rootRoute
+    }
+    '/driver': {
+      id: '/driver'
+      path: '/driver'
+      fullPath: '/driver'
+      preLoaderRoute: typeof DriverImport
+      parentRoute: typeof rootRoute
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -119,6 +145,8 @@ export interface FileRoutesByFullPath {
   '': typeof LayoutRoute
   '/admin': typeof AdminRoute
   '/cart': typeof CartRoute
+  '/crossroad': typeof CrossroadRoute
+  '/driver': typeof DriverRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
@@ -129,6 +157,8 @@ export interface FileRoutesByTo {
   '': typeof LayoutRoute
   '/admin': typeof AdminRoute
   '/cart': typeof CartRoute
+  '/crossroad': typeof CrossroadRoute
+  '/driver': typeof DriverRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
@@ -140,6 +170,8 @@ export interface FileRoutesById {
   '/_layout': typeof LayoutRoute
   '/admin': typeof AdminRoute
   '/cart': typeof CartRoute
+  '/crossroad': typeof CrossroadRoute
+  '/driver': typeof DriverRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
@@ -147,15 +179,35 @@ export interface FileRoutesById {
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '' | '/admin' | '/cart' | '/login' | '/profile' | '/register'
+  fullPaths:
+    | '/'
+    | ''
+    | '/admin'
+    | '/cart'
+    | '/crossroad'
+    | '/driver'
+    | '/login'
+    | '/profile'
+    | '/register'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '' | '/admin' | '/cart' | '/login' | '/profile' | '/register'
+  to:
+    | '/'
+    | ''
+    | '/admin'
+    | '/cart'
+    | '/crossroad'
+    | '/driver'
+    | '/login'
+    | '/profile'
+    | '/register'
   id:
     | '__root__'
     | '/'
     | '/_layout'
     | '/admin'
     | '/cart'
+    | '/crossroad'
+    | '/driver'
     | '/login'
     | '/profile'
     | '/register'
@@ -167,6 +219,8 @@ export interface RootRouteChildren {
   LayoutRoute: typeof LayoutRoute
   AdminRoute: typeof AdminRoute
   CartRoute: typeof CartRoute
+  CrossroadRoute: typeof CrossroadRoute
+  DriverRoute: typeof DriverRoute
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
@@ -177,6 +231,8 @@ const rootRouteChildren: RootRouteChildren = {
   LayoutRoute: LayoutRoute,
   AdminRoute: AdminRoute,
   CartRoute: CartRoute,
+  CrossroadRoute: CrossroadRoute,
+  DriverRoute: DriverRoute,
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
@@ -198,6 +254,8 @@ export const routeTree = rootRoute
         "/_layout",
         "/admin",
         "/cart",
+        "/crossroad",
+        "/driver",
         "/login",
         "/profile",
         "/register"
@@ -214,6 +272,12 @@ export const routeTree = rootRoute
     },
     "/cart": {
       "filePath": "cart.tsx"
+    },
+    "/crossroad": {
+      "filePath": "crossroad.tsx"
+    },
+    "/driver": {
+      "filePath": "driver.tsx"
     },
     "/login": {
       "filePath": "login.tsx"

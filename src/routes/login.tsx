@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useAuthStore } from "../lib/supabase";
@@ -15,13 +15,30 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const signIn = useAuthStore((state) => state.signIn);
+  const user = useAuthStore((state) => state.user);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const mutation = useMutation({
-    mutationFn: () => signIn(email, password),
+    mutationFn: async () => {
+      await signIn(email, password);
+      return user?.role;
+    },
     onSuccess: () => {
-      navigate({ to: "/" });
+      toast({
+        title: "Success",
+        description: "Jste úspěšně přihlášen",
+        variant: "default",
+      });
+
+      // Redirect based on user role
+      if (user?.role === "admin") {
+        navigate({ to: "/admin" });
+      } else if (user?.role === "driver") {
+        navigate({ to: "/driver" });
+      } else {
+        navigate({ to: "/profile" });
+      }
     },
     onError: (error: Error) => {
       toast({
