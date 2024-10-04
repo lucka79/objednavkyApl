@@ -5,3 +5,21 @@ npx supabase gen types --lang=typescript --project-id process.env.EXPO_PUBLIC_KE
 npx supabase gen types --lang=typescript --project-id vpululxkipxqqgnzycnc --schema public > src/database.types.ts
 
 npx supabase link --project-ref vpululxkipxqqgnzycnc
+
+
+
+# Configure environment (Tanstack Router, Tanstack Query, TailwindCSS, Shadcn/UI)
+
+# Setup Supabase (create database, create tables, generate types)
+
+# Create Login/Register/Profile/Admin page
+
+# Create Insert Products page
+# Cart -> add/remove items
+# Checkout -> create order, add items to order, remove items from order
+# Order -> list of orders
+# Order Details -> details of order
+# Order Items -> list of order items
+
+# Create driver page
+

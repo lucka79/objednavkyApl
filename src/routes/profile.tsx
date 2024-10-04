@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase, useAuthStore } from "@/lib/supabase";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/profile")({
   component: Profile,
@@ -51,12 +52,18 @@ function Profile() {
     },
   });
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading)
+    return (
+      <div>
+        <Loader2 />
+        Pracuji...
+      </div>
+    );
 
   return (
     <Card className="w-[350px] mx-auto">
       <CardHeader>
-        <CardTitle>Profil uživatele</CardTitle>
+        <CardTitle>Profil uživatele {profile?.full_name}</CardTitle>
       </CardHeader>
       <CardContent>
         <form
@@ -68,7 +75,6 @@ function Profile() {
           }}
           className="space-y-4"
         >
-          <div>Jméno: {profile?.full_name}</div>
           <Input
             name="full_name"
             placeholder="Full Name"
@@ -76,7 +82,7 @@ function Profile() {
           />
           <Input
             name="address"
-            placeholder="Address"
+            placeholder="Adresa"
             defaultValue={profile?.address || ""}
           />
           <div>Role: {profile?.role}</div>

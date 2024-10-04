@@ -15,7 +15,6 @@ import { Route as RegisterImport } from './routes/register'
 import { Route as ProfileImport } from './routes/profile'
 import { Route as LoginImport } from './routes/login'
 import { Route as DriverImport } from './routes/driver'
-import { Route as CrossroadImport } from './routes/crossroad'
 import { Route as CartImport } from './routes/cart'
 import { Route as AdminImport } from './routes/admin'
 import { Route as LayoutImport } from './routes/_layout'
@@ -40,11 +39,6 @@ const LoginRoute = LoginImport.update({
 
 const DriverRoute = DriverImport.update({
   path: '/driver',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const CrossroadRoute = CrossroadImport.update({
-  path: '/crossroad',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -100,13 +94,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CartImport
       parentRoute: typeof rootRoute
     }
-    '/crossroad': {
-      id: '/crossroad'
-      path: '/crossroad'
-      fullPath: '/crossroad'
-      preLoaderRoute: typeof CrossroadImport
-      parentRoute: typeof rootRoute
-    }
     '/driver': {
       id: '/driver'
       path: '/driver'
@@ -145,7 +132,6 @@ export interface FileRoutesByFullPath {
   '': typeof LayoutRoute
   '/admin': typeof AdminRoute
   '/cart': typeof CartRoute
-  '/crossroad': typeof CrossroadRoute
   '/driver': typeof DriverRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
@@ -157,7 +143,6 @@ export interface FileRoutesByTo {
   '': typeof LayoutRoute
   '/admin': typeof AdminRoute
   '/cart': typeof CartRoute
-  '/crossroad': typeof CrossroadRoute
   '/driver': typeof DriverRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
@@ -170,7 +155,6 @@ export interface FileRoutesById {
   '/_layout': typeof LayoutRoute
   '/admin': typeof AdminRoute
   '/cart': typeof CartRoute
-  '/crossroad': typeof CrossroadRoute
   '/driver': typeof DriverRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
@@ -184,7 +168,6 @@ export interface FileRouteTypes {
     | ''
     | '/admin'
     | '/cart'
-    | '/crossroad'
     | '/driver'
     | '/login'
     | '/profile'
@@ -195,7 +178,6 @@ export interface FileRouteTypes {
     | ''
     | '/admin'
     | '/cart'
-    | '/crossroad'
     | '/driver'
     | '/login'
     | '/profile'
@@ -206,7 +188,6 @@ export interface FileRouteTypes {
     | '/_layout'
     | '/admin'
     | '/cart'
-    | '/crossroad'
     | '/driver'
     | '/login'
     | '/profile'
@@ -219,7 +200,6 @@ export interface RootRouteChildren {
   LayoutRoute: typeof LayoutRoute
   AdminRoute: typeof AdminRoute
   CartRoute: typeof CartRoute
-  CrossroadRoute: typeof CrossroadRoute
   DriverRoute: typeof DriverRoute
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
@@ -231,7 +211,6 @@ const rootRouteChildren: RootRouteChildren = {
   LayoutRoute: LayoutRoute,
   AdminRoute: AdminRoute,
   CartRoute: CartRoute,
-  CrossroadRoute: CrossroadRoute,
   DriverRoute: DriverRoute,
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
@@ -254,7 +233,6 @@ export const routeTree = rootRoute
         "/_layout",
         "/admin",
         "/cart",
-        "/crossroad",
         "/driver",
         "/login",
         "/profile",
@@ -272,9 +250,6 @@ export const routeTree = rootRoute
     },
     "/cart": {
       "filePath": "cart.tsx"
-    },
-    "/crossroad": {
-      "filePath": "crossroad.tsx"
     },
     "/driver": {
       "filePath": "driver.tsx"

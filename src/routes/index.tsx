@@ -4,7 +4,7 @@ import { ImageSlider } from "../components/ImageSlider";
 import hero1 from "../assets/img/hero1.png";
 import hero2 from "../assets/img/hero2.png";
 import hero3 from "../assets/img/hero3.png";
-import { useProductList } from "@/api/products";
+import { fetchProducts } from "@/api/products";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import ProductGrid from "@/components/ProductCategoryList";
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/")({
 });
 
 function HomeComponent() {
-  const { data: products, error, isLoading } = useProductList();
+  const { data: products, error, isLoading } = fetchProducts();
 
   if (isLoading) {
     return (

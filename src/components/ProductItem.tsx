@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Tables } from "../../types";
 import { Label } from "@radix-ui/react-label";
 import { defaultProductImage } from "@/constants/Images";
-import { useProductList } from "@/api/products";
+import { fetchProducts } from "@/api/products";
 import { Card } from "./ui/card";
 import RemoteImage from "./RemoteImage";
 

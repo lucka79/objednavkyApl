@@ -32,12 +32,22 @@ function Login() {
       });
 
       // Redirect based on user role
-      if (user?.role === "admin") {
-        navigate({ to: "/admin" });
-      } else if (user?.role === "driver") {
-        navigate({ to: "/driver" });
-      } else {
-        navigate({ to: "/profile" });
+      // if (user?.role === "admin") {
+      //   navigate({ to: "/admin" });
+      // } else if (user?.role === "driver") {
+      //   navigate({ to: "/driver" });
+      // } else {
+      //   navigate({ to: "/profile" });
+      // }
+      switch (user?.role) {
+        case "admin":
+          navigate({ to: "/admin" });
+          break;
+        case "driver":
+          navigate({ to: "/driver" });
+          break;
+        default:
+          navigate({ to: "/profile" });
       }
     },
     onError: (error: Error) => {
