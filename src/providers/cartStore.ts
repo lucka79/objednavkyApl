@@ -24,7 +24,8 @@ export const useCartStore = create<CartStore>((set, get) => ({
               : item
           ),
         };
-      } else {
+      } 
+
         const newItem: CartItem = {
           id: Date.now(), // Implement this function to generate a unique ID
           product_id: product.id,
@@ -32,19 +33,19 @@ export const useCartStore = create<CartStore>((set, get) => ({
           quantity: 1
         };
         return { items: [...state.items, newItem] };
-      }
+      
     //   return { items: [...state.items, { product, quantity: 1 }] };
     });
   },
   removeItem: (productId) => {
     set((state) => ({
-      items: state.items.filter((item) => item.product.id !== productId),
+      items: state.items.filter((item) =>item.product.id !== Number(productId)),
     }));
   },
   updateQuantity: (productId, quantity) => {
     set((state) => ({
       items: state.items.map((item) =>
-        item.product.id === productId ? { ...item, quantity } : item
+        item.product.id === Number(productId) ? { ...item, quantity } : item
       ),
     }));
   },

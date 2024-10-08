@@ -1,3 +1,4 @@
+import { ProductList } from "@/components/ProductList";
 import { Products } from "@/components/Products";
 import ProductsByCategory from "@/components/ProductsByCategory";
 import { createFileRoute } from "@tanstack/react-router";
@@ -8,5 +9,10 @@ export const Route = createFileRoute("/user/products")({
 });
 
 function UserProducts() {
-  return <ProductsByCategory />;
+  return (
+    <>
+      <ProductList />
+      {/* <ProductsByCategory /> */}
+    </>
+  );
 }

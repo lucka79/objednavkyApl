@@ -31,6 +31,9 @@ export function Navbar() {
                     <Link to="/cart" className="hover:text-gray-300">
                       Košík
                     </Link>
+                    <Link to="/Cart2" className="hover:text-gray-300">
+                      Košík2
+                    </Link>
                   </>
                 )}
                 {user.role === "admin" && (

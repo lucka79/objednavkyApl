@@ -15,7 +15,7 @@ export type Enums<T extends keyof Database['public']['Enums']> =
 
   // types.ts
 export type Product = {
-  id: string | number;
+  id: number;
   name: string;
   price: number;
   priceMobile: number | null
@@ -30,7 +30,7 @@ export type Product = {
   };
 
   export type CartItem = {
-    id: string;
+    id: number;
     product: Product;
     product_id: number;
     quantity: number;

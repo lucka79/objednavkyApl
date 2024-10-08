@@ -16,6 +16,7 @@ import { Route as LoginImport } from './routes/login'
 import { Route as DriverImport } from './routes/driver'
 import { Route as CartImport } from './routes/cart'
 import { Route as LayoutImport } from './routes/_layout'
+import { Route as Cart2Import } from './routes/Cart2'
 import { Route as IndexImport } from './routes/index'
 import { Route as UserIndexImport } from './routes/user.index'
 import { Route as AdminIndexImport } from './routes/admin.index'
@@ -48,6 +49,11 @@ const CartRoute = CartImport.update({
 
 const LayoutRoute = LayoutImport.update({
   id: '/_layout',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const Cart2Route = Cart2Import.update({
+  path: '/Cart2',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -95,6 +101,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexImport
+      parentRoute: typeof rootRoute
+    }
+    '/Cart2': {
+      id: '/Cart2'
+      path: '/Cart2'
+      fullPath: '/Cart2'
+      preLoaderRoute: typeof Cart2Import
       parentRoute: typeof rootRoute
     }
     '/_layout': {
@@ -181,6 +194,7 @@ declare module '@tanstack/react-router' {
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/Cart2': typeof Cart2Route
   '': typeof LayoutRoute
   '/cart': typeof CartRoute
   '/driver': typeof DriverRoute
@@ -196,6 +210,7 @@ export interface FileRoutesByFullPath {
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/Cart2': typeof Cart2Route
   '': typeof LayoutRoute
   '/cart': typeof CartRoute
   '/driver': typeof DriverRoute
@@ -212,6 +227,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
+  '/Cart2': typeof Cart2Route
   '/_layout': typeof LayoutRoute
   '/cart': typeof CartRoute
   '/driver': typeof DriverRoute
@@ -229,6 +245,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/Cart2'
     | ''
     | '/cart'
     | '/driver'
@@ -243,6 +260,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/Cart2'
     | ''
     | '/cart'
     | '/driver'
@@ -257,6 +275,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/Cart2'
     | '/_layout'
     | '/cart'
     | '/driver'
@@ -273,6 +292,7 @@ export interface FileRouteTypes {
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  Cart2Route: typeof Cart2Route
   LayoutRoute: typeof LayoutRoute
   CartRoute: typeof CartRoute
   DriverRoute: typeof DriverRoute
@@ -288,6 +308,7 @@ export interface RootRouteChildren {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  Cart2Route: Cart2Route,
   LayoutRoute: LayoutRoute,
   CartRoute: CartRoute,
   DriverRoute: DriverRoute,
@@ -314,6 +335,7 @@ export const routeTree = rootRoute
       "filePath": "__root.tsx",
       "children": [
         "/",
+        "/Cart2",
         "/_layout",
         "/cart",
         "/driver",
@@ -329,6 +351,9 @@ export const routeTree = rootRoute
     },
     "/": {
       "filePath": "index.tsx"
+    },
+    "/Cart2": {
+      "filePath": "Cart2.tsx"
     },
     "/_layout": {
       "filePath": "_layout.tsx"
