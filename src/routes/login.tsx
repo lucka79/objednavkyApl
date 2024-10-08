@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
-import { useAuthStore } from "../lib/supabase";
+import { useAuthStore } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,7 +47,7 @@ function Login() {
           navigate({ to: "/driver" });
           break;
         default:
-          navigate({ to: "/profile" });
+          navigate({ to: "/user/products" });
       }
     },
     onError: (error: Error) => {

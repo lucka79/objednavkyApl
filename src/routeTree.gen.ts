@@ -12,23 +12,22 @@
 
 import { Route as rootRoute } from './routes/__root'
 import { Route as RegisterImport } from './routes/register'
-import { Route as ProfileImport } from './routes/profile'
 import { Route as LoginImport } from './routes/login'
 import { Route as DriverImport } from './routes/driver'
 import { Route as CartImport } from './routes/cart'
-import { Route as AdminImport } from './routes/admin'
 import { Route as LayoutImport } from './routes/_layout'
 import { Route as IndexImport } from './routes/index'
+import { Route as UserIndexImport } from './routes/user.index'
+import { Route as AdminIndexImport } from './routes/admin.index'
+import { Route as UserProductsImport } from './routes/user.products'
+import { Route as UserOrdersImport } from './routes/user.orders'
+import { Route as AdminOrdersImport } from './routes/admin.orders'
+import { Route as AdminProductsCreateImport } from './routes/admin.products.create'
 
 // Create/Update Routes
 
 const RegisterRoute = RegisterImport.update({
   path: '/register',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const ProfileRoute = ProfileImport.update({
-  path: '/profile',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -47,11 +46,6 @@ const CartRoute = CartImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
-const AdminRoute = AdminImport.update({
-  path: '/admin',
-  getParentRoute: () => rootRoute,
-} as any)
-
 const LayoutRoute = LayoutImport.update({
   id: '/_layout',
   getParentRoute: () => rootRoute,
@@ -59,6 +53,36 @@ const LayoutRoute = LayoutImport.update({
 
 const IndexRoute = IndexImport.update({
   path: '/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const UserIndexRoute = UserIndexImport.update({
+  path: '/user/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const AdminIndexRoute = AdminIndexImport.update({
+  path: '/admin/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const UserProductsRoute = UserProductsImport.update({
+  path: '/user/products',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const UserOrdersRoute = UserOrdersImport.update({
+  path: '/user/orders',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const AdminOrdersRoute = AdminOrdersImport.update({
+  path: '/admin/orders',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const AdminProductsCreateRoute = AdminProductsCreateImport.update({
+  path: '/admin/products/create',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -78,13 +102,6 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: ''
       preLoaderRoute: typeof LayoutImport
-      parentRoute: typeof rootRoute
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminImport
       parentRoute: typeof rootRoute
     }
     '/cart': {
@@ -108,18 +125,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginImport
       parentRoute: typeof rootRoute
     }
-    '/profile': {
-      id: '/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof ProfileImport
-      parentRoute: typeof rootRoute
-    }
     '/register': {
       id: '/register'
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof RegisterImport
+      parentRoute: typeof rootRoute
+    }
+    '/admin/orders': {
+      id: '/admin/orders'
+      path: '/admin/orders'
+      fullPath: '/admin/orders'
+      preLoaderRoute: typeof AdminOrdersImport
+      parentRoute: typeof rootRoute
+    }
+    '/user/orders': {
+      id: '/user/orders'
+      path: '/user/orders'
+      fullPath: '/user/orders'
+      preLoaderRoute: typeof UserOrdersImport
+      parentRoute: typeof rootRoute
+    }
+    '/user/products': {
+      id: '/user/products'
+      path: '/user/products'
+      fullPath: '/user/products'
+      preLoaderRoute: typeof UserProductsImport
+      parentRoute: typeof rootRoute
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminIndexImport
+      parentRoute: typeof rootRoute
+    }
+    '/user/': {
+      id: '/user/'
+      path: '/user'
+      fullPath: '/user'
+      preLoaderRoute: typeof UserIndexImport
+      parentRoute: typeof rootRoute
+    }
+    '/admin/products/create': {
+      id: '/admin/products/create'
+      path: '/admin/products/create'
+      fullPath: '/admin/products/create'
+      preLoaderRoute: typeof AdminProductsCreateImport
       parentRoute: typeof rootRoute
     }
   }
@@ -130,35 +182,47 @@ declare module '@tanstack/react-router' {
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '': typeof LayoutRoute
-  '/admin': typeof AdminRoute
   '/cart': typeof CartRoute
   '/driver': typeof DriverRoute
   '/login': typeof LoginRoute
-  '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/admin/orders': typeof AdminOrdersRoute
+  '/user/orders': typeof UserOrdersRoute
+  '/user/products': typeof UserProductsRoute
+  '/admin': typeof AdminIndexRoute
+  '/user': typeof UserIndexRoute
+  '/admin/products/create': typeof AdminProductsCreateRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '': typeof LayoutRoute
-  '/admin': typeof AdminRoute
   '/cart': typeof CartRoute
   '/driver': typeof DriverRoute
   '/login': typeof LoginRoute
-  '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/admin/orders': typeof AdminOrdersRoute
+  '/user/orders': typeof UserOrdersRoute
+  '/user/products': typeof UserProductsRoute
+  '/admin': typeof AdminIndexRoute
+  '/user': typeof UserIndexRoute
+  '/admin/products/create': typeof AdminProductsCreateRoute
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
   '/_layout': typeof LayoutRoute
-  '/admin': typeof AdminRoute
   '/cart': typeof CartRoute
   '/driver': typeof DriverRoute
   '/login': typeof LoginRoute
-  '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/admin/orders': typeof AdminOrdersRoute
+  '/user/orders': typeof UserOrdersRoute
+  '/user/products': typeof UserProductsRoute
+  '/admin/': typeof AdminIndexRoute
+  '/user/': typeof UserIndexRoute
+  '/admin/products/create': typeof AdminProductsCreateRoute
 }
 
 export interface FileRouteTypes {
@@ -166,55 +230,75 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | ''
-    | '/admin'
     | '/cart'
     | '/driver'
     | '/login'
-    | '/profile'
     | '/register'
+    | '/admin/orders'
+    | '/user/orders'
+    | '/user/products'
+    | '/admin'
+    | '/user'
+    | '/admin/products/create'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | ''
-    | '/admin'
     | '/cart'
     | '/driver'
     | '/login'
-    | '/profile'
     | '/register'
+    | '/admin/orders'
+    | '/user/orders'
+    | '/user/products'
+    | '/admin'
+    | '/user'
+    | '/admin/products/create'
   id:
     | '__root__'
     | '/'
     | '/_layout'
-    | '/admin'
     | '/cart'
     | '/driver'
     | '/login'
-    | '/profile'
     | '/register'
+    | '/admin/orders'
+    | '/user/orders'
+    | '/user/products'
+    | '/admin/'
+    | '/user/'
+    | '/admin/products/create'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LayoutRoute: typeof LayoutRoute
-  AdminRoute: typeof AdminRoute
   CartRoute: typeof CartRoute
   DriverRoute: typeof DriverRoute
   LoginRoute: typeof LoginRoute
-  ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
+  AdminOrdersRoute: typeof AdminOrdersRoute
+  UserOrdersRoute: typeof UserOrdersRoute
+  UserProductsRoute: typeof UserProductsRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+  UserIndexRoute: typeof UserIndexRoute
+  AdminProductsCreateRoute: typeof AdminProductsCreateRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LayoutRoute: LayoutRoute,
-  AdminRoute: AdminRoute,
   CartRoute: CartRoute,
   DriverRoute: DriverRoute,
   LoginRoute: LoginRoute,
-  ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
+  AdminOrdersRoute: AdminOrdersRoute,
+  UserOrdersRoute: UserOrdersRoute,
+  UserProductsRoute: UserProductsRoute,
+  AdminIndexRoute: AdminIndexRoute,
+  UserIndexRoute: UserIndexRoute,
+  AdminProductsCreateRoute: AdminProductsCreateRoute,
 }
 
 export const routeTree = rootRoute
@@ -231,12 +315,16 @@ export const routeTree = rootRoute
       "children": [
         "/",
         "/_layout",
-        "/admin",
         "/cart",
         "/driver",
         "/login",
-        "/profile",
-        "/register"
+        "/register",
+        "/admin/orders",
+        "/user/orders",
+        "/user/products",
+        "/admin/",
+        "/user/",
+        "/admin/products/create"
       ]
     },
     "/": {
@@ -244,9 +332,6 @@ export const routeTree = rootRoute
     },
     "/_layout": {
       "filePath": "_layout.tsx"
-    },
-    "/admin": {
-      "filePath": "admin.tsx"
     },
     "/cart": {
       "filePath": "cart.tsx"
@@ -257,11 +342,26 @@ export const routeTree = rootRoute
     "/login": {
       "filePath": "login.tsx"
     },
-    "/profile": {
-      "filePath": "profile.tsx"
-    },
     "/register": {
       "filePath": "register.tsx"
+    },
+    "/admin/orders": {
+      "filePath": "admin.orders.tsx"
+    },
+    "/user/orders": {
+      "filePath": "user.orders.tsx"
+    },
+    "/user/products": {
+      "filePath": "user.products.tsx"
+    },
+    "/admin/": {
+      "filePath": "admin.index.tsx"
+    },
+    "/user/": {
+      "filePath": "user.index.tsx"
+    },
+    "/admin/products/create": {
+      "filePath": "admin.products.create.tsx"
     }
   }
 }

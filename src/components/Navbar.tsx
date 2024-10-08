@@ -16,12 +16,45 @@ export function Navbar() {
           <div className="flex items-center space-x-4">
             {user ? (
               <>
-                <Link to="/profile" className="hover:text-gray-300">
-                  Profile
-                </Link>
+                {/* <Link to="/" className="hover:text-gray-300">
+                  Products
+                </Link> */}
+
+                {user.role === "user" && (
+                  <>
+                    <Link to="/user/products" className="hover:text-gray-300">
+                      Výrobky
+                    </Link>
+                    <Link to="/user/orders" className="hover:text-gray-300">
+                      Objednávky
+                    </Link>
+                    <Link to="/cart" className="hover:text-gray-300">
+                      Košík
+                    </Link>
+                  </>
+                )}
                 {user.role === "admin" && (
-                  <Link to="/admin" className="hover:text-gray-300">
-                    Admin
+                  <>
+                    <Link to="/admin" className="hover:text-gray-300">
+                      Admin
+                    </Link>
+                    <Link to="/admin/orders" className="hover:text-gray-300">
+                      Objednávky
+                    </Link>
+                    <Link
+                      to="/admin/products/create"
+                      className="hover:text-gray-300"
+                    >
+                      Výrobky +
+                    </Link>
+                    <Link to="/cart" className="hover:text-gray-300">
+                      Košík
+                    </Link>
+                  </>
+                )}
+                {user.role === "driver" && (
+                  <Link to="/driver" className="hover:text-gray-300">
+                    Driver
                   </Link>
                 )}
                 <Button variant="secondary" onClick={signOut}>

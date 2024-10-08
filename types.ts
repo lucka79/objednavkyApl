@@ -13,15 +13,16 @@ export type Enums<T extends keyof Database['public']['Enums']> =
   Database['public']['Enums'][T];
 
 
-  export type Product = {
-    id: number;
-    image: string | null;
-    name: string;
-    description: string | null;
-    price: number;
-    priceMobile: number | null
-    category_id: number | null
-  };
+  // types.ts
+export type Product = {
+  id: string | number;
+  name: string;
+  price: number;
+  priceMobile: number | null
+  description: string | null;
+  created_at: string;
+  category_id: number | null
+}
 
   export type Category = {
     id: number;

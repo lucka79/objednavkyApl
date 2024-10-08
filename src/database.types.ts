@@ -27,6 +27,80 @@ export type Database = {
         }
         Relationships: []
       }
+      order_items: {
+        Row: {
+          created_at: string
+          id: number
+          order_id: number
+          product_id: number
+          quantity: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          order_id: number
+          product_id: number
+          quantity?: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          order_id?: number
+          product_id?: number
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          created_at: string
+          date: string
+          id: number
+          price: number
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: number
+          price?: number
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: number
+          price?: number
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           category_id: number
@@ -70,6 +144,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
           avatar_url: string | null
           full_name: string | null
           id: string
@@ -79,6 +154,7 @@ export type Database = {
           website: string | null
         }
         Insert: {
+          address?: string | null
           avatar_url?: string | null
           full_name?: string | null
           id: string
@@ -88,6 +164,7 @@ export type Database = {
           website?: string | null
         }
         Update: {
+          address?: string | null
           avatar_url?: string | null
           full_name?: string | null
           id?: string

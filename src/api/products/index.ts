@@ -70,7 +70,7 @@ export const useProduct = (id: number) => {
         return newProduct;
       },
       async onSuccess() {
-        await queryClient.invalidateQueries(["products"]);
+        await queryClient.invalidateQueries({ queryKey: ["products"] });
       },
     });
   };

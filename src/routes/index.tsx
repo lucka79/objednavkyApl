@@ -1,16 +1,13 @@
 //import * as React from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { ImageSlider } from "../components/ImageSlider";
 import hero1 from "../assets/img/hero1.png";
 import hero2 from "../assets/img/hero2.png";
 import hero3 from "../assets/img/hero3.png";
-import { fetchProducts } from "@/api/products";
+import { useProductList } from "@/api/products";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
-import ProductGrid from "@/components/ProductCategoryList";
-import ProductCatalog from "@/components/ProductsByCategory";
-import ProductCatalog2 from "@/components/ProductScrollCategory";
-import ProductItem from "@/components/ProductItem";
+import ProductsByCategory from "@/components/ProductsByCategory";
+import ProductScrollCategory from "@/components/ProductScrollCategory";
 
 const HeroImages = [hero1, hero2, hero3];
 
@@ -19,7 +16,7 @@ export const Route = createFileRoute("/")({
 });
 
 function HomeComponent() {
-  const { data: products, error, isLoading } = fetchProducts();
+  const { data, error, isLoading } = useProductList();
 
   if (isLoading) {
     return (
@@ -35,9 +32,9 @@ function HomeComponent() {
 
   return (
     <>
-      <ProductCatalog2 />
+      <ProductScrollCategory />
       {/* <ProductGrid /> */}
-      <ProductCatalog />
+      <ProductsByCategory />
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-4 gap-4">
           {/* <ImageSlider imageUrl={HeroImages} /> */}

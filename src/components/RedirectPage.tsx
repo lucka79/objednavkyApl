@@ -22,7 +22,7 @@ export default function RedirectPage() {
             break;
           case "user":
           default:
-            navigate({ to: "/profile" });
+            navigate({ to: "/user" });
             break;
         }
       }

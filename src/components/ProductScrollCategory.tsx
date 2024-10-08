@@ -1,6 +1,7 @@
 import { fetchCategories } from "@/api/categories";
 import { fetchProducts } from "@/api/products";
 import { useQuery } from "@tanstack/react-query";
+
 import {
   Card,
   CardContent,
@@ -11,8 +12,6 @@ import {
 
 import { Skeleton } from "./ui/skeleton";
 import { Badge } from "./ui/badge";
-import RemoteImage from "./RemoteImage";
-import { defaultProductImage } from "@/constants/Images";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 import { useState } from "react";
 import { Category, Product } from "types";
@@ -80,7 +79,7 @@ const ProductGrid = ({
 );
 
 // Main component
-export default function ProductCatalog2() {
+export default function ProductScrollCategory() {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
   const { data: categories, isLoading: categoriesLoading } = useQuery<
