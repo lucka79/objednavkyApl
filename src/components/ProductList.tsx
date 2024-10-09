@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ShoppingCart } from "lucide-react";
 
 export const ProductList: React.FC = () => {
   const { data: products, isLoading, error } = useProducts();
@@ -31,7 +32,7 @@ export const ProductList: React.FC = () => {
           </CardContent>
           <CardFooter>
             <Button variant="outline" onClick={() => addItem(product)}>
-              Add to Cart
+              <ShoppingCart />
             </Button>
           </CardFooter>
         </Card>

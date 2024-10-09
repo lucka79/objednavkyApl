@@ -5,8 +5,8 @@ import { Product, CartItem } from '../../types';
 type CartStore = {
   items: CartItem[];
   addItem: (product: Product) => void;
-  removeItem: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  removeItem: (productId: number) => void;
+  updateQuantity: (productId: number, quantity: number) => void;
   clearCart: () => void;
   total: () => number;
 };
@@ -39,14 +39,15 @@ export const useCartStore = create<CartStore>((set, get) => ({
   },
   removeItem: (productId) => {
     set((state) => ({
-      items: state.items.filter((item) =>item.product.id !== Number(productId)),
+      items: state.items.filter((item) =>item.product.id !== productId),
     }));
   },
   updateQuantity: (productId, quantity) => {
     set((state) => ({
       items: state.items.map((item) =>
-        item.product.id === Number(productId) ? { ...item, quantity } : item
-      ),
+        item.product.id === productId ? { ...item, quantity } : item
+      )
+      .filter((item) => item.quantity > 0), // displey only items with quantity > 0
     }));
   },
   clearCart: () => set({ items: [] }),

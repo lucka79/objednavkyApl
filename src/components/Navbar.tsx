@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useAuthStore } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
+import { ShoppingCart } from "lucide-react";
 
 export function Navbar() {
   const user = useAuthStore((state) => state.user);
@@ -28,11 +29,9 @@ export function Navbar() {
                     <Link to="/user/orders" className="hover:text-gray-300">
                       Objednávky
                     </Link>
+
                     <Link to="/cart" className="hover:text-gray-300">
-                      Košík
-                    </Link>
-                    <Link to="/Cart2" className="hover:text-gray-300">
-                      Košík2
+                      <ShoppingCart />
                     </Link>
                   </>
                 )}
@@ -51,7 +50,7 @@ export function Navbar() {
                       Výrobky +
                     </Link>
                     <Link to="/cart" className="hover:text-gray-300">
-                      Košík
+                      <ShoppingCart />
                     </Link>
                   </>
                 )}

@@ -1,78 +1,83 @@
+// Cart.tsx
+
+import { useCartStore } from "@/providers/cartStore";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"; //import * as React from "react";
-
-import { useCartStore } from "@/lib/supabase";
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { createFileRoute } from "@tanstack/react-router";
-import { SquareMinus, SquarePlus } from "lucide-react";
+import { SquareMinus, SquarePlus, Trash2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/cart")({
   component: Cart,
 });
 
 function Cart() {
-  const { items, removeItem, clearCart, checkout } = useCartStore();
-
-  const total = items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
+  const { items, removeItem, updateQuantity, clearCart, total } =
+    useCartStore();
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4">Your Cart</h2>
-      {items.length === 0 ? (
-        <p>Your cart is empty.</p>
-      ) : (
-        <>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead className="flex justify-between">Quantity</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell>{item.productId}</TableCell>
-                  <TableCell>{item.name}</TableCell>
-                  <TableCell className="flex flex-row justify-evenly">
-                    <SquarePlus /> {item.quantity} <SquareMinus />
-                  </TableCell>
-                  <TableCell>${item.price.toFixed(2)}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="destructive"
-                      onClick={() => removeItem(item.id)}
-                    >
-                      Remove
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <div className="mt-4">
-            <p className="text-xl font-bold">Total: ${total.toFixed(2)}</p>
-            <div className="mt-4 space-x-4">
-              <Button onClick={clearCart} variant="outline">
-                Clear Cart
+    <Card className="w-1/2">
+      <CardHeader>
+        <CardTitle>Shopping Cart</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {items.map((item) => (
+          <div
+            key={item.product.id}
+            className="flex items-center justify-between mb-2"
+          >
+            <span>{item.product.name}</span>
+            <div className="flex items-center">
+              <SquareMinus
+                onClick={() =>
+                  updateQuantity(item.product.id, item.quantity - 1)
+                }
+                className="text-stone-300"
+              />
+              <Input
+                type="number"
+                min="1"
+                value={item.quantity}
+                onChange={(e) =>
+                  updateQuantity(item.product.id, parseInt(e.target.value))
+                }
+                className="w-16 mx-4 text-center"
+              />
+              <SquarePlus
+                onClick={() =>
+                  updateQuantity(item.product.id, item.quantity + 1)
+                }
+                className="text-stone-300"
+              />
+              <Label className="w-16 mx-8">
+                {(item.product.price * item.quantity).toFixed(2)} Kč
+              </Label>
+              <Button
+                variant="destructive"
+                onClick={() => removeItem(item.product.id)}
+                className="w-12 ml-8"
+              >
+                <Trash2 className="w-5 h-5" />
               </Button>
-              <Button onClick={checkout}>Checkout</Button>
             </div>
           </div>
-        </>
-      )}
-    </div>
+        ))}
+      </CardContent>
+      <CardFooter className="flex flex-row-reverse">
+        <Badge variant="outline">
+          <Label>Celkem: {total().toFixed(2)} Kč</Label>
+        </Badge>
+
+        <Button onClick={clearCart}>Clear Cart</Button>
+      </CardFooter>
+    </Card>
   );
 }
