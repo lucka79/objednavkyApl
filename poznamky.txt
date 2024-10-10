@@ -15,7 +15,10 @@ npx supabase link --project-ref vpululxkipxqqgnzycnc
 # Create Login/Register/Profile/Admin page
 
 # Create Insert Products page
-# Cart -> add/remove items
+# Cart -> add/remove items, různé cenové relace podle role uživatele
+# cartStore.tsx - totalMobil, total
+# ProductCategory.tsx - priceMobil, price
+
 # Checkout -> create order, add items to order, remove items from order
 # Order -> list of orders
 # Order Details -> details of order

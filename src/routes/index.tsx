@@ -8,6 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import ProductsByCategory from "@/components/ProductsByCategory";
 import ProductScrollCategory from "@/components/ProductScrollCategory";
+import CategoryBadges from "@/components/CategoryBadges";
+import { useProducts } from "@/hooks/useProducts";
+import { useCartStore } from "@/providers/cartStore";
 
 const HeroImages = [hero1, hero2, hero3];
 
@@ -16,7 +19,7 @@ export const Route = createFileRoute("/")({
 });
 
 function HomeComponent() {
-  const { data, error, isLoading } = useProductList();
+  const { data: products, isLoading, error } = useProducts();
 
   if (isLoading) {
     return (
@@ -33,6 +36,7 @@ function HomeComponent() {
   return (
     <>
       <ProductScrollCategory />
+
       {/* <ProductGrid /> */}
       <ProductsByCategory />
       <div className="container mx-auto px-4 py-8">

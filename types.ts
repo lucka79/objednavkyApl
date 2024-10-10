@@ -18,7 +18,7 @@ export type Product = {
   id: number;
   name: string;
   price: number;
-  priceMobile: number | null
+  priceMobil: number;
   description: string | null;
   created_at: string;
   category_id: number | null

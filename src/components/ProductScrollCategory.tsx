@@ -15,6 +15,8 @@ import { Badge } from "./ui/badge";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 import { useState } from "react";
 import { Category, Product } from "types";
+import { Button } from "./ui/button";
+import { ShoppingCart } from "lucide-react";
 
 // Category badges component
 const CategoryBadges = ({
@@ -63,15 +65,15 @@ const ProductGrid = ({
       <Card key={product.id}>
         <CardHeader>
           <CardTitle>{product.name}</CardTitle>
+          <Badge variant="outline">
+            {categories.find((c) => c.id === product.category_id)?.name}
+          </Badge>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-600">{product.description}</p>
         </CardContent>
         <CardFooter className="flex justify-between">
           <span className="text-lg font-bold">${product.price.toFixed(2)}</span>
-          <Badge>
-            {categories.find((c) => c.id === product.category_id)?.name}
-          </Badge>
         </CardFooter>
       </Card>
     ))}

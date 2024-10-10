@@ -1,6 +1,7 @@
 // cartStore.ts
 import { create } from 'zustand';
 import { Product, CartItem } from '../../types';
+import { useAuthStore } from '@/lib/supabase';
 
 type CartStore = {
   items: CartItem[];
@@ -9,9 +10,13 @@ type CartStore = {
   updateQuantity: (productId: number, quantity: number) => void;
   clearCart: () => void;
   total: () => number;
+  totalMobil: () => number;
 };
 
+
+
 export const useCartStore = create<CartStore>((set, get) => ({
+  
   items: [],
   addItem: (product) => {
     set((state) => {
@@ -52,6 +57,11 @@ export const useCartStore = create<CartStore>((set, get) => ({
   },
   clearCart: () => set({ items: [] }),
   total: () => {
+    
     return get().items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  },
+  totalMobil: () => {
+    
+    return get().items.reduce((sum, item) => sum + item.product.priceMobil * item.quantity, 0);
   },
 }));

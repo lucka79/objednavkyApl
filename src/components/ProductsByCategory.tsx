@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import { addItem, useCartStore } from "@/lib/supabase";
+// import { useCartStore } from "@/lib/supabase";
 import {
   Card,
   CardContent,
@@ -13,7 +13,8 @@ import { fetchCategoriesAndProducts } from "@/api/categories";
 import RemoteImage from "./RemoteImage";
 import { defaultProductImage } from "@/constants/Images";
 import { Button } from "./ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { useCartStore } from "@/providers/cartStore";
+
 export default function ProductsByCategory() {
   const {
     data: categories,
@@ -24,7 +25,7 @@ export default function ProductsByCategory() {
     queryFn: fetchCategoriesAndProducts,
   });
   const addItem = useCartStore((state: { addItem: any }) => state.addItem);
-  const { toast } = useToast();
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -67,6 +68,9 @@ export default function ProductsByCategory() {
                   <p className="text-sm text-gray-600 mb-2">
                     {product.description}
                   </p>
+                  <Badge>
+                    {categories.find((c) => c.id === product.category_id)?.name}
+                  </Badge>
                 </CardContent>
                 <CardFooter className="flex justify-between items-center">
                   <p>

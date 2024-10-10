@@ -40,3 +40,23 @@ export const fetchCategories = async (): Promise<Category[]> => {
 
   return categoriesWithProducts
 }
+
+// CategoryBadges
+export async function getCategories() {
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .order('name');
+  if (error) throw error;
+  return data;
+}
+
+export async function getProducts(categoryId?: string) {
+  let query = supabase.from('products').select('*');
+  if (categoryId) {
+    query = query.eq('category_id', categoryId);
+  }
+  const { data, error } = await query.order('name');
+  if (error) throw error;
+  return data;
+}
