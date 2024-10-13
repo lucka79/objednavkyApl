@@ -48,6 +48,7 @@ export type Product = {
   export type Order = {
     id: number;
     created_at: string;
+    date: string;
     total: number;
     user_id: string;
     status: OrderStatus;
@@ -58,9 +59,9 @@ export type Product = {
   export type OrderItem = {
     id: number;
     product_id: number;
-    products: Product;
+    product: Product;
     order_id: number;
-    
+    price: number;
     quantity: number;
   };
   

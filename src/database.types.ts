@@ -71,24 +71,24 @@ export type Database = {
           created_at: string
           date: string
           id: number
-          price: number
           status: string
+          total: number
           user_id: string
         }
         Insert: {
           created_at?: string
           date: string
           id?: number
-          price?: number
           status?: string
+          total?: number
           user_id: string
         }
         Update: {
           created_at?: string
           date?: string
           id?: number
-          price?: number
           status?: string
+          total?: number
           user_id?: string
         }
         Relationships: [
@@ -110,7 +110,7 @@ export type Database = {
           image: string | null
           name: string
           price: number
-          priceMob: number
+          priceMobil: number
         }
         Insert: {
           category_id: number
@@ -120,7 +120,7 @@ export type Database = {
           image?: string | null
           name: string
           price?: number
-          priceMob?: number
+          priceMobil?: number
         }
         Update: {
           category_id?: number
@@ -130,7 +130,7 @@ export type Database = {
           image?: string | null
           name?: string
           price?: number
-          priceMob?: number
+          priceMobil?: number
         }
         Relationships: [
           {

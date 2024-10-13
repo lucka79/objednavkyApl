@@ -16,7 +16,6 @@ type CartStore = {
 
 
 export const useCartStore = create<CartStore>((set, get) => ({
-  
   items: [],
   addItem: (product) => {
     set((state) => {
