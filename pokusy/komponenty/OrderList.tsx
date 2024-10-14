@@ -1,8 +1,6 @@
 // ProductList.tsx
 import React from "react";
-import { useProducts } from "@/hooks/useProducts";
-import { useCartStore } from "@/providers/cartStore";
-import { Button } from "@/components/ui/button";
+
 import {
   Card,
   CardContent,

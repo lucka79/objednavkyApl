@@ -15,12 +15,14 @@ export function OrderItems({ items }: OrderItemsProps) {
       {items.map((item) => (
         <div key={item.id} className="flex justify-between">
           <span>{item.product.name}</span>
-          <span>
-            {item.quantity} x ${item.product.price.toFixed(2)}
-          </span>
+          <span>${item.product.price.toFixed(2)}</span>
+          <span>{item.quantity}</span>{" "}
+          <span>{(item.product.price * item.quantity).toFixed(2)} Kč</span>
         </div>
       ))}
-      <div className="font-bold pt-2 border-t">Total: ${total.toFixed(2)}</div>
+      <div className="font-bold pt-2 border-t flex flex-row-reverse">
+        Total: {total.toFixed(2)} Kč
+      </div>
     </div>
   );
 }

@@ -35,25 +35,39 @@ export const useOrders = () => {
     });
   }
 
-export const getMyOrders = () => {
-    //   const { session } = useAuth();
-    const user = useAuthStore((state) => state.user);
-    const id = user?.id;
+
+
+  export const fetchOrders = async (userId: string): Promise<Order[]> => {
+    const { data, error } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        order_items (
+          *,
+          product:products (*)
+        )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
   
-    return useQuery({
-      queryKey: ["orders", { userId: id }],
-      queryFn: async () => {
-        if (!id) return null;
+    if (error) throw error
+    return data
+  }
+
+  export const fetchAllOrders = async (): Promise<Order[]> => {
+    const { data, error } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        user:profiles (id, full_name),
+        order_items (
+          *,
+          product:products (*)
+        )
+      `)
+    //   .eq('user_id', userId)
+      .order('date', { ascending: false })
   
-        const { data, error } = await supabase
-          .from("orders")
-          .select("*")
-          .eq("user_id", id) // id is undefined -> if(!id) return null
-          .order("date", { ascending: false });
-        if (error) {
-          throw new Error(error.message);
-        }
-        return data;
-      },
-    });
-  };
+    if (error) throw error
+    return data
+  }

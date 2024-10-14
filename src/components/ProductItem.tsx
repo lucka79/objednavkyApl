@@ -44,7 +44,7 @@ const ProductItem = ({ product }: ProductListItemProps) => {
         </p>
         <p>
           <Label style={{ color: "green", fontWeight: "bold" }}>
-            {product.priceMobile} Kč
+            {product.priceMobil} Kč
           </Label>
         </p>
       </Card>
