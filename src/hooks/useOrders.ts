@@ -71,3 +71,24 @@ export const useOrders = () => {
     if (error) throw error
     return data
   }
+
+  export const fetchTableOrders = async () => {
+    const { data, error } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        user:users(name),
+        order_items:order_items(
+          id,
+          product_id,
+          quantity,
+          product:products(name, price)
+        )
+      `, { count: 'exact' })
+      
+      .order('date', { ascending: false })
+  
+    if (error) throw error
+  
+    return { orders: data as Order[] }
+  }
