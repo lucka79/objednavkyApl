@@ -16,7 +16,7 @@ import { Badge } from "./ui/badge";
 import { Category, Product } from "types";
 import { useQuery } from "@tanstack/react-query";
 import { fetchCategories } from "@/api/categories";
-import { fetchProducts } from "@/api/products";
+
 import { Skeleton } from "./ui/skeleton";
 import { useAuthStore } from "@/lib/supabase";
 

@@ -1,7 +1,7 @@
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase, useAuthStore } from '@/lib/supabase';
-import { Order } from '../../types';
+import { supabase } from '@/lib/supabase';
+import { Order, OrderItem } from '../../types';
 
 export const useOrders = () => {
     return useQuery<Order[], Error>({
@@ -17,22 +17,17 @@ export const useOrders = () => {
     });
   };
 
-  export const useOrderDetails = (id: number) => {
-    return useQuery({
-      queryKey: ["orders", id],
-      queryFn: async () => {
-        const { data, error } = await supabase
-          .from("orders")
-          .select("*, order_items(*, products(*))")   // propojené tabulky
-          .eq("id", id)
-          .single();
+  export const fetchOrderDetails = async (orderId: number): Promise<OrderItem[]> => {
+    const { data, error } = await supabase
+      .from('order_items')
+      .select(`
+        *,
+        product:products(name)
+      `)
+      .eq('order_id', orderId)
   
-        if (error) {
-          throw new Error(error.message);
-        }
-        return data;
-      },
-    });
+    if (error) throw error
+    return data
   }
 
 
@@ -90,5 +85,6 @@ export const useOrders = () => {
   
     if (error) throw error
   
-    return { orders: data as Order[] }
+    return data as Order[] 
   }
+

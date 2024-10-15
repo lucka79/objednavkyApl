@@ -20,8 +20,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useState } from "react";
+import { useOrderStore } from "@/lib/supabase";
 
 const columns: ColumnDef<Order>[] = [
+  {
+    accessorKey: "created_at",
+    header: "Date",
+    cell: ({ row }) => new Date(row.original.created_at).toLocaleDateString(),
+  },
   {
     accessorKey: "id",
     header: "Order ID",
@@ -34,11 +41,6 @@ const columns: ColumnDef<Order>[] = [
     accessorKey: "total",
     header: "Total",
     cell: ({ row }) => `$${row.original.total.toFixed(2)}`,
-  },
-  {
-    accessorKey: "created_at",
-    header: "Date",
-    cell: ({ row }) => new Date(row.original.created_at).toLocaleDateString(),
   },
 ];
 
@@ -53,12 +55,19 @@ export function OrdersTable() {
     queryFn: fetchAllOrders,
   });
 
+  const [globalFilter, setGlobalFilter] = useState("");
+  const setSelectedOrderId = useOrderStore((state) => state.setSelectedOrderId);
+
   const table = useReactTable({
     data: orders,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    state: {
+      globalFilter,
+    },
+    onGlobalFilterChange: setGlobalFilter,
   });
 
   if (isLoading) return <div>Loading orders...</div>;
@@ -67,13 +76,9 @@ export function OrdersTable() {
   return (
     <div className="space-y-4">
       <Input
-        placeholder="Filter orders..."
-        value={
-          (table.getColumn("user.full_name")?.getFilterValue() as string) ?? ""
-        }
-        onChange={(event) =>
-          table.getColumn("user.full_name")?.setFilterValue(event.target.value)
-        }
+        placeholder="Search orders..."
+        value={globalFilter}
+        onChange={(e) => setGlobalFilter(e.target.value)}
         className="max-w-sm"
       />
       <Table>
