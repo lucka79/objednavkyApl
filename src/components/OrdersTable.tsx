@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { useState } from "react";
 import { useOrderStore } from "@/providers/orderStore";
+import { FileSearch2 } from "lucide-react";
 
 const columns: ColumnDef<Order>[] = [
   {
@@ -61,6 +62,10 @@ export function OrdersTable() {
 
   const [globalFilter, setGlobalFilter] = useState("");
   const setSelectedOrderId = useOrderStore((state) => state.setSelectedOrderId);
+
+  const openOrderDetails = (orderId: number) => {
+    window.open(`/admin/orders/${orderId}`, "_blank");
+  };
 
   const table = useReactTable({
     data: orders,
@@ -108,13 +113,6 @@ export function OrdersTable() {
               <TableRow
                 key={row.id}
                 onClick={() => setSelectedOrderId(row.original.id)}
-                // data-state={row.getIsSelected() && "selected"}
-                // onClick={() =>
-                //   navigate({
-                //     to: "/admin/orders/$orderId",
-                //     params: { orderId: row.original.id.toString() },
-                //   })
-                // }
                 className="cursor-pointer"
               >
                 {row.getVisibleCells().map((cell) => (
@@ -122,6 +120,12 @@ export function OrdersTable() {
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
+                <FileSearch2
+                  className="align-middle"
+                  size={20}
+                  onClick={() => openOrderDetails(row.original.id)}
+                  //   onClick={() => setSelectedOrderId(row.original.id)}
+                />
               </TableRow>
             ))
           ) : (

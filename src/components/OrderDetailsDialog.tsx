@@ -38,8 +38,8 @@ export function OrderDetailsDialog() {
     <Dialog open={!!selectedOrderId} onOpenChange={() => setSelectedOrderId(0)}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Order Details</DialogTitle>
-          <DialogDescription>Order ID: {selectedOrderId}</DialogDescription>
+          <DialogTitle>Objednávka</DialogTitle>
+          <DialogDescription># {selectedOrderId}</DialogDescription>
         </DialogHeader>
         <div className="mt-4">
           <Table>
@@ -48,6 +48,7 @@ export function OrderDetailsDialog() {
                 <TableHead>Product</TableHead>
                 <TableHead>Quantity</TableHead>
                 <TableHead>Price</TableHead>
+                <TableHead>Total</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -56,6 +57,9 @@ export function OrderDetailsDialog() {
                   <TableCell>{item.product.name}</TableCell>
                   <TableCell>{item.quantity}</TableCell>
                   <TableCell>${item.price.toFixed(2)}</TableCell>
+                  <TableCell>
+                    ${(item.price * item.quantity).toFixed(2)}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -17,12 +17,13 @@ export const useOrders = () => {
     });
   };
 
+  // order_items by order_id
   export const fetchOrderDetails = async (orderId: number): Promise<OrderItem[]> => {
     const { data, error } = await supabase
       .from('order_items')
       .select(`
         *,
-        product:products(name)
+        product:products(name,price)
       `)
       .eq('order_id', orderId)
   
@@ -30,8 +31,7 @@ export const useOrders = () => {
     return data
   }
 
-
-
+  // orders by user_id
   export const fetchOrders = async (userId: string): Promise<Order[]> => {
     const { data, error } = await supabase
       .from('orders')
@@ -49,6 +49,7 @@ export const useOrders = () => {
     return data
   }
 
+  // all orders
   export const fetchAllOrders = async (): Promise<Order[]> => {
     const { data, error } = await supabase
       .from('orders')
@@ -67,24 +68,39 @@ export const useOrders = () => {
     return data
   }
 
-  export const fetchTableOrders = async () => {
+  // order by id
+  export const fetchOrderById = async (orderId: number): Promise<Order> => {
     const { data, error } = await supabase
       .from('orders')
       .select(`
         *,
-        user:users(name),
-        order_items:order_items(
-          id,
-          product_id,
-          quantity,
-          product:products(name, price)
-        )
-      `, { count: 'exact' })
-      
-      .order('date', { ascending: false })
+        user:profiles(id, full_name)
+      `)
+      .eq('id', orderId)
+      .single()
   
     if (error) throw error
-  
-    return data as Order[] 
+    return data
   }
+
+//   export const fetchTableOrders = async () => {
+//     const { data, error } = await supabase
+//       .from('orders')
+//       .select(`
+//         *,
+//         user:profiles (id, full_name),
+//         order_items:order_items(
+//           id,
+//           product_id,
+//           quantity,
+//           product:products(name, price)
+//         )
+//       `, { count: 'exact' })
+      
+//       .order('date', { ascending: false })
+  
+//     if (error) throw error
+  
+//     return data as Order[] 
+//   }
 

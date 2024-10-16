@@ -15,7 +15,7 @@ export function Navbar() {
   };
 
   return (
-    <nav className="bg-primary text-primary-foreground shadow-lg">
+    <nav className="bg-primary text-primary-foreground shadow-lg print:hidden">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <Link to="/" className="text-xl font-bold">

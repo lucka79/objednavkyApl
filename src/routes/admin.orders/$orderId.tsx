@@ -12,23 +12,31 @@ import {
 import { Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useQuery } from "@tanstack/react-query";
+import { useOrderStore } from "@/providers/orderStore";
+import { useAuthStore } from "@/lib/supabase";
 
 export const Route = createFileRoute("/admin/orders/$orderId")({
   component: OrderDetails,
 });
 
 export function OrderDetails() {
-  const { orderId: idString } = useParams({ from: "/admin/orders/$orderId" });
-  const orderId = parseInt(idString, 10);
+  const user = useAuthStore((state) => state.user);
+  const selectedOrderId = useOrderStore((state) => state.selectedOrderId);
+  const setSelectedOrderId = useOrderStore((state) => state.setSelectedOrderId);
 
   const {
     data: order,
     error,
     isLoading,
   } = useQuery({
-    queryKey: ["orderDetails", orderId],
-    queryFn: () => fetchOrderDetails(orderId),
+    queryKey: ["orderDetails", selectedOrderId],
+    queryFn: () => fetchOrderDetails(selectedOrderId),
+    enabled: !!user,
   });
+
+  if (user?.role !== "admin") {
+    return <div>Access denied. Admin only.</div>;
+  }
 
   //   const order = orders.find((o: Order) => o.id === parseInt(orderId));
   if (isLoading) {
@@ -42,17 +50,17 @@ export function OrderDetails() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Order Details - #{order.id}</CardTitle>
+        <CardTitle>Order Details - #{selectedOrderId}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           <div>
             <h3 className="font-semibold">Customer Information</h3>
-            <p>Name: {order.user.full_name}</p>
+            <p>Name: </p>
           </div>
           <div>
             <h3 className="font-semibold">Order Information</h3>
-            <p>Date: {new Date(order.date).toLocaleString()}</p>
+            <p>Date: {new Date(order.created_at).toLocaleString()}</p>
             <p>Total: ${order.total.toFixed(2)}</p>
           </div>
           <div>
