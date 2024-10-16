@@ -21,7 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useState } from "react";
-import { useOrderStore } from "@/lib/supabase";
+import { useOrderStore } from "@/providers/orderStore";
 
 const columns: ColumnDef<Order>[] = [
   {
@@ -42,10 +42,14 @@ const columns: ColumnDef<Order>[] = [
     header: "Total",
     cell: ({ row }) => `$${row.original.total.toFixed(2)}`,
   },
+  {
+    accessorKey: "status",
+    header: "Status",
+  },
 ];
 
 export function OrdersTable() {
-  const navigate = useNavigate();
+  //   const navigate = useNavigate();
   const {
     data: orders = [],
     isLoading,
@@ -103,13 +107,14 @@ export function OrdersTable() {
             table.getRowModel().rows.map((row) => (
               <TableRow
                 key={row.id}
-                data-state={row.getIsSelected() && "selected"}
-                onClick={() =>
-                  navigate({
-                    to: "/admin/orders/$orderId",
-                    params: { orderId: row.original.id.toString() },
-                  })
-                }
+                onClick={() => setSelectedOrderId(row.original.id)}
+                // data-state={row.getIsSelected() && "selected"}
+                // onClick={() =>
+                //   navigate({
+                //     to: "/admin/orders/$orderId",
+                //     params: { orderId: row.original.id.toString() },
+                //   })
+                // }
                 className="cursor-pointer"
               >
                 {row.getVisibleCells().map((cell) => (

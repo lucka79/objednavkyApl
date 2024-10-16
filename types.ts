@@ -50,7 +50,7 @@ export type Product = {
     created_at: string;
     date: string;
     total: number;
-    // user_id: string;
+    user_id: string;
     user: Profile;
     status: OrderStatus;
   
