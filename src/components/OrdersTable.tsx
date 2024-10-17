@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+
 import {
   useReactTable,
   getCoreRowModel,
@@ -8,7 +8,7 @@ import {
   ColumnDef,
   flexRender,
 } from "@tanstack/react-table";
-import { fetchAllOrders } from "../hooks/useOrders";
+import { fetchOrders } from "@/hooks/useOrders";
 import { Order } from "../../types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ import {
 import { useState } from "react";
 import { useOrderStore } from "@/providers/orderStore";
 import { FileSearch2 } from "lucide-react";
+import { Card } from "./ui/card";
+import { Badge } from "./ui/badge";
 
 const columns: ColumnDef<Order>[] = [
   {
@@ -43,10 +45,6 @@ const columns: ColumnDef<Order>[] = [
     header: "Total",
     cell: ({ row }) => `$${row.original.total.toFixed(2)}`,
   },
-  {
-    accessorKey: "status",
-    header: "Status",
-  },
 ];
 
 export function OrdersTable() {
@@ -57,15 +55,19 @@ export function OrdersTable() {
     error,
   } = useQuery({
     queryKey: ["orders"],
-    queryFn: fetchAllOrders,
+    // all orders and order_items and users -> fetchAllOrders
+    // queryFn: fetchAllOrders,
+
+    // only orders and users -> fetchOrders
+    queryFn: fetchOrders,
   });
 
   const [globalFilter, setGlobalFilter] = useState("");
   const setSelectedOrderId = useOrderStore((state) => state.setSelectedOrderId);
 
-  const openOrderDetails = (orderId: number) => {
-    window.open(`/admin/orders/${orderId}`, "_blank");
-  };
+  //   const openOrderDetails = (orderId: number) => {
+  //     window.open(`/admin/orders/${orderId}`, "_blank");
+  //   };
 
   const table = useReactTable({
     data: orders,
@@ -83,78 +85,89 @@ export function OrdersTable() {
   if (error) return <div>Error loading orders</div>;
 
   return (
-    <div className="space-y-4">
-      <Input
-        placeholder="Search orders..."
-        value={globalFilter}
-        onChange={(e) => setGlobalFilter(e.target.value)}
-        className="max-w-sm"
-      />
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <TableHead key={header.id}>
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows?.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                onClick={() => setSelectedOrderId(row.original.id)}
-                className="cursor-pointer"
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
+    <Card className="my-0 p-4">
+      <div className="space-y-4">
+        <Input
+          placeholder="Search orders..."
+          value={globalFilter}
+          onChange={(e) => setGlobalFilter(e.target.value)}
+          className="max-w-sm"
+        />
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
                 ))}
-                <FileSearch2
-                  className="align-middle"
-                  size={20}
-                  onClick={() => openOrderDetails(row.original.id)}
-                  //   onClick={() => setSelectedOrderId(row.original.id)}
-                />
               </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
-                No results.
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Next
-        </Button>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  onClick={() => setSelectedOrderId(row.original.id)}
+                  className="cursor-pointer hover:bg-muted/50"
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                  <div className="flex mt-2 self-center gap-2">
+                    <Badge variant="outline">{row.original.status}</Badge>
+                    <FileSearch2
+                      className="cursor-pointer hover:bg-muted/50"
+                      size={20}
+                      // onClick={() => setSelectedOrderId(row.original.id)}
+                      //   onClick={() => openOrderDetails(row.original.id)}
+                    />
+                  </div>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  No results.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+        <div className="flex items-center justify-end space-x-2 py-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            Next
+          </Button>
+        </div>
       </div>
-    </div>
+    </Card>
   );
 }

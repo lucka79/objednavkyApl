@@ -1,0 +1,60 @@
+import { fetchOrderById } from "@/hooks/useOrders";
+import { useOrderStore } from "@/providers/orderStore";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+
+import { useQuery } from "@tanstack/react-query";
+import { Badge } from "./ui/badge";
+import { OrderItems } from "./OrderItems";
+
+export function OrderDetailsCard2() {
+  const { selectedOrderId, setSelectedOrderId } = useOrderStore();
+
+  const {
+    data: orders,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["orderDetails", selectedOrderId],
+    queryFn: () => fetchOrderById(selectedOrderId!),
+
+    enabled: !!selectedOrderId,
+    // onSuccess: (data) => setOrderDetails(data),
+  });
+
+  if (!selectedOrderId) return null;
+  if (isLoading) return <div>Loading order details...</div>;
+  if (error) return <div>Error loading order details</div>;
+
+  return (
+    <div>
+      {orders?.map((order) => (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex justify-between">
+              {order.user.full_name}
+              <Badge variant="outline">{order.status}</Badge>
+            </CardTitle>
+            <CardDescription className="flex justify-between">
+              {/* Order ID: {selectedOrderId} */}
+              Order #{order.id}{" "}
+              <span className="text-muted-foreground font-semibold">
+                {new Date(order.date).toLocaleDateString()}
+              </span>
+              <span> {order.total} Kč</span>
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <OrderItems items={order.order_items} />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}

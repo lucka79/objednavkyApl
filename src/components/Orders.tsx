@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchOrders } from "@/hooks/useOrders";
+import { fetchOrdersByUserId } from "@/hooks/useOrders";
 import {
   Accordion,
   AccordionContent,
@@ -18,7 +18,7 @@ export function Orders() {
     error,
   } = useQuery({
     queryKey: ["orders", user?.id],
-    queryFn: () => fetchOrders(user!.id),
+    queryFn: () => fetchOrdersByUserId(user!.id),
     enabled: !!user,
   });
 

@@ -1,8 +1,9 @@
-import { OrderDetailsDialog } from "@/components/OrderDetailsDialog";
+import { OrderDetailsCard } from "@/components/OrderDetailsCard";
+import { OrderDetailsCard2 } from "@/components/OrderDetailsCard2";
+// import { OrderDetailsDialog } from "@/components/OrderDetailsDialog";
 import { OrdersTable } from "@/components/OrdersTable";
 import { useAuthStore } from "@/lib/supabase";
 import { createFileRoute } from "@tanstack/react-router";
-import Cart from "./cart";
 
 export const Route = createFileRoute("/admin/orders")({
   component: AdminOrders,
@@ -21,10 +22,10 @@ function AdminOrders() {
         <div className="grid auto-rows-max items-start gap-4 md:gap-8 lg:col-span-2 print:hidden">
           {/* <OrdersAdmin />  // Acordion version functioning */}
           <OrdersTable />
-          <OrderDetailsDialog />
+          {/* <OrderDetailsDialog /> */}
         </div>
         <div>
-          <OrderDetailsDialog />
+          <OrderDetailsCard2 />
         </div>
       </main>
     </>

@@ -32,7 +32,7 @@ export const useOrders = () => {
   }
 
   // orders by user_id
-  export const fetchOrders = async (userId: string): Promise<Order[]> => {
+  export const fetchOrdersByUserId = async (userId: string): Promise<Order[]> => {
     const { data, error } = await supabase
       .from('orders')
       .select(`
@@ -69,19 +69,60 @@ export const useOrders = () => {
   }
 
   // order by id
-  export const fetchOrderById = async (orderId: number): Promise<Order> => {
+  export const fetchOrderById = async (orderId: number): Promise<Order[]> => {
+    const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      *,
+      user:profiles(id, full_name),
+      order_items (
+        *,
+        product:products (*)
+      )
+    `)
+    .eq('id', orderId)
+    .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data
+  }
+
+  export const fetchOrders = async (): Promise<Order[]> => {
     const { data, error } = await supabase
       .from('orders')
       .select(`
         *,
         user:profiles(id, full_name)
       `)
-      .eq('id', orderId)
-      .single()
+      .order('date', { ascending: false })
   
     if (error) throw error
     return data
   }
+
+  export const fetchOrderItems = async (orderId: number): Promise<OrderItem[]> => {
+  const { data, error } = await supabase
+    .from('order_items')
+    .select(`
+      *,
+      product:products(*)
+    `)
+    .eq('order_id', orderId)
+
+  if (error) throw error
+  return data
+}
+
+export const updateOrderItem = async (orderItem: OrderItem): Promise<OrderItem> => {
+  const { data, error } = await supabase
+    .from('order_items')
+    .update({ quantity: orderItem.quantity })
+    .eq('id', orderItem.id)
+    .single()
+
+  if (error) throw error
+  return data
+}
 
 //   export const fetchTableOrders = async () => {
 //     const { data, error } = await supabase
