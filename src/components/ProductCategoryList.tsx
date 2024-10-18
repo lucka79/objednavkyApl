@@ -1,6 +1,3 @@
-import { fetchCategories } from "@/api/categories";
-import { fetchProducts } from "@/api/products";
-import { useQuery } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -13,28 +10,18 @@ import { Skeleton } from "./ui/skeleton";
 import { Badge } from "./ui/badge";
 import RemoteImage from "./RemoteImage";
 import { defaultProductImage } from "@/constants/Images";
-import { Category, Product } from "types";
+import { fetchAllProducts } from "@/hooks/useProducts";
+import { getCategories } from "@/hooks/useCategories";
 
 export default function ProductCategoryList() {
-  const {
-    data: products,
-    isLoading: productsLoading,
-    error: productsError,
-  } = useQuery<Product[], Error>({
-    queryKey: ["products"],
-    queryFn: fetchProducts,
-  });
-
+  const { data: products, error, isLoading } = fetchAllProducts();
   const {
     data: categories,
     isLoading: categoriesLoading,
     error: categoriesError,
-  } = useQuery<Category[], Error>({
-    queryKey: ["categories"],
-    queryFn: fetchCategories,
-  });
+  } = getCategories();
 
-  if (productsLoading || categoriesLoading) {
+  if (isLoading || categoriesLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4">
         {[...Array(8)].map((_, i) => (
@@ -54,7 +41,7 @@ export default function ProductCategoryList() {
     );
   }
 
-  if (productsError || categoriesError) {
+  if (error || categoriesError) {
     return <div className="text-center text-red-500">Error loading data</div>;
   }
 
@@ -78,7 +65,7 @@ export default function ProductCategoryList() {
                 // source={{ uri: product.image || defaultProductImage }}
                 path={product.image}
                 fallback={defaultProductImage}
-                className="w-full h-42 object-cover mb-2"
+                // className="w-full h-42 object-cover mb-2"
               />
               <p className="text-sm text-muted-foreground">
                 {product.description}

@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { fetchAllOrders } from "@/hooks/useOrders";
 import {
   Accordion,
@@ -9,21 +8,19 @@ import {
 import { OrderItems } from "./OrderItems";
 import { useAuthStore } from "@/lib/supabase";
 import { Badge } from "./ui/badge";
+import { Loader2 } from "lucide-react";
 
 export function OrdersAdmin() {
   const user = useAuthStore((state) => state.user);
-  const {
-    data: orders,
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ["orders"],
-    queryFn: () => fetchAllOrders(),
-    enabled: !!user,
-  });
+  const { data: orders, error, isLoading } = fetchAllOrders();
 
   if (!user) return <div>Please log in to view your orders.</div>;
-  if (isLoading) return <div>Loading orders...</div>;
+  if (isLoading)
+    return (
+      <div>
+        <Loader2 className="animate-spin" />
+      </div>
+    );
   if (error) return <div>Error loading orders: {(error as Error).message}</div>;
 
   return (

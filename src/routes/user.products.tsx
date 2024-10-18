@@ -4,6 +4,7 @@ import Cart from "./cart";
 import { useAuthStore } from "@/lib/supabase";
 
 import { ProductCategory } from "@/components/ProductCategory";
+import ProductsByCategory from "@/components/ProductsByCategory";
 
 export const Route = createFileRoute("/user/products")({
   component: UserProducts,

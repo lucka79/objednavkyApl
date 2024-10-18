@@ -1,6 +1,6 @@
 // ProductList.tsx
 import React from "react";
-import { useProducts } from "@/hooks/useProducts";
+import { fetchAllProducts } from "@/hooks/useProducts";
 import { useCartStore } from "@/providers/cartStore";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +13,7 @@ import {
 import { ShoppingCart } from "lucide-react";
 
 export const ProductList: React.FC = () => {
-  const { data: products, isLoading, error } = useProducts();
+  const { data: products, isLoading, error } = fetchAllProducts();
   const addItem = useCartStore((state) => state.addItem);
 
   if (isLoading) return <div>Loading...</div>;

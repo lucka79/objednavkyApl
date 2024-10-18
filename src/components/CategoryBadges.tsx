@@ -1,20 +1,7 @@
-import { fetchCategories } from "@/api/categories";
-import { fetchProducts } from "@/api/products";
-import { useQuery } from "@tanstack/react-query";
-
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "./ui/card";
-
-import { Skeleton } from "./ui/skeleton";
 import { Badge } from "./ui/badge";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
-import { useState } from "react";
-import { Category, Product } from "types";
+
+import { Category } from "types";
 
 // Category badges component
 const CategoryBadges = ({

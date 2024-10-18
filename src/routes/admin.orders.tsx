@@ -1,4 +1,4 @@
-import { OrderDetailsCard } from "@/components/OrderDetailsCard";
+// import { OrderDetailsCard } from "@/components/OrderDetailsCard";
 import { OrderDetailsCard2 } from "@/components/OrderDetailsCard2";
 // import { OrderDetailsDialog } from "@/components/OrderDetailsDialog";
 import { OrdersTable } from "@/components/OrdersTable";

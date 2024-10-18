@@ -1,7 +1,3 @@
-import { fetchCategories } from "@/api/categories";
-import { fetchProducts } from "@/api/products";
-import { useQuery } from "@tanstack/react-query";
-
 import {
   Card,
   CardContent,
@@ -9,14 +5,13 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-
 import { Skeleton } from "./ui/skeleton";
 import { Badge } from "./ui/badge";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 import { useState } from "react";
 import { Category, Product } from "types";
-import { Button } from "./ui/button";
-import { ShoppingCart } from "lucide-react";
+import { fetchAllProducts } from "@/hooks/useProducts";
+import { getCategories } from "@/hooks/useCategories";
 
 // Category badges component
 const CategoryBadges = ({
@@ -64,10 +59,12 @@ const ProductGrid = ({
     {products.map((product) => (
       <Card key={product.id}>
         <CardHeader>
-          <CardTitle>{product.name}</CardTitle>
-          <Badge variant="outline">
-            {categories.find((c) => c.id === product.category_id)?.name}
-          </Badge>
+          <CardTitle className="flex justify-between">
+            <span>{product.name}</span>
+            <Badge variant="outline">
+              {categories.find((c) => c.id === product.category_id)?.name}
+            </Badge>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-600">{product.description}</p>
@@ -84,19 +81,10 @@ const ProductGrid = ({
 export default function ProductScrollCategory() {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
-  const { data: categories, isLoading: categoriesLoading } = useQuery<
-    Category[]
-  >({
-    queryKey: ["categories"],
-    queryFn: fetchCategories,
-  });
+  const { data: categories, isLoading: categoriesLoading } = getCategories();
+  const { data: products, isLoading } = fetchAllProducts();
 
-  const { data: products, isLoading: productsLoading } = useQuery<Product[]>({
-    queryKey: ["products"],
-    queryFn: fetchProducts,
-  });
-
-  if (categoriesLoading || productsLoading) {
+  if (categoriesLoading || isLoading) {
     return (
       <div className="flex flex-col space-y-4 p-4">
         <Skeleton className="h-12 w-full" />

@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { fetchOrdersByUserId } from "@/hooks/useOrders";
 import {
   Accordion,
@@ -12,15 +11,7 @@ import { Badge } from "./ui/badge";
 
 export function Orders() {
   const user = useAuthStore((state) => state.user);
-  const {
-    data: orders,
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ["orders", user?.id],
-    queryFn: () => fetchOrdersByUserId(user!.id),
-    enabled: !!user,
-  });
+  const { data: orders, error, isLoading } = fetchOrdersByUserId(user!.id);
 
   if (!user) return <div>Please log in to view your orders.</div>;
   if (isLoading) return <div>Loading orders...</div>;

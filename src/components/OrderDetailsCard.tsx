@@ -16,23 +16,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useQuery } from "@tanstack/react-query";
 
 export function OrderDetailsCard() {
-  const { selectedOrderId, setSelectedOrderId, setOrderDetails } =
-    useOrderStore();
+  const { selectedOrderId, setSelectedOrderId } = useOrderStore();
 
   const {
     data: orderItems,
-    isLoading,
     error,
-  } = useQuery({
-    queryKey: ["orderDetails", selectedOrderId],
-    queryFn: () => fetchOrderDetails(selectedOrderId!),
-
-    enabled: !!selectedOrderId,
-    onSuccess: (data) => setOrderDetails(data),
-  });
+    isLoading,
+  } = fetchOrderDetails(selectedOrderId!);
 
   if (!selectedOrderId) return null;
   if (isLoading) return <div>Loading order details...</div>;

@@ -1,6 +1,6 @@
 // ProductList.tsx
 import React, { useState } from "react";
-import { useProducts } from "@/hooks/useProducts";
+import { fetchAllProducts } from "@/hooks/useProducts";
 import { useCartStore } from "@/providers/cartStore";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,12 +13,10 @@ import {
 import { ShoppingCart } from "lucide-react";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 import { Badge } from "./ui/badge";
-import { Category, Product } from "types";
-import { useQuery } from "@tanstack/react-query";
-import { fetchCategories } from "@/api/categories";
-
+import { Category } from "types";
 import { Skeleton } from "./ui/skeleton";
 import { useAuthStore } from "@/lib/supabase";
+import { getCategories } from "@/hooks/useCategories";
 
 // Category badges component
 const CategoryBadges = ({
@@ -55,18 +53,13 @@ const CategoryBadges = ({
 );
 
 export const ProductCategory: React.FC = () => {
-  const { data: products, isLoading, error } = useProducts();
+  const { data: products, isLoading, error } = fetchAllProducts();
+  const { data: categories, isLoading: categoriesLoading } = getCategories();
+
   const addItem = useCartStore((state) => state.addItem);
   const user = useAuthStore((state) => state.user);
 
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-
-  const { data: categories, isLoading: categoriesLoading } = useQuery<
-    Category[]
-  >({
-    queryKey: ["categories"],
-    queryFn: fetchCategories,
-  });
 
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
@@ -74,11 +67,6 @@ export const ProductCategory: React.FC = () => {
   if (!categories || !products) {
     return <div className="text-center text-red-500">Error loading data</div>;
   }
-
-  //   const { data: products, isLoading: productsLoading } = useQuery<Product[]>({
-  //     queryKey: ["products"],
-  //     queryFn: fetchProducts,
-  //   });
 
   if (categoriesLoading || isLoading) {
     return (

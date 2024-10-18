@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { fetchOrderDetails } from "@/hooks/useOrders";
 import { useOrderStore } from "@/providers/orderStore";
 import {
@@ -23,13 +22,9 @@ export function OrderDetailsDialog() {
 
   const {
     data: orderItems,
-    isLoading,
     error,
-  } = useQuery({
-    queryKey: ["orderDetails", selectedOrderId],
-    queryFn: () => fetchOrderDetails(selectedOrderId!),
-    enabled: !!selectedOrderId,
-  });
+    isLoading,
+  } = fetchOrderDetails(selectedOrderId!);
 
   if (isLoading) return <div>Loading order details...</div>;
   if (error) return <div>Error loading order details</div>;

@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+
 import { Badge } from "./ui/badge";
 import { OrderItems } from "./OrderItems";
 

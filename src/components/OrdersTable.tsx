@@ -1,5 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
-
 import {
   useReactTable,
   getCoreRowModel,
@@ -8,7 +6,7 @@ import {
   ColumnDef,
   flexRender,
 } from "@tanstack/react-table";
-import { fetchOrders } from "@/hooks/useOrders";
+import { fetchAllOrders } from "@/hooks/useOrders";
 import { Order } from "../../types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -49,18 +47,7 @@ const columns: ColumnDef<Order>[] = [
 
 export function OrdersTable() {
   //   const navigate = useNavigate();
-  const {
-    data: orders = [],
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ["orders"],
-    // all orders and order_items and users -> fetchAllOrders
-    // queryFn: fetchAllOrders,
-
-    // only orders and users -> fetchOrders
-    queryFn: fetchOrders,
-  });
+  const { data: orders, error, isLoading } = fetchAllOrders();
 
   const [globalFilter, setGlobalFilter] = useState("");
   const setSelectedOrderId = useOrderStore((state) => state.setSelectedOrderId);
@@ -70,7 +57,7 @@ export function OrdersTable() {
   //   };
 
   const table = useReactTable({
-    data: orders,
+    data: orders || [],
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),

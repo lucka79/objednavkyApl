@@ -18,7 +18,10 @@ export const useOrders = () => {
   };
 
   // order_items by order_id
-  export const fetchOrderDetails = async (orderId: number): Promise<OrderItem[]> => {
+  export const fetchOrderDetails = (orderId: number) => {
+    return useQuery({
+        queryKey: ['orderItems', orderId],
+        queryFn: async () => {
     const { data, error } = await supabase
       .from('order_items')
       .select(`
@@ -30,9 +33,14 @@ export const useOrders = () => {
     if (error) throw error
     return data
   }
+});
+};
 
-  // orders by user_id
-  export const fetchOrdersByUserId = async (userId: string): Promise<Order[]> => {
+// orders by user_id
+export const fetchOrdersByUserId = (userId: string) => {
+    return useQuery({
+        queryKey: ['orders', userId],
+        queryFn: async () => {
     const { data, error } = await supabase
       .from('orders')
       .select(`
@@ -48,28 +56,11 @@ export const useOrders = () => {
     if (error) throw error
     return data
   }
+});
+};
 
-  // all orders
-  export const fetchAllOrders = async (): Promise<Order[]> => {
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        user:profiles (id, full_name),
-        order_items (
-          *,
-          product:products (*)
-        )
-      `)
-    //   .eq('user_id', userId)
-      .order('date', { ascending: false })
-  
-    if (error) throw error
-    return data
-  }
-
-  // order by id
-  export const fetchOrderById = (orderId: number) => {
+// order by id
+export const fetchOrderById = (orderId: number) => {
     return useQuery({
         queryKey: ['orders', orderId],
         queryFn: async () => {
@@ -92,6 +83,31 @@ export const useOrders = () => {
     });
   };
 
+// all orders
+export const fetchAllOrders =  () => {
+return useQuery({
+    queryKey: ['orders'],
+    queryFn: async () => {
+        const { data, error } = await supabase
+        .from('orders')
+        .select(`
+        *,
+        user:profiles (id, full_name),
+        order_items (
+        *,
+        product:products (*)
+    )
+    `)
+//   .eq('user_id', userId)
+    .order('date', { ascending: false })
+
+if (error) throw error
+return data
+  }
+});
+  }
+  
+
   export const fetchOrders = async (): Promise<Order[]> => {
     const { data, error } = await supabase
       .from('orders')
@@ -105,18 +121,7 @@ export const useOrders = () => {
     return data
   }
 
-  export const fetchOrderItems = async (orderId: number): Promise<OrderItem[]> => {
-  const { data, error } = await supabase
-    .from('order_items')
-    .select(`
-      *,
-      product:products(*)
-    `)
-    .eq('order_id', orderId)
 
-  if (error) throw error
-  return data
-}
 
 export const updateOrderItem = async (orderItem: OrderItem): Promise<OrderItem> => {
   const { data, error } = await supabase
