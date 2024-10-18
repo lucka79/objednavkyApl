@@ -3,7 +3,6 @@ import { createFileRoute } from "@tanstack/react-router";
 // import hero2 from "../assets/img/hero2.png";
 // import hero3 from "../assets/img/hero3.png";
 
-import ProductsByCategory from "@/components/ProductsByCategory";
 import ProductScrollCategory from "@/components/ProductScrollCategory";
 
 // import { ImageSlider } from "@/components/ImageSlider";
@@ -21,7 +20,7 @@ function HomeComponent() {
       <ProductScrollCategory />
 
       {/* <ProductGrid /> */}
-      {/* <ProductsByCategory /> */}
+
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-4 gap-4">
           {/* <ProductItem product={products[2]} /> */}
