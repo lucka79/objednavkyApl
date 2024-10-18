@@ -69,23 +69,28 @@ export const useOrders = () => {
   }
 
   // order by id
-  export const fetchOrderById = async (orderId: number): Promise<Order[]> => {
-    const { data, error } = await supabase
-    .from('orders')
-    .select(`
-      *,
-      user:profiles(id, full_name),
-      order_items (
-        *,
-        product:products (*)
-      )
-    `)
-    .eq('id', orderId)
-    .order('created_at', { ascending: false })
+  export const fetchOrderById = (orderId: number) => {
+    return useQuery({
+        queryKey: ['orders', orderId],
+        queryFn: async () => {
+            const { data, error } = await supabase
+            .from('orders')
+            .select(`
+            *,
+            user:profiles(id, full_name),
+            order_items (
+                *,
+                product:products (*)
+            )
+            `)
+            .eq('id', orderId)
+            .order('created_at', { ascending: false })
 
-    if (error) throw error
-    return data
-  }
+            if (error) throw error
+            return data
+        },
+    });
+  };
 
   export const fetchOrders = async (): Promise<Order[]> => {
     const { data, error } = await supabase
