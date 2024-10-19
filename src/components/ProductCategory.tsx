@@ -16,7 +16,7 @@ import { Badge } from "./ui/badge";
 import { Category } from "types";
 import { Skeleton } from "./ui/skeleton";
 import { useAuthStore } from "@/lib/supabase";
-import { getCategories } from "@/hooks/useCategories";
+import { fetchCategories } from "@/hooks/useCategories";
 
 // Category badges component
 const CategoryBadges = ({
@@ -54,7 +54,7 @@ const CategoryBadges = ({
 
 export const ProductCategory: React.FC = () => {
   const { data: products, isLoading, error } = fetchAllProducts();
-  const { data: categories, isLoading: categoriesLoading } = getCategories();
+  const { data: categories, isLoading: categoriesLoading } = fetchCategories();
 
   const addItem = useCartStore((state) => state.addItem);
   const user = useAuthStore((state) => state.user);
@@ -87,38 +87,43 @@ export const ProductCategory: React.FC = () => {
 
   // Use filteredProducts instead of products when rendering
   return (
-    <div className="grid auto-rows-max items-start gap-4 md:gap-8 lg:col-span-2">
+    <Card className="p-4 print:hidden">
       <div className="container mx-auto p-2">
         <CategoryBadges
           categories={categories}
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
         />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-2">
-          {filteredProducts?.map((product) => (
-            <Card key={product.id}>
-              <CardHeader className="pb-2 px-2">
-                <CardTitle className="text-sm">{product.name}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {user?.role === "user" && (
-                  <>{product.priceMobil.toFixed(2)} Kč</>
-                )}
-                {/* <p>{product.description}</p> */}
-                <p className="font-semibold text-sm">
-                  {user?.role === "admin" && <>${product.price.toFixed(2)}</>}
-                </p>
-              </CardContent>
-              <CardFooter className="pb-2">
-                <Button variant="outline" onClick={() => addItem(product)}>
-                  <ShoppingCart size={16} />
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
       </div>
-    </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 p-2">
+        {filteredProducts?.map((product) => (
+          <Card key={product.id} className="relative text-center">
+            <CardHeader className="px-1">
+              <CardTitle className="text-sm line-clamp-3">
+                {product.name}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="m-1">
+              {user?.role === "user" && (
+                <span>{product.priceMobil.toFixed(2)} Kč</span>
+              )}
+              {/* <p>{product.description}</p> */}
+              <span className="font-semibold text-sm">
+                {user?.role === "admin" && <>${product.price.toFixed(2)}</>}
+              </span>
+            </CardContent>
+            <CardFooter className="justify-center">
+              <Button
+                className="absolute bottom-2"
+                variant="outline"
+                onClick={() => addItem(product)}
+              >
+                <ShoppingCart size={16} />
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+    </Card>
   );
 };

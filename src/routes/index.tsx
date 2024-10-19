@@ -4,6 +4,7 @@ import { createFileRoute } from "@tanstack/react-router";
 // import hero3 from "../assets/img/hero3.png";
 
 import ProductScrollCategory from "@/components/ProductScrollCategory";
+import { Card } from "@/components/ui/card";
 
 // import { ImageSlider } from "@/components/ImageSlider";
 
@@ -16,20 +17,12 @@ export const Route = createFileRoute("/")({
 function HomeComponent() {
   return (
     <>
-      {/* <ImageSlider imageUrl={HeroImages} /> */}
-      <ProductScrollCategory />
-
-      {/* <ProductGrid /> */}
-
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-4 gap-4">
-          {/* <ProductItem product={products[2]} /> */}
-          {/* <h1>Product List</h1>
-          {products.map((product) => (
-            <ProductItem key={product.id} product={product} />
-          ))} */}
-        </div>
-      </div>
+      <main className="flex-1 items-start gap-2  sm:px-6 sm:py-0 md:gap-8 lg:grid-cols-3 xl:grid-cols-3">
+        {/* <ImageSlider imageUrl={HeroImages} /> */}
+        <Card>
+          <ProductScrollCategory />
+        </Card>
+      </main>
     </>
   );
 }

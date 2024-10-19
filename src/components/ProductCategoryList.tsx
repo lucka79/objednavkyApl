@@ -11,7 +11,7 @@ import { Badge } from "./ui/badge";
 import RemoteImage from "./RemoteImage";
 import { defaultProductImage } from "@/constants/Images";
 import { fetchAllProducts } from "@/hooks/useProducts";
-import { getCategories } from "@/hooks/useCategories";
+import { fetchCategories } from "@/hooks/useCategories";
 
 export default function ProductCategoryList() {
   const { data: products, error, isLoading } = fetchAllProducts();
@@ -19,7 +19,7 @@ export default function ProductCategoryList() {
     data: categories,
     isLoading: categoriesLoading,
     error: categoriesError,
-  } = getCategories();
+  } = fetchCategories();
 
   if (isLoading || categoriesLoading) {
     return (

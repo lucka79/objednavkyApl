@@ -11,7 +11,7 @@ import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 import { useState } from "react";
 import { Category, Product } from "types";
 import { fetchAllProducts } from "@/hooks/useProducts";
-import { getCategories } from "@/hooks/useCategories";
+import { fetchCategories } from "@/hooks/useCategories";
 
 // Category badges component
 const CategoryBadges = ({
@@ -81,7 +81,7 @@ const ProductGrid = ({
 export default function ProductScrollCategory() {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
-  const { data: categories, isLoading: categoriesLoading } = getCategories();
+  const { data: categories, isLoading: categoriesLoading } = fetchCategories();
   const { data: products, isLoading } = fetchAllProducts();
 
   if (categoriesLoading || isLoading) {

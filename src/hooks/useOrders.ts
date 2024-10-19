@@ -108,18 +108,6 @@ return data
   }
   
 
-  export const fetchOrders = async (): Promise<Order[]> => {
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        user:profiles(id, full_name)
-      `)
-      .order('date', { ascending: false })
-  
-    if (error) throw error
-    return data
-  }
 
 
 

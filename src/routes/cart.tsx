@@ -46,7 +46,7 @@ export default function Cart() {
               key={item.product.id}
               className="flex items-center justify-between mb-2"
             >
-              <span>{item.product.name}</span>
+              <span className="text-sm">{item.product.name}</span>
               <div className="flex items-center">
                 <SquareMinus
                   onClick={() =>
@@ -61,7 +61,7 @@ export default function Cart() {
                   onChange={(e) =>
                     updateQuantity(item.product.id, parseInt(e.target.value))
                   }
-                  className="w-16 mx-4 text-center"
+                  className="w-16 mx-2 text-center"
                 />
                 <SquarePlus
                   onClick={() =>
