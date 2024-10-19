@@ -29,13 +29,14 @@ export function OrderDetailsCard2() {
               {order.user.full_name}
               <Badge variant="outline">{order.status}</Badge>
             </CardTitle>
+
             <CardDescription className="flex justify-between">
               {/* Order ID: {selectedOrderId} */}
-              Order #{order.id}{" "}
+              <span>Order #{order.id}</span>
               <span className="text-muted-foreground font-semibold">
                 {new Date(order.date).toLocaleDateString()}
               </span>
-              <span> {order.total} Kč</span>
+              <span> Řidič:</span>
             </CardDescription>
           </CardHeader>
           <CardContent>

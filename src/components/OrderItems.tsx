@@ -1,4 +1,5 @@
 import { OrderItem } from "../../types";
+import { Table, TableBody, TableCell, TableFooter, TableRow } from "./ui/table";
 
 interface OrderItemsProps {
   items: OrderItem[];
@@ -11,20 +12,27 @@ export function OrderItems({ items }: OrderItemsProps) {
   );
 
   return (
-    <div className="space-y-2">
-      {items.map((item) => (
-        <div key={item.id} className="flex justify-between items-center">
-          <span>{item.product.name}</span>
-          <span className="text-muted-foreground font-semibold text-right">
-            ${item.product.price.toFixed(2)}
-          </span>
-          <span>{item.quantity}</span>{" "}
-          <span>{(item.product.price * item.quantity).toFixed(2)} Kč</span>
-        </div>
-      ))}
-      <div className="font-bold pt-2 border-t flex flex-row-reverse">
-        Total: {total.toFixed(2)} Kč
-      </div>
-    </div>
+    <Table>
+      <TableBody>
+        {items.map((item) => (
+          <TableRow key={item.id}>
+            <TableCell>{item.product.name}</TableCell>
+            <TableCell className="text-right">
+              ${item.product.price.toFixed(2)}
+            </TableCell>
+            <TableCell className="text-right">{item.quantity}</TableCell>
+            <TableCell className="text-right">
+              {(item.product.price * item.quantity).toFixed(2)} Kč
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+      <TableFooter>
+        <TableRow>
+          <TableCell colSpan={3}>Celkem</TableCell>
+          <TableCell className="text-right">{total.toFixed(2)} Kč</TableCell>
+        </TableRow>
+      </TableFooter>
+    </Table>
   );
 }
