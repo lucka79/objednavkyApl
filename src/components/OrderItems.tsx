@@ -17,10 +17,12 @@ export function OrderItems({ items }: OrderItemsProps) {
         {items.map((item) => (
           <TableRow key={item.id}>
             <TableCell>{item.product.name}</TableCell>
-            <TableCell className="text-right">
-              ${item.product.price.toFixed(2)}
+            <TableCell className="text-left">
+              {item.product.price.toFixed(2)} Kč
             </TableCell>
-            <TableCell className="text-right">{item.quantity}</TableCell>
+            <TableCell className="text-right font-semibold">
+              {item.quantity}
+            </TableCell>
             <TableCell className="text-right">
               {(item.product.price * item.quantity).toFixed(2)} Kč
             </TableCell>

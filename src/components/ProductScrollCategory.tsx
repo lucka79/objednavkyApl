@@ -57,20 +57,24 @@ const ProductGrid = ({
 }) => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
     {products.map((product) => (
-      <Card key={product.id}>
-        <CardHeader>
+      <Card key={product.id} className="h-48">
+        <CardHeader className="h-full max-h-16">
           <CardTitle className="flex justify-between">
             <span>{product.name}</span>
-            <Badge variant="outline">
-              {categories.find((c) => c.id === product.category_id)?.name}
-            </Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-600">{product.description}</p>
+        <CardContent className="h-full max-h-16">
+          <p className="text-sm text-gray-600 line-clamp-2 hover:line-clamp-3">
+            {product.description}
+          </p>
         </CardContent>
-        <CardFooter className="flex justify-between">
-          <span className="text-lg font-bold">${product.price.toFixed(2)}</span>
+        <CardFooter className="flex justify-between h-fullmax-h-16">
+          <Badge variant="outline">
+            {categories.find((c) => c.id === product.category_id)?.name}
+          </Badge>
+          <span className="text-lg font-bold">
+            {product.price.toFixed(2)} Kč
+          </span>
         </CardFooter>
       </Card>
     ))}

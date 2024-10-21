@@ -1,6 +1,7 @@
 // useProducts.ts
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { Product } from 'types';
 
 
 // get all products
@@ -48,8 +49,10 @@ export const useInsertProduct = () => {
         .from("products")
         .insert({
           name: data.name,
-          image: data.image,
+          description: data.description,
           price: data.price,
+          priceMobil: data.priceMobil,
+          category_id: data.category_id,
         })
         .single();
 
@@ -63,3 +66,14 @@ export const useInsertProduct = () => {
     },
   });
 };
+
+// funkční insert product
+export const insertProduct = async (product: Omit<Product, 'id' | 'created_at'| 'image' | 'priceMobil'>) => {
+  const { data, error } = await supabase
+    .from('products')
+    .insert(product)
+    .single()
+
+  if (error) throw error
+  return data
+}
