@@ -1,4 +1,4 @@
-import { fetchOrderDetails } from "@/hooks/useOrders";
+import { fetchOrderById } from "@/hooks/useOrders";
 import { useOrderStore } from "@/providers/orderStore";
 import {
   Card,
@@ -7,72 +7,43 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+
+import { Badge } from "./ui/badge";
+import { OrderItems } from "./OrderItems";
 
 export function OrderDetailsCard() {
   const { selectedOrderId, setSelectedOrderId } = useOrderStore();
 
-  const {
-    data: orderItems,
-    error,
-    isLoading,
-  } = fetchOrderDetails(selectedOrderId!);
+  const { data: orders, error, isLoading } = fetchOrderById(selectedOrderId!);
 
   if (!selectedOrderId) return null;
   if (isLoading) return <div>Loading order details...</div>;
   if (error) return <div>Error loading order details</div>;
 
   return (
-    <Card className="mt-4">
-      <CardHeader>
-        <CardTitle>Order Details</CardTitle>
-        <CardDescription>Order ID: {selectedOrderId}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Product</TableHead>
-              <TableHead>Quantity</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Total</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {orderItems?.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>{item.product.name}</TableCell>
-                <TableCell>{item.quantity}</TableCell>
-                <TableCell>${item.price.toFixed(2)}</TableCell>
-                <TableCell>
-                  ${(item.quantity * item.price).toFixed(2)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <div className="mt-4 font-bold">
-          Total: $
-          {orderItems
-            ?.reduce((sum, item) => sum + item.quantity * item.price, 0)
-            .toFixed(2)}
-        </div>
-        <Button
-          variant="outline"
-          className="mt-4"
-          onClick={() => setSelectedOrderId(0)}
-        >
-          Close
-        </Button>
-      </CardContent>
-    </Card>
+    <div>
+      {orders?.map((order) => (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex justify-between">
+              {order.user.full_name}
+              <Badge variant="outline">{order.status}</Badge>
+            </CardTitle>
+
+            <CardDescription className="flex justify-between">
+              {/* Order ID: {selectedOrderId} */}
+              <span>Order #{order.id}</span>
+              <span className="text-muted-foreground font-semibold">
+                {new Date(order.date).toLocaleDateString()}
+              </span>
+              <span> Řidič:</span>
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <OrderItems items={order.order_items} />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   );
 }

@@ -3,7 +3,7 @@ import { ProductForm } from "@/components/ProductForm";
 import { useAuthStore } from "@/lib/supabase";
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/admin/products/create")({
+export const Route = createFileRoute("/admin/create")({
   component: ProductCreate,
 });
 function ProductCreate() {

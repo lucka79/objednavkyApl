@@ -21,7 +21,8 @@ export type Product = {
   priceMobil: number;
   description: string | null;
   created_at: string;
-  category_id: number | null
+  category_id: number | null;
+  category: Category | null;
 }
 
   export type Category = {

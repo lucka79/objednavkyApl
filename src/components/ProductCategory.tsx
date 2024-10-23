@@ -10,13 +10,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ShoppingCart } from "lucide-react";
+import { FilePenLine, ShoppingCart } from "lucide-react";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 import { Badge } from "./ui/badge";
 import { Category } from "types";
 import { Skeleton } from "./ui/skeleton";
 import { useAuthStore } from "@/lib/supabase";
 import { fetchCategories } from "@/hooks/useCategories";
+import { useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
+import { useProductStore } from "@/providers/productStore";
 
 // Category badges component
 const CategoryBadges = ({
@@ -55,6 +58,9 @@ const CategoryBadges = ({
 export const ProductCategory: React.FC = () => {
   const { data: products, isLoading, error } = fetchAllProducts();
   const { data: categories, isLoading: categoriesLoading } = fetchCategories();
+  const setSelectedProductId = useProductStore(
+    (state) => state.setSelectedProductId
+  );
 
   const addItem = useCartStore((state) => state.addItem);
   const user = useAuthStore((state) => state.user);
@@ -97,13 +103,13 @@ export const ProductCategory: React.FC = () => {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 p-2">
         {filteredProducts?.map((product) => (
-          <Card key={product.id} className="relative text-center">
-            <CardHeader className="px-1">
-              <CardTitle className="text-sm line-clamp-3">
+          <Card key={product.id} className="text-center h-48">
+            <CardHeader className="px-0 h-full max-h-28">
+              <CardTitle className="text-sm line-clamp-2 hover:line-clamp-3">
                 {product.name}
               </CardTitle>
             </CardHeader>
-            <CardContent className="m-1">
+            <CardContent className="h-full max-h-10">
               {user?.role === "user" && (
                 <span>{product.priceMobil.toFixed(2)} Kč</span>
               )}
@@ -112,14 +118,18 @@ export const ProductCategory: React.FC = () => {
                 {user?.role === "admin" && <>${product.price.toFixed(2)}</>}
               </span>
             </CardContent>
-            <CardFooter className="justify-center">
-              <Button
-                className="absolute bottom-2"
-                variant="outline"
-                onClick={() => addItem(product)}
-              >
+            <CardFooter className="h-full max-h-8 justify-center ">
+              <Button variant="outline" onClick={() => addItem(product)}>
                 <ShoppingCart size={16} />
               </Button>
+              {user?.role == "admin" && (
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedProductId(product.id)}
+                >
+                  <FilePenLine size={16} />
+                </Button>
+              )}
             </CardFooter>
           </Card>
         ))}

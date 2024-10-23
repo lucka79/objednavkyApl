@@ -22,14 +22,14 @@ export const fetchAllProducts = () => {
 };
 
 // get product by id
-export const useProductById = (id: number) => {
+export const fetchProductById = (productId: number) => {
   return useQuery({
-    queryKey: ["products", id],
+    queryKey: ["product", productId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
         .select("*")
-        .eq("id", id)
+        .eq("id", productId)
         .single();
 
       if (error) {

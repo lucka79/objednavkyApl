@@ -50,11 +50,11 @@ export function Navbar() {
                     <Link to="/admin/orders" className="hover:text-gray-300">
                       Objednávky
                     </Link>
-                    <Link
-                      to="/admin/products/create"
-                      className="hover:text-gray-300"
-                    >
+                    <Link to="/admin/create" className="hover:text-gray-300">
                       Výrobky +
+                    </Link>
+                    <Link to="/admin/products" className="hover:text-gray-300">
+                      Přehled výrobků
                     </Link>
                     <Link to="/cart" className="hover:text-gray-300">
                       <ShoppingCart />

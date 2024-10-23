@@ -16,7 +16,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { insertProduct } from "@/hooks/useProducts";
+import { fetchProductById, insertProduct } from "@/hooks/useProducts";
 import { Textarea } from "./ui/textarea";
 import {
   Select,
@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "./ui/select";
 import { fetchCategories } from "@/hooks/useCategories";
+import { useNavigate, useParams } from "@tanstack/react-router";
 
 const productSchema = z.object({
   name: z.string().min(3, "Product name is required"),
@@ -38,7 +39,10 @@ type ProductFormValues = z.infer<typeof productSchema>;
 
 export function ProductForm() {
   const queryClient = useQueryClient();
+  // const { productId } = useParams({ from: "/admin/products/$productId" });
+  const navigate = useNavigate();
   const { data: categories, isLoading: categoriesLoading } = fetchCategories();
+  // const { data: product, isLoading: productLoading } = fetchProductById(id);
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -54,6 +58,7 @@ export function ProductForm() {
     mutationFn: insertProduct,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      navigate({ to: "/user/products" });
       toast({
         title: "Výrobek vytvořen",
         description: "Výrobek byl úspěšně vytvořen.",
