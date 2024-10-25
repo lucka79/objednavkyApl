@@ -1,13 +1,3 @@
-generuje database typescript
-npx supabase gen types --lang=typescript --project-id process.env.EXPO_PUBLIC_KEY_SUPABASE_PROJECT --schema public > src/database.types.ts
-
-
-npx supabase gen types --lang=typescript --project-id vpululxkipxqqgnzycnc --schema public > src/database.types.ts
-
-npx supabase link --project-ref vpululxkipxqqgnzycnc
-
-
-
 # Configure environment (Tanstack Router, Tanstack Query, TailwindCSS, Shadcn/UI)
 
 # Setup Supabase (create database, create tables, generate types)
