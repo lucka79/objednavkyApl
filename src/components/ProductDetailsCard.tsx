@@ -40,14 +40,19 @@ export function ProductDetailsCard() {
             <Badge variant="outline">{category?.name}</Badge>
           </CardTitle>
 
-          <CardDescription className="flex justify-between">
+          <CardDescription className="flex-col">
             {/* Order ID: {selectedOrderId} */}
-            <span># {product.id}</span>
-            <span className="text-muted-foreground font-semibold"></span>
-            <span>{product.price} Kč</span>
+            <p># {product.id}</p>
+            <span className="text-muted-foreground">{product.description}</span>
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex justify-between">
+          <span className="text-sm font-semibold">
+            Prodejní cena: {product.price.toFixed(2)} Kč
+          </span>
+          <span className="text-sm font-semibold">
+            Mobilní cena: {product.priceMobil.toFixed(2)} Kč
+          </span>
           {/* <OrderItems items={order.order_items} /> budou zde suroviny */}
         </CardContent>
       </Card>

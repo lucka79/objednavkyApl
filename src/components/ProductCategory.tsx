@@ -17,8 +17,6 @@ import { Category } from "types";
 import { Skeleton } from "./ui/skeleton";
 import { useAuthStore } from "@/lib/supabase";
 import { fetchCategories } from "@/hooks/useCategories";
-import { useNavigate } from "@tanstack/react-router";
-import { Link } from "@tanstack/react-router";
 import { useProductStore } from "@/providers/productStore";
 
 // Category badges component

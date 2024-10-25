@@ -23,7 +23,7 @@ export const Route = createFileRoute("/admin/orders/$orderId")({
 export function OrderDetails() {
   const user = useAuthStore((state) => state.user);
   const selectedOrderId = useOrderStore((state) => state.selectedOrderId);
-  const setSelectedOrderId = useOrderStore((state) => state.setSelectedOrderId);
+  // const setSelectedOrderId = useOrderStore((state) => state.setSelectedOrderId);
 
   const { data: orders, error, isLoading } = fetchOrderById(selectedOrderId!);
 

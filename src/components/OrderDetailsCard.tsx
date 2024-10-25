@@ -12,7 +12,7 @@ import { Badge } from "./ui/badge";
 import { OrderItems } from "./OrderItems";
 
 export function OrderDetailsCard() {
-  const { selectedOrderId, setSelectedOrderId } = useOrderStore();
+  const { selectedOrderId } = useOrderStore();
 
   const { data: orders, error, isLoading } = fetchOrderById(selectedOrderId!);
 

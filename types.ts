@@ -22,7 +22,7 @@ export type Product = {
   description: string | null;
   created_at: string;
   category_id: number | null;
-  category: Category | null;
+  category?: Category | null;
 }
 
   export type Category = {

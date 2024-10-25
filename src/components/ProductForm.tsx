@@ -16,7 +16,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { fetchProductById, insertProduct } from "@/hooks/useProducts";
+import { insertProduct } from "@/hooks/useProducts";
 import { Textarea } from "./ui/textarea";
 import {
   Select,
@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from "./ui/select";
 import { fetchCategories } from "@/hooks/useCategories";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 
 const productSchema = z.object({
   name: z.string().min(3, "Product name is required"),
