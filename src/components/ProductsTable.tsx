@@ -1,3 +1,4 @@
+import React from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -25,6 +26,13 @@ import { Category, Product } from "../../types";
 import { useProductStore } from "@/providers/productStore";
 import { useNavigate } from "@tanstack/react-router";
 import { fetchCategories } from "@/hooks/useCategories";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const columns = (categories: Category[]): ColumnDef<Product>[] => [
   {
@@ -71,6 +79,7 @@ export function ProductsTable() {
   );
   //   const category = categories?.find((c) => c.id === products.category_id);
   const navigate = useNavigate();
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
 
   const handleCreateProduct = () => {
     setSelectedProductId(null);
@@ -81,8 +90,26 @@ export function ProductsTable() {
   //     window.open(`/admin/orders/${orderId}`, "_blank");
   //   };
 
+  const filteredProducts = React.useMemo(() => {
+    return (
+      products?.filter(
+        (product) =>
+          (!categoryFilter ||
+            product.category_id.toString() === categoryFilter) &&
+          Object.values(product).some(
+            (value) =>
+              value &&
+              value
+                .toString()
+                .toLowerCase()
+                .includes(globalFilter.toLowerCase())
+          )
+      ) || []
+    );
+  }, [products, categoryFilter, globalFilter]);
+
   const table = useReactTable({
-    data: products || [],
+    data: filteredProducts,
     columns: columns(categories || []),
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -100,12 +127,27 @@ export function ProductsTable() {
     <Card className="my-0 p-4">
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <Input
-            placeholder="Search product..."
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            className="max-w-sm"
-          />
+          <div className="flex gap-4">
+            <Input
+              placeholder="Search product..."
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className="max-w-sm"
+            />
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories?.map((category) => (
+                  <SelectItem key={category.id} value={category.id.toString()}>
+                    {category.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <Button variant="outline" onClick={handleCreateProduct}>
             Create Product
           </Button>
