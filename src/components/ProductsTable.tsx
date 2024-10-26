@@ -21,12 +21,12 @@ import { FileSearch2 } from "lucide-react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { fetchAllProducts } from "@/hooks/useProducts";
-import { Product } from "../../types";
+import { Category, Product } from "../../types";
 import { useProductStore } from "@/providers/productStore";
 import { useNavigate } from "@tanstack/react-router";
 import { fetchCategories } from "@/hooks/useCategories";
 
-const columns: ColumnDef<Product>[] = [
+const columns = (categories: Category[]): ColumnDef<Product>[] => [
   {
     accessorKey: "created_at",
     header: "Created",
@@ -53,7 +53,7 @@ const columns: ColumnDef<Product>[] = [
     accessorKey: "category_id",
     header: "Category",
     cell: ({ row }) => {
-      const category = categories?.find(
+      const category = categories.find(
         (c) => c.id === row.original.category_id
       );
       return category?.name || "N/A";
@@ -83,7 +83,7 @@ export function ProductsTable() {
 
   const table = useReactTable({
     data: products || [],
-    columns,
+    columns: columns(categories || []),
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
