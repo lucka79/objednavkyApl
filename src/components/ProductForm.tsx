@@ -16,7 +16,11 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { insertProduct } from "@/hooks/useProducts";
+import {
+  fetchProductById,
+  insertProduct,
+  updateProduct,
+} from "@/hooks/useProducts";
 import { Textarea } from "./ui/textarea";
 import {
   Select,
@@ -27,6 +31,8 @@ import {
 } from "./ui/select";
 import { fetchCategories } from "@/hooks/useCategories";
 import { useNavigate } from "@tanstack/react-router";
+import { useProductStore } from "@/providers/productStore";
+import { useEffect } from "react";
 
 const productSchema = z.object({
   name: z.string().min(3, "Product name is required"),
@@ -37,49 +43,82 @@ const productSchema = z.object({
 
 type ProductFormValues = z.infer<typeof productSchema>;
 
-export function ProductForm() {
+interface ProductFormProps {
+  initialValues: {
+    name: string;
+    description: string;
+    price: number;
+    priceMobil: number;
+    category_id: number;
+  };
+}
+
+export function ProductForm({ initialValues }: ProductFormProps) {
   const queryClient = useQueryClient();
-  // const { productId } = useParams({ from: "/admin/products/$productId" });
   const navigate = useNavigate();
+  const { selectedProductId } = useProductStore();
   const { data: categories, isLoading: categoriesLoading } = fetchCategories();
-  // const { data: product, isLoading: productLoading } = fetchProductById(id);
+  const { data: product, isLoading: productLoading } = fetchProductById(
+    selectedProductId ?? 0
+  );
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
     defaultValues: {
-      name: "",
-      description: "",
-      price: 0,
-      category_id: 1,
+      name: initialValues.name || "",
+      description: initialValues.description || "",
+      price: initialValues.price || 0,
+      category_id: initialValues.category_id || 1,
     },
   });
 
-  const insertProductMutation = useMutation({
-    mutationFn: insertProduct,
+  useEffect(() => {
+    if (product) {
+      form.reset({
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        category_id: product.category_id,
+      });
+    }
+  }, [product, form]);
+
+  const productMutation = useMutation({
+    mutationFn: (data: ProductFormValues & { id?: number }) =>
+      selectedProductId
+        ? updateProduct(data as ProductFormValues & { id: number })
+        : insertProduct(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       navigate({ to: "/user/products" });
       toast({
-        title: "Výrobek vytvořen",
-        description: "Výrobek byl úspěšně vytvořen.",
+        title: selectedProductId ? "Výrobek aktualizován" : "Výrobek vytvořen",
+        description: selectedProductId
+          ? "Výrobek byl úspěšně aktualizován."
+          : "Výrobek byl úspěšně vytvořen.",
       });
       form.reset();
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: "Při vytváření výrobku nastala chyba. Zkuste to znovu.",
+        description: `Při ${selectedProductId ? "aktualizaci" : "vytváření"} výrobku nastala chyba. Zkuste to znovu.`,
         variant: "destructive",
       });
-      console.error("Chyba při vytváření výrobku:", error);
+      console.error(
+        `Chyba při ${selectedProductId ? "aktualizaci" : "vytváření"} výrobku:`,
+        error
+      );
     },
   });
 
   const onSubmit = (data: ProductFormValues) => {
-    insertProductMutation.mutate(data);
+    productMutation.mutate(
+      selectedProductId ? { ...data, id: selectedProductId } : data
+    );
   };
 
-  if (categoriesLoading) return <div>Načítání kategorií...</div>;
+  if (categoriesLoading || productLoading) return <div>Načítání...</div>;
 
   return (
     <Form {...form}>
@@ -171,10 +210,16 @@ export function ProductForm() {
         <Button
           variant="outline"
           type="submit"
-          disabled={insertProductMutation.isPending}
+          disabled={productMutation.isPending}
           className="w-full"
         >
-          {insertProductMutation.isPending ? "Vkládám..." : "Vložit výrobek"}
+          {productMutation.isPending
+            ? selectedProductId
+              ? "Aktualizuji..."
+              : "Vkládám..."
+            : selectedProductId
+              ? "Aktualizovat výrobek"
+              : "Vložit výrobek"}
         </Button>
       </form>
     </Form>

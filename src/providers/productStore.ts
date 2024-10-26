@@ -8,6 +8,9 @@ interface ProductStore {
 
   setProducts: (products: Product[]) => void
   addProduct: (product: Product) => void
+  
+  clearProductsForNewForm: () => void
+  clearProductForm: () => void
 }
 
 export const useProductStore = create<ProductStore>((set) => ({
@@ -17,4 +20,10 @@ export const useProductStore = create<ProductStore>((set) => ({
 
   setProducts: (products) => set({ products }),
   addProduct: (product) => set((state) => ({ products: [...state.products, product] })),
+
+  clearProductsForNewForm: () => set({ products: [] }),
+  clearProductForm: () => set({
+    selectedProductId: null,
+    // Reset any other form-related state here
+  }),
 }))

@@ -3,6 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Product } from 'types';
 
+// Add this type definition
+type ProductFormValues = {
+  name: string;
+  description: string;
+  price: number;
+  // priceMobil: number;
+  category_id: number;
+};
 
 // get all products
 export const fetchAllProducts = () => {
@@ -77,3 +85,22 @@ export const insertProduct = async (product: Omit<Product, 'id' | 'created_at'| 
   if (error) throw error
   return data
 }
+
+export const updateProduct = async (data: ProductFormValues & { id: number }) => {
+  const { error, data: updatedProduct } = await supabase
+    .from("products")
+    .update({
+      name: data.name,
+      description: data.description,
+      price: data.price,
+      // priceMobil: data.priceMobil,
+      category_id: data.category_id,
+    })
+    .eq("id", data.id)
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return updatedProduct;
+};

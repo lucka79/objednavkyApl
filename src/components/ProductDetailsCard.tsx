@@ -15,7 +15,7 @@ import { fetchCategories } from "@/hooks/useCategories";
 import { Loader2 } from "lucide-react";
 
 export function ProductDetailsCard() {
-  const { selectedProductId, setSelectedProductId } = useProductStore();
+  const { selectedProductId } = useProductStore();
   const { data: categoriesData } = fetchCategories();
   const {
     data: productData,
