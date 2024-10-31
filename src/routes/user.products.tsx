@@ -4,7 +4,7 @@ import Cart from "./cart";
 import { useAuthStore } from "@/lib/supabase";
 
 import { ProductCategory } from "@/components/ProductCategory";
-// import ProductCategoryList from "@/components/ProductCategoryList";
+import ProductCategoryList from "@/components/ProductCategoryList";
 
 export const Route = createFileRoute("/user/products")({
   component: UserProducts,
@@ -22,7 +22,7 @@ function UserProducts() {
         <div className="grid auto-rows-max items-start gap-4 md:gap-8 lg:col-span-2">
           <ProductCategory />
 
-          {/* <ProductCategoryList /> */}
+          <ProductCategoryList />
         </div>
         <div>
           <Cart />

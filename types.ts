@@ -17,6 +17,7 @@ export type Enums<T extends keyof Database['public']['Enums']> =
 export type Product = {
   id: number;
   name: string;
+  image: string | null;
   price: number;
   priceMobil: number;
   description: string | null;

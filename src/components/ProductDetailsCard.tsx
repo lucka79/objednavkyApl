@@ -12,7 +12,9 @@ import { Badge } from "./ui/badge";
 import { fetchProductById } from "@/hooks/useProducts";
 import { Product } from "types";
 import { fetchCategories } from "@/hooks/useCategories";
-import { Loader2 } from "lucide-react";
+import { FilePenLine, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { ProductForm } from "@/components/ProductForm";
 
 export function ProductDetailsCard() {
   const { selectedProductId } = useProductStore();
@@ -23,6 +25,8 @@ export function ProductDetailsCard() {
     isLoading,
   } = fetchProductById(selectedProductId!);
 
+  const [isEditing, setIsEditing] = useState(false);
+
   if (!selectedProductId) return null;
   if (isLoading)
     return <Loader2 className="animate-spin justify-center items-center" />;
@@ -31,19 +35,40 @@ export function ProductDetailsCard() {
   const product = productData as Product; // Assuming products is a single Product object
   const category = categoriesData?.find((c) => c.id === product.category_id);
 
+  if (isEditing) {
+    return (
+      <ProductForm
+        productId={selectedProductId}
+        onClose={() => setIsEditing(false)}
+      />
+    );
+  }
+
   return (
     <div>
       <Card key={product.id}>
         <CardHeader>
           <CardTitle className="flex justify-between">
             {product.name}
-            <Badge variant="outline">{category?.name}</Badge>
+            <div className="flex gap-2">
+              <Badge variant="outline">{category?.name}</Badge>
+              <Badge variant="outline">
+                <FilePenLine size={12} onClick={() => setIsEditing(true)} />
+              </Badge>
+            </div>
           </CardTitle>
 
-          <CardDescription className="flex-col">
+          <CardDescription className="flex justify-between">
             {/* Order ID: {selectedOrderId} */}
-            <p># {product.id}</p>
-            <span className="text-muted-foreground">{product.description}</span>
+            <span className="flex-col text-muted-foreground">
+              # {product.id}
+            </span>
+            <span>{new Date(product.created_at).toLocaleDateString()}</span>
+          </CardDescription>
+          <CardDescription className="flex justify-between">
+            <span className="flex-row text-muted-foreground">
+              {product.description}
+            </span>
           </CardDescription>
         </CardHeader>
         <CardContent className="flex justify-between">

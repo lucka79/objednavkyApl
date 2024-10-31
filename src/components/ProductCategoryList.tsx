@@ -46,20 +46,20 @@ export default function ProductCategoryList() {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 p-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4">
       {products?.map((product) => {
         const category = categories?.find((c) => c.id === product.category_id);
         return (
-          <Card key={product.id} className="flex flex-col">
-            <CardHeader>
+          <Card key={product.id} className="flex flex-col h-88">
+            <CardHeader className="h-full h-max-16">
               <CardTitle>{product.name}</CardTitle>
               {category && <Badge variant="secondary">{category.name}</Badge>}
             </CardHeader>
-            <CardContent className="flex-grow">
+            <CardContent className="h-full h-max-32">
               {/* <img
-                src={product.image_url || "/placeholder.svg"}
+                src={product.image || "/placeholder.svg"}
                 alt={product.name}
-                className="w-full h-48 object-cover mb-2"
+                className="w-full h-30 object-cover mb-2"
               /> */}
               <RemoteImage // <Image
                 // source={{ uri: product.image || defaultProductImage }}
@@ -71,7 +71,7 @@ export default function ProductCategoryList() {
                 {product.description}
               </p>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="h-full h-max-32">
               <p className="font-bold">${product.price.toFixed(2)}</p>
             </CardFooter>
           </Card>

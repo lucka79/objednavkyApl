@@ -8,8 +8,10 @@ type ProductFormValues = {
   name: string;
   description: string;
   price: number;
-  // priceMobil: number;
+  priceMobil: number; // Add this line
   category_id: number;
+  image: File | null;
+  imageUrl: string | null;
 };
 
 // get all products
@@ -76,7 +78,7 @@ export const useInsertProduct = () => {
 };
 
 // funkční insert product
-export const insertProduct = async (product: Omit<Product, 'id' | 'created_at'| 'image' | 'priceMobil'>) => {
+export const insertProduct = async (product: Omit<Product, 'id' | 'created_at'| 'image' >) => {
   const { data, error } = await supabase
     .from('products')
     .insert(product)
@@ -93,7 +95,7 @@ export const updateProduct = async (data: ProductFormValues & { id: number }) =>
       name: data.name,
       description: data.description,
       price: data.price,
-      // priceMobil: data.priceMobil,
+      priceMobil: data.priceMobil,
       category_id: data.category_id,
     })
     .eq("id", data.id)
