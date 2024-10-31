@@ -36,7 +36,7 @@ import {
 } from "./ui/card";
 import { X } from "lucide-react";
 import { supabase } from "@/lib/supabase"; // Adjust the import path as needed
-import { randomUUID } from "crypto";
+import { Progress } from "@/components/ui/progress";
 
 const productSchema = z.object({
   name: z.string().min(3, "Product name is required"),
@@ -67,7 +67,7 @@ export function CreateProductForm() {
       price: 0,
       priceMobil: 0,
       category_id: 1,
-      image: "",
+      // image: "",
     },
   });
 
@@ -96,22 +96,21 @@ export function CreateProductForm() {
   const onSubmit = async (data: ProductFormValues) => {
     try {
       if (data.image instanceof File) {
-        // Convert file to ArrayBuffer
         const arrayBuffer = await data.image.arrayBuffer();
-        const filePath = `${randomUUID()}.png`;
+        const filePath = `${crypto.randomUUID()}.png`;
         const contentType = "image/png";
+
         const { data: dataImage, error: uploadError } = await supabase.storage
           .from("product-images")
           .upload(filePath, arrayBuffer, {
             contentType,
             upsert: false,
           });
-        if (dataImage) {
-          return dataImage.path;
-        }
-        if (uploadError) throw uploadError;
 
-        insertProductMutation.mutate({ ...data, image: filePath });
+        if (uploadError) throw uploadError;
+        if (dataImage) {
+          insertProductMutation.mutate({ ...data, image: dataImage.path });
+        }
       } else {
         insertProductMutation.mutate(data);
       }
@@ -285,6 +284,7 @@ export function CreateProductForm() {
                 )}
               />
             </CardContent>
+
             <CardFooter>
               <Button
                 variant="outline"

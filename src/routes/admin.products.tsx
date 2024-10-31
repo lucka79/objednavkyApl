@@ -25,7 +25,7 @@ function AdminProducts() {
           <ProductsTable />
           {/* <ProductCategory /> */}
 
-          {/* <ProductCategoryList /> */}
+          <ProductCategoryList />
         </div>
         <div>
           <ProductDetailsCard />
