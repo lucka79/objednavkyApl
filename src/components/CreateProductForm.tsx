@@ -36,7 +36,7 @@ import {
 } from "./ui/card";
 import { X } from "lucide-react";
 import { supabase } from "@/lib/supabase"; // Adjust the import path as needed
-import { Progress } from "@/components/ui/progress";
+// import { Progress } from "@/components/ui/progress";
 
 const productSchema = z.object({
   name: z.string().min(3, "Product name is required"),

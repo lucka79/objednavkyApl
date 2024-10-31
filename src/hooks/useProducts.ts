@@ -11,7 +11,7 @@ type ProductFormValues = {
   priceMobil: number; // Add this line
   category_id: number;
   image: File | null;
-  imageUrl: string | null;
+  // imageUrl: string | null;
 };
 
 // get all products
@@ -97,6 +97,7 @@ export const updateProduct = async (data: ProductFormValues & { id: number }) =>
       price: data.price,
       priceMobil: data.priceMobil,
       category_id: data.category_id,
+      image: data.image,
     })
     .eq("id", data.id)
     .single();

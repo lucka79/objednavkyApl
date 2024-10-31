@@ -35,13 +35,15 @@ import { useProductStore } from "@/providers/productStore";
 import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { X } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 const productSchema = z.object({
   name: z.string().min(3, "Product name is required"),
-  description: z.string().min(5, "Product description is required"),
+  description: z.string().min(0, "Product description is required"),
   price: z.number().min(0.01, "Cena musí být větší než 0"),
   priceMobil: z.number().min(0, "Mobilní cena musí být nezáporná"),
   category_id: z.number().min(1, "Kategorie musí být vybrána"),
+  image: z.union([z.instanceof(File), z.string()]).optional(),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -115,10 +117,41 @@ export function ProductForm({ onClose }: ProductFormProps) {
     },
   });
 
-  const onSubmit = (data: ProductFormValues) => {
-    productMutation.mutate(
-      selectedProductId ? { ...data, id: selectedProductId } : data
-    );
+  const onSubmit = async (data: ProductFormValues) => {
+    try {
+      if (data.image instanceof File) {
+        const arrayBuffer = await data.image.arrayBuffer();
+        const filePath = `${crypto.randomUUID()}.png`;
+        const contentType = "image/png";
+
+        const { data: dataImage, error: uploadError } = await supabase.storage
+          .from("product-images")
+          .upload(filePath, arrayBuffer, {
+            contentType,
+            upsert: false,
+          });
+
+        if (uploadError) throw uploadError;
+        if (dataImage) {
+          productMutation.mutate(
+            selectedProductId
+              ? { ...data, id: selectedProductId, image: dataImage.path }
+              : { ...data, image: dataImage.path }
+          );
+        }
+      } else {
+        productMutation.mutate(
+          selectedProductId ? { ...data, id: selectedProductId } : data
+        );
+      }
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast({
+        title: "Error",
+        description: "Failed to upload image. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (categoriesLoading || productLoading) return <div>Načítání...</div>;
@@ -247,6 +280,28 @@ export function ProductForm({ onClose }: ProductFormProps) {
                       />
                     </FormControl>
                     <FormDescription>Cena výrobku v Kč s DPH.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="image"
+                render={({ field: { onChange, value, ...field } }) => (
+                  <FormItem>
+                    <FormLabel>Obrázek</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) onChange(file);
+                        }}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>Nahrát obrázek výrobku.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
