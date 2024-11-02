@@ -37,6 +37,7 @@ import {
 import { X } from "lucide-react";
 import { supabase } from "@/lib/supabase"; // Adjust the import path as needed
 // import { Progress } from "@/components/ui/progress";
+import imageCompression from "browser-image-compression";
 
 const productSchema = z.object({
   name: z.string().min(3, "Product name is required"),
@@ -96,7 +97,12 @@ export function CreateProductForm() {
   const onSubmit = async (data: ProductFormValues) => {
     try {
       if (data.image instanceof File) {
-        const arrayBuffer = await data.image.arrayBuffer();
+        const compressedImage = await imageCompression(data.image, {
+          maxSizeMB: 0.5,
+          maxWidthOrHeight: 1200,
+          useWebWorker: true,
+        });
+        const arrayBuffer = await compressedImage.arrayBuffer();
         const filePath = `${crypto.randomUUID()}.png`;
         const contentType = "image/png";
 

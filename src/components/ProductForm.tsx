@@ -36,6 +36,7 @@ import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import imageCompression from "browser-image-compression";
 
 const productSchema = z.object({
   name: z.string().min(3, "Product name is required"),
@@ -120,8 +121,14 @@ export function ProductForm({ onClose }: ProductFormProps) {
   const onSubmit = async (data: ProductFormValues) => {
     try {
       if (data.image instanceof File) {
-        const arrayBuffer = await data.image.arrayBuffer();
-        const filePath = `${crypto.randomUUID()}.png`;
+        // Compression of image
+        const compressedImage = await imageCompression(data.image, {
+          maxSizeMB: 0.5,
+          maxWidthOrHeight: 1200,
+          useWebWorker: true,
+        });
+        const arrayBuffer = await compressedImage.arrayBuffer();
+        const filePath = `${crypto.randomUUID()}.png`; // `/slozka/${crypto.randomUUID()}.png`;
         const contentType = "image/png";
 
         const { data: dataImage, error: uploadError } = await supabase.storage

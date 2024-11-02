@@ -3,6 +3,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -15,6 +16,7 @@ import { fetchCategories } from "@/hooks/useCategories";
 import { FilePenLine, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { ProductForm } from "@/components/ProductForm";
+import RemoteImage from "./RemoteImage";
 
 export function ProductDetailsCard() {
   const { selectedProductId } = useProductStore();
@@ -80,6 +82,9 @@ export function ProductDetailsCard() {
           </span>
           {/* <OrderItems items={order.order_items} /> budou zde suroviny */}
         </CardContent>
+        <CardFooter>
+          <RemoteImage path={product.image} fallback={<div>No image</div>} />
+        </CardFooter>
       </Card>
     </div>
   );
