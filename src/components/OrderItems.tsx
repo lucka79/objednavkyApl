@@ -18,13 +18,13 @@ export function OrderItems({ items }: OrderItemsProps) {
           <TableRow key={item.id}>
             <TableCell>{item.product.name}</TableCell>
             <TableCell className="text-left">
-              {item.product.price.toFixed(2)} Kč
+              {item.price.toFixed(2)} Kč
             </TableCell>
             <TableCell className="text-right font-semibold">
               {item.quantity}
             </TableCell>
             <TableCell className="text-right">
-              {(item.product.price * item.quantity).toFixed(2)} Kč
+              {(item.price * item.quantity).toFixed(2)} Kč
             </TableCell>
           </TableRow>
         ))}

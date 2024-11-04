@@ -13,17 +13,30 @@ import { Input } from "@/components/ui/input";
 import { createFileRoute } from "@tanstack/react-router";
 import { Coins, SquareMinus, SquarePlus, Trash2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+// import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/lib/supabase";
+import { useInsertOrder } from "@/hooks/useOrders";
+import { useInsertOrderItems } from "@/hooks/useOrders";
+import { useToast } from "@/hooks/use-toast";
 
 export const Route = createFileRoute("/cart")({
   component: Cart,
 });
 
 export default function Cart() {
+  const { toast } = useToast();
   const user = useAuthStore((state) => state.user);
-  const { items, removeItem, updateQuantity, clearCart, total, totalMobil } =
-    useCartStore();
+  const { mutateAsync: insertOrder } = useInsertOrder();
+  const { mutateAsync: insertOrderItems } = useInsertOrderItems();
+  const {
+    items,
+    removeItem,
+    updateQuantity,
+    clearCart,
+    total,
+    totalMobil,
+    checkout,
+  } = useCartStore();
 
   const today = new Date();
   const tomorrow = new Date(Date.now() + 86400000);
@@ -90,6 +103,25 @@ export default function Cart() {
           ))
         )}
         <Button
+          onClick={async () => {
+            console.log("Checkout button clicked");
+            try {
+              await checkout(insertOrder, insertOrderItems);
+              toast({
+                title: "Order Successful",
+                description: "Your order has been placed successfully!",
+                variant: "default",
+              });
+              console.log("Checkout completed");
+            } catch (error) {
+              console.error("Checkout failed:", error);
+              toast({
+                title: "Checkout Failed",
+                description: "There was an error processing your order.",
+                variant: "destructive",
+              });
+            }
+          }}
           variant="outline"
           className="flex flex-row font-bold text-slate-600 w-full mb-auto"
         >

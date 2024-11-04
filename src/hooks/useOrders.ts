@@ -1,7 +1,7 @@
 
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
-import { Order, OrderItem } from '../../types';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase, useAuthStore } from '@/lib/supabase';
+import { InsertTables, Order, OrderItem } from '../../types';
 
 export const useOrders = () => {
     return useQuery<Order[], Error>({
@@ -108,9 +108,6 @@ return data
   }
   
 
-
-
-
 export const updateOrderItem = async (orderItem: OrderItem): Promise<OrderItem> => {
   const { data, error } = await supabase
     .from('order_items')
@@ -143,3 +140,48 @@ export const updateOrderItem = async (orderItem: OrderItem): Promise<OrderItem> 
 //     return data as Order[] 
 //   }
 
+export const useInsertOrder = () => {
+  const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
+  const userId = user?.id;
+  //   const { session } = useAuth();
+  //   const userId = session?.user.id;
+
+  return useMutation({
+    async mutationFn(data: InsertTables<"orders">) {
+      const { error, data: newOrder } = await supabase
+        .from("orders")
+        .insert({ ...data, user_id: userId })
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      return newOrder;
+    },
+    async onSuccess() {
+      await queryClient.invalidateQueries({ queryKey: ["orders"] });
+    },
+  });
+};
+
+export const useInsertOrderItems = () => {
+  // const queryClient = useQueryClient();
+
+  return useMutation({
+    async mutationFn(items: InsertTables<"order_items">[]) {
+      const { error, data: newOrder } = await supabase
+        .from("order_items")
+        .insert(items)
+        .select();
+       // .single();   více položek v objednávce
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      return newOrder;
+    },
+
+  });
+};

@@ -26,9 +26,9 @@ import { Badge } from "./ui/badge";
 
 const columns: ColumnDef<Order>[] = [
   {
-    accessorKey: "created_at",
-    header: "Date",
-    cell: ({ row }) => new Date(row.original.created_at).toLocaleDateString(),
+    accessorKey: "date",
+    header: "Datum",
+    cell: ({ row }) => new Date(row.original.date).toLocaleDateString(),
   },
   {
     accessorKey: "id",

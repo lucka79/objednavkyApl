@@ -17,6 +17,11 @@ import { FilePenLine, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { ProductForm } from "@/components/ProductForm";
 import RemoteImage from "./RemoteImage";
+import kolac from "@/assets/img/kolac.png";
+import fresh from "@/assets/img/fresh.png";
+import chleb from "@/assets/img/chleb.png";
+import donut from "@/assets/img/donut.png";
+import { defaultProductImage } from "@/constants/Images";
 
 export function ProductDetailsCard() {
   const { selectedProductId } = useProductStore();
@@ -83,7 +88,20 @@ export function ProductDetailsCard() {
           {/* <OrderItems items={order.order_items} /> budou zde suroviny */}
         </CardContent>
         <CardFooter>
-          <RemoteImage path={product.image} fallback={<div>No image</div>} />
+          <RemoteImage
+            path={product.image}
+            fallback={
+              product.category_id === 4
+                ? donut
+                : product.category_id === 6
+                  ? kolac
+                  : product.category_id === 7
+                    ? chleb
+                    : product.category_id === 8
+                      ? fresh
+                      : defaultProductImage
+            }
+          />
         </CardFooter>
       </Card>
     </div>

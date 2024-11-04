@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { Product, CartItem } from '../../types';
 import { useAuthStore } from '@/lib/supabase';
+import { useInsertOrder, useInsertOrderItems } from '@/hooks/useOrders';
 
 type CartStore = {
   items: CartItem[];
@@ -11,6 +12,7 @@ type CartStore = {
   clearCart: () => void;
   total: () => number;
   totalMobil: () => number;
+  checkout: (insertOrder: any, insertOrderItems: any) => Promise<void>;
 };
 
 
@@ -62,5 +64,40 @@ export const useCartStore = create<CartStore>((set, get) => ({
   totalMobil: () => {
     
     return get().items.reduce((sum, item) => sum + item.product.priceMobil * item.quantity, 0);
+  },
+
+  checkout: async (insertOrder: any, insertOrderItems: any) => {
+    const { user } = useAuthStore.getState();
+    
+    try {
+      console.log('Starting checkout process...');
+      const tomorrow = new Date(Date.now() + 86400000); // Add 24 hours in milliseconds
+      const orderResult = await insertOrder({
+        date: tomorrow.toISOString(),
+        total: user?.role === "admin" ? get().totalMobil() : get().total(),
+        user_id: user?.id || "",
+      });
+      console.log('Order creation result:', orderResult);
+
+      const { id: orderId } = orderResult;
+      if (!orderId) throw new Error('Failed to create order');
+
+      const orderItems = get().items.map(item => ({
+        order_id: orderId,
+        product_id: item.product.id,
+        quantity: item.quantity,
+        price: user?.role === "admin" ? item.product.priceMobil : item.product.price,
+        
+      }));
+      console.log('Order items to insert:', orderItems);
+
+      await insertOrderItems(orderItems);
+      console.log('Checkout completed successfully');
+
+      get().clearCart();
+    } catch (error) {
+      console.error('Checkout failed:', error);
+      throw error; // Re-throw to handle in the UI
+    }
   },
 }));

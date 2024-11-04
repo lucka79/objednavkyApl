@@ -23,7 +23,7 @@ export function OrderDetailsCard() {
   return (
     <div>
       {orders?.map((order) => (
-        <Card>
+        <Card key={order.id}>
           <CardHeader>
             <CardTitle className="flex justify-between">
               {order.user.full_name}

@@ -65,6 +65,7 @@ export type Product = {
     product: Product;
     order_id: number;
     price: number;
+    priceMobil: number;
     quantity: number;
   };
   
