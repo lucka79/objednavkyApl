@@ -1,4 +1,4 @@
-import { isAdminOrderItem, OrderItem } from 'types'
+import { OrderItem } from 'types'
 import {create} from 'zustand'
 
 // interface OrderStore {

@@ -1,4 +1,3 @@
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase, useAuthStore } from '@/lib/supabase';
 import { InsertTables, Order, OrderItem } from '../../types';
@@ -142,16 +141,18 @@ export const updateOrderItem = async (orderItem: OrderItem): Promise<OrderItem> 
 
 export const useInsertOrder = () => {
   const queryClient = useQueryClient();
-  const user = useAuthStore((state) => state.user);
-  const userId = user?.id;
-  //   const { session } = useAuth();
-  //   const userId = session?.user.id;
+  const { user } = useAuthStore.getState();
 
   return useMutation({
     async mutationFn(data: InsertTables<"orders">) {
+      const orderData = {
+        ...data,
+        user_id: data.user_id || user?.id
+      };
+
       const { error, data: newOrder } = await supabase
         .from("orders")
-        .insert({ ...data, user_id: userId })
+        .insert(orderData)
         .select()
         .single();
 

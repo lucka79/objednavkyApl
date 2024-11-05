@@ -56,9 +56,6 @@ const CategoryBadges = ({
 export const ProductCategory: React.FC = () => {
   const { data: products, isLoading, error } = fetchAllProducts();
   const { data: categories, isLoading: categoriesLoading } = fetchCategories();
-  const setSelectedProductId = useProductStore(
-    (state) => state.setSelectedProductId
-  );
 
   const addItem = useCartStore((state) => state.addItem);
   const user = useAuthStore((state) => state.user);
@@ -101,34 +98,37 @@ export const ProductCategory: React.FC = () => {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 p-2">
         {filteredProducts?.map((product) => (
-          <Card key={product.id} className="text-center h-48">
-            <CardHeader className="px-0 h-full max-h-28">
-              <CardTitle className="text-sm line-clamp-2 hover:line-clamp-3">
-                {product.name}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="h-full max-h-10">
-              {user?.role === "user" && (
-                <span>{product.priceMobil.toFixed(2)} Kč</span>
-              )}
-              {/* <p>{product.description}</p> */}
-              <span className="font-semibold text-sm">
-                {user?.role === "admin" && <>${product.price.toFixed(2)}</>}
-              </span>
-            </CardContent>
-            <CardFooter className="h-full max-h-8 justify-center ">
-              <Button variant="outline" onClick={() => addItem(product)}>
-                <ShoppingCart size={16} />
-              </Button>
-              {user?.role == "admin" && (
-                <Button
-                  variant="outline"
-                  onClick={() => setSelectedProductId(product.id)}
-                >
-                  <FilePenLine size={16} />
+          <Card key={product.id} className="text-center h-48 flex flex-col">
+            {/* First half - Product Name */}
+            <div className="flex-1">
+              <CardHeader className="h-full px-1">
+                <CardTitle className="text-sm line-clamp-2 mx-1 hover:line-clamp-3">
+                  {product.name}
+                </CardTitle>
+              </CardHeader>
+            </div>
+
+            {/* Second half - Prices and Button */}
+            <div className="flex-1 flex flex-col justify-between">
+              <CardContent className="pb-0">
+                {user?.role === "user" && (
+                  <span>{product.price.toFixed(2)} Kč</span>
+                )}
+                {user?.role === "admin" && (
+                  <div className="flex flex-col gap-1 text-sm">
+                    <span>{product.price.toFixed(2)} Kč</span>
+                    <span className="italic font-semibold">
+                      {product.priceMobil.toFixed(2)} Kč
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter className="justify-center pt-0">
+                <Button variant="outline" onClick={() => addItem(product)}>
+                  <ShoppingCart size={16} />
                 </Button>
-              )}
-            </CardFooter>
+              </CardFooter>
+            </div>
           </Card>
         ))}
       </div>

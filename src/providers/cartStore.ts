@@ -1,8 +1,7 @@
 // cartStore.ts
 import { create } from 'zustand';
 import { Product, CartItem } from '../../types';
-import { useAuthStore } from '@/lib/supabase';
-import { useInsertOrder, useInsertOrderItems } from '@/hooks/useOrders';
+
 
 type CartStore = {
   items: CartItem[];
@@ -10,9 +9,8 @@ type CartStore = {
   removeItem: (productId: number) => void;
   updateQuantity: (productId: number, quantity: number) => void;
   clearCart: () => void;
-  total: () => number;
-  totalMobil: () => number;
-  checkout: (insertOrder: any, insertOrderItems: any, orderDate: Date) => Promise<void>;
+  
+  checkout: (insertOrder: any, insertOrderItems: any, orderDate: Date, selectedUserId: string, orderTotal: number) => Promise<void>;
 };
 
 
@@ -57,32 +55,23 @@ export const useCartStore = create<CartStore>((set, get) => ({
     }));
   },
   clearCart: () => set({ items: [] }),
-  total: () => {
-    
-    return get().items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  },
-  totalMobil: () => {
-    
-    return get().items.reduce((sum, item) => sum + item.product.priceMobil * item.quantity, 0);
-  },
 
-  checkout: async (insertOrder: any, insertOrderItems: any, orderDate: Date) => {
-    const { user } = useAuthStore.getState();
-    
+
+  checkout: async (
+    insertOrder: any, 
+    insertOrderItems: any, 
+    orderDate: Date, 
+    selectedUserId: string,
+    orderTotal: number
+  ) => {
     try {
-      console.log('Starting checkout process...');
-      
-      // Adjust for timezone offset
-      const tzOffset = orderDate.getTimezoneOffset() * 60000; // offset in milliseconds
+      const tzOffset = orderDate.getTimezoneOffset() * 60000;
       const adjustedDate = new Date(orderDate.getTime() - tzOffset);
-      
-      console.log('Selected date:', orderDate);
-      console.log('Adjusted date for DB:', adjustedDate.toISOString());
 
       const orderResult = await insertOrder({
-        date: adjustedDate.toISOString().split('T')[0], // Only take the date part
-        total: user?.role === "admin" ? get().totalMobil() : get().total(),
-        user_id: user?.id || "",
+        date: adjustedDate.toISOString().split('T')[0],
+        total: orderTotal,  // Use the passed total
+        user_id: selectedUserId,
       });
       console.log('Order creation result:', orderResult);
 
@@ -93,7 +82,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
         order_id: orderId,
         product_id: item.product.id,
         quantity: item.quantity,
-        price: user?.role === "admin" ? item.product.priceMobil : item.product.price,
+        price: item.product.priceMobil,
         
       }));
       console.log('Order items to insert:', orderItems);

@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import Cart from "./cart";
 import { useAuthStore } from "@/lib/supabase";
 
 import { ProductCategory } from "@/components/ProductCategory";
 import ProductCategoryList from "@/components/ProductCategoryList";
+import Cart from "@/components/Cart";
 
 export const Route = createFileRoute("/user/products")({
   component: UserProducts,

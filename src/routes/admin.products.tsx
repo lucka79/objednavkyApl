@@ -1,20 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  TableIcon,
-  ShoppingCartIcon,
-  CakeSlice,
-  FileSliders,
-} from "lucide-react";
+import { ShoppingCartIcon, CakeSlice, FileSliders } from "lucide-react";
 
 import { useAuthStore } from "@/lib/supabase";
 import { ProductDetailsCard } from "@/components/ProductDetailsCard";
 import { ProductsTable } from "@/components/ProductsTable";
 import { ProductCategory } from "@/components/ProductCategory";
-import Cart from "@/routes/cart";
+
 import { OrderDetailsCard } from "@/components/OrderDetailsCard";
 import { OrdersTable } from "@/components/OrdersTable";
+import Cart from "@/components/Cart";
+import CartAdmin from "@/components/CartAdmin";
 
 export const Route = createFileRoute("/admin/products")({
   component: AdminProducts,
@@ -33,7 +30,7 @@ function AdminProducts() {
 
   return (
     <div className="h-full w-full flex">
-      <nav className="flex flex-col gap-2 p-2 border-r bg-background">
+      <nav className="flex flex-col gap-2 p-2 border-r bg-background print:hidden">
         <Button
           variant={activeView === "products" ? "outline" : "ghost"}
           size="icon"
@@ -68,8 +65,9 @@ function AdminProducts() {
         </div>
         <div className="h-full overflow-y-auto overflow-x-hidden">
           {/* {activeView === "table" ? <ProductDetailsCard /> : <Cart />} */}
+
           {activeView === "products" && <ProductDetailsCard />}
-          {activeView === "createOrder" && <Cart />}
+          {activeView === "createOrder" && <CartAdmin />}
           {activeView === "orders" && <OrderDetailsCard />}
         </div>
       </main>
