@@ -7,7 +7,7 @@ interface OrderItemsProps {
 
 export function OrderItems({ items }: OrderItemsProps) {
   const total = items.reduce(
-    (sum, item) => sum + item.quantity * item.product.price,
+    (sum, item) => sum + item.quantity * item.price,
     0
   );
 

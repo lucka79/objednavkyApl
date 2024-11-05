@@ -25,7 +25,6 @@ import { Route as AdminProductsImport } from './routes/admin.products'
 import { Route as AdminOrdersImport } from './routes/admin.orders'
 import { Route as AdminCreateImport } from './routes/admin.create'
 import { Route as AdminProductsProductIdImport } from './routes/admin.products/$productId'
-import { Route as AdminOrdersOrderIdImport } from './routes/admin.orders/$orderId'
 
 // Create/Update Routes
 
@@ -97,11 +96,6 @@ const AdminCreateRoute = AdminCreateImport.update({
 const AdminProductsProductIdRoute = AdminProductsProductIdImport.update({
   path: '/$productId',
   getParentRoute: () => AdminProductsRoute,
-} as any)
-
-const AdminOrdersOrderIdRoute = AdminOrdersOrderIdImport.update({
-  path: '/$orderId',
-  getParentRoute: () => AdminOrdersRoute,
 } as any)
 
 // Populate the FileRoutesByPath interface
@@ -199,13 +193,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UserIndexImport
       parentRoute: typeof rootRoute
     }
-    '/admin/orders/$orderId': {
-      id: '/admin/orders/$orderId'
-      path: '/$orderId'
-      fullPath: '/admin/orders/$orderId'
-      preLoaderRoute: typeof AdminOrdersOrderIdImport
-      parentRoute: typeof AdminOrdersImport
-    }
     '/admin/products/$productId': {
       id: '/admin/products/$productId'
       path: '/$productId'
@@ -217,18 +204,6 @@ declare module '@tanstack/react-router' {
 }
 
 // Create and export the route tree
-
-interface AdminOrdersRouteChildren {
-  AdminOrdersOrderIdRoute: typeof AdminOrdersOrderIdRoute
-}
-
-const AdminOrdersRouteChildren: AdminOrdersRouteChildren = {
-  AdminOrdersOrderIdRoute: AdminOrdersOrderIdRoute,
-}
-
-const AdminOrdersRouteWithChildren = AdminOrdersRoute._addFileChildren(
-  AdminOrdersRouteChildren,
-)
 
 interface AdminProductsRouteChildren {
   AdminProductsProductIdRoute: typeof AdminProductsProductIdRoute
@@ -250,13 +225,12 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/admin/create': typeof AdminCreateRoute
-  '/admin/orders': typeof AdminOrdersRouteWithChildren
+  '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
   '/user/orders': typeof UserOrdersRoute
   '/user/products': typeof UserProductsRoute
   '/admin': typeof AdminIndexRoute
   '/user': typeof UserIndexRoute
-  '/admin/orders/$orderId': typeof AdminOrdersOrderIdRoute
   '/admin/products/$productId': typeof AdminProductsProductIdRoute
 }
 
@@ -268,13 +242,12 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/admin/create': typeof AdminCreateRoute
-  '/admin/orders': typeof AdminOrdersRouteWithChildren
+  '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
   '/user/orders': typeof UserOrdersRoute
   '/user/products': typeof UserProductsRoute
   '/admin': typeof AdminIndexRoute
   '/user': typeof UserIndexRoute
-  '/admin/orders/$orderId': typeof AdminOrdersOrderIdRoute
   '/admin/products/$productId': typeof AdminProductsProductIdRoute
 }
 
@@ -287,13 +260,12 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/admin/create': typeof AdminCreateRoute
-  '/admin/orders': typeof AdminOrdersRouteWithChildren
+  '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
   '/user/orders': typeof UserOrdersRoute
   '/user/products': typeof UserProductsRoute
   '/admin/': typeof AdminIndexRoute
   '/user/': typeof UserIndexRoute
-  '/admin/orders/$orderId': typeof AdminOrdersOrderIdRoute
   '/admin/products/$productId': typeof AdminProductsProductIdRoute
 }
 
@@ -313,7 +285,6 @@ export interface FileRouteTypes {
     | '/user/products'
     | '/admin'
     | '/user'
-    | '/admin/orders/$orderId'
     | '/admin/products/$productId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -330,7 +301,6 @@ export interface FileRouteTypes {
     | '/user/products'
     | '/admin'
     | '/user'
-    | '/admin/orders/$orderId'
     | '/admin/products/$productId'
   id:
     | '__root__'
@@ -347,7 +317,6 @@ export interface FileRouteTypes {
     | '/user/products'
     | '/admin/'
     | '/user/'
-    | '/admin/orders/$orderId'
     | '/admin/products/$productId'
   fileRoutesById: FileRoutesById
 }
@@ -360,7 +329,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
   AdminCreateRoute: typeof AdminCreateRoute
-  AdminOrdersRoute: typeof AdminOrdersRouteWithChildren
+  AdminOrdersRoute: typeof AdminOrdersRoute
   AdminProductsRoute: typeof AdminProductsRouteWithChildren
   UserOrdersRoute: typeof UserOrdersRoute
   UserProductsRoute: typeof UserProductsRoute
@@ -376,7 +345,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
   AdminCreateRoute: AdminCreateRoute,
-  AdminOrdersRoute: AdminOrdersRouteWithChildren,
+  AdminOrdersRoute: AdminOrdersRoute,
   AdminProductsRoute: AdminProductsRouteWithChildren,
   UserOrdersRoute: UserOrdersRoute,
   UserProductsRoute: UserProductsRoute,
@@ -433,10 +402,7 @@ export const routeTree = rootRoute
       "filePath": "admin.create.tsx"
     },
     "/admin/orders": {
-      "filePath": "admin.orders.tsx",
-      "children": [
-        "/admin/orders/$orderId"
-      ]
+      "filePath": "admin.orders.tsx"
     },
     "/admin/products": {
       "filePath": "admin.products.tsx",
@@ -455,10 +421,6 @@ export const routeTree = rootRoute
     },
     "/user/": {
       "filePath": "user.index.tsx"
-    },
-    "/admin/orders/$orderId": {
-      "filePath": "admin.orders/$orderId.tsx",
-      "parent": "/admin/orders"
     },
     "/admin/products/$productId": {
       "filePath": "admin.products/$productId.tsx",

@@ -1,18 +1,30 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  TableIcon,
+  ShoppingCartIcon,
+  CakeSlice,
+  FileSliders,
+} from "lucide-react";
 
 import { useAuthStore } from "@/lib/supabase";
 import { ProductDetailsCard } from "@/components/ProductDetailsCard";
-
 import { ProductsTable } from "@/components/ProductsTable";
 import { ProductCategory } from "@/components/ProductCategory";
-import ProductCategoryList from "@/components/ProductCategoryList";
-import Cart from "./cart";
+import Cart from "@/routes/cart";
+import { OrderDetailsCard } from "@/components/OrderDetailsCard";
+import { OrdersTable } from "@/components/OrdersTable";
 
 export const Route = createFileRoute("/admin/products")({
   component: AdminProducts,
 });
 
 function AdminProducts() {
+  const [activeView, setActiveView] = useState<
+    "products" | "createOrder" | "orders"
+  >("products");
+
   const user = useAuthStore((state) => state.user);
 
   if (user?.role !== "admin") {
@@ -20,23 +32,47 @@ function AdminProducts() {
   }
 
   return (
-    <>
-      <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8 lg:grid-cols-3 xl:grid-cols-3">
-        <div className="grid auto-rows-max items-start gap-4 md:gap-8 lg:col-span-2">
-          <ProductsTable />
-          <ProductCategory />
+    <div className="h-full w-full flex">
+      <nav className="flex flex-col gap-2 p-2 border-r bg-background">
+        <Button
+          variant={activeView === "products" ? "outline" : "ghost"}
+          size="icon"
+          onClick={() => setActiveView("products")}
+        >
+          <CakeSlice className="h-5 w-5" />
+        </Button>
+        <Button
+          variant={activeView === "createOrder" ? "outline" : "ghost"}
+          size="icon"
+          onClick={() => setActiveView("createOrder")}
+        >
+          <ShoppingCartIcon className="h-5 w-5" />
+        </Button>
+        <Button
+          variant={activeView === "orders" ? "outline" : "ghost"}
+          size="icon"
+          onClick={() => setActiveView("orders")}
+        >
+          <FileSliders className="h-5 w-5" />
+        </Button>
+      </nav>
 
-          {/* <ProductCategoryList /> */}
+      <main className="flex-1 grid h-full w-full items-start gap-4 p-2 sm:px-6 sm:py-0 md:gap-8 lg:grid-cols-3 xl:grid-cols-3">
+        <div className="grid h-full auto-rows-max items-start gap-2 md:gap-8 lg:col-span-2">
+          <div className="h-full overflow-y-auto overflow-x-hidden">
+            {/* {activeView === "table" ? <ProductsTable /> : <ProductCategory />} */}
+            {activeView === "products" && <ProductsTable />}
+            {activeView === "createOrder" && <ProductCategory />}
+            {activeView === "orders" && <OrdersTable />}
+          </div>
         </div>
-        <div>
-          <div className="mb-4">
-            <Cart />
-          </div>
-          <div>
-            <ProductDetailsCard />
-          </div>
+        <div className="h-full overflow-y-auto overflow-x-hidden">
+          {/* {activeView === "table" ? <ProductDetailsCard /> : <Cart />} */}
+          {activeView === "products" && <ProductDetailsCard />}
+          {activeView === "createOrder" && <Cart />}
+          {activeView === "orders" && <OrderDetailsCard />}
         </div>
       </main>
-    </>
+    </div>
   );
 }

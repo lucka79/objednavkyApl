@@ -1,5 +1,5 @@
 // Cart.tsx
-
+import { useState } from "react";
 import { useCartStore } from "@/providers/cartStore";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +18,16 @@ import { useAuthStore } from "@/lib/supabase";
 import { useInsertOrder } from "@/hooks/useOrders";
 import { useInsertOrderItems } from "@/hooks/useOrders";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cs } from "date-fns/locale"; // Import Czech locale
 
 export const Route = createFileRoute("/cart")({
   component: Cart,
@@ -38,16 +48,56 @@ export default function Cart() {
     checkout,
   } = useCartStore();
 
-  const today = new Date();
-  const tomorrow = new Date(Date.now() + 86400000);
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(12, 0, 0, 0);
+
+  const [date, setDate] = useState<Date>(tomorrow);
+
   const buyer = user?.full_name;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>
-          Datum:<span className="mx-2">{tomorrow.toLocaleDateString()}</span>
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>
+            Datum:
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-[240px] justify-start text-left font-normal ml-2",
+                    !date && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date ? (
+                    format(date, "d. M. yyyy", { locale: cs })
+                  ) : (
+                    <span>Vyberte datum</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={(newDate) => newDate && setDate(newDate)}
+                  initialFocus
+                  locale={cs}
+                  weekStartsOn={1} // Week starts on Monday
+                  formatters={{
+                    formatCaption: (date, options) =>
+                      format(date, "LLLL yyyy", { locale: cs }),
+                    formatWeekdayName: (date) =>
+                      format(date, "EEEEEE", { locale: cs }),
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+          </CardTitle>
+        </div>
         <CardTitle className="py-2">{buyer}</CardTitle>
       </CardHeader>
       <CardContent>
@@ -106,9 +156,14 @@ export default function Cart() {
           onClick={async () => {
             console.log("Checkout button clicked");
             try {
-              await checkout(insertOrder, insertOrderItems);
+              await checkout(insertOrder, insertOrderItems, date);
+              const newTomorrow = new Date();
+              newTomorrow.setDate(newTomorrow.getDate() + 1);
+              newTomorrow.setHours(12, 0, 0, 0);
+              setDate(newTomorrow);
+
               toast({
-                title: "Order Successful",
+                title: "Objednávka vytvořena",
                 description: "Your order has been placed successfully!",
                 variant: "default",
               });
@@ -128,7 +183,6 @@ export default function Cart() {
           <Coins className="flex flex-row font-bold text-slate-600 w-1/12 mb-auto" />
           {user?.role === "user" && totalMobil().toFixed(2)}
           {user?.role === "admin" && total().toFixed(2)}
-          {/* {total().toFixed(2)} Kč */}
         </Button>
       </CardContent>
       {/* <CardFooter className="flex flex-row">
