@@ -40,12 +40,12 @@ export type Product = {
   
   export const OrderStatusList: OrderStatus[] = [
     'New',
-    'Baking',
+    'Expedice',
     'Delivering',
-    'Delivered',
+    'Paid',
   ];
   
-  export type OrderStatus = 'New' | 'Baking' | 'Delivering' | 'Delivered';
+  export type OrderStatus = 'New' | 'Expedice' | 'Delivering' | 'Paid';
   
   export type Order = {
     id: number;

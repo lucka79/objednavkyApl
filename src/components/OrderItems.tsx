@@ -1,3 +1,4 @@
+import { useAuthStore } from "@/lib/supabase";
 import { OrderItem } from "../../types";
 import { Table, TableBody, TableCell, TableFooter, TableRow } from "./ui/table";
 
@@ -6,6 +7,7 @@ interface OrderItemsProps {
 }
 
 export function OrderItems({ items }: OrderItemsProps) {
+  const user = useAuthStore((state) => state.user);
   const total = items.reduce(
     (sum, item) => sum + item.quantity * item.price,
     0
