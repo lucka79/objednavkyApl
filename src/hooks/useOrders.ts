@@ -196,22 +196,43 @@ export const useUpdateOrderItems = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    async mutationFn({id, updatedFields}: {id: number, updatedFields: UpdateTables<"order_items">}) {
-      const { error, data: updatedOrderItems } = await supabase
+    async mutationFn({id, updatedFields}: {id: number, updatedFields: Partial<OrderItem>}) {
+      // First, verify the record exists
+      const { data: existingItem, error: checkError } = await supabase
         .from("order_items")
-        .update( updatedFields )
-        .eq("id", id)
-        .select()
+        .select('*')
+        .eq('id', id)
         .single();
+      
+      console.log('Existing item:', existingItem);
+      
+      if (checkError) {
+        console.error('Error finding item:', checkError);
+        throw checkError;
+      }
+
+      // Then perform the update
+      const { data, error } = await supabase
+        .from("order_items")
+        .update({
+          quantity: updatedFields.quantity,
+          order_id: updatedFields.order_id,
+          product_id: updatedFields.product_id
+        })
+        .eq('id', id)
+        .select();
 
       if (error) {
-        throw new Error(error.message);
+        console.error('Update error:', error);
+        throw error;
       }
-      return updatedOrderItems;
+      
+      return data;
     },
-    async onSuccess(_, { id }) {
-      await queryClient.invalidateQueries({ queryKey: ["orderItems"] });
-      await queryClient.invalidateQueries({ queryKey: ["orderItems", id] });
+    onSuccess: (data) => {
+      console.log('Mutation succeeded:', data);
+      queryClient.invalidateQueries({ queryKey: ["orderItems"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
     },
   });
 };

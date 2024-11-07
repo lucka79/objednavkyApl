@@ -29,19 +29,19 @@ export function OrderDetailsCard() {
     updateOrder({ id: selectedOrderId!, updatedFields: { status } });
   };
 
-  const handleUpdateOrder = () => {
-    if (!selectedOrderId || !orders?.[0]?.order_items) return;
+  // const handleUpdateOrder = () => {
+  //   if (!selectedOrderId || !orders?.[0]?.order_items) return;
 
-    const updatedFields = {
-      order_items: orders[0].order_items.map((item) => ({
-        id: item.id,
-        product_id: item.product_id,
-        quantity: item.quantity,
-        order_id: selectedOrderId,
-      })),
-    };
-    updateOrder({ id: selectedOrderId, updatedFields });
-  };
+  //   const updatedFields = {
+  //     order_items: orders[0].order_items.map((item) => ({
+  //       id: item.id,
+  //       product_id: item.product_id,
+  //       quantity: item.quantity,
+  //       order_id: selectedOrderId,
+  //     })),
+  //   };
+  //   updateOrder({ id: selectedOrderId, updatedFields });
+  // };
 
   if (!selectedOrderId) return null;
   if (isLoading) return <div>Loading order details...</div>;
@@ -68,13 +68,13 @@ export function OrderDetailsCard() {
           </CardHeader>
           <CardContent>
             {user?.role === "admin" ? (
-              <UpdateCart items={order.order_items} />
+              <UpdateCart items={order.order_items} orderId={order.id} />
             ) : (
               <OrderItems items={order.order_items} />
             )}
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
-            {user?.role === "admin" && (
+            {/* {user?.role === "admin" && (
               <Button
                 onClick={handleUpdateOrder}
                 className="w-full"
@@ -82,7 +82,7 @@ export function OrderDetailsCard() {
               >
                 Save Changes
               </Button>
-            )}
+            )} */}
             <div className="flex gap-2 justify-evenly">
               {user?.role === "admin" && (
                 <>
