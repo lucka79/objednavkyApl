@@ -20,7 +20,7 @@ export function OrderItems({ items }: OrderItemsProps) {
           <TableRow key={item.id}>
             <TableCell>{item.product.name}</TableCell>
             <TableCell className="text-left">
-              {item.price.toFixed(2)} Kč
+              {item.price?.toFixed(2)} Kč
             </TableCell>
             <TableCell className="text-right font-semibold">
               {item.quantity}

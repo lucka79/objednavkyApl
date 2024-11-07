@@ -59,14 +59,15 @@ export type Product = {
     order_items?: OrderItem[];
   };
   
-  export type OrderItem = {
+  export interface OrderItem {
     id: number;
-    product_id: number;
     product: Product;
-    order_id: number;
-    price: number;
-    priceMobil: number;
     quantity: number;
+    price: number;
+    checked: boolean;
+    product_id: number;
+    order_id: number;
+    priceMobil: number;
   };
   
   export type Profile = {

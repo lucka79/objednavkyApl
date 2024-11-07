@@ -29,28 +29,34 @@ export type Database = {
       }
       order_items: {
         Row: {
+          checked: boolean
           created_at: string
           id: number
           order_id: number
           price: number
           product_id: number
           quantity: number
+          updated_at: string | null
         }
         Insert: {
+          checked?: boolean
           created_at?: string
           id?: number
           order_id: number
           price?: number
           product_id: number
           quantity?: number
+          updated_at?: string | null
         }
         Update: {
+          checked?: boolean
           created_at?: string
           id?: number
           order_id?: number
           price?: number
           product_id?: number
           quantity?: number
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -186,7 +192,13 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      groupUser: "admin" | "user" | "driver" | "expedition" | "prodejna"
+      groupUser:
+        | "admin"
+        | "user"
+        | "driver"
+        | "expedition"
+        | "prodejna"
+        | "mobil"
     }
     CompositeTypes: {
       [_ in never]: never

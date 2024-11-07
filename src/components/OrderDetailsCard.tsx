@@ -13,14 +13,34 @@ import { Badge } from "./ui/badge";
 import { OrderItems } from "./OrderItems";
 import { OrderStatusList } from "../../types";
 import { useAuthStore } from "@/lib/supabase";
+import { Button } from "./ui/button";
+import { useOrderItemsStore } from "@/providers/orderItemsStore";
+import { useCartStore } from "@/providers/cartStore";
+import UpdateCart from "./UpdateCart";
 
 export function OrderDetailsCard() {
   const user = useAuthStore((state) => state.user);
   const { selectedOrderId } = useOrderStore();
   const { mutate: updateOrder } = useUpdateOrder();
   const { data: orders, error, isLoading } = fetchOrderById(selectedOrderId!);
+  const { orderItems } = useOrderItemsStore();
+
   const updateStatus = (status: string) => {
     updateOrder({ id: selectedOrderId!, updatedFields: { status } });
+  };
+
+  const handleUpdateOrder = () => {
+    if (!selectedOrderId || !orders?.[0]?.order_items) return;
+
+    const updatedFields = {
+      order_items: orders[0].order_items.map((item) => ({
+        id: item.id,
+        product_id: item.product_id,
+        quantity: item.quantity,
+        order_id: selectedOrderId,
+      })),
+    };
+    updateOrder({ id: selectedOrderId, updatedFields });
   };
 
   if (!selectedOrderId) return null;
@@ -47,51 +67,68 @@ export function OrderDetailsCard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <OrderItems items={order.order_items} />
+            {user?.role === "admin" ? (
+              <UpdateCart items={order.order_items} />
+            ) : (
+              <OrderItems items={order.order_items} />
+            )}
           </CardContent>
-          <CardFooter className="flex gap-2 justify-evenly">
+          <CardFooter className="flex flex-col gap-2">
             {user?.role === "admin" && (
-              <>
-                {OrderStatusList.map((status) => (
-                  <Badge
-                    key={status}
-                    variant={order.status === status ? "default" : "outline"}
-                    onClick={() => updateStatus(status)}
-                    className="cursor-pointer"
-                  >
-                    {status}
-                  </Badge>
-                ))}
-              </>
+              <Button
+                onClick={handleUpdateOrder}
+                className="w-full"
+                variant="outline"
+              >
+                Save Changes
+              </Button>
             )}
-            {user?.role === "expedition" && (
-              <>
-                {["New", "Expedice"].map((status) => (
-                  <Badge
-                    key={status}
-                    variant={order.status === status ? "default" : "outline"}
-                    onClick={() => updateStatus(status)}
-                    className="cursor-pointer"
-                  >
-                    {status}
-                  </Badge>
-                ))}
-              </>
-            )}
-            {user?.role === "driver" && (
-              <>
-                {["Expedice", "Delivering"].map((status) => (
-                  <Badge
-                    key={status}
-                    variant={order.status === status ? "default" : "outline"}
-                    onClick={() => updateStatus(status)}
-                    className="cursor-pointer"
-                  >
-                    {status}
-                  </Badge>
-                ))}
-              </>
-            )}
+            <div className="flex gap-2 justify-evenly">
+              {user?.role === "admin" && (
+                <>
+                  {OrderStatusList.map((status) => (
+                    <Badge
+                      key={status}
+                      variant={
+                        order.status === status ? "destructive" : "secondary"
+                      }
+                      onClick={() => updateStatus(status)}
+                      className="cursor-pointer"
+                    >
+                      {status}
+                    </Badge>
+                  ))}
+                </>
+              )}
+              {user?.role === "expedition" && (
+                <>
+                  {["New", "Expedice"].map((status) => (
+                    <Badge
+                      key={status}
+                      variant={order.status === status ? "default" : "outline"}
+                      onClick={() => updateStatus(status)}
+                      className="cursor-pointer"
+                    >
+                      {status}
+                    </Badge>
+                  ))}
+                </>
+              )}
+              {user?.role === "driver" && (
+                <>
+                  {["Expedice", "Delivering"].map((status) => (
+                    <Badge
+                      key={status}
+                      variant={order.status === status ? "default" : "outline"}
+                      onClick={() => updateStatus(status)}
+                      className="cursor-pointer"
+                    >
+                      {status}
+                    </Badge>
+                  ))}
+                </>
+              )}
+            </div>
           </CardFooter>
         </Card>
       ))}

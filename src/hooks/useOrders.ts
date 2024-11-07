@@ -107,37 +107,18 @@ return data
   }
   
 
-export const updateOrderItem = async (orderItem: OrderItem): Promise<OrderItem> => {
-  const { data, error } = await supabase
-    .from('order_items')
-    .update({ quantity: orderItem.quantity })
-    .eq('id', orderItem.id)
-    .single()
+// export const updateOrderItem = async (orderItem: OrderItem): Promise<OrderItem> => {
+//   const { data, error } = await supabase
+//     .from('order_items')
+//     .update({ quantity: orderItem.quantity })
+//     .eq('id', orderItem.id)
+//     .single()
 
-  if (error) throw error
-  return data
-}
+//   if (error) throw error
+//   return data
+// }
 
-//   export const fetchTableOrders = async () => {
-//     const { data, error } = await supabase
-//       .from('orders')
-//       .select(`
-//         *,
-//         user:profiles (id, full_name),
-//         order_items:order_items(
-//           id,
-//           product_id,
-//           quantity,
-//           product:products(name, price)
-//         )
-//       `, { count: 'exact' })
-      
-//       .order('date', { ascending: false })
-  
-//     if (error) throw error
-  
-//     return data as Order[] 
-//   }
+
 
 export const useInsertOrder = () => {
   const queryClient = useQueryClient();
@@ -167,26 +148,6 @@ export const useInsertOrder = () => {
   });
 };
 
-export const useInsertOrderItems = () => {
-  // const queryClient = useQueryClient();
-
-  return useMutation({
-    async mutationFn(items: InsertTables<"order_items">[]) {
-      const { error, data: newOrder } = await supabase
-        .from("order_items")
-        .insert(items)
-        .select();
-       // .single();   více položek v objednávce
-
-      if (error) {
-        throw new Error(error.message);
-      }
-      return newOrder;
-    },
-
-  });
-};
-
 export const useUpdateOrder = () => {
   const queryClient = useQueryClient();
 
@@ -210,3 +171,48 @@ export const useUpdateOrder = () => {
     },
   });
 };
+
+export const useInsertOrderItems = () => {
+  // const queryClient = useQueryClient();
+
+  return useMutation({
+    async mutationFn(items: InsertTables<"order_items">[]) {
+      const { error, data: newOrder } = await supabase
+        .from("order_items")
+        .insert(items)
+        .select();
+       // .single();   více položek v objednávce
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      return newOrder;
+    },
+
+  });
+};
+
+export const useUpdateOrderItems = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    async mutationFn({id, updatedFields}: {id: number, updatedFields: UpdateTables<"order_items">}) {
+      const { error, data: updatedOrderItems } = await supabase
+        .from("order_items")
+        .update( updatedFields )
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      return updatedOrderItems;
+    },
+    async onSuccess(_, { id }) {
+      await queryClient.invalidateQueries({ queryKey: ["orderItems"] });
+      await queryClient.invalidateQueries({ queryKey: ["orderItems", id] });
+    },
+  });
+};
+
