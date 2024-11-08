@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useUpdateOrderItems, useUpdateOrder } from "@/hooks/useOrders";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface OrderItem {
   id: number;
@@ -19,6 +20,7 @@ interface OrderItem {
   };
   quantity: number;
   price: number;
+  checked?: boolean;
 }
 
 interface UpdateCartProps {
@@ -57,7 +59,7 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
       for (const item of orderItems) {
         const updateData = {
           quantity: item.quantity,
-          order_id: orderId,
+          checked: item.checked || false,
           product_id: item.product.id,
         };
 
@@ -91,6 +93,32 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
     }
   };
 
+  const handleCheckChange = async (itemId: number, checked: boolean) => {
+    try {
+      // Update database first
+      await updateOrderItems({
+        id: itemId,
+        updatedFields: {
+          checked,
+        },
+      });
+
+      // Only update local state after successful database update
+      setOrderItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === itemId ? { ...item, checked } : item
+        )
+      );
+    } catch (error) {
+      console.error("Failed to update item check status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update item status",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -105,7 +133,17 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
               key={item.product.id}
               className="flex items-center justify-between mb-2"
             >
+              <Checkbox
+                checked={item.checked || false}
+                onCheckedChange={(checked: boolean) =>
+                  handleCheckChange(item.id, checked)
+                }
+                className="mr-2"
+              />
               <span className="text-sm">{item.product.name}</span>
+              <span className="text-sm text-end">
+                {item.price.toFixed(2)} Kč
+              </span>
               <div className="flex items-center">
                 <SquareMinus
                   onClick={() =>
@@ -131,22 +169,20 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
                   }
                   className="text-stone-300 cursor-pointer"
                 />
-                <Label className="w-16 mx-4">
-                  {(item.price * item.quantity).toFixed(2)}
+                <Label className="w-16 mx-4 text-end">
+                  {(item.price * item.quantity).toFixed(2)} Kč
                 </Label>
               </div>
             </div>
           ))
         )}
         <Button
+          onClick={saveChanges}
           variant="outline"
           className="flex flex-row font-bold text-slate-600 w-full mt-4"
         >
           <Coins className="flex flex-row font-bold text-slate-600 w-1/12 mb-auto" />
           {calculateTotal().toFixed(2)}
-        </Button>
-        <Button onClick={saveChanges} className="w-full mt-4">
-          Save Changes
         </Button>
       </CardContent>
     </Card>

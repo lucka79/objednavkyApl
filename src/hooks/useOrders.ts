@@ -217,7 +217,8 @@ export const useUpdateOrderItems = () => {
         .update({
           quantity: updatedFields.quantity,
           order_id: updatedFields.order_id,
-          product_id: updatedFields.product_id
+          product_id: updatedFields.product_id,
+          checked: updatedFields.checked  // Add this line
         })
         .eq('id', id)
         .select();
