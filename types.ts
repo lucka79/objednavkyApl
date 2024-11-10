@@ -59,6 +59,7 @@ export type Product = {
     order_items: {
       checked: boolean;
       product_id: number;
+      quantity: number;
       // ... other order item fields
     }[];
   };

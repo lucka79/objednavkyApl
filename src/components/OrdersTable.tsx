@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/table";
 import { useState, useMemo } from "react";
 import { useOrderStore } from "@/providers/orderStore";
-import { FileSearch2 } from "lucide-react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,6 +32,14 @@ import {
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { fetchAllProducts } from "@/hooks/useProducts";
 
 const filterOrdersByDate = (
   orders: Order[],
@@ -132,34 +139,60 @@ const columns: ColumnDef<Order>[] = [
 ];
 
 interface OrdersTableProps {
-  selectedProductId?: string | null;
+  selectedProductId: string | null;
 }
 
-export function OrdersTable({ selectedProductId }: OrdersTableProps) {
+export function OrdersTable({
+  selectedProductId: initialProductId,
+}: OrdersTableProps) {
   const { data: orders, error, isLoading } = fetchAllOrders();
   const [globalFilter, setGlobalFilter] = useState("");
   const [date, setDate] = useState<Date>();
   const setSelectedOrderId = useOrderStore((state) => state.setSelectedOrderId);
+  const [selectedProductId, setSelectedProductId] = useState(
+    initialProductId || ""
+  );
+  const { data: products } = fetchAllProducts();
+  const [activeTab, setActiveTab] = useState("today");
 
   const filteredOrders = useMemo(() => {
     let filtered = orders || [];
 
-    // Filter by product if selected
-    if (selectedProductId) {
-      filtered = filtered.filter((order) =>
-        order.order_items.some(
-          (item) => item.product_id.toString() === selectedProductId
-        )
-      );
-    }
-
-    // Apply other existing filters
     if (date) {
       filtered = filterOrdersByDate(filtered, "today", date);
     }
 
+    if (selectedProductId && selectedProductId !== "all") {
+      filtered = filtered.filter((order) =>
+        order.order_items.some(
+          (item: { product_id: number | string }) =>
+            item.product_id.toString() === selectedProductId
+        )
+      );
+    }
+
     return filtered;
   }, [orders, selectedProductId, date]);
+
+  const getDateFilteredOrders = (
+    orders: Order[],
+    period: "today" | "tomorrow" | "week" | "month" | "lastMonth"
+  ) => {
+    return filterOrdersByDate(orders || [], period);
+  };
+
+  const calculateTotalQuantityForPeriod = (
+    productId: string,
+    period: "today" | "tomorrow" | "week" | "month" | "lastMonth"
+  ) => {
+    const dateFiltered = getDateFilteredOrders(orders || [], period);
+    return dateFiltered.reduce((total, order) => {
+      const quantity = order.order_items
+        .filter((item) => item.product_id.toString() === productId)
+        .reduce((sum, item) => sum + item.quantity, 0);
+      return total + quantity;
+    }, 0);
+  };
 
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders</div>;
@@ -167,14 +200,15 @@ export function OrdersTable({ selectedProductId }: OrdersTableProps) {
   return (
     <Card className="my-0 p-4">
       <div className="space-y-4 overflow-x-auto">
-        <div className="flex justify-between items-center">
-          <div className="flex gap-2">
+        <div className="space-y-2">
+          <div className="flex justify-between items-center gap-2">
             <Input
               placeholder="Search orders..."
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
               className="max-w-sm"
             />
+
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -197,18 +231,90 @@ export function OrdersTable({ selectedProductId }: OrdersTableProps) {
                 />
               </PopoverContent>
             </Popover>
+            <Badge variant="secondary">
+              {date
+                ? `${filteredOrders.length} orders`
+                : `${filteredOrders.length} total orders`}
+            </Badge>
           </div>
-          <Badge variant="secondary">
-            {date
-              ? `${filterOrdersByDate(orders || [], "today", date).length} orders`
-              : `${orders?.length || 0} total orders`}
-          </Badge>
+
+          <Select
+            value={selectedProductId}
+            onValueChange={setSelectedProductId}
+          >
+            <SelectTrigger className="w-full max-w-sm">
+              <SelectValue placeholder="Filter by product..." />
+              {/* {selectedProductId && selectedProductId !== "all" && (
+                // <Badge variant="secondary" className="ml-2">
+                //   {filteredOrders.length} obj. (
+                //   {calculateTotalQuantityForPeriod(
+                //     selectedProductId,
+                //     activeTab as
+                //       | "today"
+                //       | "tomorrow"
+                //       | "week"
+                //       | "month"
+                //       | "lastMonth"
+                //   )}
+                //   ks)
+                // </Badge>
+              )} */}
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Products</SelectItem>
+              {products?.map((product) => (
+                <SelectItem key={product.id} value={product.id.toString()}>
+                  <div className="flex justify-between items-center w-full">
+                    <span>{product.name}</span>
+                    <div className="flex gap-2">
+                      {" "}
+                      <Badge variant="outline" className="border-green-500">
+                        {calculateTotalQuantityForPeriod(
+                          product.id.toString(),
+                          activeTab as
+                            | "today"
+                            | "tomorrow"
+                            | "week"
+                            | "month"
+                            | "lastMonth"
+                        )}
+                        ks
+                      </Badge>
+                      <Badge variant="outline" className="border-amber-500">
+                        {
+                          getDateFilteredOrders(
+                            orders || [],
+                            activeTab as
+                              | "today"
+                              | "tomorrow"
+                              | "week"
+                              | "month"
+                              | "lastMonth"
+                          ).filter((order) =>
+                            order.order_items.some(
+                              (item: { product_id: number | string }) =>
+                                item.product_id.toString() ===
+                                product.id.toString()
+                            )
+                          ).length
+                        }
+                        objed.
+                      </Badge>
+                    </div>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <Tabs
           defaultValue="today"
           className="w-full"
-          onValueChange={() => setDate(undefined)}
+          onValueChange={(value) => {
+            setDate(undefined);
+            setActiveTab(value);
+          }}
         >
           <TabsList>
             {[
