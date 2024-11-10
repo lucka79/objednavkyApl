@@ -197,28 +197,17 @@ export const useUpdateOrderItems = () => {
 
   return useMutation({
     async mutationFn({id, updatedFields}: {id: number, updatedFields: Partial<OrderItem>}) {
-      // First, verify the record exists
-      const { data: existingItem, error: checkError } = await supabase
-        .from("order_items")
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      console.log('Existing item:', existingItem);
-      
-      if (checkError) {
-        console.error('Error finding item:', checkError);
-        throw checkError;
-      }
+      // Get current date and adjust for timezone
+      const now = new Date();
+      const timezoneOffset = now.getTimezoneOffset();
+      const adjustedDate = new Date(now.getTime() - (timezoneOffset * 60 * 1000));
+      const timestamp = adjustedDate.toISOString();
 
-      // Then perform the update
       const { data, error } = await supabase
         .from("order_items")
         .update({
-          quantity: updatedFields.quantity,
-          order_id: updatedFields.order_id,
-          product_id: updatedFields.product_id,
-          checked: updatedFields.checked  // Add this line
+          ...updatedFields,
+          updated_at: timestamp
         })
         .eq('id', id)
         .select();

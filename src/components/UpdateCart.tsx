@@ -9,6 +9,7 @@ import { useAuthStore } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useUpdateOrderItems, useUpdateOrder } from "@/hooks/useOrders";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 
 interface OrderItem {
   id: number;
@@ -42,16 +43,51 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
     }, 0);
   };
 
-  const updateOrderQuantity = (productId: number, newQuantity: number) => {
+  const updateOrderQuantity = async (
+    itemId: number,
+    productId: number,
+    newQuantity: number
+  ) => {
     if (newQuantity <= 0) return;
 
-    setOrderItems((prevItems) =>
-      prevItems.map((item) =>
-        item.product.id === productId
-          ? { ...item, quantity: newQuantity }
-          : item
-      )
-    );
+    try {
+      await updateOrderItems({
+        id: itemId,
+        updatedFields: {
+          quantity: newQuantity,
+        },
+      });
+
+      // Update local state
+      setOrderItems((prevItems) =>
+        prevItems.map((item) =>
+          item.product.id === productId
+            ? { ...item, quantity: newQuantity }
+            : item
+        )
+      );
+
+      // Calculate and update order total
+      const newTotal = orderItems.reduce((sum, item) => {
+        const itemQuantity =
+          item.product.id === productId ? newQuantity : item.quantity;
+        return sum + itemQuantity * item.price;
+      }, 0);
+
+      await updateOrder({
+        id: orderId,
+        updatedFields: {
+          total: newTotal,
+        },
+      });
+    } catch (error) {
+      console.error("Failed to update quantity:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update quantity and total",
+        variant: "destructive",
+      });
+    }
   };
 
   const saveChanges = async () => {
@@ -119,12 +155,26 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
     }
   };
 
+  const getCheckboxCounts = () => {
+    const checked = orderItems.filter((item) => item.checked).length;
+    const unchecked = orderItems.filter((item) => !item.checked).length;
+    return { checked, unchecked };
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Update Order Items</CardTitle>
       </CardHeader>
       <CardContent>
+        <div className="flex gap-2 mb-4 print:hidden">
+          <Badge variant="outline" className="border-green-500">
+            Hotovo {getCheckboxCounts().checked}
+          </Badge>
+          <Badge variant="secondary" className="border-amber-500">
+            Připravit {getCheckboxCounts().unchecked}
+          </Badge>
+        </div>
         {!orderItems || orderItems.length === 0 ? (
           <p>No items in order.</p>
         ) : (
@@ -138,36 +188,51 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
                 onCheckedChange={(checked: boolean) =>
                   handleCheckChange(item.id, checked)
                 }
-                className="mr-2"
+                className="mr-2 border-amber-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500 data-[state=checked]:text-white print:hidden"
               />
-              <span className="text-sm">{item.product.name}</span>
-              <span className="text-sm text-end">
+              <span className="text-sm flex-1 text-left mr-4">
+                {item.product.name}
+              </span>
+              <span className="text-sm flex-1 mr-2 text-end">
                 {item.price.toFixed(2)} Kč
               </span>
               <div className="flex items-center">
                 <SquareMinus
                   onClick={() =>
-                    updateOrderQuantity(item.product.id, item.quantity - 1)
+                    !item.checked &&
+                    updateOrderQuantity(
+                      item.id,
+                      item.product.id,
+                      item.quantity - 1
+                    )
                   }
-                  className="text-stone-300 cursor-pointer"
+                  className={`cursor-pointer ${item.checked ? "text-gray-200" : "text-stone-300 hover:text-stone-400"}`}
                 />
                 <Input
                   type="number"
                   min="1"
                   value={item.quantity}
                   onChange={(e) =>
+                    !item.checked &&
                     updateOrderQuantity(
+                      item.id,
                       item.product.id,
                       parseInt(e.target.value)
                     )
                   }
                   className="w-16 mx-2 text-center"
+                  disabled={item.checked}
                 />
                 <SquarePlus
                   onClick={() =>
-                    updateOrderQuantity(item.product.id, item.quantity + 1)
+                    !item.checked &&
+                    updateOrderQuantity(
+                      item.id,
+                      item.product.id,
+                      item.quantity + 1
+                    )
                   }
-                  className="text-stone-300 cursor-pointer"
+                  className={`cursor-pointer ${item.checked ? "text-gray-200" : "text-stone-300 hover:text-stone-400"}`}
                 />
                 <Label className="w-16 mx-4 text-end">
                   {(item.price * item.quantity).toFixed(2)} Kč

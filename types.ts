@@ -56,7 +56,11 @@ export type Product = {
     user: Profile;
     status: OrderStatus;
   
-    order_items?: OrderItem[];
+    order_items: {
+      checked: boolean;
+      product_id: number;
+      // ... other order item fields
+    }[];
   };
   
   export interface OrderItem {

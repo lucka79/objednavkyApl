@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useOrderStore } from "@/providers/orderStore";
 import { FileSearch2 } from "lucide-react";
 import { Card } from "./ui/card";
@@ -106,19 +106,60 @@ const columns: ColumnDef<Order>[] = [
   {
     accessorKey: "status",
     header: () => <div className="text-right">Status</div>,
-    cell: ({ row }) => (
-      <div className="text-right">
-        <Badge variant="outline">{row.original.status}</Badge>
-      </div>
-    ),
+    cell: ({ row }) => {
+      const checkedCount =
+        row.original.order_items?.filter((item) => item.checked).length || 0;
+      const uncheckedCount =
+        row.original.order_items?.filter((item) => !item.checked).length || 0;
+
+      return (
+        <div className="text-right flex justify-end gap-2 items-center">
+          {checkedCount > 0 && (
+            <Badge variant="outline" className="bg-green-400">
+              {checkedCount}
+            </Badge>
+          )}
+          {uncheckedCount > 0 && (
+            <Badge variant="outline" className="bg-amber-400">
+              {uncheckedCount}
+            </Badge>
+          )}
+          <Badge variant="outline">{row.original.status}</Badge>
+        </div>
+      );
+    },
   },
 ];
 
-export function OrdersTable() {
+interface OrdersTableProps {
+  selectedProductId?: string | null;
+}
+
+export function OrdersTable({ selectedProductId }: OrdersTableProps) {
   const { data: orders, error, isLoading } = fetchAllOrders();
   const [globalFilter, setGlobalFilter] = useState("");
   const [date, setDate] = useState<Date>();
   const setSelectedOrderId = useOrderStore((state) => state.setSelectedOrderId);
+
+  const filteredOrders = useMemo(() => {
+    let filtered = orders || [];
+
+    // Filter by product if selected
+    if (selectedProductId) {
+      filtered = filtered.filter((order) =>
+        order.order_items.some(
+          (item) => item.product_id.toString() === selectedProductId
+        )
+      );
+    }
+
+    // Apply other existing filters
+    if (date) {
+      filtered = filterOrdersByDate(filtered, "today", date);
+    }
+
+    return filtered;
+  }, [orders, selectedProductId, date]);
 
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders</div>;
@@ -190,7 +231,7 @@ export function OrdersTable() {
             <TabsContent key={period} value={period}>
               <OrderTableContent
                 data={filterOrdersByDate(
-                  orders || [],
+                  filteredOrders || [],
                   period as
                     | "today"
                     | "tomorrow"
