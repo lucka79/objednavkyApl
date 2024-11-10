@@ -4,7 +4,7 @@ import { useAuthStore } from "@/lib/supabase";
 
 import { ProductCategory } from "@/components/ProductCategory";
 import ProductCategoryList from "@/components/ProductCategoryList";
-import Cart from "@/components/Cart";
+import CartAdmin from "@/components/CartAdmin";
 
 export const Route = createFileRoute("/user/products")({
   component: UserProducts,
@@ -25,7 +25,7 @@ function UserProducts() {
           <ProductCategoryList />
         </div>
         <div>
-          <Cart />
+          <CartAdmin />
         </div>
       </main>
     </>

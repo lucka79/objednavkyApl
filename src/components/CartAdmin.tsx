@@ -1,5 +1,5 @@
 // Cart.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCartStore } from "@/providers/cartStore";
 import { Button } from "@/components/ui/button";
 import {
@@ -61,6 +61,12 @@ export default function CartAdmin() {
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const { data: mobileUsers } = useMobileUsers();
 
+  useEffect(() => {
+    if (user && user.role !== "admin") {
+      setSelectedUserId(user.id);
+    }
+  }, [user]);
+
   const calculateTotal = () => {
     return items.reduce((sum, item) => {
       const price =
@@ -76,18 +82,22 @@ export default function CartAdmin() {
       <CardHeader>
         <div className="flex flex-col gap-2">
           <CardTitle className="flex flex-row justify-between gap-2">
-            <Select onValueChange={setSelectedUserId} value={selectedUserId}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Vyberte uživatele" />
-              </SelectTrigger>
-              <SelectContent>
-                {mobileUsers?.map((user) => (
-                  <SelectItem key={user.id} value={user.id}>
-                    {user.full_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {user?.role === "admin" ? (
+              <Select onValueChange={setSelectedUserId} value={selectedUserId}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Vyberte uživatele" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mobileUsers?.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="w-[200px]">{user?.full_name}</div>
+            )}
             <Button
               variant="outline"
               onClick={() => {
