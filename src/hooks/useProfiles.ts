@@ -21,7 +21,7 @@ export const useUpdateProfile = () => {
     const queryClient = useQueryClient();
   
     return useMutation({
-      async mutationFn({userId, updatedFields}: {userId: string, updatedFields: {totalCrateBig?: number, totalCrateSmall?: number}}) {
+      async mutationFn({userId, updatedFields}: {userId: string, updatedFields: {crateBig?: number, crateSmall?: number}}) {
         const { error, data: updatedProfile } = await supabase
           .from("profiles")
           .update(updatedFields)

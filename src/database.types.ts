@@ -161,11 +161,11 @@ export type Database = {
         Row: {
           address: string | null
           avatar_url: string | null
+          crateBig: number | null
+          crateSmall: number | null
           full_name: string | null
           id: string
           role: Database["public"]["Enums"]["groupUser"]
-          totalCrateBig: number | null
-          totalCrateSmall: number | null
           updated_at: string | null
           username: string | null
           website: string | null
@@ -173,11 +173,11 @@ export type Database = {
         Insert: {
           address?: string | null
           avatar_url?: string | null
+          crateBig?: number | null
+          crateSmall?: number | null
           full_name?: string | null
           id: string
           role?: Database["public"]["Enums"]["groupUser"]
-          totalCrateBig?: number | null
-          totalCrateSmall?: number | null
           updated_at?: string | null
           username?: string | null
           website?: string | null
@@ -185,11 +185,11 @@ export type Database = {
         Update: {
           address?: string | null
           avatar_url?: string | null
+          crateBig?: number | null
+          crateSmall?: number | null
           full_name?: string | null
           id?: string
           role?: Database["public"]["Enums"]["groupUser"]
-          totalCrateBig?: number | null
-          totalCrateSmall?: number | null
           updated_at?: string | null
           username?: string | null
           website?: string | null
