@@ -60,7 +60,7 @@ export type Product = {
       checked: boolean;
       product_id: number;
       quantity: number;
-      // ... other order item fields
+      
     }[];
   };
   

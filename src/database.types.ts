@@ -77,6 +77,8 @@ export type Database = {
       }
       orders: {
         Row: {
+          crateBig: number | null
+          crateSmall: number | null
           created_at: string
           date: string
           id: number
@@ -85,6 +87,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          crateBig?: number | null
+          crateSmall?: number | null
           created_at?: string
           date: string
           id?: number
@@ -93,6 +97,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          crateBig?: number | null
+          crateSmall?: number | null
           created_at?: string
           date?: string
           id?: number
@@ -158,6 +164,8 @@ export type Database = {
           full_name: string | null
           id: string
           role: Database["public"]["Enums"]["groupUser"]
+          totalCrateBig: number | null
+          totalCrateSmall: number | null
           updated_at: string | null
           username: string | null
           website: string | null
@@ -168,6 +176,8 @@ export type Database = {
           full_name?: string | null
           id: string
           role?: Database["public"]["Enums"]["groupUser"]
+          totalCrateBig?: number | null
+          totalCrateSmall?: number | null
           updated_at?: string | null
           username?: string | null
           website?: string | null
@@ -178,6 +188,8 @@ export type Database = {
           full_name?: string | null
           id?: string
           role?: Database["public"]["Enums"]["groupUser"]
+          totalCrateBig?: number | null
+          totalCrateSmall?: number | null
           updated_at?: string | null
           username?: string | null
           website?: string | null

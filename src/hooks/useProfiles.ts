@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export const useMobileUsers = () => {
   return useQuery({
@@ -15,3 +15,27 @@ export const useMobileUsers = () => {
     },
   });
 }; 
+
+// Add this new mutation
+export const useUpdateProfile = () => {
+    const queryClient = useQueryClient();
+  
+    return useMutation({
+      async mutationFn({userId, updatedFields}: {userId: string, updatedFields: {totalCrateBig?: number, totalCrateSmall?: number}}) {
+        const { error, data: updatedProfile } = await supabase
+          .from("profiles")
+          .update(updatedFields)
+          .eq("id", userId)
+          .select()
+          .single();
+  
+        if (error) {
+          throw new Error(error.message);
+        }
+        return updatedProfile;
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["profile"] });
+      },
+    });
+  };

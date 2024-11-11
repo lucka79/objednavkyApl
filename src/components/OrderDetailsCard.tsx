@@ -29,19 +29,13 @@ export function OrderDetailsCard() {
     updateOrder({ id: selectedOrderId!, updatedFields: { status } });
   };
 
-  // const handleUpdateOrder = () => {
-  //   if (!selectedOrderId || !orders?.[0]?.order_items) return;
-
-  //   const updatedFields = {
-  //     order_items: orders[0].order_items.map((item) => ({
-  //       id: item.id,
-  //       product_id: item.product_id,
-  //       quantity: item.quantity,
-  //       order_id: selectedOrderId,
-  //     })),
-  //   };
-  //   updateOrder({ id: selectedOrderId, updatedFields });
-  // };
+  const updateCrates = (type: "crateBig" | "crateSmall", value: number) => {
+    if (!orders?.[0]) return;
+    updateOrder({
+      id: selectedOrderId!,
+      updatedFields: { [type]: Math.max(0, value) },
+    });
+  };
 
   if (!selectedOrderId) return null;
   if (isLoading) return <div>Loading order details...</div>;
@@ -57,13 +51,81 @@ export function OrderDetailsCard() {
               <Badge variant="outline">{order.status}</Badge>
             </CardTitle>
 
-            <CardDescription className="flex justify-between">
-              {/* Order ID: {selectedOrderId} */}
-              <span>Order #{order.id}</span>
-              <span className="text-muted-foreground font-semibold">
-                {new Date(order.date).toLocaleDateString()}
-              </span>
-              <span> Řidič:</span>
+            <CardDescription className="flex flex-col gap-2">
+              <div className="flex justify-between items-center">
+                <span>Order #{order.id}</span>
+                <span className="text-muted-foreground font-semibold">
+                  {new Date(order.date).toLocaleDateString()}
+                </span>
+                <span>Řidič:</span>
+              </div>
+              {user?.role === "admin" && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        updateCrates("crateBig", (order.crateBig || 0) - 1)
+                      }
+                    >
+                      -
+                    </Button>
+                    <input
+                      type="number"
+                      min="0"
+                      value={order.crateBig || 0}
+                      onChange={(e) =>
+                        updateCrates("crateBig", parseInt(e.target.value) || 0)
+                      }
+                      className="w-16 text-center border rounded-md"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        updateCrates("crateBig", (order.crateBig || 0) + 1)
+                      }
+                    >
+                      +
+                    </Button>
+                    <span>Velká</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        updateCrates("crateSmall", (order.crateSmall || 0) - 1)
+                      }
+                    >
+                      -
+                    </Button>
+                    <input
+                      type="number"
+                      min="0"
+                      value={order.crateSmall || 0}
+                      onChange={(e) =>
+                        updateCrates(
+                          "crateSmall",
+                          parseInt(e.target.value) || 0
+                        )
+                      }
+                      className="w-16 text-center border rounded-md"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        updateCrates("crateSmall", (order.crateSmall || 0) + 1)
+                      }
+                    >
+                      +
+                    </Button>
+                    <span>Malá</span>
+                  </div>
+                </div>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -74,15 +136,6 @@ export function OrderDetailsCard() {
             )}
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
-            {/* {user?.role === "admin" && (
-              <Button
-                onClick={handleUpdateOrder}
-                className="w-full"
-                variant="outline"
-              >
-                Save Changes
-              </Button>
-            )} */}
             <div className="flex gap-2 justify-evenly">
               {user?.role === "admin" && (
                 <>

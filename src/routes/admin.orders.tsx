@@ -1,6 +1,5 @@
 import { OrderDetailsCard } from "@/components/OrderDetailsCard";
 import { OrdersTable } from "@/components/OrdersTable";
-import { ProductOrderFilter } from "@/components/ProductOrderFilter";
 import { useAuthStore } from "@/lib/supabase";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
@@ -11,9 +10,7 @@ export const Route = createFileRoute("/admin/orders")({
 
 function AdminOrders() {
   const user = useAuthStore((state) => state.user);
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(
-    null
-  );
+  const [selectedProductId] = useState<string | null>(null);
 
   if (user?.role !== "admin") {
     return <div>Access denied. Admin only.</div>;

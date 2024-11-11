@@ -60,7 +60,9 @@ function AdminProducts() {
             {/* {activeView === "table" ? <ProductsTable /> : <ProductCategory />} */}
             {activeView === "products" && <ProductsTable />}
             {activeView === "createOrder" && <ProductCategory />}
-            {activeView === "orders" && <OrdersTable />}
+            {activeView === "orders" && (
+              <OrdersTable selectedProductId={null} />
+            )}
           </div>
         </div>
         <div className="h-full overflow-y-auto overflow-x-hidden">
