@@ -84,6 +84,19 @@ const filterOrdersByDate = (
   });
 };
 
+const calculateCrateSums = (orders: Order[]) => {
+  return orders.reduce(
+    (sums, order) => ({
+      crateSmall: sums.crateSmall + (order.crateSmall || 0),
+      crateBig: sums.crateBig + (order.crateBig || 0),
+      crateSmallReceived:
+        sums.crateSmallReceived + (order.crateSmallReceived || 0),
+      crateBigReceived: sums.crateBigReceived + (order.crateBigReceived || 0),
+    }),
+    { crateSmall: 0, crateBig: 0, crateSmallReceived: 0, crateBigReceived: 0 }
+  );
+};
+
 const columns: ColumnDef<Order>[] = [
   {
     accessorKey: "date",
@@ -100,10 +113,10 @@ const columns: ColumnDef<Order>[] = [
   },
   {
     accessorKey: "crateSmall",
-    header: () => <div className="text-right"></div>,
+    header: () => <div className="text-right print:hidden"></div>,
     cell: ({ row }) => (
-      <div className="flex items-center justify-start w-10 text-right">
-        <Badge variant="outline" className="text-yellow-700 border-amber-700">
+      <div className="flex items-center justify-start w-12 text-right print:hidden">
+        <Badge variant="outline" className="text-yellow-700 ">
           {row.original.crateSmall}
           <Container size={16} className="ml-2" />
           <ArrowUp size={16} />
@@ -113,10 +126,10 @@ const columns: ColumnDef<Order>[] = [
   },
   {
     accessorKey: "crateBig",
-    header: () => <div className="text-right"></div>,
+    header: () => <div className="text-right print:hidden"></div>,
     cell: ({ row }) => (
-      <div className="flex items-center justify-end w-10 text-right">
-        <Badge variant="outline" className="text-red-800 border-red-700">
+      <div className="flex items-center justify-end w-12 text-right print:hidden">
+        <Badge variant="outline" className="text-red-800 ">
           {row.original.crateBig}
           <Container size={20} className="ml-2" />
           <ArrowUp size={16} />
@@ -137,12 +150,12 @@ const columns: ColumnDef<Order>[] = [
   },
   {
     accessorKey: "crateSmallReceived",
-    header: () => <div className="text-right"></div>,
+    header: () => <div className="text-right print:hidden"></div>,
     cell: ({ row }) => (
-      <div className="flex items-center justify-start w-10 text-right">
-        <Badge variant="secondary" className="text-yellow-700 ">
+      <div className="flex items-center justify-start w-12 text-right print:hidden">
+        <Badge variant="outline" className="text-yellow-700 ">
           {row.original.crateSmallReceived}
-          <Container size={16} className="ml-2" />
+          <Container size={16} className="mx-1" />
           <ArrowDown size={16} />
         </Badge>
       </div>
@@ -150,15 +163,12 @@ const columns: ColumnDef<Order>[] = [
   },
   {
     accessorKey: "crateBigReceived",
-    header: () => <div className="text-right"></div>,
+    header: () => <div className="text-right print:hidden"></div>,
     cell: ({ row }) => (
-      <div className="flex items-center justify-end w-10 text-right">
-        <Badge
-          variant="secondary"
-          className="flex flex-row gap-1 text-red-800 "
-        >
+      <div className="flex items-center justify-end w-12 text-right print:hidden">
+        <Badge variant="outline" className="flex flex-row gap-1 text-red-800 ">
           {row.original.crateBigReceived}
-          <Container size={20} className="ml-2" />
+          <Container size={20} className="mx-1" />
           <ArrowDown size={16} />
         </Badge>
       </div>
@@ -387,25 +397,49 @@ export function OrdersTable({
             ))}
           </TabsList>
 
-          {["today", "tomorrow", "week", "month", "lastMonth"].map((period) => (
-            <TabsContent key={period} value={period}>
-              <OrderTableContent
-                data={filterOrdersByDate(
-                  filteredOrders || [],
-                  period as
-                    | "today"
-                    | "tomorrow"
-                    | "week"
-                    | "month"
-                    | "lastMonth",
-                  date
-                )}
-                globalFilter={globalFilter}
-                columns={columns}
-                setSelectedOrderId={setSelectedOrderId}
-              />
-            </TabsContent>
-          ))}
+          {["today", "tomorrow", "week", "month", "lastMonth"].map((period) => {
+            const filteredPeriodOrders = filterOrdersByDate(
+              filteredOrders || [],
+              period as "today" | "tomorrow" | "week" | "month" | "lastMonth",
+              date
+            );
+            const crateSums = calculateCrateSums(filteredPeriodOrders);
+
+            return (
+              <TabsContent key={period} value={period}>
+                <div className="flex gap-2 mb-4">
+                  <span className="text-muted-foreground text-sm font-semibold">
+                    Vydáno celkem:
+                  </span>
+                  <Badge variant="outline" className="text-yellow-700 ">
+                    {crateSums.crateSmall}
+                    <Container size={16} className="mx-1" /> ↑
+                  </Badge>
+                  <Badge variant="outline" className="text-red-800">
+                    {crateSums.crateBig}
+                    <Container size={20} className="mx-1" /> ↑
+                  </Badge>
+                  <span className="text-muted-foreground text-sm font-semibold">
+                    Přijato celkem:
+                  </span>
+                  <Badge variant="secondary" className="text-yellow-700">
+                    {crateSums.crateSmallReceived}
+                    <Container size={16} className="mx-1" /> ↓
+                  </Badge>
+                  <Badge variant="secondary" className="text-red-800">
+                    {crateSums.crateBigReceived}
+                    <Container size={20} className="mx-1" /> ↓
+                  </Badge>
+                </div>
+                <OrderTableContent
+                  data={filteredPeriodOrders}
+                  globalFilter={globalFilter}
+                  columns={columns}
+                  setSelectedOrderId={setSelectedOrderId}
+                />
+              </TabsContent>
+            );
+          })}
         </Tabs>
       </div>
     </Card>
