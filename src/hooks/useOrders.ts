@@ -67,7 +67,7 @@ export const fetchOrderById = (orderId: number) => {
             .from('orders')
             .select(`
             *,
-            user:profiles(id, full_name),
+            user:profiles(id, full_name, crateSmall, crateBig),
             order_items (
                 *,
                 product:products (*)

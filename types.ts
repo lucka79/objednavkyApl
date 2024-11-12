@@ -55,7 +55,10 @@ export type Product = {
     user_id: string;
     user: Profile;
     status: OrderStatus;
-  
+    crateSmall: number;
+    crateBig: number;
+    crateSmallReceived: number;
+    crateBigReceived: number;
     order_items: {
       checked: boolean;
       product_id: number;
@@ -79,4 +82,8 @@ export type Product = {
     id: string;
     role: string;
     full_name: string;
+    crateSmall: number;
+    crateBig: number;
+    crateSmallReceived: number;
+    crateBigReceived: number;
   };

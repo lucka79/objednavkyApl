@@ -163,15 +163,13 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Update Order Items</CardTitle>
-      </CardHeader>
+      {/* <CardHeader><CardTitle>Update Order Items</CardTitle></CardHeader> */}
       <CardContent>
-        <div className="flex gap-2 mb-4 print:hidden">
+        <div className="flex gap-2 mb-4 pt-2  print:hidden">
           <Badge variant="outline" className="border-green-500">
             Hotovo {getCheckboxCounts().checked}
           </Badge>
-          <Badge variant="secondary" className="border-amber-500">
+          <Badge variant="outline" className="border-amber-500">
             Připravit {getCheckboxCounts().unchecked}
           </Badge>
         </div>
@@ -181,7 +179,7 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
           orderItems.map((item) => (
             <div
               key={item.product.id}
-              className="flex items-center justify-between mb-2"
+              className="flex items-center justify-between pt-2 mb-2"
             >
               <Checkbox
                 checked={item.checked || false}

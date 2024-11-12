@@ -13,12 +13,17 @@ import { Badge } from "./ui/badge";
 import { OrderItems } from "./OrderItems";
 import { OrderStatusList } from "../../types";
 import { supabase, useAuthStore } from "@/lib/supabase";
-import { Button } from "./ui/button";
-import { useOrderItemsStore } from "@/providers/orderItemsStore";
-import { useCartStore } from "@/providers/cartStore";
+
 import UpdateCart from "./UpdateCart";
 import { useUpdateProfile } from "@/hooks/useProfiles";
-import { SquareMinus, SquarePlus } from "lucide-react";
+import {
+  Container,
+  LockOpen,
+  SquareMinus,
+  SquarePlus,
+  Lock,
+} from "lucide-react";
+import { useState } from "react";
 
 export function OrderDetailsCard() {
   const user = useAuthStore((state) => state.user);
@@ -26,7 +31,11 @@ export function OrderDetailsCard() {
   const { mutate: updateOrder } = useUpdateOrder();
   const { mutate: updateProfile } = useUpdateProfile();
   const { data: orders, error, isLoading } = fetchOrderById(selectedOrderId!);
-  const { orderItems } = useOrderItemsStore();
+
+  console.log("User crates:", {
+    crateBig: orders?.[0]?.user?.crateBig,
+    crateSmall: orders?.[0]?.user?.crateSmall,
+  });
 
   const updateStatus = (status: string) => {
     updateOrder({ id: selectedOrderId!, updatedFields: { status } });
@@ -65,22 +74,33 @@ export function OrderDetailsCard() {
 
     console.log("Current Profile:", profile);
 
-    const totalField = type === "crateBig" ? "crateBig" : "crateSmall";
-    const currentTotal = profile?.[totalField as keyof typeof profile] || 0;
+    // Determine which profile field to update based on the type
+    const profileField = type.startsWith("crateBig")
+      ? "crateBig"
+      : "crateSmall";
+    const currentTotal = profile?.[profileField as keyof typeof profile] || 0;
+
+    // If it's a received crate, subtract from the total
+    const deltaMultiplier = type.includes("Received") ? -1 : 1;
+    const newTotal = Math.max(0, currentTotal + delta * deltaMultiplier);
 
     console.log("Profile Update:", {
-      totalField,
+      profileField,
       currentTotal,
-      newTotal: Math.max(0, currentTotal + delta),
+      delta,
+      deltaMultiplier,
+      newTotal,
     });
 
     await updateProfile({
       userId,
       updatedFields: {
-        [totalField]: Math.max(0, currentTotal + delta),
+        [profileField]: newTotal,
       },
     });
   };
+
+  const [isLocked, setIsLocked] = useState(false);
 
   if (!selectedOrderId) return null;
   if (isLoading) return <div>Loading order details...</div>;
@@ -95,6 +115,16 @@ export function OrderDetailsCard() {
               {order.user.full_name}
               <Badge variant="outline">{order.status}</Badge>
             </CardTitle>
+            <CardDescription className="flex gap-4 print:hidden">
+              <span>Celkový stav přepravek:</span>
+              <span className="flex items-center gap-2 font-semibold">
+                {order.user.crateSmall}
+                <Container size={20} />
+              </span>
+              <span className="flex items-center gap-2 font-semibold">
+                {order.user.crateBig} <Container size={24} />
+              </span>
+            </CardDescription>
 
             <CardDescription className="flex flex-col gap-2">
               <div className="flex justify-between items-center">
@@ -116,117 +146,118 @@ export function OrderDetailsCard() {
           <CardContent>
             {user?.role === "admin" && (
               <Card>
-                <CardHeader>
+                {/* <CardHeader>
                   <CardTitle>Vratné obaly</CardTitle>
-                </CardHeader>
+                </CardHeader> */}
                 <CardContent className="flex gap-8 justify-between">
                   <div>
-                    <CardDescription>Vydané obaly</CardDescription>
+                    <CardDescription className="py-2 flex gap-2">
+                      <span>Vydané obaly</span>
+                      {isLocked ? (
+                        <Lock
+                          size={20}
+                          onClick={() => setIsLocked(false)}
+                          className="cursor-pointer text-red-800"
+                        />
+                      ) : (
+                        <LockOpen
+                          size={20}
+                          onClick={() => setIsLocked(true)}
+                          className="cursor-pointer text-green-800"
+                        />
+                      )}
+                    </CardDescription>
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2">
-                        <SquareMinus
-                          size={24}
-                          onClick={() =>
-                            updateCrates("crateBig", (order.crateBig || 0) - 1)
-                          }
-                          className="cursor-pointer text-stone-300 hover:text-green-800"
-                        />
-                        <input
-                          type="number"
-                          min="0"
-                          value={order.crateBig || 0}
-                          onChange={(e) =>
-                            updateCrates(
-                              "crateBig",
-                              parseInt(e.target.value) || 0
-                            )
-                          }
-                          className="w-16 text-center border rounded-md"
-                        />
-                        <SquarePlus
-                          size={24}
-                          onClick={() =>
-                            updateCrates("crateBig", (order.crateBig || 0) + 1)
-                          }
-                          className="cursor-pointer text-stone-300 hover:text-red-800"
-                        />
-                        <span>Velká</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <SquareMinus
-                          size={24}
-                          onClick={() =>
-                            updateCrates(
-                              "crateSmall",
-                              (order.crateSmall || 0) - 1
-                            )
-                          }
-                          className="cursor-pointer text-stone-300 hover:text-green-800"
-                        />
+                        {!isLocked && (
+                          <SquareMinus
+                            size={24}
+                            onClick={() =>
+                              updateCrates(
+                                "crateSmall",
+                                (order.crateSmall || 0) - 1
+                              )
+                            }
+                            className="cursor-pointer text-stone-300 hover:text-green-800"
+                          />
+                        )}
                         <input
                           type="number"
                           min="0"
                           value={order.crateSmall || 0}
                           onChange={(e) =>
+                            !isLocked &&
                             updateCrates(
                               "crateSmall",
                               parseInt(e.target.value) || 0
                             )
                           }
+                          disabled={isLocked}
                           className="w-16 text-center border rounded-md"
                         />
-                        <SquarePlus
-                          size={24}
-                          onClick={() =>
+                        {!isLocked && (
+                          <SquarePlus
+                            size={24}
+                            onClick={() =>
+                              updateCrates(
+                                "crateSmall",
+                                (order.crateSmall || 0) + 1
+                              )
+                            }
+                            className="cursor-pointer text-stone-300 hover:text-red-800"
+                          />
+                        )}
+                        <Container size={20} className="text-yellow-600" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!isLocked && (
+                          <SquareMinus
+                            size={24}
+                            onClick={() =>
+                              updateCrates(
+                                "crateBig",
+                                (order.crateBig || 0) - 1
+                              )
+                            }
+                            className="cursor-pointer text-stone-300 hover:text-green-800"
+                          />
+                        )}
+                        <input
+                          type="number"
+                          min="0"
+                          value={order.crateBig || 0}
+                          onChange={(e) =>
+                            !isLocked &&
                             updateCrates(
-                              "crateSmall",
-                              (order.crateSmall || 0) + 1
+                              "crateBig",
+                              parseInt(e.target.value) || 0
                             )
                           }
-                          className="cursor-pointer text-stone-300 hover:text-red-800"
+                          disabled={isLocked}
+                          className="w-16 text-center border rounded-md"
                         />
-                        <span>Malá</span>
+                        {!isLocked && (
+                          <SquarePlus
+                            size={24}
+                            onClick={() =>
+                              updateCrates(
+                                "crateBig",
+                                (order.crateBig || 0) + 1
+                              )
+                            }
+                            className="cursor-pointer text-stone-300 hover:text-red-800"
+                          />
+                        )}
+                        <Container size={24} className="text-red-800" />
                       </div>
                     </div>
                   </div>
                   <div>
-                    <CardDescription>Přijaté obaly</CardDescription>
+                    <CardDescription className="py-2">
+                      Přijaté obaly
+                    </CardDescription>
                     <div className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2">
-                        <SquareMinus
-                          size={24}
-                          onClick={() =>
-                            updateCrates(
-                              "crateBigReceived",
-                              (order.crateBigReceived || 0) - 1
-                            )
-                          }
-                          className="cursor-pointer text-stone-300 hover:text-green-800"
-                        />
-                        <input
-                          type="number"
-                          min="0"
-                          value={order.crateBigReceived || 0}
-                          onChange={(e) =>
-                            updateCrates(
-                              "crateBigReceived",
-                              parseInt(e.target.value) || 0
-                            )
-                          }
-                          className="w-16 text-center border rounded-md"
-                        />
-                        <SquarePlus
-                          size={24}
-                          onClick={() =>
-                            updateCrates(
-                              "crateBigReceived",
-                              (order.crateBigReceived || 0) + 1
-                            )
-                          }
-                          className="cursor-pointer text-stone-300 hover:text-red-800"
-                        />
-                        <span>Velká</span>
-                      </div>
+                      {" "}
                       <div className="flex items-center gap-2">
                         <SquareMinus
                           size={24}
@@ -260,7 +291,42 @@ export function OrderDetailsCard() {
                           }
                           className="cursor-pointer text-stone-300 hover:text-red-800"
                         />
-                        <span>Malá</span>
+                        <Container size={20} className="text-yellow-600" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <SquareMinus
+                          size={24}
+                          onClick={() =>
+                            updateCrates(
+                              "crateBigReceived",
+                              (order.crateBigReceived || 0) - 1
+                            )
+                          }
+                          className="cursor-pointer text-stone-300 hover:text-green-800"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          value={order.crateBigReceived || 0}
+                          onChange={(e) =>
+                            updateCrates(
+                              "crateBigReceived",
+                              parseInt(e.target.value) || 0
+                            )
+                          }
+                          className="w-16 text-center border rounded-md"
+                        />
+                        <SquarePlus
+                          size={24}
+                          onClick={() =>
+                            updateCrates(
+                              "crateBigReceived",
+                              (order.crateBigReceived || 0) + 1
+                            )
+                          }
+                          className="cursor-pointer text-stone-300 hover:text-red-800"
+                        />
+                        <Container size={24} className="text-red-800" />
                       </div>
                     </div>
                   </div>
@@ -268,7 +334,7 @@ export function OrderDetailsCard() {
               </Card>
             )}
           </CardContent>
-          <CardFooter className="flex flex-col gap-2">
+          <CardFooter className="flex flex-col gap-2 print:hidden">
             <div className="flex gap-2 justify-evenly">
               {user?.role === "admin" && (
                 <>
