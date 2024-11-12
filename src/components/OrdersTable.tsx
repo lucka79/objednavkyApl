@@ -100,9 +100,9 @@ const calculateCrateSums = (orders: Order[]) => {
 const columns: ColumnDef<Order>[] = [
   {
     accessorKey: "date",
-    header: () => <div className="w-20 text-right">Datum</div>,
+    header: () => <div className="w-16 text-right">Datum</div>,
     cell: ({ row }) => (
-      <div className="w-20 text-right">
+      <div className="w-18 text-right">
         {new Date(row.original.date).toLocaleDateString()}
       </div>
     ),
@@ -115,7 +115,7 @@ const columns: ColumnDef<Order>[] = [
     accessorKey: "crateSmall",
     header: () => <div className="text-right print:hidden"></div>,
     cell: ({ row }) => (
-      <div className="flex items-center justify-start w-12 text-right print:hidden">
+      <div className="flex items-center w-12 text-right print:hidden">
         <Badge variant="outline" className="text-yellow-700 ">
           {row.original.crateSmall}
           <Container size={16} className="ml-2" />

@@ -169,13 +169,13 @@ export function OrderDetailsDialog() {
                           <span>Vydané obaly</span>
                           {isLocked ? (
                             <Lock
-                              size={20}
+                              size={16}
                               onClick={() => setIsLocked(false)}
                               className="cursor-pointer text-red-800"
                             />
                           ) : (
                             <LockOpen
-                              size={20}
+                              size={18}
                               onClick={() => setIsLocked(true)}
                               className="cursor-pointer text-green-800"
                             />
