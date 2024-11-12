@@ -28,7 +28,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { ArrowUp, CalendarIcon, Container } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarIcon, Container } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
@@ -133,6 +133,35 @@ const columns: ColumnDef<Order>[] = [
     header: () => <div className="text-right">Celkem</div>,
     cell: ({ row }) => (
       <div className="text-right">{row.original.total.toFixed(2)} Kč</div>
+    ),
+  },
+  {
+    accessorKey: "crateSmallReceived",
+    header: () => <div className="text-right"></div>,
+    cell: ({ row }) => (
+      <div className="flex items-center justify-start w-10 text-right">
+        <Badge variant="secondary" className="text-yellow-700 ">
+          {row.original.crateSmallReceived}
+          <Container size={16} className="ml-2" />
+          <ArrowDown size={16} />
+        </Badge>
+      </div>
+    ),
+  },
+  {
+    accessorKey: "crateBigReceived",
+    header: () => <div className="text-right"></div>,
+    cell: ({ row }) => (
+      <div className="flex items-center justify-end w-10 text-right">
+        <Badge
+          variant="secondary"
+          className="flex flex-row gap-1 text-red-800 "
+        >
+          {row.original.crateBigReceived}
+          <Container size={20} className="ml-2" />
+          <ArrowDown size={16} />
+        </Badge>
+      </div>
     ),
   },
   {
