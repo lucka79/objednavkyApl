@@ -28,7 +28,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
+import { ArrowUp, CalendarIcon, Container } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
@@ -99,6 +99,32 @@ const columns: ColumnDef<Order>[] = [
     header: "# ID",
   },
   {
+    accessorKey: "crateSmall",
+    header: () => <div className="text-right"></div>,
+    cell: ({ row }) => (
+      <div className="flex items-center justify-start w-10 text-right">
+        <Badge variant="outline" className="text-yellow-700 border-amber-700">
+          {row.original.crateSmall}
+          <Container size={16} className="ml-2" />
+          <ArrowUp size={16} />
+        </Badge>
+      </div>
+    ),
+  },
+  {
+    accessorKey: "crateBig",
+    header: () => <div className="text-right"></div>,
+    cell: ({ row }) => (
+      <div className="flex items-center justify-end w-10 text-right">
+        <Badge variant="outline" className="text-red-800 border-red-700">
+          {row.original.crateBig}
+          <Container size={20} className="ml-2" />
+          <ArrowUp size={16} />
+        </Badge>
+      </div>
+    ),
+  },
+  {
     accessorKey: "user.full_name",
     header: "Odběratel",
   },
@@ -121,12 +147,12 @@ const columns: ColumnDef<Order>[] = [
       return (
         <div className="text-right flex justify-end gap-2 items-center">
           {checkedCount > 0 && (
-            <Badge variant="outline" className="bg-green-400">
+            <Badge variant="outline" className="border-green-700 bg-green-400">
               {checkedCount}
             </Badge>
           )}
           {uncheckedCount > 0 && (
-            <Badge variant="outline" className="bg-amber-400">
+            <Badge variant="outline" className="border-amber-700 bg-amber-400">
               {uncheckedCount}
             </Badge>
           )}
@@ -197,8 +223,8 @@ export function OrdersTable({
   if (error) return <div>Error loading orders</div>;
 
   return (
-    <Card className="my-0 p-4">
-      <div className="space-y-4 overflow-x-auto">
+    <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible  print:transform-none">
+      <div className="space-y-4 overflow-x-auto print:!m-0">
         <div className="space-y-2">
           <div className="flex justify-between items-center gap-2">
             <Input
