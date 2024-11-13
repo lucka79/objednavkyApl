@@ -3,13 +3,24 @@ import { useCartStore } from "@/providers/cartStore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Coins, SquareMinus, SquarePlus, Trash2 } from "lucide-react";
+import { Coins, SquareMinus, SquarePlus, Trash2, Plus } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
-import { useUpdateOrderItems, useUpdateOrder } from "@/hooks/useOrders";
+import {
+  useUpdateOrderItems,
+  useUpdateOrder,
+  useDeleteOrderItem,
+} from "@/hooks/useOrders";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { AddProduct } from "@/components/AddProduct";
 
 interface OrderItem {
   id: number;
@@ -33,6 +44,7 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
   const [orderItems, setOrderItems] = useState(items);
   const { mutate: updateOrderItems } = useUpdateOrderItems();
   const { mutate: updateOrder } = useUpdateOrder();
+  const { mutate: deleteOrderItem } = useDeleteOrderItem();
   const { toast } = useToast();
   const user = useAuthStore((state) => state.user);
 
@@ -43,12 +55,32 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
     }, 0);
   };
 
+  const handleDeleteItem = async (itemId: number) => {
+    try {
+      await deleteOrderItem({ itemId, orderId });
+      setOrderItems((prevItems) =>
+        prevItems.filter((item) => item.id !== itemId)
+      );
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete item",
+        variant: "destructive",
+      });
+    }
+  };
+
   const updateOrderQuantity = async (
     itemId: number,
     productId: number,
     newQuantity: number
   ) => {
-    if (newQuantity <= 0) return;
+    if (newQuantity < 0) return;
+
+    if (newQuantity === 0) {
+      await handleDeleteItem(itemId);
+      return;
+    }
 
     try {
       await updateOrderItems({
@@ -172,6 +204,18 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
           <Badge variant="outline" className="border-amber-500">
             Připravit {getCheckboxCounts().unchecked}
           </Badge>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="ml-auto">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Product
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogTitle>Add Product to Order</DialogTitle>
+              <AddProduct orderId={orderId} />
+            </DialogContent>
+          </Dialog>
         </div>
         {!orderItems || orderItems.length === 0 ? (
           <p>No items in order.</p>
@@ -208,7 +252,7 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
                 />
                 <Input
                   type="number"
-                  min="1"
+                  min="0"
                   value={item.quantity}
                   onChange={(e) =>
                     !item.checked &&

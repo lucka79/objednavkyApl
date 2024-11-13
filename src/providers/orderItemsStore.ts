@@ -1,6 +1,7 @@
 import {create} from 'zustand'
 import { OrderItem } from '../../types'
 import { useCartStore } from './cartStore'
+import { useOrderStore } from './orderStore'
 
 interface OrderItemsStore {
     orderItems: OrderItem[]
@@ -25,6 +26,7 @@ interface OrderItemsStore {
       })),
     addOrderItem: (product) => {
       const cartItems = useCartStore.getState().items;
+      const selectedOrderId = useOrderStore.getState().selectedOrderId;
       
       set((state) => {
         const cartItem = cartItems.find((item) => item.product.id === product.id);
@@ -49,7 +51,7 @@ interface OrderItemsStore {
             quantity: quantity,
             price: product.price,
             priceMobil: product.priceMobil,
-            order_id: 0,
+            order_id: selectedOrderId || 0,
             checked: false
           }],
         };

@@ -28,7 +28,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { ArrowDown, ArrowUp, CalendarIcon, Container } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  CalendarIcon,
+  Container,
+  CirclePlus,
+} from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
@@ -498,9 +504,12 @@ function OrderTableContent({
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
-                {/* <div className="flex mt-2 self-center gap-2">
-                  <Badge variant="outline">{row.original.status}</Badge>
-                </div> */}
+
+                <CirclePlus
+                  onClick={() => setSelectedOrderId(row.original.id)}
+                  size={20}
+                  className="flex my-3 text-green-800 cursor-pointer"
+                />
               </TableRow>
             ))
           ) : (

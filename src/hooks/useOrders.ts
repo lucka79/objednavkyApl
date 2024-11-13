@@ -192,25 +192,36 @@ export const useInsertOrderItems = () => {
   });
 };
 
+export const fetchOrderItems = async (orderId: number) => {
+  const { data, error } = await supabase
+    .from('order_items')
+    .select(`
+      *,
+      product:products(*)
+    `)
+    .eq('order_id', orderId);
+
+  if (error) throw error;
+  return data;
+};
+
 export const useUpdateOrderItems = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
     async mutationFn({id, updatedFields}: {id: number, updatedFields: Partial<OrderItem>}) {
-      // Get current date and adjust for timezone
       const now = new Date();
       const timezoneOffset = now.getTimezoneOffset();
       const adjustedDate = new Date(now.getTime() - (timezoneOffset * 60 * 1000));
       const timestamp = adjustedDate.toISOString();
 
-      const { data, error } = await supabase
-        .from("order_items")
-        .update({
-          ...updatedFields,
-          updated_at: timestamp
-        })
-        .eq('id', id)
-        .select();
+      // Check if this is a new item (orderId provided instead of id)
+      const isNewItem = updatedFields.order_id !== undefined;
+      
+      const query = supabase.from("order_items");
+      const { data, error } = await (isNewItem 
+        ? query.insert({ ...updatedFields, updated_at: timestamp }).select()
+        : query.update({ ...updatedFields, updated_at: timestamp }).eq('id', id).select());
 
       if (error) {
         console.error('Update error:', error);
@@ -219,11 +230,36 @@ export const useUpdateOrderItems = () => {
       
       return data;
     },
-    onSuccess: (data) => {
-      console.log('Mutation succeeded:', data);
-      queryClient.invalidateQueries({ queryKey: ["orderItems"] });
+    onSuccess: (_, variables) => {
+      const orderId = variables.updatedFields.order_id;
+      if (orderId) {
+        queryClient.invalidateQueries({ queryKey: ["orderItems", orderId] });
+        queryClient.invalidateQueries({ queryKey: ["orders", orderId] });
+      }
       queryClient.invalidateQueries({ queryKey: ["orders"] });
     },
   });
 };
+
+export const useDeleteOrderItem = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    async mutationFn({ itemId, orderId }: { itemId: number; orderId: number }) {
+      const { error } = await supabase
+        .from("order_items")
+        .delete()
+        .eq('id', itemId);
+
+      if (error) throw error;
+      return { itemId, orderId };
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["orderItems", variables.orderId] });
+      queryClient.invalidateQueries({ queryKey: ["orders", variables.orderId] });
+    },
+  });
+};
+
+
 
