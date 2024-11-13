@@ -69,21 +69,16 @@ export const AddProduct: React.FC = () => {
   const { mutate: updateOrderItems } = useUpdateOrderItems();
 
   const selectedOrderId = useOrderStore((state) => state.selectedOrderId);
-  const addOrderItem = useOrderItemsStore((state) => state.addOrderItem);
 
   const queryClient = useQueryClient();
 
   const handleAddProduct = async (product: any) => {
     if (selectedOrderId) {
-      console.log("Adding product to existing order:", {
-        orderId: selectedOrderId,
-        product: product,
-      });
-
-      // Check if product already exists in order
-      const existingItem = useOrderItemsStore
-        .getState()
-        .orderItems.find((item) => item.product_id === product.id);
+      const orderItems = useOrderItemsStore.getState().orderItems;
+      const existingItem = orderItems.find(
+        (item) =>
+          item.product_id === product.id && item.order_id === selectedOrderId
+      );
 
       if (existingItem) {
         // Update existing item quantity
@@ -94,9 +89,9 @@ export const AddProduct: React.FC = () => {
           },
         });
       } else {
-        // Add new item
+        // Add new item - use null for id to indicate new item
         await updateOrderItems({
-          id: 0,
+          id: 0, // or any default value your backend expects for new items
           updatedFields: {
             order_id: selectedOrderId,
             product_id: product.id,
@@ -107,15 +102,6 @@ export const AddProduct: React.FC = () => {
         });
       }
 
-      // Update local state after database operation
-      addOrderItem(product);
-
-      console.log(
-        "Updated order items:",
-        useOrderItemsStore.getState().orderItems
-      );
-
-      // Invalidate and refetch the orders query
       await queryClient.invalidateQueries({ queryKey: ["orders"] });
     } else {
       addItem(product);

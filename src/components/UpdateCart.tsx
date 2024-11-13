@@ -50,7 +50,19 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
   const user = useAuthStore((state) => state.user);
 
   useEffect(() => {
-    setOrderItems(items);
+    // Combine duplicate products by summing their quantities
+    const combinedItems = items.reduce((acc: OrderItem[], curr) => {
+      const existingItem = acc.find(
+        (item) => item.product.id === curr.product.id
+      );
+      if (existingItem) {
+        existingItem.quantity += curr.quantity;
+        return acc;
+      }
+      return [...acc, curr];
+    }, []);
+
+    setOrderItems(combinedItems);
   }, [items]);
 
   const calculateTotal = () => {
