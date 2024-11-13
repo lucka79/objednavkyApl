@@ -1,9 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
-import { useCartStore } from "@/providers/cartStore";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Coins, SquareMinus, SquarePlus, Trash2, Plus } from "lucide-react";
+import { Coins, SquareMinus, SquarePlus, Plus } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
@@ -62,7 +61,12 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
       return [...acc, curr];
     }, []);
 
-    setOrderItems(combinedItems);
+    // Sort combined items by product name in descending order
+    const sortedItems = combinedItems.sort((a, b) =>
+      a.product.name.localeCompare(b.product.name, "cs")
+    );
+
+    setOrderItems(sortedItems);
   }, [items]);
 
   const calculateTotal = () => {

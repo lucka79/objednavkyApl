@@ -117,7 +117,10 @@ export function OrderDetailsDialog() {
       open={!!selectedOrderId}
       onOpenChange={(open) => !open && setSelectedOrderId(null)}
     >
-      <DialogContent className="max-w-4xl print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible  print:transform-none">
+      <DialogContent
+        className="max-w-4xl max-h-[90vh] overflow-y-auto
+      print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible  print:transform-none"
+      >
         <DialogHeader>
           <DialogTitle>Order Details</DialogTitle>
         </DialogHeader>

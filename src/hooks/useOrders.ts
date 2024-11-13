@@ -67,7 +67,7 @@ export const fetchOrderById = (orderId: number) => {
             .from('orders')
             .select(`
             *,
-            user:profiles(id, full_name, crateSmall, crateBig),
+            user:profiles(id, full_name, role, crateSmall, crateBig),
             order_items (
                 *,
                 product:products (*)
@@ -91,7 +91,7 @@ return useQuery({
         .from('orders')
         .select(`
         *,
-        user:profiles (id, full_name),
+        user:profiles (id, full_name, role),
         order_items (
         *,
         product:products (*)
@@ -210,27 +210,32 @@ export const useUpdateOrderItems = () => {
 
   return useMutation({
     async mutationFn({id, updatedFields}: {id: number, updatedFields: Partial<OrderItem>}) {
-      console.log('Starting mutation with:', { id, updatedFields });
-      
-      const now = new Date();
-      const timezoneOffset = now.getTimezoneOffset();
-      const adjustedDate = new Date(now.getTime() - (timezoneOffset * 60 * 1000));
-      const timestamp = adjustedDate.toISOString();
-
-      const isNewItem = updatedFields.order_id !== undefined;
-      console.log('Is new item:', isNewItem);
-      
-      const query = supabase.from("order_items");
-      const { data, error } = await (isNewItem 
-        ? query.insert({ ...updatedFields, updated_at: timestamp }).select()
-        : query.update({ ...updatedFields, updated_at: timestamp }).eq('id', id).select());
-
-      if (error) {
-        console.error('Update error:', error);
-        throw error;
+      // First, get the user's role from profiles if we have order_id
+      let price = updatedFields.price;
+      if (updatedFields.order_id) {
+        const { data: orderData } = await supabase
+          .from('orders')
+          .select('user:profiles!inner(role)')
+          .eq('id', updatedFields.order_id)
+          .single();
+        
+        if (orderData?.user?.role === 'mobil') {
+          const { data: productData } = await supabase
+            .from('products')
+            .select('priceMobil')
+            .eq('id', updatedFields.product_id)
+            .single();
+          price = productData?.priceMobil;
+        }
       }
-      
-      console.log('Mutation successful, returned data:', data);
+
+      const now = new Date().toISOString();
+      const query = supabase.from("order_items");
+      const { data, error } = await (id === 0
+        ? query.insert({ ...updatedFields, price, updated_at: now }).select()
+        : query.update({ ...updatedFields, updated_at: now }).eq('id', id).select());
+
+      if (error) throw error;
       return data;
     },
     onSuccess: (data, variables) => {
