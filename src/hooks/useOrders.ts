@@ -210,13 +210,15 @@ export const useUpdateOrderItems = () => {
 
   return useMutation({
     async mutationFn({id, updatedFields}: {id: number, updatedFields: Partial<OrderItem>}) {
+      console.log('Starting mutation with:', { id, updatedFields });
+      
       const now = new Date();
       const timezoneOffset = now.getTimezoneOffset();
       const adjustedDate = new Date(now.getTime() - (timezoneOffset * 60 * 1000));
       const timestamp = adjustedDate.toISOString();
 
-      // Check if this is a new item (orderId provided instead of id)
       const isNewItem = updatedFields.order_id !== undefined;
+      console.log('Is new item:', isNewItem);
       
       const query = supabase.from("order_items");
       const { data, error } = await (isNewItem 
@@ -228,9 +230,11 @@ export const useUpdateOrderItems = () => {
         throw error;
       }
       
+      console.log('Mutation successful, returned data:', data);
       return data;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
+      console.log('onSuccess called with data:', data);
       const orderId = variables.updatedFields.order_id;
       if (orderId) {
         queryClient.invalidateQueries({ queryKey: ["orderItems", orderId] });

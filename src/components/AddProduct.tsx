@@ -21,6 +21,7 @@ import { fetchCategories } from "@/hooks/useCategories";
 import { useUpdateOrderItems } from "@/hooks/useOrders";
 import { useOrderStore } from "@/providers/orderStore";
 import { useOrderItemsStore } from "@/providers/orderItemsStore";
+import { useQueryClient } from "@tanstack/react-query";
 
 // Category badges component
 const CategoryBadges = ({
@@ -70,6 +71,8 @@ export const AddProduct: React.FC = () => {
   const selectedOrderId = useOrderStore((state) => state.selectedOrderId);
   const addOrderItem = useOrderItemsStore((state) => state.addOrderItem);
 
+  const queryClient = useQueryClient();
+
   const handleAddProduct = async (product: any) => {
     if (selectedOrderId) {
       console.log("Adding product to existing order:", {
@@ -111,6 +114,9 @@ export const AddProduct: React.FC = () => {
         "Updated order items:",
         useOrderItemsStore.getState().orderItems
       );
+
+      // Invalidate and refetch the orders query
+      await queryClient.invalidateQueries({ queryKey: ["orders"] });
     } else {
       addItem(product);
     }

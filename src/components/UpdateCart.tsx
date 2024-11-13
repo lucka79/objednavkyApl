@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useCartStore } from "@/providers/cartStore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +19,7 @@ import {
   DialogContent,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { AddProduct } from "@/components/AddProduct";
 
@@ -41,19 +42,24 @@ interface UpdateCartProps {
 }
 
 export default function UpdateCart({ items, orderId }: UpdateCartProps) {
-  const [orderItems, setOrderItems] = useState(items);
+  const [orderItems, setOrderItems] = useState<OrderItem[]>(items);
   const { mutate: updateOrderItems } = useUpdateOrderItems();
   const { mutate: updateOrder } = useUpdateOrder();
   const { mutate: deleteOrderItem } = useDeleteOrderItem();
   const { toast } = useToast();
   const user = useAuthStore((state) => state.user);
 
+  useEffect(() => {
+    setOrderItems(items);
+  }, [items]);
+
   const calculateTotal = () => {
-    console.log("Calculating total with items:", orderItems);
     return orderItems.reduce((sum: number, item: OrderItem) => {
       return sum + item.quantity * item.price;
     }, 0);
   };
+
+  const total = useMemo(() => calculateTotal(), [orderItems]);
 
   const handleDeleteItem = async (itemId: number) => {
     try {
@@ -211,8 +217,14 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
                 Add Product
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent
+              className="max-w-4xl max-h-[90vh] overflow-y-auto"
+              aria-describedby="dialog-description"
+            >
               <DialogTitle>Add Product to Order</DialogTitle>
+              <DialogDescription id="dialog-description">
+                Select products to add to the order
+              </DialogDescription>
               <AddProduct orderId={orderId} />
             </DialogContent>
           </Dialog>
@@ -222,7 +234,7 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
         ) : (
           orderItems.map((item) => (
             <div
-              key={item.product.id}
+              key={item.id}
               className="flex items-center justify-between pt-2 mb-2"
             >
               <Checkbox
@@ -289,7 +301,7 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
           className="flex flex-row font-bold text-slate-600 w-full mt-4"
         >
           <Coins className="flex flex-row font-bold text-slate-600 w-1/12 mb-auto" />
-          {calculateTotal().toFixed(2)}
+          {total.toFixed(2)}
         </Button>
       </CardContent>
     </Card>
