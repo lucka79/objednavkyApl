@@ -59,28 +59,30 @@ export const fetchOrdersByUserId = (userId: string) => {
 };
 
 // order by id
-export const fetchOrderById = (orderId: number) => {
-    return useQuery({
-        queryKey: ['orders', orderId],
-        queryFn: async () => {
-            const { data, error } = await supabase
-            .from('orders')
-            .select(`
-            *,
-            user:profiles(id, full_name, role, crateSmall, crateBig),
-            order_items (
-                *,
-                product:products (*)
-            )
-            `)
-            .eq('id', orderId)
-            .order('created_at', { ascending: false })
+export const fetchOrderById = (orderId: number | null) => {
+  return useQuery({
+    queryKey: ['order', orderId],
+    queryFn: async () => {
+      // Don't fetch if orderId is null
+      if (!orderId) return null;
 
-            if (error) throw error
-            return data
-        },
-    });
-  };
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          user:profiles(id, full_name, role, crateSmall, crateBig),
+          order_items(*, product:products(*))
+        `)
+        .eq('id', orderId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    // Disable the query when orderId is null
+    enabled: !!orderId
+  });
+};
 
 // all orders
 export const fetchAllOrders =  () => {

@@ -39,3 +39,23 @@ export const useUpdateProfile = () => {
       },
     });
   };
+
+// Add this new hook
+export const useSelectedUser = (userId: string) => {
+  return useQuery({
+    queryKey: ["selectedUser", userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!userId, // Only run query if userId exists
+  });
+};

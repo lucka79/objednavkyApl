@@ -29,6 +29,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 
 export function OrderDetailsDialog() {
@@ -36,7 +37,10 @@ export function OrderDetailsDialog() {
   const { selectedOrderId, setSelectedOrderId } = useOrderStore();
   const { mutate: updateOrder } = useUpdateOrder();
   const { mutate: updateProfile } = useUpdateProfile();
-  const { data: orders, error, isLoading } = fetchOrderById(selectedOrderId!);
+
+  if (!selectedOrderId) return null;
+
+  const { data: orders, error, isLoading } = fetchOrderById(selectedOrderId);
 
   console.log("User crates:", {
     crateBig: orders?.[0]?.user?.crateBig,
@@ -108,7 +112,6 @@ export function OrderDetailsDialog() {
 
   const [isLocked, setIsLocked] = useState(false);
 
-  if (!selectedOrderId) return null;
   if (isLoading) return <div>Loading order details...</div>;
   if (error) return <div>Error loading order details</div>;
 
@@ -122,7 +125,10 @@ export function OrderDetailsDialog() {
       print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible  print:transform-none"
       >
         <DialogHeader>
-          <DialogTitle>Order Details</DialogTitle>
+          <DialogTitle>Detail objednávky</DialogTitle>
+          <DialogDescription>
+            Detail objednávky včetně informací o zákazníkovi, položkách a stavu
+          </DialogDescription>
         </DialogHeader>
         <div className="print:!m-0">
           {orders?.map((order) => (

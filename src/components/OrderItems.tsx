@@ -8,8 +8,13 @@ interface OrderItemsProps {
 
 export function OrderItems({ items }: OrderItemsProps) {
   const user = useAuthStore((state) => state.user);
+
+  const getItemPrice = (item: OrderItem) => {
+    return user?.role === "user" ? item.product.price : item.product.priceMobil;
+  };
+
   const total = items.reduce(
-    (sum, item) => sum + item.quantity * item.price,
+    (sum, item) => sum + item.quantity * getItemPrice(item),
     0
   );
 
@@ -20,13 +25,13 @@ export function OrderItems({ items }: OrderItemsProps) {
           <TableRow key={item.id}>
             <TableCell>{item.product.name}</TableCell>
             <TableCell className="text-left">
-              {item.price?.toFixed(2)} Kč
+              {getItemPrice(item).toFixed(2)} Kč
             </TableCell>
             <TableCell className="text-right font-semibold">
               {item.quantity}
             </TableCell>
             <TableCell className="text-right">
-              {(item.price * item.quantity).toFixed(2)} Kč
+              {(getItemPrice(item) * item.quantity).toFixed(2)} Kč
             </TableCell>
           </TableRow>
         ))}

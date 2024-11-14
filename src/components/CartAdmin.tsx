@@ -35,6 +35,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useMobileUsers } from "@/hooks/useProfiles";
+import { CartItem } from "types";
+import { useSelectedUser } from "@/hooks/useProfiles";
 
 export default function CartAdmin() {
   const { toast } = useToast();
@@ -60,6 +62,7 @@ export default function CartAdmin() {
 
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const { data: mobileUsers } = useMobileUsers();
+  const { data: selectedUser } = useSelectedUser(selectedUserId);
 
   useEffect(() => {
     if (user && user.role !== "admin") {
@@ -69,12 +72,13 @@ export default function CartAdmin() {
 
   const calculateTotal = () => {
     return items.reduce((sum, item) => {
-      const price =
-        user?.role === "admin" || user?.role === "mobil"
-          ? item.product.priceMobil
-          : item.product.price;
+      const price = getItemPrice(item);
       return sum + price * item.quantity;
     }, 0);
+  };
+
+  const getItemPrice = (item: CartItem) => {
+    return user?.role === "user" ? item.product.price : item.product.priceMobil;
   };
 
   return (
@@ -156,6 +160,18 @@ export default function CartAdmin() {
               <span className="text-sm line-clamp-1 hover:line-clamp-2">
                 {item.product.name}
               </span>
+              <span>
+                {user?.role === "mobil" && (
+                  <>{item.product.priceMobil.toFixed(2)}</>
+                )}
+                {user?.role === "admin" && (
+                  <>{item.product.priceMobil.toFixed(2)}</>
+                )}
+                {user?.role === "prodejna" && (
+                  <>{item.product.price.toFixed(2)}</>
+                )}
+                {user?.role === "user" && <>{item.product.price.toFixed(2)}</>}
+              </span>
               <div className="flex items-center">
                 <SquareMinus
                   onClick={() =>
@@ -186,6 +202,9 @@ export default function CartAdmin() {
                     <>{(item.product.priceMobil * item.quantity).toFixed(2)}</>
                   )}
                   {user?.role === "prodejna" && (
+                    <>{(item.product.price * item.quantity).toFixed(2)}</>
+                  )}
+                  {user?.role === "user" && (
                     <>{(item.product.price * item.quantity).toFixed(2)}</>
                   )}
                   {/* {(item.product.price * item.quantity).toFixed(2)} Kč */}
@@ -223,12 +242,25 @@ export default function CartAdmin() {
 
             try {
               const orderTotal = calculateTotal();
+              console.log(
+                "Cart items being inserted:",
+                items.map((item) => ({
+                  productId: item.product.id,
+                  name: item.product.name,
+                  quantity: item.quantity,
+                  price: getItemPrice(item),
+
+                  userRole: user?.role,
+                }))
+              );
+
               await checkout(
                 insertOrder,
                 insertOrderItems,
                 date,
                 selectedUserId,
-                orderTotal
+                orderTotal,
+                selectedUser?.role
               );
               const newTomorrow = new Date();
               newTomorrow.setDate(newTomorrow.getDate() + 1);

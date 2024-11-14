@@ -238,9 +238,9 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
               aria-describedby="dialog-description"
             >
               <DialogTitle>Add Product to Order</DialogTitle>
-              <DialogDescription id="dialog-description">
+              <div id="dialog-description" className="sr-only">
                 Select products to add to the order
-              </DialogDescription>
+              </div>
               <AddProduct orderId={orderId} />
             </DialogContent>
           </Dialog>

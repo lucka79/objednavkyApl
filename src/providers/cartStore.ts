@@ -10,7 +10,14 @@ type CartStore = {
   updateQuantity: (productId: number, quantity: number) => void;
   clearCart: () => void;
   
-  checkout: (insertOrder: any, insertOrderItems: any, orderDate: Date, selectedUserId: string, orderTotal: number) => Promise<void>;
+  checkout: (
+    insertOrder: any, 
+    insertOrderItems: any, 
+    orderDate: Date, 
+    selectedUserId: string,
+    orderTotal: number,
+    selectedUserRole: string
+  ) => Promise<void>;
 };
 
 
@@ -62,7 +69,8 @@ export const useCartStore = create<CartStore>((set, get) => ({
     insertOrderItems: any, 
     orderDate: Date, 
     selectedUserId: string,
-    orderTotal: number
+    orderTotal: number,
+    selectedUserRole: string
   ) => {
     try {
       const tzOffset = orderDate.getTimezoneOffset() * 60000;
@@ -82,8 +90,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
         order_id: orderId,
         product_id: item.product.id,
         quantity: item.quantity,
-        price: item.product.priceMobil,
-        
+        price: selectedUserRole === "user" ? item.product.price : item.product.priceMobil,
       }));
       console.log('Order items to insert:', orderItems);
 
