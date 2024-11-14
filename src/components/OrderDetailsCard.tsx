@@ -1,4 +1,4 @@
-import { fetchOrderById, useUpdateOrder } from "@/hooks/useOrders";
+import { useFetchOrderById, useUpdateOrder } from "@/hooks/useOrders";
 import { useOrderStore } from "@/providers/orderStore";
 import {
   Card,
@@ -30,7 +30,14 @@ export function OrderDetailsCard() {
   const { selectedOrderId } = useOrderStore();
   const { mutate: updateOrder } = useUpdateOrder();
   const { mutate: updateProfile } = useUpdateProfile();
-  const { data: orders, error, isLoading } = fetchOrderById(selectedOrderId!);
+
+  // Always call the hook, even if selectedOrderId is null
+  const { data: orders, error, isLoading } = useFetchOrderById(selectedOrderId);
+
+  // Move the early return after all hook calls
+  if (!selectedOrderId) {
+    return null;
+  }
 
   console.log("User crates:", {
     crateBig: orders?.[0]?.user?.crateBig,
@@ -102,7 +109,6 @@ export function OrderDetailsCard() {
 
   const [isLocked, setIsLocked] = useState(false);
 
-  if (!selectedOrderId) return null;
   if (isLoading) return <div>Loading order details...</div>;
   if (error) return <div>Error loading order details</div>;
 

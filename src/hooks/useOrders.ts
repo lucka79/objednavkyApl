@@ -59,12 +59,12 @@ export const fetchOrdersByUserId = (userId: string) => {
 };
 
 // order by id
-export const fetchOrderById = (orderId: number | null) => {
+export const useFetchOrderById = (orderId: number | null) => {
   return useQuery({
     queryKey: ['order', orderId],
     queryFn: async () => {
       // Don't fetch if orderId is null
-      if (!orderId) return null;
+      // if (!orderId) return null;
 
       const { data, error } = await supabase
         .from('orders')

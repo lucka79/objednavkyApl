@@ -1,4 +1,4 @@
-import { fetchOrderById, useUpdateOrder } from "@/hooks/useOrders";
+import { useFetchOrderById, useUpdateOrder } from "@/hooks/useOrders";
 import { useOrderStore } from "@/providers/orderStore";
 import {
   Card,
@@ -37,10 +37,13 @@ export function OrderDetailsDialog() {
   const { selectedOrderId, setSelectedOrderId } = useOrderStore();
   const { mutate: updateOrder } = useUpdateOrder();
   const { mutate: updateProfile } = useUpdateProfile();
+  const [isLocked, setIsLocked] = useState(false);
 
-  if (!selectedOrderId) return null;
+  const { data: orders, error, isLoading } = useFetchOrderById(selectedOrderId);
 
-  const { data: orders, error, isLoading } = fetchOrderById(selectedOrderId);
+  if (!selectedOrderId) {
+    return null;
+  }
 
   console.log("User crates:", {
     crateBig: orders?.[0]?.user?.crateBig,
@@ -48,7 +51,8 @@ export function OrderDetailsDialog() {
   });
 
   const updateStatus = (status: string) => {
-    updateOrder({ id: selectedOrderId!, updatedFields: { status } });
+    if (!selectedOrderId) return;
+    updateOrder({ id: selectedOrderId, updatedFields: { status } });
   };
 
   const updateCrates = async (
@@ -109,8 +113,6 @@ export function OrderDetailsDialog() {
       },
     });
   };
-
-  const [isLocked, setIsLocked] = useState(false);
 
   if (isLoading) return <div>Loading order details...</div>;
   if (error) return <div>Error loading order details</div>;
