@@ -45,7 +45,7 @@ export type Product = {
     'Paid',
   ];
   
-  export type OrderStatus = 'New' | 'Expedice' | 'Delivering' | 'Paid';
+  export type OrderStatus = 'Pre-order' | 'New' | 'Expedice' | 'Delivering' | 'Paid';
   
   export type Order = {
     id: number;
@@ -82,6 +82,7 @@ export type Product = {
   id: number;
   user_id: string;
   day: string;
+  status: OrderStatus;
   user: Profile;
   favorite_items: FavoriteItem[];
  };

@@ -30,29 +30,33 @@ export type Database = {
       favorite_items: {
         Row: {
           created_at: string
-          day: Database["public"]["Enums"]["dayOfWeek"] | null
           id: number
+          order_id: number | null
           product_id: number | null
           quantity: number | null
-          user_id: string | null
         }
         Insert: {
           created_at?: string
-          day?: Database["public"]["Enums"]["dayOfWeek"] | null
           id?: number
+          order_id?: number | null
           product_id?: number | null
           quantity?: number | null
-          user_id?: string | null
         }
         Update: {
           created_at?: string
-          day?: Database["public"]["Enums"]["dayOfWeek"] | null
           id?: number
+          order_id?: number | null
           product_id?: number | null
           quantity?: number | null
-          user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "favorite_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "favorite_orders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "favorite_items_product_id_fkey"
             columns: ["product_id"]
@@ -60,8 +64,33 @@ export type Database = {
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      favorite_orders: {
+        Row: {
+          created_at: string
+          day: Database["public"]["Enums"]["dayOfWeek"] | null
+          id: number
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          day?: Database["public"]["Enums"]["dayOfWeek"] | null
+          id?: number
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          day?: Database["public"]["Enums"]["dayOfWeek"] | null
+          id?: number
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
           {
-            foreignKeyName: "favorite_items_user_id_fkey"
+            foreignKeyName: "favorite_orders_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"

@@ -16,8 +16,7 @@ import { ProductCategory } from "@/components/ProductCategory";
 import { OrderDetailsCard } from "@/components/OrderDetailsCard";
 import { OrdersTable } from "@/components/OrdersTable";
 import CartAdmin from "@/components/CartAdmin";
-import { FavoriteItems } from "@/components/FavoriteItems";
-import { FavoriteOrders } from "@/components/FavoriteOrders";
+import { FavoriteOrdersTable } from "@/components/FavoriteOrdersTable";
 
 export const Route = createFileRoute("/admin/products")({
   component: AdminProducts,
@@ -76,7 +75,9 @@ function AdminProducts() {
             {activeView === "orders" && (
               <OrdersTable selectedProductId={null} />
             )}
-            {activeView === "templates" && <FavoriteOrders />}
+            {activeView === "templates" && (
+              <FavoriteOrdersTable selectedProductId={null} />
+            )}
           </div>
         </div>
         <div className="h-full overflow-y-auto overflow-x-hidden">

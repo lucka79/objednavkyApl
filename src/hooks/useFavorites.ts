@@ -5,18 +5,27 @@ export const useFavoriteOrders = () => {
   return useQuery({
     queryKey: ['favoriteOrders'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('favorite_orders')
-        .select(`
-            id,
-            user_id,
-            day,
-            user:profiles(id, full_name, role)
-        `)
-        .order('profiles.full_name', { ascending: false });
+      try {
+        const { data, error } = await supabase
+          .from('favorite_orders')
+          .select(`
+              *,
+              user:profiles(id, full_name, role),
+              favorite_items (
+                  *,
+                  product:products(*)
+              )
+          `)
+          .order('user(full_name)', { ascending: false });
+
+        console.log('Supabase response:', { data, error });
 
         if (error) throw error;
         return data;
+      } catch (error) {
+        console.error('Error fetching favorite orders:', error);
+        throw error;
+      }
     }
   })
 }
