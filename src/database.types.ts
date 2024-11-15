@@ -27,6 +27,48 @@ export type Database = {
         }
         Relationships: []
       }
+      favorite_items: {
+        Row: {
+          created_at: string
+          day: Database["public"]["Enums"]["dayOfWeek"] | null
+          id: number
+          product_id: number | null
+          quantity: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          day?: Database["public"]["Enums"]["dayOfWeek"] | null
+          id?: number
+          product_id?: number | null
+          quantity?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          day?: Database["public"]["Enums"]["dayOfWeek"] | null
+          id?: number
+          product_id?: number | null
+          quantity?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorite_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "favorite_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           checked: boolean
@@ -78,7 +120,9 @@ export type Database = {
       orders: {
         Row: {
           crateBig: number | null
+          crateBigReceived: number | null
           crateSmall: number | null
+          crateSmallReceived: number | null
           created_at: string
           date: string
           id: number
@@ -88,7 +132,9 @@ export type Database = {
         }
         Insert: {
           crateBig?: number | null
+          crateBigReceived?: number | null
           crateSmall?: number | null
+          crateSmallReceived?: number | null
           created_at?: string
           date: string
           id?: number
@@ -98,7 +144,9 @@ export type Database = {
         }
         Update: {
           crateBig?: number | null
+          crateBigReceived?: number | null
           crateSmall?: number | null
+          crateSmallReceived?: number | null
           created_at?: string
           date?: string
           id?: number
@@ -204,6 +252,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      dayOfWeek: "Po" | "├Üt" | "St" | "─ît" | "P├í" | "So" | "Ne"
       groupUser:
         | "admin"
         | "user"

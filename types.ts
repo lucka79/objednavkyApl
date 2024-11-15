@@ -77,6 +77,22 @@ export type Product = {
     order_id: number;
     priceMobil: number;
   };
+
+ export interface FavoriteOrder {
+  id: number;
+  user_id: string;
+  day: string;
+  user: Profile;
+  favorite_items: FavoriteItem[];
+ };
+
+  export interface FavoriteItem {
+    id: number;
+    product: Product;
+    quantity: number;
+    product_id: number;
+    order_id: number;   
+  };
   
   export type Profile = {
     id: string;

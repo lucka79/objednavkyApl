@@ -1,7 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ShoppingCartIcon, CakeSlice, FileSliders } from "lucide-react";
+import {
+  ShoppingCartIcon,
+  CakeSlice,
+  FileSliders,
+  LayoutTemplate,
+} from "lucide-react";
 
 import { useAuthStore } from "@/lib/supabase";
 import { ProductDetailsCard } from "@/components/ProductDetailsCard";
@@ -10,8 +15,9 @@ import { ProductCategory } from "@/components/ProductCategory";
 
 import { OrderDetailsCard } from "@/components/OrderDetailsCard";
 import { OrdersTable } from "@/components/OrdersTable";
-import Cart from "@/components/Cart";
 import CartAdmin from "@/components/CartAdmin";
+import { FavoriteItems } from "@/components/FavoriteItems";
+import { FavoriteOrders } from "@/components/FavoriteOrders";
 
 export const Route = createFileRoute("/admin/products")({
   component: AdminProducts,
@@ -19,7 +25,7 @@ export const Route = createFileRoute("/admin/products")({
 
 function AdminProducts() {
   const [activeView, setActiveView] = useState<
-    "products" | "createOrder" | "orders"
+    "products" | "createOrder" | "orders" | "templates"
   >("products");
 
   const user = useAuthStore((state) => state.user);
@@ -52,6 +58,13 @@ function AdminProducts() {
         >
           <FileSliders className="h-5 w-5" />
         </Button>
+        <Button
+          variant={activeView === "templates" ? "outline" : "ghost"}
+          size="icon"
+          onClick={() => setActiveView("templates")}
+        >
+          <LayoutTemplate className="h-5 w-5" />
+        </Button>
       </nav>
 
       <main className="flex-1 grid h-full w-full items-start gap-4 p-2 sm:px-6 sm:py-0 md:gap-8 lg:grid-cols-3 xl:grid-cols-3">
@@ -63,6 +76,7 @@ function AdminProducts() {
             {activeView === "orders" && (
               <OrdersTable selectedProductId={null} />
             )}
+            {activeView === "templates" && <FavoriteOrders />}
           </div>
         </div>
         <div className="h-full overflow-y-auto overflow-x-hidden">

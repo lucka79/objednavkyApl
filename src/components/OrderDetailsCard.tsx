@@ -30,14 +30,16 @@ export function OrderDetailsCard() {
   const { selectedOrderId } = useOrderStore();
   const { mutate: updateOrder } = useUpdateOrder();
   const { mutate: updateProfile } = useUpdateProfile();
-
-  // Always call the hook, even if selectedOrderId is null
+  const [isLocked, setIsLocked] = useState(false);
   const { data: orders, error, isLoading } = useFetchOrderById(selectedOrderId);
 
   // Move the early return after all hook calls
   if (!selectedOrderId) {
     return null;
   }
+
+  if (isLoading) return <div>Loading order details...</div>;
+  if (error) return <div>Error loading order details</div>;
 
   console.log("User crates:", {
     crateBig: orders?.[0]?.user?.crateBig,
@@ -106,11 +108,6 @@ export function OrderDetailsCard() {
       },
     });
   };
-
-  const [isLocked, setIsLocked] = useState(false);
-
-  if (isLoading) return <div>Loading order details...</div>;
-  if (error) return <div>Error loading order details</div>;
 
   return (
     <div>

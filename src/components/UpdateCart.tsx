@@ -46,7 +46,7 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
   const { mutate: updateOrder } = useUpdateOrder();
   const { mutate: deleteOrderItem } = useDeleteOrderItem();
   const { toast } = useToast();
-  const user = useAuthStore((state) => state.user);
+  // const user = useAuthStore((state) => state.user);
 
   useEffect(() => {
     // Combine duplicate products by summing their quantities

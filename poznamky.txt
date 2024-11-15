@@ -4,6 +4,8 @@ npx supabase gen types --lang=typescript --project-id process.env.EXPO_PUBLIC_KE
 
 npx supabase gen types --lang=typescript --project-id vpululxkipxqqgnzycnc --schema public > src/database.types.ts
 
+npm install supabase --save-dev
+
 npx supabase link --project-ref vpululxkipxqqgnzycnc
 
 
