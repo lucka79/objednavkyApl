@@ -17,6 +17,7 @@ import { OrderDetailsCard } from "@/components/OrderDetailsCard";
 import { OrdersTable } from "@/components/OrdersTable";
 import CartAdmin from "@/components/CartAdmin";
 import { FavoriteOrdersTable } from "@/components/FavoriteOrdersTable";
+import { OrderDetailsDialog } from "@/components/OrderDetailsDialog";
 
 export const Route = createFileRoute("/admin/products")({
   component: AdminProducts,
@@ -85,7 +86,7 @@ function AdminProducts() {
 
           {activeView === "products" && <ProductDetailsCard />}
           {activeView === "createOrder" && <CartAdmin />}
-          {activeView === "orders" && <OrderDetailsCard />}
+          {activeView === "orders" && <OrderDetailsDialog />}
         </div>
       </main>
     </div>

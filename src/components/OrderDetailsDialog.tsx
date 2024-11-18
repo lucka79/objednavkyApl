@@ -39,16 +39,16 @@ export function OrderDetailsDialog() {
   const { mutate: updateProfile } = useUpdateProfile();
   const [isLocked, setIsLocked] = useState(false);
 
-  const { data: orders, error, isLoading } = useFetchOrderById(selectedOrderId);
+  const {
+    data: orders,
+    error,
+    isLoading,
+    refetch,
+  } = useFetchOrderById(selectedOrderId);
 
   if (!selectedOrderId) {
     return null;
   }
-
-  console.log("User crates:", {
-    crateBig: orders?.[0]?.user?.crateBig,
-    crateSmall: orders?.[0]?.user?.crateSmall,
-  });
 
   const updateStatus = (status: string) => {
     if (!selectedOrderId) return;
@@ -163,7 +163,11 @@ export function OrderDetailsDialog() {
               </CardHeader>
               <CardContent>
                 {user?.role === "admin" ? (
-                  <UpdateCart items={order.order_items} orderId={order.id} />
+                  <UpdateCart
+                    items={order.order_items}
+                    orderId={order.id}
+                    onUpdate={() => refetch().then(() => {})}
+                  />
                 ) : (
                   <OrderItems items={order.order_items} />
                 )}

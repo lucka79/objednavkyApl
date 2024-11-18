@@ -38,9 +38,14 @@ interface OrderItem {
 interface UpdateCartProps {
   items: OrderItem[];
   orderId: number;
+  onUpdate: () => Promise<void>;
 }
 
-export default function UpdateCart({ items, orderId }: UpdateCartProps) {
+export default function UpdateCart({
+  items,
+  orderId,
+  onUpdate,
+}: UpdateCartProps) {
   const [orderItems, setOrderItems] = useState<OrderItem[]>(items);
   const { mutate: updateOrderItems } = useUpdateOrderItems();
   const { mutate: updateOrder } = useUpdateOrder();
@@ -80,6 +85,7 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
   const handleDeleteItem = async (itemId: number) => {
     try {
       await deleteOrderItem({ itemId, orderId });
+      await onUpdate();
       setOrderItems((prevItems) =>
         prevItems.filter((item) => item.id !== itemId)
       );
@@ -111,6 +117,7 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
           quantity: newQuantity,
         },
       });
+      await onUpdate();
 
       // Update local state
       setOrderItems((prevItems) =>
@@ -139,45 +146,6 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
       toast({
         title: "Error",
         description: "Failed to update quantity and total",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const saveChanges = async () => {
-    try {
-      for (const item of orderItems) {
-        const updateData = {
-          quantity: item.quantity,
-          checked: item.checked || false,
-          product_id: item.product.id,
-        };
-
-        console.log(`Updating item ${item.id}:`, updateData);
-
-        await updateOrderItems({
-          id: item.id,
-          updatedFields: updateData,
-        });
-      }
-
-      const newTotal = calculateTotal();
-      await updateOrder({
-        id: orderId,
-        updatedFields: {
-          total: newTotal,
-        },
-      });
-
-      toast({
-        title: "Success",
-        description: "Order updated successfully",
-      });
-    } catch (error) {
-      console.error("Failed to update order:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update order",
         variant: "destructive",
       });
     }
@@ -217,7 +185,6 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
 
   return (
     <Card>
-      {/* <CardHeader><CardTitle>Update Order Items</CardTitle></CardHeader> */}
       <CardContent>
         <div className="flex gap-2 mb-4 pt-2  print:hidden">
           <Badge variant="outline" className="border-green-500">
@@ -311,14 +278,10 @@ export default function UpdateCart({ items, orderId }: UpdateCartProps) {
             </div>
           ))
         )}
-        <Button
-          onClick={saveChanges}
-          variant="outline"
-          className="flex flex-row font-bold text-slate-600 w-full mt-4"
-        >
-          <Coins className="flex flex-row font-bold text-slate-600 w-1/12 mb-auto" />
+        <div className="flex flex-row justify-end font-bold text-slate-600 w-full mt-4">
+          <Coins className="w-1/12 mb-auto mr-2" />
           {total.toFixed(2)}
-        </Button>
+        </div>
       </CardContent>
     </Card>
   );
