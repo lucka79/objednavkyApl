@@ -34,6 +34,7 @@ import {
   CalendarIcon,
   Container,
   CirclePlus,
+  Printer,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { fetchAllProducts } from "@/hooks/useProducts";
+import { OrderItems } from "./OrderItems";
 
 const filterOrdersByDate = (
   orders: Order[],
@@ -264,6 +266,260 @@ export function OrdersTable({
     }, 0);
   };
 
+  const printOrderTotals = (orders: Order[], period: string) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Objednávky - ${period}</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 0; 
+              padding: 20px; 
+            }
+            .order-page {
+              position: relative;
+              padding: 20px;
+              border-bottom: 1px dashed #ccc;
+              margin-bottom: 20px;
+              min-height: 90vh;
+            }
+            .order-page:last-child {
+              border-bottom: none;
+              margin-bottom: 0;
+            }
+            .order-content {
+              padding-bottom: 120px; /* Space for crates info */
+            }
+            .order-header {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 20px;
+              padding-bottom: 10px;
+              border-bottom: 1px solid #ddd;
+            }
+            .customer-info {
+              font-size: 1.2em;
+              font-weight: bold;
+            }
+            .order-meta {
+              color: #666;
+            }
+            .items-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 20px 0;
+            }
+            .items-table th, .items-table td {
+              padding: 8px;
+              text-align: left;
+              border-bottom: 1px solid #ddd;
+            }
+            .items-table th:first-child,
+            .items-table td:first-child {
+              text-align: left;
+              width: 40%;
+            }
+            .items-table th:not(:first-child),
+            .items-table td:not(:first-child) {
+              text-align: right;
+              width: 20%;
+            }
+            .crates-info {
+              position: absolute;
+              bottom: 20px;
+              left: 20px;
+              right: 20px;
+              padding: 15px;
+              background: #f5f5f5;
+              border-radius: 4px;
+              border-top: 2px solid #ddd;
+            }
+            .crate-section {
+              display: flex;
+              justify-content: space-between;
+              margin: 5px 0;
+            }
+            .crate-group {
+              flex: 1;
+              padding: 0 20px;
+            }
+            .crate-group:first-child {
+              border-right: 1px solid #ddd;
+            }
+            @media print {
+              .order-page { 
+                page-break-after: always;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          ${orders
+            .map(
+              (order) => `
+            <div class="order-page">
+              <div class="order-content">
+                <div class="order-header">
+                  <div class="customer-info">
+                    ${order.user.full_name}
+                    <div class="status-badge">${order.status}</div>
+                  </div>
+                  <div class="order-meta">
+                    <div>Objednávka #${order.id}</div>
+                    <div>${new Date(order.date).toLocaleDateString()}</div>
+                  </div>
+                </div>
+
+                <table class="items-table">
+                  <thead>
+                    <tr>
+                      <th>Produkt</th>
+                      <th>Množství</th>
+                      <th>Cena</th>
+                      <th>Celkem</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${order.order_items
+                      .map(
+                        (item) => `
+                      <tr>
+                        <td>${item.product.name}</td>
+                        <td>${item.quantity}</td>
+                        <td>${item.price} Kč</td>
+                        <td>${item.quantity * item.price} Kč</td>
+                      </tr>
+                    `
+                      )
+                      .join("")}
+                  </tbody>
+                </table>
+
+                <div style="text-align: right; margin-top: 20px;">
+                  <strong>Celková cena: ${order.total} Kč</strong>
+                </div>
+
+                <div class="crates-info">
+                  <div class="crate-section">
+                    <div>
+                      <strong>Vydané přepravky:</strong>
+                      <span>Malé: ${order.crateSmall || 0}</span>
+                      <span>Velké: ${order.crateBig || 0}</span>
+                    </div>
+                    <div>
+                      <strong>Přijaté přepravky:</strong>
+                      <span>Malé: ${order.crateSmallReceived || 0}</span>
+                      <span>Velké: ${order.crateBigReceived || 0}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `
+            )
+            .join("")}
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.print();
+  };
+
+  // Modify the calculateOrderTotalsByDate function
+  const calculateOrderTotalsByDate = (orders: Order[]) => {
+    const totalsByDate = new Map<
+      string,
+      Map<string, { name: string; quantity: number }>
+    >();
+
+    orders.forEach((order) => {
+      const date = new Date(order.date).toLocaleDateString();
+      if (!totalsByDate.has(date)) {
+        totalsByDate.set(date, new Map());
+      }
+
+      const dateMap = totalsByDate.get(date)!;
+      order.order_items.forEach((item) => {
+        const current = dateMap.get(item.product_id.toString()) || {
+          name:
+            products?.find((p) => p.id === item.product_id)?.name || "Unknown",
+          quantity: 0,
+        };
+        dateMap.set(item.product_id.toString(), {
+          ...current,
+          quantity: current.quantity + item.quantity,
+        });
+      });
+    });
+
+    return totalsByDate;
+  };
+
+  // Update the printOrderTotalsByDate function
+  const printOrderTotalsByDate = (orders: Order[], period: string) => {
+    const totalsByDate = calculateOrderTotalsByDate(orders);
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Výroba podle dnů</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            h1 { font-size: 18px; margin-bottom: 10px; }
+            h2 { font-size: 16px; color: #666; margin: 30px 0 10px 0; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+            th { background-color: #f5f5f5; }
+            td:last-child { text-align: right; }
+            .date { margin-bottom: 20px; color: #666; }
+            .print-date { text-align: right; color: #666; margin-bottom: 20px; }
+          </style>
+        </head>
+        <body>        
+          ${Array.from(totalsByDate.entries())
+            .map(
+              ([date, products]) => `
+            <h1>Datum výroby: ${date}</h1>
+            <table>
+              <thead>
+                <tr>
+                  <th>Produkt</th>
+                  <th style="text-align: right">Množství</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${Array.from(products.values())
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map(
+                    (item) => `
+                    <tr>
+                      <td>${item.name}</td>
+                      <td style="text-align: right">${item.quantity}</td>
+                    </tr>
+                  `
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+          `
+            )
+            .join("")}
+            <div class="print-date">Vytištěno: ${new Date().toLocaleString()}</div>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders</div>;
 
@@ -413,30 +669,58 @@ export function OrdersTable({
 
             return (
               <TabsContent key={period} value={period}>
-                <div className="flex gap-2 mb-4">
-                  <span className="text-muted-foreground text-sm font-semibold">
-                    Vydáno celkem:
-                  </span>
-                  <Badge variant="outline" className="text-yellow-700 ">
-                    {crateSums.crateSmall}
-                    <Container size={16} className="mx-1" /> ↑
-                  </Badge>
-                  <Badge variant="outline" className="text-red-800">
-                    {crateSums.crateBig}
-                    <Container size={20} className="mx-1" /> ↑
-                  </Badge>
-                  <span className="text-muted-foreground text-sm font-semibold">
-                    Přijato celkem:
-                  </span>
-                  <Badge variant="secondary" className="text-yellow-700">
-                    {crateSums.crateSmallReceived}
-                    <Container size={16} className="mx-1" /> ↓
-                  </Badge>
-                  <Badge variant="secondary" className="text-red-800">
-                    {crateSums.crateBigReceived}
-                    <Container size={20} className="mx-1" /> ↓
-                  </Badge>
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground text-sm font-semibold">
+                      Vydáno celkem:
+                    </span>
+                    <Badge variant="outline" className="text-yellow-700 ">
+                      {crateSums.crateSmall}
+                      <Container size={16} className="mx-1" /> ↑
+                    </Badge>
+                    <Badge variant="outline" className="text-red-800">
+                      {crateSums.crateBig}
+                      <Container size={20} className="mx-1" /> ↑
+                    </Badge>
+                    <span className="text-muted-foreground text-sm font-semibold">
+                      Přijato celkem:
+                    </span>
+                    <Badge variant="secondary" className="text-yellow-700">
+                      {crateSums.crateSmallReceived}
+                      <Container size={16} className="mx-1" /> ↓
+                    </Badge>
+                    <Badge variant="secondary" className="text-red-800">
+                      {crateSums.crateBigReceived}
+                      <Container size={20} className="mx-1" /> ↓
+                    </Badge>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        printOrderTotalsByDate(filteredPeriodOrders, period)
+                      }
+                      className="print:hidden"
+                    >
+                      <Printer className="mr-2 h-4 w-4" />
+                      Tisk výroby
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        printOrderTotals(filteredPeriodOrders, period)
+                      }
+                      className="print:hidden"
+                    >
+                      <Printer className="mr-2 h-4 w-4" />
+                      Tisk objednávek
+                    </Button>
+                  </div>
                 </div>
+
                 <OrderTableContent
                   data={filteredPeriodOrders}
                   globalFilter={globalFilter}
@@ -504,12 +788,6 @@ function OrderTableContent({
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
-
-                <CirclePlus
-                  onClick={() => setSelectedOrderId(row.original.id)}
-                  size={20}
-                  className="flex my-3 text-green-800 cursor-pointer"
-                />
               </TableRow>
             ))
           ) : (
