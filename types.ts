@@ -65,6 +65,7 @@ export type Product = {
       checked: boolean;
       product_id: number;
       quantity: number;
+      product: Product;
       
     }[];
   };

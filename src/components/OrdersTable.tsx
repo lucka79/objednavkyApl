@@ -434,7 +434,7 @@ export function OrdersTable({
   const calculateOrderTotalsByDate = (orders: Order[]) => {
     const totalsByDate = new Map<
       string,
-      Map<string, { name: string; quantity: number }>
+      Map<string, { name: string; quantity: number; categoryId: number }>
     >();
 
     orders.forEach((order) => {
@@ -445,10 +445,11 @@ export function OrdersTable({
 
       const dateMap = totalsByDate.get(date)!;
       order.order_items.forEach((item) => {
+        const product = products?.find((p) => p.id === item.product_id);
         const current = dateMap.get(item.product_id.toString()) || {
-          name:
-            products?.find((p) => p.id === item.product_id)?.name || "Unknown",
+          name: product?.name || "Unknown",
           quantity: 0,
+          categoryId: product?.category_id || 0,
         };
         dateMap.set(item.product_id.toString(), {
           ...current,
@@ -490,13 +491,17 @@ export function OrdersTable({
             <table>
               <thead>
                 <tr>
-                  <th>Produkt</th>
+                  <th>Produkt by categoryId</th>
                   <th style="text-align: right">Množství</th>
                 </tr>
               </thead>
               <tbody>
                 ${Array.from(products.values())
-                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .sort(
+                    (a, b) =>
+                      a.categoryId - b.categoryId ||
+                      a.name.localeCompare(b.name)
+                  )
                   .map(
                     (item) => `
                     <tr>
