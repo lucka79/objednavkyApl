@@ -335,7 +335,7 @@ export function OrdersTable({
               {products?.map((product) => (
                 <SelectItem key={product.id} value={product.id.toString()}>
                   <div className="flex justify-between items-center w-full">
-                    <span>{product.name}</span>
+                    <span className="mr-2">{product.name}</span>
                     <div className="flex gap-2">
                       {" "}
                       <Badge variant="outline" className="border-green-500">
@@ -347,7 +347,7 @@ export function OrdersTable({
                             | "week"
                             | "month"
                             | "lastMonth"
-                        )}
+                        )}{" "}
                         ks
                       </Badge>
                       <Badge variant="outline" className="border-amber-500">
@@ -367,7 +367,7 @@ export function OrdersTable({
                                 product.id.toString()
                             )
                           ).length
-                        }
+                        }{" "}
                         objed.
                       </Badge>
                     </div>

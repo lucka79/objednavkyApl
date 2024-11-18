@@ -46,6 +46,8 @@ export type Product = {
   ];
   
   export type OrderStatus = 'Pre-order' | 'New' | 'Expedice' | 'Delivering' | 'Paid';
+
+  export type Day = 'Po' | 'Út' | 'St' | 'Čt' | 'Pá' | 'So' | 'Ne';
   
   export type Order = {
     id: number;
