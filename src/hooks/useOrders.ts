@@ -169,7 +169,8 @@ export const useUpdateOrder = () => {
     },
     async onSuccess(_, { id }) {
       await queryClient.invalidateQueries({ queryKey: ["orders"] });
-      await queryClient.invalidateQueries({ queryKey: ["orders", id] });
+      await queryClient.invalidateQueries({ queryKey: ["order", id] });
+      await queryClient.invalidateQueries({ queryKey: ["orderItems", id] });
     },
   });
 };

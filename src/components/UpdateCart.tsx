@@ -105,42 +105,39 @@ export default function UpdateCart({
   ) => {
     if (newQuantity < 0) return;
 
-    if (newQuantity === 0) {
-      await handleDeleteItem(itemId);
-      return;
-    }
-
     try {
+      // Update the order item quantity
       await updateOrderItems({
         id: itemId,
         updatedFields: {
           quantity: newQuantity,
         },
       });
-      await onUpdate();
 
       // Update local state
-      setOrderItems((prevItems) =>
-        prevItems.map((item) =>
-          item.product.id === productId
-            ? { ...item, quantity: newQuantity }
-            : item
-        )
+      const updatedItems = orderItems.map((item) =>
+        item.product.id === productId
+          ? { ...item, quantity: newQuantity }
+          : item
+      );
+      setOrderItems(updatedItems);
+
+      // Calculate new total from all items
+      const newTotal = updatedItems.reduce(
+        (sum, item) => sum + item.quantity * item.price,
+        0
       );
 
-      // Calculate and update order total
-      const newTotal = orderItems.reduce((sum, item) => {
-        const itemQuantity =
-          item.product.id === productId ? newQuantity : item.quantity;
-        return sum + itemQuantity * item.price;
-      }, 0);
-
+      // Update order total in database
       await updateOrder({
         id: orderId,
         updatedFields: {
           total: newTotal,
         },
       });
+
+      // Refresh the data
+      await onUpdate();
     } catch (error) {
       console.error("Failed to update quantity:", error);
       toast({
@@ -218,7 +215,9 @@ export default function UpdateCart({
           orderItems.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between pt-2 mb-2"
+              className={`flex items-center justify-between pt-2 mb-2 ${
+                item.quantity === 0 ? "text-gray-400 scale-95" : ""
+              }`}
             >
               <Checkbox
                 checked={item.checked || false}
@@ -237,13 +236,18 @@ export default function UpdateCart({
                 <SquareMinus
                   onClick={() =>
                     !item.checked &&
+                    item.quantity > 0 &&
                     updateOrderQuantity(
                       item.id,
                       item.product.id,
                       item.quantity - 1
                     )
                   }
-                  className={`cursor-pointer ${item.checked ? "text-gray-200" : "text-stone-300 hover:text-stone-400"}`}
+                  className={`cursor-pointer ${
+                    item.checked || item.quantity === 0
+                      ? "text-gray-200 cursor-not-allowed"
+                      : "text-stone-300 hover:text-stone-400"
+                  }`}
                 />
                 <Input
                   type="number"
@@ -254,10 +258,12 @@ export default function UpdateCart({
                     updateOrderQuantity(
                       item.id,
                       item.product.id,
-                      parseInt(e.target.value)
+                      parseInt(e.target.value) || 0
                     )
                   }
-                  className="w-16 mx-2 text-center"
+                  className={`w-16 mx-2 text-center ${
+                    item.quantity === 0 ? "text-gray-400" : ""
+                  }`}
                   disabled={item.checked}
                 />
                 <SquarePlus
@@ -269,7 +275,11 @@ export default function UpdateCart({
                       item.quantity + 1
                     )
                   }
-                  className={`cursor-pointer ${item.checked ? "text-gray-200" : "text-stone-300 hover:text-stone-400"}`}
+                  className={`cursor-pointer ${
+                    item.checked
+                      ? "text-gray-200"
+                      : "text-stone-300 hover:text-stone-400"
+                  }`}
                 />
                 <Label className="w-16 mx-4 text-end">
                   {(item.price * item.quantity).toFixed(2)} Kč
