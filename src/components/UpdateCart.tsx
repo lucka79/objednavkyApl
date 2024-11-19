@@ -4,7 +4,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Coins, SquareMinus, SquarePlus, Plus, History } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { useAuthStore } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import {
   useUpdateOrderItems,
@@ -17,16 +16,12 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogHeader,
   DialogTitle,
   DialogTrigger,
   DialogDescription,
 } from "@/components/ui/dialog";
 import { AddProduct } from "@/components/AddProduct";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 
 import { useOrderItemsHistory } from "@/hooks/useOrders";
 
@@ -49,18 +44,18 @@ interface UpdateCartProps {
   onUpdate: () => Promise<void>;
 }
 
-interface OrderHistory {
-  id: number;
-  old_quantity: number;
-  new_quantity: number;
-  changed_at: string;
-  product_name: string;
-  changed_by: { full_name: string }[];
-  order_item_id: number;
-  order_id: number;
-}
+// interface OrderHistory {
+//   id: number;
+//   old_quantity: number;
+//   new_quantity: number;
+//   changed_at: string;
+//   product_name: string;
+//   changed_by: { full_name: string }[];
+//   order_item_id: number;
+//   order_id: number;
+// }
 
-const HistoryPopover = ({ itemId }: { itemId: number }) => {
+const HistoryDialog = ({ itemId }: { itemId: number }) => {
   const { data: historyData } = useOrderItemHistory(itemId);
 
   if (!historyData || historyData.length === 0) {
@@ -80,7 +75,9 @@ const HistoryPopover = ({ itemId }: { itemId: number }) => {
         >
           <div className="font-medium text-slate-900">
             {entry.order_items?.product?.name || "Unknown Product"}
-            {" # "}
+          </div>
+          <div className="text-xs text-slate-600">
+            {" ID # "}
             {entry.order_item_id}
           </div>
           <div className="text-sm text-slate-600">
@@ -297,7 +294,7 @@ export default function UpdateCart({
                 }
                 className="mr-2 border-amber-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500 data-[state=checked]:text-white print:hidden"
               />
-              <span className="text-sm flex-1 text-left mr-4"># {item.id}</span>
+
               <span className="text-sm flex-1 text-left mr-4">
                 {item.product.name}
               </span>
@@ -356,8 +353,8 @@ export default function UpdateCart({
                 <Label className="w-16 mx-4 text-end">
                   {(item.price * item.quantity).toFixed(2)} Kč
                 </Label>
-                <Popover>
-                  <PopoverTrigger asChild>
+                <Dialog>
+                  <DialogTrigger asChild>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -367,15 +364,19 @@ export default function UpdateCart({
                           ? "opacity-30 cursor-not-allowed"
                           : "hover:bg-slate-50"
                       }`}
+                      onClick={() => setSelectedItemId(item.id)}
                     >
                       <History className="h-4 w-4" />
-                      {item.id}
+                      {/* {item.id} */}
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[400px] p-2" align="end">
-                    <HistoryPopover itemId={item.id} />
-                  </PopoverContent>
-                </Popover>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Historie položky</DialogTitle>
+                    </DialogHeader>
+                    <HistoryDialog itemId={item.id} />
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
           ))
