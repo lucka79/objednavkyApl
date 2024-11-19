@@ -208,45 +208,131 @@ export const fetchOrderItems = async (orderId: number) => {
   return data;
 };
 
+export const useOrderItemHistory = (itemId: number | null) => {
+  return useQuery({
+    queryKey: ["orderItemHistory", itemId],
+    queryFn: async () => {
+      if (!itemId) return null;
+      
+      const { data, error } = await supabase
+        .from("order_items_history")
+        .select(`
+          id,
+          old_quantity,
+          new_quantity,
+          changed_at,
+          order_item_id,
+          order_items!order_items_history_order_item_id_fkey (
+            product:products (
+              name
+            )
+          ),
+          profiles:changed_by (
+            full_name
+          )
+        `)
+        .eq('order_item_id', itemId)
+        .order('changed_at', { ascending: false });
+
+      if (error) {
+        console.error('History fetch error:', error);
+        throw error;
+      }
+      
+      console.log('Fetched history for item:', itemId, data);
+      return data;
+    },
+    enabled: !!itemId
+  });
+};
+
+export const useOrderItemsHistory = (items: { id: number }[]) => {
+  return useQuery({
+    queryKey: ["allOrderItemsHistory"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("order_items_history")
+        .select("order_item_id")
+        .in(
+          "order_item_id",
+          items.map((item) => item.id)
+        );
+
+      if (error) throw error;
+      return data.map((item) => item.order_item_id);
+    },
+    enabled: items.length > 0
+  });
+};
+
 export const useUpdateOrderItems = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuthStore.getState();
 
   return useMutation({
     async mutationFn({id, updatedFields}: {id: number, updatedFields: Partial<OrderItem>}) {
-      // First, get the user's role from profiles if we have order_id
-      let price = updatedFields.price;
-      if (updatedFields.order_id) {
-        const { data: orderData } = await supabase
-          .from('orders')
-          .select('user:profiles!inner(role)')
-          .eq('id', updatedFields.order_id)
-          .single();
-        
-        if (orderData?.user?.role === 'mobil') {
-          const { data: productData } = await supabase
-            .from('products')
-            .select('priceMobil')
-            .eq('id', updatedFields.product_id)
-            .single();
-          price = productData?.priceMobil;
+      // Add validation for id
+      if (!id || id <= 0) {
+        throw new Error('Invalid order item ID');
+      }
+
+      // Start a transaction
+      const { data: oldItem, error: fetchError } = await supabase
+        .from('order_items')
+        .select('quantity, product:products(name)')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      console.log('Quantity Change:', {
+        itemId: id,
+        oldQuantity: oldItem?.quantity,
+        newQuantity: updatedFields.quantity,
+        productName: oldItem?.product?.name,
+        changedBy: user?.id
+      });
+
+      // Update the item
+      const { data, error } = await supabase
+        .from("order_items")
+        .update({ ...updatedFields, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select();
+
+      if (error) throw error;
+
+      // Record the change in history only if quantity has changed
+      if (oldItem && updatedFields.quantity !== undefined && oldItem.quantity !== updatedFields.quantity) {
+        const { error: historyError } = await supabase
+          .from('order_items_history')
+          .insert({
+            order_item_id: id,
+            old_quantity: oldItem.quantity,
+            new_quantity: updatedFields.quantity,
+            changed_by: user?.id
+          });
+          
+        if (historyError) {
+          console.error('Failed to record history:', historyError);
+        } else {
+          console.log('History recorded successfully');
         }
       }
 
-      const now = new Date().toISOString();
-      const query = supabase.from("order_items");
-      const { data, error } = await (id === 0
-        ? query.insert({ ...updatedFields, price, updated_at: now }).select()
-        : query.update({ ...updatedFields, updated_at: now }).eq('id', id).select());
-
-      if (error) throw error;
       return data;
     },
     onSuccess: (data, variables) => {
-      console.log('onSuccess called with data:', data);
-      const orderId = variables.updatedFields.order_id;
-      if (orderId) {
-        queryClient.invalidateQueries({ queryKey: ["orderItems", orderId] });
-        queryClient.invalidateQueries({ queryKey: ["orders", orderId] });
+      console.log('Update successful:', {
+        data,
+        variables
+      });
+      if (data && data.length > 0) {
+        const orderId = data[0].order_id;
+        if (orderId) {
+          queryClient.invalidateQueries({ queryKey: ["orderItems", orderId] });
+          queryClient.invalidateQueries({ queryKey: ["orders", orderId] });
+        }
       }
       queryClient.invalidateQueries({ queryKey: ["orders"] });
     },

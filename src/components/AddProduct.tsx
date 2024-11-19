@@ -82,40 +82,43 @@ export const AddProduct: React.FC<AddProductProps> = ({
   const queryClient = useQueryClient();
 
   const handleAddProduct = async (product: any) => {
-    if (selectedOrderId) {
-      const orderItems = useOrderItemsStore.getState().orderItems;
-      const existingItem = orderItems.find(
-        (item) =>
-          item.product_id === product.id && item.order_id === selectedOrderId
-      );
+    console.log("Adding product:", product);
+    console.log("Selected Order ID:", selectedOrderId);
 
-      if (existingItem) {
-        // Update existing item quantity
-        await updateOrderItems({
-          id: existingItem.id,
-          updatedFields: {
-            quantity: existingItem.quantity + 1,
-          },
-        });
-      } else {
-        // Add new item - use null for id to indicate new item
-        await updateOrderItems({
-          id: 0,
-          updatedFields: {
+    if (selectedOrderId) {
+      try {
+        // Direct database insertion for new item
+        const { data: newItem, error } = await supabase
+          .from("order_items")
+          .insert({
             order_id: selectedOrderId,
             product_id: product.id,
             quantity: 1,
             price: product.price,
             checked: false,
-          },
-        });
-      }
+          })
+          .select()
+          .single();
 
-      await queryClient.invalidateQueries({ queryKey: ["orders"] });
-      await queryClient.invalidateQueries({
-        queryKey: ["order", selectedOrderId],
-      });
-      await onUpdate();
+        console.log("New item added:", newItem);
+
+        if (error) {
+          console.error("Error adding item:", error);
+          throw error;
+        }
+
+        // Invalidate queries to refresh the data
+        await queryClient.invalidateQueries({ queryKey: ["orders"] });
+        await queryClient.invalidateQueries({
+          queryKey: ["order", selectedOrderId],
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ["orderItems", selectedOrderId],
+        });
+        await onUpdate();
+      } catch (error) {
+        console.error("Failed to add product:", error);
+      }
     } else {
       addItem(product);
     }

@@ -146,6 +146,48 @@ export type Database = {
           },
         ]
       }
+      order_items_history: {
+        Row: {
+          changed_at: string | null
+          changed_by: string | null
+          id: number
+          new_quantity: number | null
+          old_quantity: number | null
+          order_item_id: number | null
+        }
+        Insert: {
+          changed_at?: string | null
+          changed_by?: string | null
+          id?: number
+          new_quantity?: number | null
+          old_quantity?: number | null
+          order_item_id?: number | null
+        }
+        Update: {
+          changed_at?: string | null
+          changed_by?: string | null
+          id?: number
+          new_quantity?: number | null
+          old_quantity?: number | null
+          order_item_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_history_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           crateBig: number | null

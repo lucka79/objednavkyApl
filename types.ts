@@ -107,3 +107,16 @@ export type Product = {
     crateSmallReceived: number;
     crateBigReceived: number;
   };
+
+export interface HistoryEntry {
+  id: number;
+  old_quantity: number;
+  new_quantity: number;
+  changed_at: string;
+  changed_by: {
+    full_name: string;
+  };
+  profiles?: {
+    full_name: string;
+  };
+}

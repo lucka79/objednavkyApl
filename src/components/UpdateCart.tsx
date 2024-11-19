@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Coins, SquareMinus, SquarePlus, Plus } from "lucide-react";
+import { Coins, SquareMinus, SquarePlus, Plus, History } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
@@ -10,6 +10,7 @@ import {
   useUpdateOrderItems,
   useUpdateOrder,
   useDeleteOrderItem,
+  useOrderItemHistory,
 } from "@/hooks/useOrders";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,13 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { AddProduct } from "@/components/AddProduct";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
+import { useOrderItemsHistory } from "@/hooks/useOrders";
 
 interface OrderItem {
   id: number;
@@ -41,6 +49,55 @@ interface UpdateCartProps {
   onUpdate: () => Promise<void>;
 }
 
+interface OrderHistory {
+  id: number;
+  old_quantity: number;
+  new_quantity: number;
+  changed_at: string;
+  product_name: string;
+  changed_by: { full_name: string }[];
+  order_item_id: number;
+  order_id: number;
+}
+
+const HistoryPopover = ({ itemId }: { itemId: number }) => {
+  const { data: historyData } = useOrderItemHistory(itemId);
+
+  if (!historyData || historyData.length === 0) {
+    return (
+      <div className="p-4 text-sm text-slate-500">
+        No changes have been recorded for this item.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col max-h-[400px] overflow-y-auto w-[400px]">
+      {historyData.map((entry) => (
+        <div
+          key={entry.id}
+          className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-2"
+        >
+          <div className="font-medium text-slate-900">
+            {entry.order_items?.product?.name || "Unknown Product"}
+            {" # "}
+            {entry.order_item_id}
+          </div>
+          <div className="text-sm text-slate-600">
+            Quantity: {entry.old_quantity} → {entry.new_quantity}
+          </div>
+          <div className="text-xs text-slate-500 mt-1">
+            Changed by: {entry.profiles?.full_name || "Unknown User"}
+          </div>
+          <div className="text-xs text-slate-400">
+            {new Date(entry.changed_at).toLocaleString()}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export default function UpdateCart({
   items,
   orderId,
@@ -52,24 +109,36 @@ export default function UpdateCart({
   const { mutate: deleteOrderItem } = useDeleteOrderItem();
   const { toast } = useToast();
   // const user = useAuthStore((state) => state.user);
+  const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
+  const { data: historyData, isLoading } = useOrderItemHistory(selectedItemId);
+  const { data: allHistoryData } = useOrderItemsHistory(orderItems);
 
   useEffect(() => {
+    console.log("Received items:", items);
+
     // Combine duplicate products by summing their quantities
     const combinedItems = items.reduce((acc: OrderItem[], curr) => {
+      console.log("Processing item:", curr);
+
       const existingItem = acc.find(
         (item) => item.product.id === curr.product.id
       );
       if (existingItem) {
+        console.log("Found existing item:", existingItem);
         existingItem.quantity += curr.quantity;
         return acc;
       }
       return [...acc, curr];
     }, []);
 
+    console.log("Combined items:", combinedItems);
+
     // Sort combined items by product name in descending order
     const sortedItems = combinedItems.sort((a, b) =>
       a.product.name.localeCompare(b.product.name, "cs")
     );
+
+    console.log("Sorted items:", sortedItems);
 
     setOrderItems(sortedItems);
   }, [items]);
@@ -183,31 +252,33 @@ export default function UpdateCart({
   return (
     <Card>
       <CardContent>
-        <div className="flex gap-2 mb-4 pt-2  print:hidden">
+        <div className="flex gap-2 mb-4 pt-2 print:hidden">
           <Badge variant="outline" className="border-green-500">
             Hotovo {getCheckboxCounts().checked}
           </Badge>
           <Badge variant="outline" className="border-amber-500">
             Připravit {getCheckboxCounts().unchecked}
           </Badge>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="ml-auto">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Product
-              </Button>
-            </DialogTrigger>
-            <DialogContent
-              className="max-w-4xl max-h-[90vh] overflow-y-auto"
-              aria-describedby="dialog-description"
-            >
-              <DialogTitle>Add Product to Order</DialogTitle>
-              <div id="dialog-description" className="sr-only">
-                Select products to add to the order
-              </div>
-              <AddProduct orderId={orderId} onUpdate={onUpdate} />
-            </DialogContent>
-          </Dialog>
+          <div className="flex gap-2 ml-auto">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Product
+                </Button>
+              </DialogTrigger>
+              <DialogContent
+                className="max-w-4xl max-h-[90vh] overflow-y-auto"
+                aria-describedby="dialog-description"
+              >
+                <DialogTitle>Add Product to Order</DialogTitle>
+                <div id="dialog-description" className="sr-only">
+                  Select products to add to the order
+                </div>
+                <AddProduct orderId={orderId} onUpdate={onUpdate} />
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
         {!orderItems || orderItems.length === 0 ? (
           <p>No items in order.</p>
@@ -226,6 +297,7 @@ export default function UpdateCart({
                 }
                 className="mr-2 border-amber-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500 data-[state=checked]:text-white print:hidden"
               />
+              <span className="text-sm flex-1 text-left mr-4"># {item.id}</span>
               <span className="text-sm flex-1 text-left mr-4">
                 {item.product.name}
               </span>
@@ -284,6 +356,26 @@ export default function UpdateCart({
                 <Label className="w-16 mx-4 text-end">
                   {(item.price * item.quantity).toFixed(2)} Kč
                 </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={!allHistoryData?.includes(item.id)}
+                      className={`ml-2 ${
+                        !allHistoryData?.includes(item.id)
+                          ? "opacity-30 cursor-not-allowed"
+                          : "hover:bg-slate-50"
+                      }`}
+                    >
+                      <History className="h-4 w-4" />
+                      {item.id}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-2" align="end">
+                    <HistoryPopover itemId={item.id} />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           ))
