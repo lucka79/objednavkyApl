@@ -208,7 +208,7 @@ export default function UpdateCart({
               <div id="dialog-description" className="sr-only">
                 Select products to add to the order
               </div>
-              <AddProduct orderId={orderId} />
+              <AddProduct orderId={orderId} onUpdate={onUpdate} />
             </DialogContent>
           </Dialog>
         </div>

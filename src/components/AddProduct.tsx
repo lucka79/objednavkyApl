@@ -58,7 +58,15 @@ const CategoryBadges = ({
   </ScrollArea>
 );
 
-export const AddProduct: React.FC = () => {
+interface AddProductProps {
+  orderId: number;
+  onUpdate: () => Promise<void>;
+}
+
+export const AddProduct: React.FC<AddProductProps> = ({
+  orderId,
+  onUpdate,
+}) => {
   const { data: products, isLoading, error } = fetchAllProducts();
   const { data: categories, isLoading: categoriesLoading } = fetchCategories();
 
@@ -92,7 +100,7 @@ export const AddProduct: React.FC = () => {
       } else {
         // Add new item - use null for id to indicate new item
         await updateOrderItems({
-          id: 0, // or any default value your backend expects for new items
+          id: 0,
           updatedFields: {
             order_id: selectedOrderId,
             product_id: product.id,
@@ -104,6 +112,10 @@ export const AddProduct: React.FC = () => {
       }
 
       await queryClient.invalidateQueries({ queryKey: ["orders"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["order", selectedOrderId],
+      });
+      await onUpdate();
     } else {
       addItem(product);
     }
