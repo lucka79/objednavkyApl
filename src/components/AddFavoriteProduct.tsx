@@ -14,6 +14,7 @@ import { fetchCategories } from "@/hooks/useCategories";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { CategoryBadges } from "./CategoryBadges";
+import { useToast } from "@/hooks/use-toast";
 
 interface AddFavoriteProductProps {
   favoriteOrderId: number;
@@ -29,36 +30,47 @@ export const AddFavoriteProduct: React.FC<AddFavoriteProductProps> = ({
   const user = useAuthStore((state) => state.user);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const handleAddProduct = async (product: any) => {
     try {
+      const { data: existingItem } = await supabase
+        .from("favorite_items")
+        .select()
+        .eq("order_id", favoriteOrderId)
+        .eq("product_id", product.id)
+        .single();
+
+      if (existingItem) {
+        toast({
+          title: "Product already exists",
+          description: "This product is already in your favorite list",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { data: newItem, error } = await supabase
         .from("favorite_items")
         .insert({
           order_id: favoriteOrderId,
           product_id: product.id,
           quantity: 1,
-          //   price: product.price,
         })
         .select()
         .single();
 
-      if (error) {
-        console.error("Error adding favorite item:", error);
-        throw error;
-      }
+      if (error) throw error;
 
-      // Invalidate queries to refresh the data
       await queryClient.invalidateQueries({ queryKey: ["favoriteOrders"] });
-      await queryClient.invalidateQueries({
-        queryKey: ["favoriteOrder", favoriteOrderId],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["favoriteItems", favoriteOrderId],
-      });
       await onUpdate();
     } catch (error) {
       console.error("Failed to add favorite product:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add product",
+        variant: "destructive",
+      });
     }
   };
 

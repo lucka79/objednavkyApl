@@ -1,4 +1,8 @@
-import { useFavoriteOrders } from "@/hooks/useFavorites";
+import { useState, useEffect } from "react";
+import {
+  useFavoriteOrders,
+  useUpdateFavoriteOrder,
+} from "@/hooks/useFavorites";
 import { useAuthStore } from "@/lib/supabase";
 import {
   Card,
@@ -9,6 +13,8 @@ import {
 } from "@/components/ui/card";
 
 import { Badge } from "./ui/badge";
+import { Checkbox } from "./ui/checkbox";
+import { ScrollArea } from "./ui/scroll-area";
 import { FavoriteItems } from "./FavoriteItems";
 import FavoriteCart from "./FavoriteCart";
 import { AddFavoriteProduct } from "./AddFavoriteProduct";
@@ -22,11 +28,14 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "./ui/button";
 import { Plus } from "lucide-react";
+import { Day } from "../../types";
 
 interface FavoriteDetailsDialogProps {
   favoriteOrderId: number | null;
   onClose: () => void;
 }
+
+const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
 
 export function FavoriteDetailsDialog({
   favoriteOrderId,
@@ -34,13 +43,38 @@ export function FavoriteDetailsDialog({
 }: FavoriteDetailsDialogProps) {
   const user = useAuthStore((state) => state.user);
   const { data: favorites, isLoading, error, refetch } = useFavoriteOrders();
-
-  if (!favoriteOrderId) {
-    return null;
-  }
+  const updateFavoriteOrder = useUpdateFavoriteOrder();
+  const [selectedDays, setSelectedDays] = useState<string[]>([]);
 
   const currentFavorite = favorites?.find((f) => f.id === favoriteOrderId);
 
+  useEffect(() => {
+    if (currentFavorite) {
+      setSelectedDays(currentFavorite.days || []);
+    }
+  }, [currentFavorite]);
+
+  const handleDayToggle = async (day: Day, checked: boolean) => {
+    if (!currentFavorite) return;
+
+    try {
+      const newDays = checked
+        ? ([...selectedDays, day] as Day[])
+        : (selectedDays.filter((d) => d !== day) as Day[]);
+
+      await updateFavoriteOrder.mutateAsync({
+        id: currentFavorite.id,
+        data: {
+          days: newDays.length ? newDays : undefined,
+        },
+      });
+      setSelectedDays(newDays);
+    } catch (error) {
+      console.error("Failed to update days:", error);
+    }
+  };
+
+  if (!favoriteOrderId) return null;
   if (isLoading) return <div>Loading favorite details...</div>;
   if (error) return <div>Error loading favorite details</div>;
 
@@ -62,12 +96,39 @@ export function FavoriteDetailsDialog({
               <CardHeader>
                 <CardTitle className="flex justify-between">
                   {currentFavorite.user?.full_name}
-                  <Badge variant="outline">{currentFavorite.day}</Badge>
+                  <div className="flex gap-1">
+                    {selectedDays.map((day) => (
+                      <Badge key={day} variant="outline">
+                        {day}
+                      </Badge>
+                    ))}
+                  </div>
                 </CardTitle>
                 <CardDescription className="flex flex-col gap-2">
                   <div className="flex justify-between items-center">
                     <span>Favorite #{currentFavorite.id}</span>
                   </div>
+                  <ScrollArea className="h-[60px] w-full rounded-md border p-4">
+                    <div className="flex items-center gap-4">
+                      {DAYS.map((day) => (
+                        <div key={day} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`day-${day}`}
+                            checked={selectedDays.includes(day)}
+                            onCheckedChange={(checked) =>
+                              handleDayToggle(day, checked as boolean)
+                            }
+                          />
+                          <label
+                            htmlFor={`day-${day}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {day}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -98,6 +159,7 @@ export function FavoriteDetailsDialog({
                       items={currentFavorite.favorite_items}
                       favoriteOrderId={currentFavorite.id}
                       onUpdate={() => refetch().then(() => {})}
+                      userRole={currentFavorite.user?.role || "user"}
                     />
                   </>
                 ) : (

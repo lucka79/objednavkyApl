@@ -89,7 +89,101 @@ export const useUpdateFavoriteItem = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['favoriteItems']);
+      queryClient.invalidateQueries({ queryKey: ['favoriteItems'] });
+      queryClient.invalidateQueries({ queryKey: ['favoriteOrders'] });
+    },
+  });
+};
+
+export const useDeleteFavoriteItem = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (itemId: number) => {
+      const { error } = await supabase
+        .from('favorite_items')
+        .delete()
+        .eq('id', itemId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["favoriteOrders"] });
+      queryClient.invalidateQueries({ queryKey: ["favoriteItems"] });
+    },
+  });
+};
+
+export const useUpdateFavoriteOrder = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      id, 
+      data 
+    }: { 
+      id: number; 
+      data: {
+        days?: ("Po" | "Út" | "St" | "Čt" | "Pá" | "So" | "Ne")[];
+        status?: string;
+        user_id?: string;
+      }
+    }) => {
+      const { error } = await supabase
+        .from('favorite_orders')
+        .update(data)
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['favoriteOrders'] });
+    },
+  });
+};
+
+export const useCreateFavoriteOrder = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      data 
+    }: { 
+      data: {
+        day: string[];
+        status?: string;
+        user_id: string;
+      }
+    }) => {
+      const { data: newOrder, error } = await supabase
+        .from('favorite_orders')
+        .insert(data)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return newOrder;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['favoriteOrders'] });
+    },
+  });
+};
+
+export const useDeleteFavoriteOrder = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase
+        .from('favorite_orders')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['favoriteOrders'] });
     },
   });
 };

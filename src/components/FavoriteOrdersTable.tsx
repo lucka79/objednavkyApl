@@ -38,9 +38,13 @@ const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
 
 const columns: ColumnDef<FavoriteOrder>[] = [
   {
-    accessorKey: "day",
+    accessorKey: "days",
     header: () => <div className="w-16 text-left">Den</div>,
-    cell: ({ row }) => <div className="w-18 text-left">{row.original.day}</div>,
+    cell: ({ row }) => (
+      <div className="w-18 text-left">
+        {row.original.days?.map((day) => day).join(", ")}
+      </div>
+    ),
   },
   {
     accessorKey: "id",
@@ -86,8 +90,17 @@ export function FavoriteOrdersTable({
   if (!orders) return <div>No orders found</div>;
 
   const filteredOrders = orders.filter((order) => {
-    if (selectedDay === "all") return true;
-    return order.day === selectedDay;
+    // First filter by selected day
+    if (selectedDay !== "all" && !order.days?.includes(selectedDay))
+      return false;
+
+    // Then filter by selected product
+    if (selectedProductId && selectedProductId !== "all") {
+      return order.favorite_items?.some(
+        (item) => item.product_id.toString() === selectedProductId
+      );
+    }
+    return true;
   });
 
   return (

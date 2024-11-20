@@ -5,7 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Coins, SquareMinus, SquarePlus } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { useUpdateFavoriteItem } from "@/hooks/useFavorites";
+import {
+  useUpdateFavoriteItem,
+  useDeleteFavoriteItem,
+} from "@/hooks/useFavorites";
 
 interface FavoriteItem {
   id: number;
@@ -23,17 +26,20 @@ interface FavoriteCartProps {
   items: FavoriteItem[];
   favoriteOrderId: number;
   onUpdate: () => Promise<void>;
+  userRole?: string;
 }
 
 export default function FavoriteCart({
   items = [],
   favoriteOrderId,
   onUpdate,
+  userRole = "user",
 }: FavoriteCartProps) {
   const [favoriteItems, setFavoriteItems] = useState<FavoriteItem[]>(items);
   const { toast } = useToast();
 
   const updateFavoriteItem = useUpdateFavoriteItem();
+  const deleteFavoriteItem = useDeleteFavoriteItem();
 
   useEffect(() => {
     if (!items) return;
@@ -43,10 +49,14 @@ export default function FavoriteCart({
     setFavoriteItems(sortedItems);
   }, [items]);
 
+  const getItemPrice = (item: FavoriteItem) => {
+    return userRole === "mobil" ? item.product.priceMobil : item.product.price;
+  };
+
   const calculateTotal = () => {
     if (!favoriteItems) return 0;
     return favoriteItems.reduce((sum: number, item: FavoriteItem) => {
-      const itemPrice = item.product.price || 0;
+      const itemPrice = getItemPrice(item);
       const quantity = item.quantity || 0;
       return sum + quantity * itemPrice;
     }, 0);
@@ -61,13 +71,28 @@ export default function FavoriteCart({
     if (newQuantity < 0) return;
 
     try {
-      await updateFavoriteItem.mutateAsync({ itemId, newQuantity });
+      if (newQuantity === 0) {
+        // Delete the item
+        await deleteFavoriteItem.mutateAsync(itemId);
 
-      // Update local state
-      const updatedItems = favoriteItems.map((item) =>
-        item.id === itemId ? { ...item, quantity: newQuantity } : item
-      );
-      setFavoriteItems(updatedItems);
+        // Update local state
+        setFavoriteItems(favoriteItems.filter((item) => item.id !== itemId));
+
+        toast({
+          title: "Item removed",
+          description: "Item has been removed from your favorite list",
+        });
+      } else {
+        // Update quantity
+        await updateFavoriteItem.mutateAsync({ itemId, newQuantity });
+
+        // Update local state
+        const updatedItems = favoriteItems.map((item) =>
+          item.id === itemId ? { ...item, quantity: newQuantity } : item
+        );
+        setFavoriteItems(updatedItems);
+      }
+
       await onUpdate();
     } catch (error) {
       console.error("Failed to update quantity:", error);
@@ -94,7 +119,7 @@ export default function FavoriteCart({
                 {item.product.name}
               </span>
               <span className="text-sm flex-1 mr-2 text-end">
-                {(item.price || item.product.price).toFixed(2)} Kč
+                {getItemPrice(item).toFixed(2)} Kč
               </span>
               <div className="flex items-center">
                 <SquareMinus
@@ -122,7 +147,7 @@ export default function FavoriteCart({
                   className="cursor-pointer text-stone-300 hover:text-stone-400"
                 />
                 <Label className="w-16 mx-4 text-end">
-                  {(item.product.price * (item.quantity || 0)).toFixed(2)} Kč
+                  {(getItemPrice(item) * (item.quantity || 0)).toFixed(2)} Kč
                 </Label>
               </div>
             </div>

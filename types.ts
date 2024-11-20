@@ -84,7 +84,7 @@ export type Product = {
  export interface FavoriteOrder {
   id: number;
   user_id: string;
-  day: string;
+  days: Day;
   status: OrderStatus;
   user: Profile;
   favorite_items: FavoriteItem[];
