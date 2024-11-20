@@ -33,6 +33,19 @@ import {
 import { fetchAllProducts } from "@/hooks/useProducts";
 import { useFavoriteOrders } from "@/hooks/useFavorites";
 import { FavoriteDetailsDialog } from "./FavoriteDetailsDialog";
+import { useInsertOrder, useInsertOrderItems } from "@/hooks/useOrders";
+import { format } from "date-fns";
+
+import { CirclePlus } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
 
@@ -76,6 +89,7 @@ interface FavoriteOrdersTableProps {
 export function FavoriteOrdersTable({
   selectedProductId: initialProductId,
 }: FavoriteOrdersTableProps) {
+  const { toast } = useToast(); // Add this line
   const { data: orders, error, isLoading } = useFavoriteOrders();
   const [date, setDate] = useState<Date>();
   const [selectedProductId, setSelectedProductId] = useState(
@@ -84,6 +98,8 @@ export function FavoriteOrdersTable({
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const { data: products } = fetchAllProducts();
   const [selectedDay, setSelectedDay] = useState<string>("all");
+  const { mutateAsync: insertOrder } = useInsertOrder();
+  const { mutateAsync: insertOrderItems } = useInsertOrderItems();
 
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders: {error.message}</div>;
@@ -102,6 +118,73 @@ export function FavoriteOrdersTable({
     }
     return true;
   });
+
+  const createOrdersFromFavorites = async () => {
+    if (!date) {
+      toast({
+        title: "Error",
+        description: "Please select a date for the orders",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      for (const favoriteOrder of filteredOrders) {
+        if (!favoriteOrder.favorite_items?.length) {
+          console.log(
+            `Skipping order for user ${favoriteOrder.user_id} - no items`
+          );
+          continue;
+        }
+
+        // Get the user's role from the favoriteOrder
+        const userRole = favoriteOrder.user?.role;
+
+        // Calculate total using the appropriate price based on user role
+        const total = favoriteOrder.favorite_items.reduce((sum, item) => {
+          const price =
+            userRole === "mobil"
+              ? item.product?.priceMobil || 0
+              : item.product?.price || 0;
+          return sum + item.quantity * price;
+        }, 0);
+
+        // Create new order
+        const newOrder = await insertOrder({
+          user_id: favoriteOrder.user_id,
+          date: format(date, "yyyy-MM-dd"),
+          status: "New",
+          total: total,
+        });
+
+        // Map favorite items to order items with role-based pricing
+        const orderItems = favoriteOrder.favorite_items.map((item) => ({
+          order_id: newOrder.id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          price:
+            userRole === "mobil" ? item.product.priceMobil : item.product.price,
+        }));
+
+        if (orderItems.length > 0) {
+          await insertOrderItems(orderItems);
+        }
+      }
+
+      toast({
+        title: "Success",
+        description: `Created ${filteredOrders.length} orders for ${format(date, "PP")}`,
+      });
+    } catch (error) {
+      console.error("Error creating orders:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create orders",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <>
@@ -150,11 +233,43 @@ export function FavoriteOrdersTable({
                   ))}
                 </SelectContent>
               </Select>
-              <Badge variant="secondary">
-                {date
-                  ? `${filteredOrders.length} orders`
-                  : `${filteredOrders.length} total orders`}
-              </Badge>
+              <div className="flex gap-2 items-center">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[240px] justify-start text-left font-normal",
+                        !date && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {date ? format(date, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={setDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Button
+                  onClick={createOrdersFromFavorites}
+                  disabled={!date || filteredOrders.length === 0}
+                  className="gap-2"
+                >
+                  <CirclePlus className="h-4 w-4" />
+                  Create Orders ({filteredOrders.length})
+                </Button>
+                <Badge variant="secondary">
+                  {date
+                    ? `${filteredOrders.length} orders`
+                    : `${filteredOrders.length} total orders`}
+                </Badge>
+              </div>
             </div>
           </div>
 
