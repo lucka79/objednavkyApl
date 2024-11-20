@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { fetchAllProducts } from "@/hooks/useProducts";
 import { useFavoriteOrders } from "@/hooks/useFavorites";
+import { FavoriteDetailsDialog } from "./FavoriteDetailsDialog";
 
 const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
 
@@ -90,66 +91,73 @@ export function FavoriteOrdersTable({
   });
 
   return (
-    <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible print:transform-none">
-      <div className="space-y-4 overflow-x-auto print:!m-0">
-        <div className="space-y-2">
-          <Tabs defaultValue="all" onValueChange={setSelectedDay}>
-            <TabsList className="grid grid-cols-8">
-              <TabsTrigger value="all">All</TabsTrigger>
-              {DAYS.map((day) => (
-                <TabsTrigger key={day} value={day}>
-                  {day}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-
-          <div className="flex justify-between items-center gap-2">
-            <Select
-              value={selectedProductId}
-              onValueChange={setSelectedProductId}
-            >
-              <SelectTrigger className="w-full max-w-sm">
-                <SelectValue placeholder="Filter by product..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Products</SelectItem>
-                {products?.map((product) => (
-                  <SelectItem key={product.id} value={product.id.toString()}>
-                    <div className="flex justify-between items-center w-full">
-                      <span className="mr-2">{product.name}</span>
-                      <Badge variant="outline">
-                        {
-                          filteredOrders.filter((order) =>
-                            order.favorite_items?.some(
-                              (item) =>
-                                item.product_id.toString() ===
-                                product.id.toString()
-                            )
-                          ).length
-                        }{" "}
-                        orders
-                      </Badge>
-                    </div>
-                  </SelectItem>
+    <>
+      <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible print:transform-none">
+        <div className="space-y-4 overflow-x-auto print:!m-0">
+          <div className="space-y-2">
+            <Tabs defaultValue="all" onValueChange={setSelectedDay}>
+              <TabsList className="grid grid-cols-8">
+                <TabsTrigger value="all">All</TabsTrigger>
+                {DAYS.map((day) => (
+                  <TabsTrigger key={day} value={day}>
+                    {day}
+                  </TabsTrigger>
                 ))}
-              </SelectContent>
-            </Select>
-            <Badge variant="secondary">
-              {date
-                ? `${filteredOrders.length} orders`
-                : `${filteredOrders.length} total orders`}
-            </Badge>
-          </div>
-        </div>
+              </TabsList>
+            </Tabs>
 
-        <FavoriteOrderTableContent
-          data={filteredOrders}
-          columns={columns}
-          setSelectedOrderId={setSelectedOrderId}
-        />
-      </div>
-    </Card>
+            <div className="flex justify-between items-center gap-2">
+              <Select
+                value={selectedProductId}
+                onValueChange={setSelectedProductId}
+              >
+                <SelectTrigger className="w-full max-w-sm">
+                  <SelectValue placeholder="Filter by product..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Products</SelectItem>
+                  {products?.map((product) => (
+                    <SelectItem key={product.id} value={product.id.toString()}>
+                      <div className="flex justify-between items-center w-full">
+                        <span className="mr-2">{product.name}</span>
+                        <Badge variant="outline">
+                          {
+                            filteredOrders.filter((order) =>
+                              order.favorite_items?.some(
+                                (item) =>
+                                  item.product_id.toString() ===
+                                  product.id.toString()
+                              )
+                            ).length
+                          }{" "}
+                          orders
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Badge variant="secondary">
+                {date
+                  ? `${filteredOrders.length} orders`
+                  : `${filteredOrders.length} total orders`}
+              </Badge>
+            </div>
+          </div>
+
+          <FavoriteOrderTableContent
+            data={filteredOrders}
+            columns={columns}
+            setSelectedOrderId={setSelectedOrderId}
+          />
+        </div>
+      </Card>
+
+      <FavoriteDetailsDialog
+        favoriteOrderId={selectedOrderId}
+        onClose={() => setSelectedOrderId(null)}
+      />
+    </>
   );
 }
 

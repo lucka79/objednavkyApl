@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 
 export const useFavoriteOrders = () => {
@@ -72,6 +72,24 @@ export const useFavoriteItems = () => {
       if (!data) return [];
       
       return data;
+    },
+  });
+};
+
+export const useUpdateFavoriteItem = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ itemId, newQuantity }: { itemId: number; newQuantity: number }) => {
+      const { error } = await supabase
+        .from('favorite_items')
+        .update({ quantity: newQuantity })
+        .eq('id', itemId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['favoriteItems']);
     },
   });
 };
