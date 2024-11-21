@@ -150,7 +150,7 @@ export const useCreateFavoriteOrder = () => {
       data 
     }: { 
       data: {
-        day: string[];
+        days: Day[];
         status?: string;
         user_id: string;
       }

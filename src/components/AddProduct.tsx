@@ -24,6 +24,7 @@ import { useOrderItemsStore } from "@/providers/orderItemsStore";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { CategoryBadges } from "./CategoryBadges";
+import { useToast } from "@/hooks/use-toast";
 
 interface AddProductProps {
   orderId: number;
@@ -48,12 +49,31 @@ export const AddProduct: React.FC<AddProductProps> = ({
 
   const queryClient = useQueryClient();
 
+  const { toast } = useToast();
+
   const handleAddProduct = async (product: any) => {
     console.log("Adding product:", product);
     console.log("Selected Order ID:", selectedOrderId);
 
     if (selectedOrderId) {
       try {
+        // Check if item already exists
+        const { data: existingItem } = await supabase
+          .from("order_items")
+          .select()
+          .eq("order_id", selectedOrderId)
+          .eq("product_id", product.id)
+          .single();
+
+        if (existingItem) {
+          toast({
+            title: "Item already exists",
+            description: "This item is already in your order.",
+            variant: "destructive",
+          });
+          return;
+        }
+
         // Direct database insertion for new item
         const { data: newItem, error } = await supabase
           .from("order_items")

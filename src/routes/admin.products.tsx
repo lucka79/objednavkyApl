@@ -12,8 +12,6 @@ import { useAuthStore } from "@/lib/supabase";
 import { ProductDetailsCard } from "@/components/ProductDetailsCard";
 import { ProductsTable } from "@/components/ProductsTable";
 import { ProductCategory } from "@/components/ProductCategory";
-
-import { OrderDetailsCard } from "@/components/OrderDetailsCard";
 import { OrdersTable } from "@/components/OrdersTable";
 import CartAdmin from "@/components/CartAdmin";
 import { FavoriteOrdersTable } from "@/components/FavoriteOrdersTable";

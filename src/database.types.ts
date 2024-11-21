@@ -69,7 +69,6 @@ export type Database = {
       favorite_orders: {
         Row: {
           created_at: string
-          day: Database["public"]["Enums"]["dayOfWeek"] | null
           days: string[] | null
           id: number
           status: string | null
@@ -77,7 +76,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          day?: Database["public"]["Enums"]["dayOfWeek"] | null
           days?: string[] | null
           id?: number
           status?: string | null
@@ -85,7 +83,6 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          day?: Database["public"]["Enums"]["dayOfWeek"] | null
           days?: string[] | null
           id?: number
           status?: string | null

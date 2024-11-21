@@ -6,7 +6,7 @@ import {
   flexRender,
 } from "@tanstack/react-table";
 // import { fetchAllOrders } from "@/hooks/useOrders";
-import { FavoriteOrder, Order } from "../../types";
+import { FavoriteItem, FavoriteOrder, Order } from "../../types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +36,7 @@ import { FavoriteDetailsDialog } from "./FavoriteDetailsDialog";
 import { useInsertOrder, useInsertOrderItems } from "@/hooks/useOrders";
 import { format } from "date-fns";
 
-import { CirclePlus } from "lucide-react";
+import { CirclePlus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -46,6 +46,10 @@ import {
 } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AddFavoriteOrderDialog } from "./AddFavoriteOrderDialog";
+import { useAuthStore } from "@/lib/supabase";
+import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
+import { useDeleteFavoriteOrder } from "@/hooks/useFavorites";
 
 const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
 
@@ -55,7 +59,9 @@ const columns: ColumnDef<FavoriteOrder>[] = [
     header: () => <div className="w-16 text-left">Den</div>,
     cell: ({ row }) => (
       <div className="w-18 text-left">
-        {row.original.days?.map((day) => day).join(", ")}
+        {Array.isArray(row.original.days)
+          ? row.original.days.join(", ")
+          : row.original.days}
       </div>
     ),
   },
@@ -80,6 +86,46 @@ const columns: ColumnDef<FavoriteOrder>[] = [
       );
     },
   },
+  {
+    id: "actions",
+    cell: ({ row }) => {
+      const order = row.original;
+      const deleteFavoriteOrder = useDeleteFavoriteOrder();
+      const { toast } = useToast();
+
+      const handleDelete = async (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent row click event
+
+        try {
+          await deleteFavoriteOrder.mutateAsync(order.id);
+          toast({
+            title: "Success",
+            description: "Favorite order deleted successfully",
+          });
+        } catch (error) {
+          console.error("Failed to delete favorite order:", error);
+          toast({
+            title: "Error",
+            description: "Failed to delete favorite order",
+            variant: "destructive",
+          });
+        }
+      };
+
+      return (
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDelete}
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      );
+    },
+  },
 ];
 
 interface FavoriteOrdersTableProps {
@@ -100,6 +146,7 @@ export function FavoriteOrdersTable({
   const [selectedDay, setSelectedDay] = useState<string>("all");
   const { mutateAsync: insertOrder } = useInsertOrder();
   const { mutateAsync: insertOrderItems } = useInsertOrderItems();
+  const user = useAuthStore((state) => state.user);
 
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders: {error.message}</div>;
@@ -113,7 +160,7 @@ export function FavoriteOrdersTable({
     // Then filter by selected product
     if (selectedProductId && selectedProductId !== "all") {
       return order.favorite_items?.some(
-        (item) => item.product_id.toString() === selectedProductId
+        (item: FavoriteItem) => item.product_id.toString() === selectedProductId
       );
     }
     return true;
@@ -142,13 +189,16 @@ export function FavoriteOrdersTable({
         const userRole = favoriteOrder.user?.role;
 
         // Calculate total using the appropriate price based on user role
-        const total = favoriteOrder.favorite_items.reduce((sum, item) => {
-          const price =
-            userRole === "mobil"
-              ? item.product?.priceMobil || 0
-              : item.product?.price || 0;
-          return sum + item.quantity * price;
-        }, 0);
+        const total = favoriteOrder.favorite_items.reduce(
+          (sum: number, item: FavoriteItem) => {
+            const price =
+              userRole === "mobil"
+                ? item.product?.priceMobil || 0
+                : item.product?.price || 0;
+            return sum + item.quantity * price;
+          },
+          0
+        );
 
         // Create new order
         const newOrder = await insertOrder({
@@ -159,13 +209,17 @@ export function FavoriteOrdersTable({
         });
 
         // Map favorite items to order items with role-based pricing
-        const orderItems = favoriteOrder.favorite_items.map((item) => ({
-          order_id: newOrder.id,
-          product_id: item.product_id,
-          quantity: item.quantity,
-          price:
-            userRole === "mobil" ? item.product.priceMobil : item.product.price,
-        }));
+        const orderItems = favoriteOrder.favorite_items.map(
+          (item: FavoriteItem) => ({
+            order_id: newOrder.id,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            price:
+              userRole === "mobil"
+                ? item.product.priceMobil
+                : item.product.price,
+          })
+        );
 
         if (orderItems.length > 0) {
           await insertOrderItems(orderItems);
@@ -191,6 +245,19 @@ export function FavoriteOrdersTable({
       <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible print:transform-none">
         <div className="space-y-4 overflow-x-auto print:!m-0">
           <div className="space-y-2">
+            <div>
+              {user?.role === "admin" && (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <CirclePlus className="h-4 w-4 mr-2" />
+                      Nová stálá objednávka
+                    </Button>
+                  </DialogTrigger>
+                  <AddFavoriteOrderDialog />
+                </Dialog>
+              )}
+            </div>
             <Tabs defaultValue="all" onValueChange={setSelectedDay}>
               <TabsList className="grid grid-cols-8">
                 <TabsTrigger value="all">All</TabsTrigger>
@@ -220,7 +287,7 @@ export function FavoriteOrdersTable({
                           {
                             filteredOrders.filter((order) =>
                               order.favorite_items?.some(
-                                (item) =>
+                                (item: FavoriteItem) =>
                                   item.product_id.toString() ===
                                   product.id.toString()
                               )
@@ -306,48 +373,46 @@ function FavoriteOrderTableContent({
   });
 
   return (
-    <>
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <TableHead key={header.id}>
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
-                </TableHead>
+    <Table>
+      <TableHeader>
+        {table.getHeaderGroups().map((headerGroup) => (
+          <TableRow key={headerGroup.id}>
+            {headerGroup.headers.map((header) => (
+              <TableHead key={header.id}>
+                {header.isPlaceholder
+                  ? null
+                  : flexRender(
+                      header.column.columnDef.header,
+                      header.getContext()
+                    )}
+              </TableHead>
+            ))}
+          </TableRow>
+        ))}
+      </TableHeader>
+      <TableBody>
+        {table.getRowModel().rows?.length ? (
+          table.getRowModel().rows.map((row) => (
+            <TableRow
+              key={row.id}
+              onClick={() => setSelectedOrderId(row.original.id)}
+              className="cursor-pointer hover:bg-muted/50"
+            >
+              {row.getVisibleCells().map((cell) => (
+                <TableCell key={cell.id}>
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
               ))}
             </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows?.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                onClick={() => setSelectedOrderId(row.original.id)}
-                className="cursor-pointer hover:bg-muted/50"
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
-                No results.
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </>
+          ))
+        ) : (
+          <TableRow>
+            <TableCell colSpan={columns.length} className="h-24 text-center">
+              No results.
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
   );
 }

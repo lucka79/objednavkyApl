@@ -359,5 +359,64 @@ export const useDeleteOrderItem = () => {
   });
 };
 
+export const useDeleteOrder = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    async mutationFn(orderId: number) {
+      console.log('Starting deletion process for order:', orderId);
+      try {
+        // First get all order_items for this order
+        const { data: orderItems, error: itemsError } = await supabase
+          .from('order_items')
+          .select('id')
+          .eq('order_id', orderId);
+        
+        if (itemsError) throw itemsError;
+        console.log('Found order items:', orderItems);
+
+        // Delete order_items_history records for each order item
+        if (orderItems && orderItems.length > 0) {
+          console.log('Deleting history for items:', orderItems.map(item => item.id));
+          const { error: historyError } = await supabase
+            .from('order_items_history')
+            .delete()
+            .in('order_item_id', orderItems.map(item => item.id));
+
+          if (historyError) throw historyError;
+        }
+
+        // Then delete order_items
+        console.log('Deleting order items for order:', orderId);
+        const { error: itemsDeleteError } = await supabase
+          .from('order_items')
+          .delete()
+          .eq('order_id', orderId);
+
+        if (itemsDeleteError) throw itemsDeleteError;
+
+        // Finally delete the order
+        console.log('Deleting main order:', orderId);
+        const { error: orderError } = await supabase
+          .from('orders')
+          .delete()
+          .eq('id', orderId);
+
+        if (orderError) throw orderError;
+
+        console.log('Successfully completed deletion of order:', orderId);
+        return orderId;
+      } catch (error) {
+        console.error('Delete failed:', error);
+        throw error;
+      }
+    },
+    onSuccess: (orderId) => {
+      console.log('Mutation succeeded, invalidating queries for order:', orderId);
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+  });
+};
+
 
 

@@ -5,7 +5,7 @@ import {
   ColumnDef,
   flexRender,
 } from "@tanstack/react-table";
-import { fetchAllOrders } from "@/hooks/useOrders";
+import { fetchAllOrders, useDeleteOrder } from "@/hooks/useOrders";
 import { Order } from "../../types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { fetchAllProducts } from "@/hooks/useProducts";
-import { OrderItems } from "./OrderItems";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./ui/alert-dialog";
+import { Trash2 } from "lucide-react";
+import { useAuthStore } from "@/lib/supabase";
 
 const filterOrdersByDate = (
   orders: Order[],
@@ -108,9 +120,9 @@ const calculateCrateSums = (orders: Order[]) => {
 const columns: ColumnDef<Order>[] = [
   {
     accessorKey: "date",
-    header: () => <div className="w-16 text-right">Datum</div>,
+    header: () => <div className="w-18 text-left">Datum</div>,
     cell: ({ row }) => (
-      <div className="w-18 text-right">
+      <div className="w-18 text-left">
         {new Date(row.original.date).toLocaleDateString()}
       </div>
     ),
@@ -121,7 +133,7 @@ const columns: ColumnDef<Order>[] = [
   },
   {
     accessorKey: "crateSmall",
-    header: () => <div className="text-right print:hidden"></div>,
+    header: () => <div className="w-12 text-right print:hidden"></div>,
     cell: ({ row }) => (
       <div className="flex items-center w-12 text-right print:hidden">
         <Badge variant="outline" className="text-yellow-700 ">
@@ -462,7 +474,7 @@ export function OrdersTable({
   };
 
   // Update the printOrderTotalsByDate function
-  const printOrderTotalsByDate = (orders: Order[], period: string) => {
+  const printOrderTotalsByDate = (orders: Order[]) => {
     const totalsByDate = calculateOrderTotalsByDate(orders);
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
@@ -705,7 +717,7 @@ export function OrdersTable({
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        printOrderTotalsByDate(filteredPeriodOrders, period)
+                        printOrderTotalsByDate(filteredPeriodOrders)
                       }
                       className="print:hidden"
                     >
@@ -753,6 +765,58 @@ function OrderTableContent({
   columns: ColumnDef<Order>[];
   setSelectedOrderId: (id: number) => void;
 }) {
+  const deleteOrder = useDeleteOrder();
+  const [orderToDelete, setOrderToDelete] = useState<number | null>(null);
+  const { user } = useAuthStore();
+
+  const DeleteButton = ({ orderId }: { orderId: number }) => {
+    if (user?.role !== "admin") return null;
+
+    return (
+      <AlertDialog
+        open={orderToDelete === orderId}
+        onOpenChange={(open) => setOrderToDelete(open ? orderId : null)}
+      >
+        <AlertDialogTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the
+              order.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                deleteOrder.mutate(orderId, {
+                  onSuccess: () => {
+                    setOrderToDelete(null);
+                    setSelectedOrderId(0);
+                  },
+                });
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  };
+
   const table = useReactTable({
     data,
     columns,
@@ -793,6 +857,9 @@ function OrderTableContent({
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
+                <TableCell>
+                  <DeleteButton orderId={row.original.id} />
+                </TableCell>
               </TableRow>
             ))
           ) : (
