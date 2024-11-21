@@ -226,6 +226,131 @@ interface OrdersTableProps {
   selectedProductId: string | null;
 }
 
+// Add this component for the print summary
+function PrintSummary({
+  orders,
+  period,
+  globalFilter,
+}: {
+  orders: Order[];
+  period: string;
+  globalFilter: string;
+}) {
+  // Filter orders based on globalFilter first
+  const filteredOrders = orders.filter((order) => {
+    if (!globalFilter) return true;
+    const searchTerm = globalFilter.toLowerCase();
+
+    // Search in order items
+    const matchesProducts = order.order_items.some((item) =>
+      item.product.name.toLowerCase().includes(searchTerm)
+    );
+
+    // Search in customer name
+    const matchesCustomer = order.user.full_name
+      ?.toLowerCase()
+      .includes(searchTerm);
+
+    return matchesProducts || matchesCustomer;
+  });
+
+  // Group items by product name and price
+  const totals = filteredOrders.reduce(
+    (acc, order) => {
+      order.order_items.forEach((item) => {
+        const key = `${item.product.name}-${item.price}`;
+        if (!acc[key]) {
+          acc[key] = {
+            name: item.product.name,
+            price: item.price,
+            quantity: 0,
+            total: 0,
+          };
+        }
+        acc[key].quantity += item.quantity;
+        acc[key].total += item.quantity * item.price;
+      });
+      return acc;
+    },
+    {} as Record<
+      string,
+      { name: string; price: number; quantity: number; total: number }
+    >
+  );
+
+  // Convert to array and sort by name
+  const sortedTotals = Object.values(totals).sort((a, b) =>
+    a.name.localeCompare(b.name, "cs")
+  );
+
+  // Calculate grand total
+  const totalAmount = sortedTotals.reduce((sum, item) => sum + item.total, 0);
+
+  // Calculate crate totals (unchanged)
+  const crateTotals = filteredOrders.reduce(
+    (sums, order) => ({
+      crateSmall: sums.crateSmall + (order.crateSmall || 0),
+      crateBig: sums.crateBig + (order.crateBig || 0),
+      crateSmallReceived:
+        sums.crateSmallReceived + (order.crateSmallReceived || 0),
+      crateBigReceived: sums.crateBigReceived + (order.crateBigReceived || 0),
+    }),
+    { crateSmall: 0, crateBig: 0, crateSmallReceived: 0, crateBigReceived: 0 }
+  );
+
+  return (
+    <div className="hidden print:block mt-8 p-4">
+      <h2 className="text-xl font-bold mb-4">Souhrn objednávek - {period}</h2>
+      <table className="w-full mb-8">
+        <thead>
+          <tr className="border-b">
+            <th className="text-left py-2">Produkt</th>
+            <th className="text-right py-2">Množství</th>
+            <th className="text-right py-2">Cena</th>
+            <th className="text-right py-2">Celkem</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sortedTotals.map((item, index) => (
+            <tr
+              key={`${item.name}-${item.price}-${index}`}
+              className="border-b"
+            >
+              <td className="py-2">{item.name}</td>
+              <td className="text-right py-2">{item.quantity}</td>
+              <td className="text-right py-2">{item.price} Kč</td>
+              <td className="text-right py-2">{item.total.toFixed(2)} Kč</td>
+            </tr>
+          ))}
+          <tr className="font-bold">
+            <td colSpan={3} className="py-2 text-right">
+              Celková suma:
+            </td>
+            <td className="text-right py-2">{totalAmount.toFixed(2)} Kč</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Crates Summary (unchanged) */}
+      <div className="mt-4 border-t pt-4">
+        <h3 className="font-bold mb-2">Přepravky:</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p>Vydané přepravky:</p>
+            <p>Malé: {crateTotals.crateSmall}</p>
+            <p>Velké: {crateTotals.crateBig}</p>
+          </div>
+          <div>
+            <p>Vrácené přepravky:</p>
+            <p>Malé: {crateTotals.crateSmallReceived}</p>
+            <p>Velké: {crateTotals.crateBigReceived}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function OrdersTable({
   selectedProductId: initialProductId,
 }: OrdersTableProps) {
@@ -543,7 +668,7 @@ export function OrdersTable({
   return (
     <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible  print:transform-none">
       <div className="space-y-4 overflow-x-auto print:!m-0">
-        <div className="space-y-2">
+        <div className="space-y-2 print:hidden">
           <div className="flex justify-between items-center gap-2">
             <Input
               placeholder="Search orders..."
@@ -659,7 +784,7 @@ export function OrdersTable({
             setActiveTab(value);
           }}
         >
-          <TabsList>
+          <TabsList className="print:hidden">
             {[
               { value: "today", label: "Today" },
               { value: "tomorrow", label: "Tomorrow" },
@@ -686,8 +811,14 @@ export function OrdersTable({
 
             return (
               <TabsContent key={period} value={period}>
+                <PrintSummary
+                  orders={filteredPeriodOrders}
+                  period={period}
+                  globalFilter={globalFilter}
+                />
+
                 <div className="flex justify-between items-center mb-4">
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 print:hidden">
                     <span className="text-muted-foreground text-sm font-semibold">
                       Vydáno celkem:
                     </span>
@@ -713,6 +844,15 @@ export function OrdersTable({
                   </div>
 
                   <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.print()}
+                      className="print:hidden"
+                    >
+                      <Printer className="mr-2 h-4 w-4" />
+                      Tisk souhrnu
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
