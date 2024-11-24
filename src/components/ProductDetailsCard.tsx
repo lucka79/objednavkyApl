@@ -43,12 +43,7 @@ export function ProductDetailsCard() {
   const category = categoriesData?.find((c) => c.id === product.category_id);
 
   if (isEditing) {
-    return (
-      <ProductForm
-        productId={selectedProductId}
-        onClose={() => setIsEditing(false)}
-      />
-    );
+    return <ProductForm onClose={() => setIsEditing(false)} />;
   }
 
   return (

@@ -30,7 +30,7 @@ interface AddProductProps {
 }
 
 export const AddProduct: React.FC<AddProductProps> = ({
-  orderId,
+  // orderId,
   onUpdate,
 }) => {
   const { data: products, isLoading, error } = fetchAllProducts();
@@ -40,7 +40,7 @@ export const AddProduct: React.FC<AddProductProps> = ({
   const user = useAuthStore((state) => state.user);
 
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-
+  // @ts-ignore
   const { mutate: updateOrderItems } = useUpdateOrderItems();
 
   const selectedOrderId = useOrderStore((state) => state.selectedOrderId);

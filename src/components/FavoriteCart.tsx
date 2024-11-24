@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Coins, SquareMinus, SquarePlus } from "lucide-react";
@@ -31,7 +31,7 @@ interface FavoriteCartProps {
 
 export default function FavoriteCart({
   items = [],
-  favoriteOrderId,
+  // favoriteOrderId,
   onUpdate,
   userRole = "user",
 }: FavoriteCartProps) {

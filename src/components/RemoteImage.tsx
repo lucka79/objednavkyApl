@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { transform } from "@babel/core";
 
 type RemoteImageProps = {
   path?: string | null;

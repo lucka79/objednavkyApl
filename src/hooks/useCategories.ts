@@ -42,10 +42,17 @@ export const fetchProductsByCategoryId = async (categoryId?: number) => {
   return data
 }
 
-export const createOrder = async (items: any[], userId: string) => {
+interface OrderItem {
+  id: number;
+  quantity: number;
+  price: number;
+}
+
+export const createOrder = async (items: OrderItem[], userId: string) => {
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .insert({ user_id: userId, status: 'pending' })
+    .select()
     .single()
 
   if (orderError) throw orderError

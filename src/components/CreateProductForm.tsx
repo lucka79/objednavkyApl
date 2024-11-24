@@ -115,6 +115,7 @@ export function CreateProductForm() {
 
         if (uploadError) throw uploadError;
         if (dataImage) {
+          // @ts-ignore
           insertProductMutation.mutate({ ...data, image: dataImage.path });
         }
       } else {

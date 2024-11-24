@@ -33,7 +33,6 @@ import {
   ArrowUp,
   CalendarIcon,
   Container,
-  CirclePlus,
   Printer,
 } from "lucide-react";
 import { format } from "date-fns";

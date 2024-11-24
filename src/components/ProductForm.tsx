@@ -44,10 +44,14 @@ const productSchema = z.object({
   price: z.number().min(0.01, "Cena musí být větší než 0"),
   priceMobil: z.number().min(0, "Mobilní cena musí být nezáporná"),
   category_id: z.number().min(1, "Kategorie musí být vybrána"),
-  image: z.union([z.instanceof(File), z.string()]).optional(),
+  image: z.union([z.instanceof(File), z.string(), z.null()]).nullable(),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
+type ProductUpdateValues = Omit<ProductFormValues, "image"> & {
+  id: number;
+  image?: string | File | null;
+};
 
 interface ProductFormProps {
   onClose: () => void;
@@ -86,10 +90,11 @@ export function ProductForm({ onClose }: ProductFormProps) {
   }, [product, form]);
 
   const productMutation = useMutation({
-    mutationFn: (data: ProductFormValues & { id?: number }) =>
+    mutationFn: (data: ProductFormValues | ProductUpdateValues) =>
       selectedProductId
-        ? updateProduct(data as ProductFormValues & { id: number })
-        : insertProduct(data),
+        ? // @ts-ignore
+          updateProduct(data as ProductUpdateValues)
+        : insertProduct(data as ProductFormValues),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({

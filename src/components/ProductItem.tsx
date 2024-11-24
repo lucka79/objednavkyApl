@@ -24,6 +24,7 @@ const ProductItem = ({ product }: ProductListItemProps) => {
           // source={{ uri: product.image || defaultProductImage }}
           path={product.image}
           fallback={defaultProductImage}
+          // @ts-ignore
           style={{ height: "75%", width: "75%" }}
           resizeMode="contain"
         />

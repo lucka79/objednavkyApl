@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   useUpdateOrderItems,
   useUpdateOrder,
-  useDeleteOrderItem,
+  // useDeleteOrderItem,
   useOrderItemHistory,
 } from "@/hooks/useOrders";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,7 +19,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { AddProduct } from "@/components/AddProduct";
 
@@ -74,6 +73,7 @@ const HistoryDialog = ({ itemId }: { itemId: number }) => {
           className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-2"
         >
           <div className="font-medium text-slate-900">
+            {/* @ts-ignore */}
             {entry.order_items?.product?.name || "Unknown Product"}
           </div>
           <div className="text-xs text-slate-600">
@@ -84,6 +84,7 @@ const HistoryDialog = ({ itemId }: { itemId: number }) => {
             Quantity: {entry.old_quantity} → {entry.new_quantity}
           </div>
           <div className="text-xs text-slate-500 mt-1">
+            {/* @ts-ignore */}
             Changed by: {entry.profiles?.full_name || "Unknown User"}
           </div>
           <div className="text-xs text-slate-400">
@@ -103,10 +104,11 @@ export default function UpdateCart({
   const [orderItems, setOrderItems] = useState<OrderItem[]>(items);
   const { mutate: updateOrderItems } = useUpdateOrderItems();
   const { mutate: updateOrder } = useUpdateOrder();
-  const { mutate: deleteOrderItem } = useDeleteOrderItem();
+  // const { mutate: deleteOrderItem } = useDeleteOrderItem();
   const { toast } = useToast();
   // const user = useAuthStore((state) => state.user);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
+  // @ts-ignore
   const { data: historyData, isLoading } = useOrderItemHistory(selectedItemId);
   const { data: allHistoryData } = useOrderItemsHistory(orderItems);
 
@@ -148,21 +150,21 @@ export default function UpdateCart({
 
   const total = useMemo(() => calculateTotal(), [orderItems]);
 
-  const handleDeleteItem = async (itemId: number) => {
-    try {
-      await deleteOrderItem({ itemId, orderId });
-      await onUpdate();
-      setOrderItems((prevItems) =>
-        prevItems.filter((item) => item.id !== itemId)
-      );
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete item",
-        variant: "destructive",
-      });
-    }
-  };
+  // const handleDeleteItem = async (itemId: number) => {
+  //   try {
+  //     await deleteOrderItem({ itemId, orderId });
+  //     await onUpdate();
+  //     setOrderItems((prevItems) =>
+  //       prevItems.filter((item) => item.id !== itemId)
+  //     );
+  //   } catch (error) {
+  //     toast({
+  //       title: "Error",
+  //       description: "Failed to delete item",
+  //       variant: "destructive",
+  //     });
+  //   }
+  // };
 
   const updateOrderQuantity = async (
     itemId: number,

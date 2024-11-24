@@ -279,19 +279,19 @@ export const useUpdateOrderItems = () => {
       // Start a transaction
       const { data: oldItem, error: fetchError } = await supabase
         .from('order_items')
-        .select('quantity, product:products(name)')
+        .select('quantity, product:products(*)')
         .eq('id', id)
         .single();
 
       if (fetchError) throw fetchError;
 
-      console.log('Quantity Change:', {
-        itemId: id,
-        oldQuantity: oldItem?.quantity,
-        newQuantity: updatedFields.quantity,
-        productName: oldItem?.product?.name,
-        changedBy: user?.id
-      });
+      // console.log('Quantity Change:', {
+      //   itemId: id,
+      //   oldQuantity: oldItem?.quantity,
+      //   newQuantity: updatedFields.quantity,
+      //   productName: oldItem?.product?.name,
+      //   changedBy: user?.id
+      // });
 
       // Update the item
       const { data, error } = await supabase

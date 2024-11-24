@@ -1,5 +1,5 @@
 //import * as React from "react";
-import { Link, Outlet, createRootRoute } from "@tanstack/react-router";
+import { Outlet, createRootRoute } from "@tanstack/react-router";
 import "@/styles/app.css";
 // import { TanStackRouterDevtools } from "@tanstack/router-devtools";
 // import { Separator } from "@/components/ui/separator";

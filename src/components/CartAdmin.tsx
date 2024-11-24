@@ -132,7 +132,7 @@ export default function CartAdmin() {
                 locale={cs}
                 weekStartsOn={1}
                 formatters={{
-                  formatCaption: (date, options) =>
+                  formatCaption: (date) =>
                     format(date, "LLLL yyyy", { locale: cs }),
                   formatWeekdayName: (date) =>
                     format(date, "EEEEEE", { locale: cs }),

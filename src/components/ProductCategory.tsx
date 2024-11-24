@@ -10,14 +10,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { FilePenLine, ShoppingCart } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 import { Badge } from "./ui/badge";
 import { Category } from "types";
 import { Skeleton } from "./ui/skeleton";
 import { useAuthStore } from "@/lib/supabase";
 import { fetchCategories } from "@/hooks/useCategories";
-import { useProductStore } from "@/providers/productStore";
 
 // Category badges component
 const CategoryBadges = ({

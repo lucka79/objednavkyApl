@@ -18,9 +18,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useState } from "react";
-import { FileSearch2 } from "lucide-react";
+
 import { Card } from "./ui/card";
-import { Badge } from "./ui/badge";
+
 import { fetchAllProducts } from "@/hooks/useProducts";
 import { Category, Product } from "../../types";
 import { useProductStore } from "@/providers/productStore";
