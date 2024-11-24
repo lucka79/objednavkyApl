@@ -2,11 +2,9 @@ import { useState } from "react";
 import { useCreateFavoriteOrder } from "@/hooks/useFavorites";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -18,10 +16,9 @@ import {
 import { Checkbox } from "./ui/checkbox";
 import { ScrollArea } from "./ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Plus } from "lucide-react";
+
 import { supabase } from "@/lib/supabase";
 import { useQuery } from "@tanstack/react-query";
-import { Day } from "../../types";
 
 const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
 

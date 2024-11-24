@@ -2,13 +2,7 @@
 import { useState, useEffect } from "react";
 import { useCartStore } from "@/providers/cartStore";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Coins, SquareMinus, SquarePlus, Trash2 } from "lucide-react";
 import { Label } from "@/components/ui/label";

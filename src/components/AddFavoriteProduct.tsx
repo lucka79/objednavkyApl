@@ -1,13 +1,7 @@
 import React, { useState } from "react";
 import { fetchAllProducts } from "@/hooks/useProducts";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShoppingCart } from "lucide-react";
 import { useAuthStore } from "@/lib/supabase";
 import { fetchCategories } from "@/hooks/useCategories";
@@ -50,7 +44,7 @@ export const AddFavoriteProduct: React.FC<AddFavoriteProductProps> = ({
         return;
       }
 
-      const { data: newItem, error } = await supabase
+      const { error } = await supabase
         .from("favorite_items")
         .insert({
           order_id: favoriteOrderId,

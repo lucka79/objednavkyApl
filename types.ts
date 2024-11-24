@@ -47,7 +47,7 @@ export type Product = {
   
   export type OrderStatus = 'Pre-order' | 'New' | 'Expedice' | 'Delivering' | 'Paid';
 
-  export type Day = 'Po' | 'Út' | 'St' | 'Čt' | 'Pá' | 'So' | 'Ne';
+  // export type Day = "Po" | "Út" | "St" | "Čt" | "Pá" | "So" | "Ne";
   
   export type Order = {
     id: number;
@@ -84,7 +84,7 @@ export type Product = {
  export interface FavoriteOrder {
   id: number;
   user_id: string;
-  days: Day;
+  days: Day[];
   status: OrderStatus;
   user: Profile;
   favorite_items: FavoriteItem[];

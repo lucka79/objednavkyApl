@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "./ui/button";
 import { Plus } from "lucide-react";
-import { Day } from "../../types";
 
 interface FavoriteDetailsDialogProps {
   favoriteOrderId: number | null;
@@ -54,13 +53,16 @@ export function FavoriteDetailsDialog({
     }
   }, [currentFavorite]);
 
-  const handleDayToggle = async (day: Day, checked: boolean) => {
+  const handleDayToggle = async (
+    day: (typeof DAYS)[number],
+    checked: boolean
+  ) => {
     if (!currentFavorite) return;
 
     try {
       const newDays = checked
-        ? ([...selectedDays, day] as Day[])
-        : (selectedDays.filter((d) => d !== day) as Day[]);
+        ? ([...selectedDays, day] as (typeof DAYS)[number][])
+        : (selectedDays.filter((d) => d !== day) as (typeof DAYS)[number][]);
 
       await updateFavoriteOrder.mutateAsync({
         id: currentFavorite.id,

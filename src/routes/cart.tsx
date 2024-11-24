@@ -1,6 +1,6 @@
 // Cart.tsx
 import { createFileRoute } from "@tanstack/react-router";
-import Cart from "@/components/Cart";
+
 import { PageLayout } from "@/components/PageLayout";
 import { useAuthStore } from "@/lib/supabase";
 import CartAdmin from "@/components/CartAdmin";

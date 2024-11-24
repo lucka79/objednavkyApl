@@ -1,13 +1,12 @@
-import { fetchOrdersByUserId } from "@/hooks/useOrders";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { OrderItems } from "./OrderItems";
+
 import { useAuthStore } from "@/lib/supabase";
-import { Badge } from "./ui/badge";
+
 import { FavoriteItems } from "./FavoriteItems";
 import { fetchFavoriteOrdersByUserId } from "@/hooks/useFavorites";
 

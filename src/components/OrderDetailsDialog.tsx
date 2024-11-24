@@ -31,7 +31,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import AddProduct from "./AddProduct";
 
 export function OrderDetailsDialog() {
   const user = useAuthStore((state) => state.user);

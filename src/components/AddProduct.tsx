@@ -11,16 +11,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ShoppingCart } from "lucide-react";
-import { ScrollArea, ScrollBar } from "./ui/scroll-area";
-import { Badge } from "./ui/badge";
-import { Category } from "types";
+
 import { Skeleton } from "./ui/skeleton";
 import { useAuthStore } from "@/lib/supabase";
 import { fetchCategories } from "@/hooks/useCategories";
 
 import { useUpdateOrderItems } from "@/hooks/useOrders";
 import { useOrderStore } from "@/providers/orderStore";
-import { useOrderItemsStore } from "@/providers/orderItemsStore";
+
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { CategoryBadges } from "./CategoryBadges";

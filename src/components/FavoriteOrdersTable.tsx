@@ -1,13 +1,12 @@
 import {
   useReactTable,
   getCoreRowModel,
-  getFilteredRowModel,
   ColumnDef,
   flexRender,
 } from "@tanstack/react-table";
 // import { fetchAllOrders } from "@/hooks/useOrders";
-import { FavoriteItem, FavoriteOrder, Order } from "../../types";
-import { Input } from "@/components/ui/input";
+import { FavoriteItem, FavoriteOrder } from "../../types";
+
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -17,8 +16,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useState, useMemo } from "react";
-import { useOrderStore } from "@/providers/orderStore";
+import { useState } from "react";
+
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -48,7 +47,7 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AddFavoriteOrderDialog } from "./AddFavoriteOrderDialog";
 import { useAuthStore } from "@/lib/supabase";
-import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { useDeleteFavoriteOrder } from "@/hooks/useFavorites";
 
 const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;

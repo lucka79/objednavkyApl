@@ -1,9 +1,10 @@
 import { createContext, PropsWithChildren, useContext, useState } from "react";
 import { CartItem, Tables } from "types";
-import { randomUUID } from "crypto";
+// import { randomUUID } from "crypto";
 import { useInsertOrder } from "@/api/orders";
 import { useRouter } from "@tanstack/react-router";
-import { useInsertOrderItems } from "@/api/order-items";
+import { useInsertOrderItems } from "@/hooks/useOrders";
+import { useAuthStore } from "@/lib/supabase";
 
 type Product = Tables<"products">;
 
@@ -11,7 +12,7 @@ type CartType = {
   items: CartItem[];
   addItem: (product: Product) => void;
   // addItem: (product: Product, size: CartItem["size"]) => void;
-  updateQuantity: (itemId: string, amount: -1 | 1) => void;
+  updateQuantity: (itemId: number, amount: -1 | 1) => void;
   total: number;
   checkout: () => void;
 };
@@ -30,6 +31,7 @@ const CartProvider = ({ children }: PropsWithChildren) => {
   const { mutate: insertOrder } = useInsertOrder();
   const { mutate: insertOrderItems } = useInsertOrderItems();
   const router = useRouter();
+  const { user } = useAuthStore();
 
   const addItem = (product: Product) => {
     // if already in cart, increment quantity
@@ -40,7 +42,7 @@ const CartProvider = ({ children }: PropsWithChildren) => {
     }
 
     const newCartItem: CartItem = {
-      id: randomUUID(), // generate (before : "1")
+      id: Date.now(),
       product,
       product_id: product.id,
       quantity: 1,
@@ -51,7 +53,7 @@ const CartProvider = ({ children }: PropsWithChildren) => {
   // update quantity
   console.log(items);
 
-  const updateQuantity = (itemId: string, amount: -1 | 1) => {
+  const updateQuantity = (itemId: number, amount: -1 | 1) => {
     console.log(itemId, amount);
 
     setItems(
@@ -78,7 +80,12 @@ const CartProvider = ({ children }: PropsWithChildren) => {
   const checkout = () => {
     console.warn("Checkout");
     insertOrder(
-      { total },
+      {
+        total,
+        user_id: user?.id ?? "",
+        date: new Date().toISOString(),
+        status: "New",
+      },
       {
         onSuccess: saveOrderItems,
       }
@@ -106,7 +113,7 @@ const CartProvider = ({ children }: PropsWithChildren) => {
       {
         onSuccess() {
           clearCart();
-          router.navigate({ to: "/orders/user" });
+          router.navigate({ to: "/user/orders" });
           // router.push(`/(user)/orders/${order.id}`);
         },
       }
