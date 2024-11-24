@@ -72,14 +72,34 @@ export const AddProduct: React.FC<AddProductProps> = ({
           return;
         }
 
-        // Direct database insertion for new item
+        // Get the order's user role
+        const { data: orderData } = await supabase
+          .from("orders")
+          .select(
+            `
+            users:user_id (
+              role
+            )
+          `
+          )
+          .eq("id", selectedOrderId)
+          .single();
+
+        // Determine price based on order user's role
+        const price =
+          // @ts-ignore
+          orderData?.users?.role === "mobil"
+            ? product.priceMobil
+            : product.price;
+
+        // Insert new item with correct price
         const { data: newItem, error } = await supabase
           .from("order_items")
           .insert({
             order_id: selectedOrderId,
             product_id: product.id,
             quantity: 1,
-            price: product.price,
+            price: price,
             checked: false,
           })
           .select()

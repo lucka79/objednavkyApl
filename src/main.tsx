@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
-import { SpeedInsights } from "@vercel/speed-insights/next";
+
 // Import the generated route tree
 import { routeTree } from "./routeTree.gen";
 import QueryProvider from "./providers/QueryProvider";
@@ -31,7 +31,7 @@ if (!rootElement.innerHTML) {
     <StrictMode>
       <QueryProvider>
         <RouterProvider router={router} />
-        <SpeedInsights />
+
         <Toaster />
       </QueryProvider>
     </StrictMode>
