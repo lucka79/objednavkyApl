@@ -1,9 +1,9 @@
 import { createContext, PropsWithChildren, useContext, useState } from "react";
 import { CartItem, Tables } from "types";
 // import { randomUUID } from "crypto";
-import { useInsertOrder } from "@/api/orders";
+
 import { useRouter } from "@tanstack/react-router";
-import { useInsertOrderItems } from "@/hooks/useOrders";
+import { useInsertOrder, useInsertOrderItems } from "@/hooks/useOrders";
 import { useAuthStore } from "@/lib/supabase";
 
 type Product = Tables<"products">;

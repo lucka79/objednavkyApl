@@ -332,6 +332,8 @@ export const useUpdateOrderItems = () => {
         if (orderId) {
           queryClient.invalidateQueries({ queryKey: ["orderItems", orderId] });
           queryClient.invalidateQueries({ queryKey: ["orders", orderId] });
+          queryClient.invalidateQueries({ queryKey: ["orderItemHistory", variables.id] });
+          queryClient.invalidateQueries({ queryKey: ["allOrderItemsHistory"] });
         }
       }
       queryClient.invalidateQueries({ queryKey: ["orders"] });

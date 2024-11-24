@@ -132,10 +132,15 @@ export default function UpdateCart({
 
     console.log("Combined items:", combinedItems);
 
-    // Sort combined items by product name in descending order
-    const sortedItems = combinedItems.sort((a, b) =>
-      a.product.name.localeCompare(b.product.name, "cs")
-    );
+    // Sort items: non-zero quantities first, then by name, then zero quantities last
+    const sortedItems = combinedItems.sort((a, b) => {
+      // First sort by quantity (non-zero first)
+      if ((a.quantity === 0) !== (b.quantity === 0)) {
+        return a.quantity === 0 ? 1 : -1;
+      }
+      // Then sort by name
+      return a.product.name.localeCompare(b.product.name, "cs");
+    });
 
     console.log("Sorted items:", sortedItems);
 
@@ -286,7 +291,7 @@ export default function UpdateCart({
             <div
               key={item.id}
               className={`flex items-center justify-between pt-2 mb-2 ${
-                item.quantity === 0 ? "text-gray-400 scale-95" : ""
+                item.quantity === 0 ? "text-gray-400 scale-95 print:hidden" : ""
               }`}
             >
               <Checkbox
