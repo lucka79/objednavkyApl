@@ -16,6 +16,7 @@ interface FavoriteItem {
     id: number;
     name: string;
     price: number;
+    priceBuyer: number;
     priceMobil: number;
   };
   quantity: number;
@@ -50,7 +51,11 @@ export default function FavoriteCart({
   }, [items]);
 
   const getItemPrice = (item: FavoriteItem) => {
-    return userRole === "mobil" ? item.product.priceMobil : item.product.price;
+    return userRole === "mobil"
+      ? item.product.priceMobil
+      : userRole === "store"
+        ? item.product.priceBuyer
+        : item.product.price;
   };
 
   const calculateTotal = () => {

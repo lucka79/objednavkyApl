@@ -9,7 +9,11 @@ export const Route = createFileRoute("/user/orders")({
 function UserOrders() {
   const user = useAuthStore((state) => state.user);
 
-  if (user?.role !== "user" && user?.role !== "admin") {
+  if (
+    user?.role !== "user" &&
+    user?.role !== "admin" &&
+    user?.role !== "store"
+  ) {
     return <div>Access denied. User only.</div>;
   }
   return (

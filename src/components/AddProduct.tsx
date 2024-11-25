@@ -90,7 +90,10 @@ export const AddProduct: React.FC<AddProductProps> = ({
           // @ts-ignore
           orderData?.users?.role === "mobil"
             ? product.priceMobil
-            : product.price;
+            : // @ts-ignore
+              orderData?.users?.role === "store"
+              ? product.priceBuyer
+              : product.price;
 
         // Insert new item with correct price
         const { data: newItem, error } = await supabase
@@ -181,10 +184,14 @@ export const AddProduct: React.FC<AddProductProps> = ({
                 {user?.role === "user" && (
                   <span>{product.price.toFixed(2)} Kč</span>
                 )}
+                {user?.role === "store" && (
+                  <span>{product.priceBuyer.toFixed(2)} Kč</span>
+                )}
                 {user?.role === "admin" && (
                   <div className="flex flex-col gap-1 text-sm">
                     <span>{product.price.toFixed(2)} Kč</span>
                     <span className="italic font-semibold">
+                      {product.priceBuyer.toFixed(2)}{" "}
                       {product.priceMobil.toFixed(2)} Kč
                     </span>
                   </div>

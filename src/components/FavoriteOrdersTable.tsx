@@ -193,7 +193,9 @@ export function FavoriteOrdersTable({
             const price =
               userRole === "mobil"
                 ? item.product?.priceMobil || 0
-                : item.product?.price || 0;
+                : userRole === "store"
+                  ? item.product?.priceBuyer || 0
+                  : item.product?.price || 0;
             return sum + item.quantity * price;
           },
           0
@@ -216,7 +218,9 @@ export function FavoriteOrdersTable({
             price:
               userRole === "mobil"
                 ? item.product.priceMobil
-                : item.product.price,
+                : userRole === "store"
+                  ? item.product.priceBuyer
+                  : item.product.price,
           })
         );
 
@@ -310,7 +314,11 @@ export function FavoriteOrdersTable({
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {date ? format(date, "PPP") : <span>Pick a date</span>}
+                      {date ? (
+                        format(date, "PPP")
+                      ) : (
+                        <span>Datum objednávky</span>
+                      )}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">

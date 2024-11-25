@@ -24,7 +24,7 @@ export const Route = createFileRoute("/admin/products")({
 function AdminProducts() {
   const [activeView, setActiveView] = useState<
     "products" | "createOrder" | "orders" | "templates"
-  >("products");
+  >("orders");
 
   const user = useAuthStore((state) => state.user);
 

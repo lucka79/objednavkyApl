@@ -43,6 +43,7 @@ const productSchema = z.object({
   name: z.string().min(3, "Product name is required"),
   description: z.string().min(0, "Popis je povinný"),
   price: z.number().min(0.01, "Cena musí být větší než 0"),
+  priceBuyer: z.number().min(0.01, "Cena musí být větší než 0"),
   priceMobil: z.number().min(0, "Mobilní cena musí být nezáporná"),
   category_id: z.number().min(1, "Kategorie musí být vybrána"),
   image: z.union([z.instanceof(File), z.string()]).optional(),
@@ -66,6 +67,7 @@ export function CreateProductForm() {
       name: "",
       description: "",
       price: 0,
+      priceBuyer: 0,
       priceMobil: 0,
       category_id: 1,
       // image: "",
@@ -240,6 +242,30 @@ export function CreateProductForm() {
                       />
                     </FormControl>
                     <FormDescription>Cena výrobku v Kč s DPH.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="priceBuyer"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nákupní cena</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        placeholder="Enter product price"
+                        {...field}
+                        onChange={(e) =>
+                          field.onChange(parseFloat(e.target.value))
+                        }
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Cena výrobku v Kč bez DPH.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

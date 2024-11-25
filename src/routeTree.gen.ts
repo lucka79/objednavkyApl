@@ -18,6 +18,7 @@ import { Route as CartImport } from './routes/cart'
 import { Route as LayoutImport } from './routes/_layout'
 import { Route as IndexImport } from './routes/index'
 import { Route as UserIndexImport } from './routes/user.index'
+import { Route as StoreIndexImport } from './routes/store.index'
 import { Route as AdminIndexImport } from './routes/admin.index'
 import { Route as UserProductsImport } from './routes/user.products'
 import { Route as UserOrdersImport } from './routes/user.orders'
@@ -60,6 +61,11 @@ const IndexRoute = IndexImport.update({
 
 const UserIndexRoute = UserIndexImport.update({
   path: '/user/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const StoreIndexRoute = StoreIndexImport.update({
+  path: '/store/',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -186,6 +192,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexImport
       parentRoute: typeof rootRoute
     }
+    '/store/': {
+      id: '/store/'
+      path: '/store'
+      fullPath: '/store'
+      preLoaderRoute: typeof StoreIndexImport
+      parentRoute: typeof rootRoute
+    }
     '/user/': {
       id: '/user/'
       path: '/user'
@@ -230,6 +243,7 @@ export interface FileRoutesByFullPath {
   '/user/orders': typeof UserOrdersRoute
   '/user/products': typeof UserProductsRoute
   '/admin': typeof AdminIndexRoute
+  '/store': typeof StoreIndexRoute
   '/user': typeof UserIndexRoute
   '/admin/products/$productId': typeof AdminProductsProductIdRoute
 }
@@ -247,6 +261,7 @@ export interface FileRoutesByTo {
   '/user/orders': typeof UserOrdersRoute
   '/user/products': typeof UserProductsRoute
   '/admin': typeof AdminIndexRoute
+  '/store': typeof StoreIndexRoute
   '/user': typeof UserIndexRoute
   '/admin/products/$productId': typeof AdminProductsProductIdRoute
 }
@@ -265,6 +280,7 @@ export interface FileRoutesById {
   '/user/orders': typeof UserOrdersRoute
   '/user/products': typeof UserProductsRoute
   '/admin/': typeof AdminIndexRoute
+  '/store/': typeof StoreIndexRoute
   '/user/': typeof UserIndexRoute
   '/admin/products/$productId': typeof AdminProductsProductIdRoute
 }
@@ -284,6 +300,7 @@ export interface FileRouteTypes {
     | '/user/orders'
     | '/user/products'
     | '/admin'
+    | '/store'
     | '/user'
     | '/admin/products/$productId'
   fileRoutesByTo: FileRoutesByTo
@@ -300,6 +317,7 @@ export interface FileRouteTypes {
     | '/user/orders'
     | '/user/products'
     | '/admin'
+    | '/store'
     | '/user'
     | '/admin/products/$productId'
   id:
@@ -316,6 +334,7 @@ export interface FileRouteTypes {
     | '/user/orders'
     | '/user/products'
     | '/admin/'
+    | '/store/'
     | '/user/'
     | '/admin/products/$productId'
   fileRoutesById: FileRoutesById
@@ -334,6 +353,7 @@ export interface RootRouteChildren {
   UserOrdersRoute: typeof UserOrdersRoute
   UserProductsRoute: typeof UserProductsRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  StoreIndexRoute: typeof StoreIndexRoute
   UserIndexRoute: typeof UserIndexRoute
 }
 
@@ -350,6 +370,7 @@ const rootRouteChildren: RootRouteChildren = {
   UserOrdersRoute: UserOrdersRoute,
   UserProductsRoute: UserProductsRoute,
   AdminIndexRoute: AdminIndexRoute,
+  StoreIndexRoute: StoreIndexRoute,
   UserIndexRoute: UserIndexRoute,
 }
 
@@ -377,6 +398,7 @@ export const routeTree = rootRoute
         "/user/orders",
         "/user/products",
         "/admin/",
+        "/store/",
         "/user/"
       ]
     },
@@ -418,6 +440,9 @@ export const routeTree = rootRoute
     },
     "/admin/": {
       "filePath": "admin.index.tsx"
+    },
+    "/store/": {
+      "filePath": "store.index.tsx"
     },
     "/user/": {
       "filePath": "user.index.tsx"

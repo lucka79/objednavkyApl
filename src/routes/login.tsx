@@ -41,10 +41,16 @@ function Login() {
       // }
       switch (user?.role) {
         case "admin":
-          navigate({ to: "/admin" });
+          navigate({ to: "/admin/products" });
           break;
         case "driver":
           navigate({ to: "/driver" });
+          break;
+        case "mobil":
+          navigate({ to: "/user/products" });
+          break;
+        case "store":
+          navigate({ to: "/store" });
           break;
         default:
           navigate({ to: "/user/products" });

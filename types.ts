@@ -20,6 +20,7 @@ export type Product = {
   image: string | null;
   price: number;
   priceMobil: number;
+  priceBuyer: number;
   description: string | null;
   created_at: string;
   category_id: number | null;

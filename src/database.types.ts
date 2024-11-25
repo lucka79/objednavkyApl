@@ -237,6 +237,7 @@ export type Database = {
       }
       products: {
         Row: {
+          active: boolean
           category_id: number
           created_at: string
           description: string | null
@@ -244,9 +245,12 @@ export type Database = {
           image: string | null
           name: string
           price: number
+          priceBuyer: number
           priceMobil: number
+          store: boolean
         }
         Insert: {
+          active?: boolean
           category_id?: number
           created_at?: string
           description?: string | null
@@ -254,9 +258,12 @@ export type Database = {
           image?: string | null
           name: string
           price?: number
+          priceBuyer?: number
           priceMobil?: number
+          store?: boolean
         }
         Update: {
+          active?: boolean
           category_id?: number
           created_at?: string
           description?: string | null
@@ -264,7 +271,9 @@ export type Database = {
           image?: string | null
           name?: string
           price?: number
+          priceBuyer?: number
           priceMobil?: number
+          store?: boolean
         }
         Relationships: [
           {
@@ -280,6 +289,7 @@ export type Database = {
         Row: {
           address: string | null
           avatar_url: string | null
+          const: string | null
           crateBig: number | null
           crateSmall: number | null
           full_name: string | null
@@ -292,6 +302,7 @@ export type Database = {
         Insert: {
           address?: string | null
           avatar_url?: string | null
+          const?: string | null
           crateBig?: number | null
           crateSmall?: number | null
           full_name?: string | null
@@ -304,6 +315,7 @@ export type Database = {
         Update: {
           address?: string | null
           avatar_url?: string | null
+          const?: string | null
           crateBig?: number | null
           crateSmall?: number | null
           full_name?: string | null
@@ -324,13 +336,7 @@ export type Database = {
     }
     Enums: {
       dayOfWeek: "Po" | "├Üt" | "St" | "─ît" | "P├í" | "So" | "Ne"
-      groupUser:
-        | "admin"
-        | "user"
-        | "driver"
-        | "expedition"
-        | "prodejna"
-        | "mobil"
+      groupUser: "admin" | "user" | "driver" | "expedition" | "store" | "mobil"
     }
     CompositeTypes: {
       [_ in never]: never

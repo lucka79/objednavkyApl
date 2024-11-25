@@ -90,9 +90,14 @@ export const useCartStore = create<CartStore>((set, get) => ({
         order_id: orderId,
         product_id: item.product.id,
         quantity: item.quantity,
-        price: selectedUserRole === "user" ? item.product.price : item.product.priceMobil,
+        price:
+          selectedUserRole === "user"
+            ? item.product.price
+            : selectedUserRole === "store"
+            ? item.product.priceBuyer
+            : item.product.priceMobil,
       }));
-      console.log('Order items to insert:', orderItems);
+      console.log("Order items to insert:", orderItems);
 
       await insertOrderItems(orderItems);
       console.log('Checkout completed successfully');

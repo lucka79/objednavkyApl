@@ -161,9 +161,7 @@ export default function CartAdmin() {
                 {user?.role === "admin" && (
                   <>{item.product.priceMobil.toFixed(2)}</>
                 )}
-                {user?.role === "prodejna" && (
-                  <>{item.product.price.toFixed(2)}</>
-                )}
+                {user?.role === "store" && <>{item.product.price.toFixed(2)}</>}
                 {user?.role === "user" && <>{item.product.price.toFixed(2)}</>}
               </span>
               <div className="flex items-center">
@@ -195,7 +193,7 @@ export default function CartAdmin() {
                   {user?.role === "admin" && (
                     <>{(item.product.priceMobil * item.quantity).toFixed(2)}</>
                   )}
-                  {user?.role === "prodejna" && (
+                  {user?.role === "store" && (
                     <>{(item.product.price * item.quantity).toFixed(2)}</>
                   )}
                   {user?.role === "user" && (
