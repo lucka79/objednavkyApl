@@ -327,6 +327,75 @@ export type Database = {
         }
         Relationships: []
       }
+      receipt_items: {
+        Row: {
+          created_at: string
+          id: number
+          price: number | null
+          product_id: number
+          quantity: number | null
+          receipt_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          price?: number | null
+          product_id: number
+          quantity?: number | null
+          receipt_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          price?: number | null
+          product_id?: number
+          quantity?: number | null
+          receipt_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipt_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_items_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receipts: {
+        Row: {
+          created_at: string
+          id: number
+          paidBy: string | null
+          receipt_no: string
+          total: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          paidBy?: string | null
+          receipt_no?: string
+          total?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          paidBy?: string | null
+          receipt_no?: string
+          total?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -335,8 +404,14 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      dayOfWeek: "Po" | "├Üt" | "St" | "─ît" | "P├í" | "So" | "Ne"
-      groupUser: "admin" | "user" | "driver" | "expedition" | "store" | "mobil"
+      groupUser:
+        | "admin"
+        | "user"
+        | "driver"
+        | "expedition"
+        | "store"
+        | "mobil"
+        | "buyer"
     }
     CompositeTypes: {
       [_ in never]: never

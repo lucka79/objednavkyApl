@@ -350,6 +350,77 @@ function PrintSummary({
   );
 }
 
+// Add this new function near other print functions
+const printProductSummary = (orders: Order[]) => {
+  const productSummary = orders.reduce(
+    (acc, order) => {
+      order.order_items.forEach((item) => {
+        if (!acc[item.product_id]) {
+          acc[item.product_id] = {
+            name: item.product.name,
+            quantity: 0,
+            total: 0,
+          };
+        }
+        acc[item.product_id].quantity += item.quantity;
+        acc[item.product_id].total += item.quantity * item.price;
+      });
+      return acc;
+    },
+    {} as Record<string, { name: string; quantity: number; total: number }>
+  );
+
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return;
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Product Summary</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+          th { background-color: #f5f5f5; }
+          .total { font-weight: bold; }
+          .print-date { text-align: right; color: #666; margin-top: 20px; }
+        </style>
+      </head>
+      <body>
+        <h2>Souhrn produktů</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Produkt</th>
+              <th style="text-align: right">Množství</th>
+              
+            </tr>
+          </thead>
+          <tbody>
+            ${Object.values(productSummary)
+              .filter((item) => item.quantity > 0)
+              .sort((a, b) => b.quantity - a.quantity)
+              .map(
+                (item) => `
+              <tr>
+                <td>${item.name}</td>
+                <td style="text-align: right">${item.quantity}</td>
+              
+              </tr>
+            `
+              )
+              .join("")}
+          </tbody>
+        </table>
+        <div class="print-date">Vytištěno: ${new Date().toLocaleString()}</div>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+  printWindow.print();
+};
+
 export function OrdersTable({
   selectedProductId: initialProductId,
 }: OrdersTableProps) {
@@ -633,6 +704,7 @@ export function OrdersTable({
               </thead>
               <tbody>
                 ${Array.from(products.values())
+                  .filter((item) => item.quantity > 0) // Filter out zero quantity items
                   .sort(
                     (a, b) =>
                       a.categoryId - b.categoryId ||
@@ -842,39 +914,35 @@ export function OrdersTable({
                     </Badge>
                   </div>
 
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.print()}
-                      className="print:hidden"
-                    >
-                      <Printer className="mr-2 h-4 w-4" />
-                      Tisk souhrnu
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        printOrderTotalsByDate(filteredPeriodOrders)
+                  <Select
+                    onValueChange={(value) => {
+                      switch (value) {
+                        case "summary":
+                          window.print();
+                          break;
+                        case "production":
+                          printOrderTotalsByDate(filteredPeriodOrders);
+                          break;
+                        case "orders":
+                          printOrderTotals(filteredPeriodOrders, period);
+                          break;
+                        case "products":
+                          printProductSummary(filteredPeriodOrders);
+                          break;
                       }
-                      className="print:hidden"
-                    >
+                    }}
+                  >
+                    <SelectTrigger className="w-[180px] print:hidden">
                       <Printer className="mr-2 h-4 w-4" />
-                      Tisk výroby
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        printOrderTotals(filteredPeriodOrders, period)
-                      }
-                      className="print:hidden"
-                    >
-                      <Printer className="mr-2 h-4 w-4" />
-                      Tisk objednávek
-                    </Button>
-                  </div>
+                      <SelectValue placeholder="Tisk..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="summary">Tisk souhrnu</SelectItem>
+                      <SelectItem value="production">Tisk výroby</SelectItem>
+                      <SelectItem value="orders">Tisk objednávek</SelectItem>
+                      <SelectItem value="products">Tisk produktů</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <OrderTableContent

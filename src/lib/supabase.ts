@@ -6,7 +6,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-type UserRole = 'admin' | 'expedition' | 'driver' | 'user' | 'mobil' | 'store'
+type UserRole = 'admin' | 'expedition' | 'driver' | 'user' | 'mobil' | 'store' |'buyer'
 
 
 interface Profile {
