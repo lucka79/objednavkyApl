@@ -1,6 +1,8 @@
 // cartStore.ts
 import { create } from 'zustand';
 import { Product, CartItem } from '../../types';
+import { generateReceiptNumber } from '../lib/generateNumbers'; // Import the function
+
 
 
 type ReceiptStore = {
@@ -15,13 +17,13 @@ type ReceiptStore = {
     insertReceiptItems: any, 
     date: Date,
     receiptTotal: number,
-   
+    user: any
   ) => Promise<void>;
 };
 
 
-
 export const useReceiptStore = create<ReceiptStore>((set, get) => ({
+    
   items: [],
   addItem: (product) => {
     set((state) => {
@@ -68,17 +70,21 @@ export const useReceiptStore = create<ReceiptStore>((set, get) => ({
     insertReceiptItems: any,
     date: Date,
     receiptTotal: number,
+    user: any
   ) => {
+
     try {
-        // Create a new date object based on the incoming date
-        const localDate = new Date(date);
         
-        // Adjust the date to UTC by adding the timezone offset and then adding 1 hour
+        const localDate = new Date(date);
         const utcDate = new Date(localDate.getTime() + (localDate.getTimezoneOffset() * 60000) + 3600000); // Add 1 hour
 
+        // Generate the receipt number
+        const receipt_no = await generateReceiptNumber(user?.id || 'defaultId'); // Use user passed as argument
+
         const receiptResult = await insertReceipt({
-            total: receiptTotal,  // Use the passed total
-            date: utcDate.toISOString(), // Store the full ISO string in UTC
+            total: receiptTotal,
+            date: utcDate.toISOString(),
+            receipt_no, // Include the generated receipt_no
         });
         console.log('Receipt creation result:', receiptResult);
 

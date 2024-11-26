@@ -24,9 +24,6 @@ export default function CartStore() {
     checkout,
   } = useReceiptStore();
 
-  //   const buyer = user?.full_name;
-
-  //   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const date = new Date();
   date.setHours(date.getHours() + 1); // Add 1 hour to the current date
   const formattedDate = date.toISOString(); // Format the date to ISO string for database
@@ -138,7 +135,8 @@ export default function CartStore() {
                 insertReceipt,
                 insertReceiptItems,
                 new Date(formattedDate),
-                orderTotal
+                orderTotal,
+                user
               );
 
               toast({

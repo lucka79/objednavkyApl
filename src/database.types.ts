@@ -292,12 +292,12 @@ export type Database = {
         Row: {
           address: string | null
           avatar_url: string | null
-          const: string | null
           crateBig: number | null
           crateSmall: number | null
           full_name: string | null
           id: string
           role: Database["public"]["Enums"]["groupUser"]
+          shortcut: string | null
           updated_at: string | null
           username: string | null
           website: string | null
@@ -305,12 +305,12 @@ export type Database = {
         Insert: {
           address?: string | null
           avatar_url?: string | null
-          const?: string | null
           crateBig?: number | null
           crateSmall?: number | null
           full_name?: string | null
           id: string
           role?: Database["public"]["Enums"]["groupUser"]
+          shortcut?: string | null
           updated_at?: string | null
           username?: string | null
           website?: string | null
@@ -318,12 +318,12 @@ export type Database = {
         Update: {
           address?: string | null
           avatar_url?: string | null
-          const?: string | null
           crateBig?: number | null
           crateSmall?: number | null
           full_name?: string | null
           id?: string
           role?: Database["public"]["Enums"]["groupUser"]
+          shortcut?: string | null
           updated_at?: string | null
           username?: string | null
           website?: string | null
@@ -376,6 +376,7 @@ export type Database = {
         Row: {
           buyer_id: string | null
           created_at: string
+          date: string | null
           id: number
           paid_By: string | null
           receipt_no: string
@@ -386,6 +387,7 @@ export type Database = {
         Insert: {
           buyer_id?: string | null
           created_at?: string
+          date?: string | null
           id?: number
           paid_By?: string | null
           receipt_no?: string
@@ -396,6 +398,7 @@ export type Database = {
         Update: {
           buyer_id?: string | null
           created_at?: string
+          date?: string | null
           id?: number
           paid_By?: string | null
           receipt_no?: string

@@ -107,6 +107,7 @@ export type Product = {
     crateBig: number;
     crateSmallReceived: number;
     crateBigReceived: number;
+    shortcut: string;
   };
 
 export interface HistoryEntry {
