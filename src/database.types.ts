@@ -14,16 +14,19 @@ export type Database = {
           created_at: string
           id: number
           name: string
+          store: boolean | null
         }
         Insert: {
           created_at?: string
           id?: number
           name: string
+          store?: boolean | null
         }
         Update: {
           created_at?: string
           id?: number
           name?: string
+          store?: boolean | null
         }
         Relationships: []
       }
@@ -371,30 +374,51 @@ export type Database = {
       }
       receipts: {
         Row: {
+          buyer_id: string | null
           created_at: string
           id: number
-          paidBy: string | null
+          paid_By: string | null
           receipt_no: string
+          seller_id: string | null
           total: number | null
           updated_at: string | null
         }
         Insert: {
+          buyer_id?: string | null
           created_at?: string
           id?: number
-          paidBy?: string | null
+          paid_By?: string | null
           receipt_no?: string
+          seller_id?: string | null
           total?: number | null
           updated_at?: string | null
         }
         Update: {
+          buyer_id?: string | null
           created_at?: string
           id?: number
-          paidBy?: string | null
+          paid_By?: string | null
           receipt_no?: string
+          seller_id?: string | null
           total?: number | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "receipts_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_user_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

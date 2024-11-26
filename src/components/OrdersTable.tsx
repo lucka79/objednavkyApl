@@ -33,6 +33,7 @@ import {
   ArrowUp,
   CalendarIcon,
   Container,
+  Flag,
   Printer,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -201,6 +202,9 @@ const columns: ColumnDef<Order>[] = [
         row.original.order_items?.filter((item) => item.checked).length || 0;
       const uncheckedCount =
         row.original.order_items?.filter((item) => !item.checked).length || 0;
+      const zeroQuantityCount =
+        row.original.order_items?.filter((item) => item.quantity === 0)
+          .length || 0;
 
       return (
         <div className="text-right flex justify-end gap-2 items-center">
@@ -212,6 +216,12 @@ const columns: ColumnDef<Order>[] = [
           {uncheckedCount > 0 && (
             <Badge variant="outline" className="border-amber-700 bg-amber-400">
               {uncheckedCount}
+            </Badge>
+          )}
+          {zeroQuantityCount > 0 && (
+            <Badge variant="outline" className="border-red-700 bg-red-400">
+              {zeroQuantityCount}
+              {/* <Flag size={14} /> */}
             </Badge>
           )}
           <Badge variant="outline">{row.original.status}</Badge>
@@ -257,17 +267,20 @@ function PrintSummary({
   const totals = filteredOrders.reduce(
     (acc, order) => {
       order.order_items.forEach((item) => {
-        const key = `${item.product.name}-${item.price}`;
-        if (!acc[key]) {
-          acc[key] = {
-            name: item.product.name,
-            price: item.price,
-            quantity: 0,
-            total: 0,
-          };
+        if (item.quantity > 0) {
+          // Only consider items with quantity > 0
+          const key = `${item.product.name}-${item.price}`;
+          if (!acc[key]) {
+            acc[key] = {
+              name: item.product.name,
+              price: item.price,
+              quantity: 0,
+              total: 0,
+            };
+          }
+          acc[key].quantity += item.quantity;
+          acc[key].total += item.quantity * item.price;
         }
-        acc[key].quantity += item.quantity;
-        acc[key].total += item.quantity * item.price;
       });
       return acc;
     },
@@ -592,6 +605,7 @@ export function OrdersTable({
                   </thead>
                   <tbody>
                     ${order.order_items
+                      .filter((item) => item.quantity > 0) // Filter out zero quantity items
                       .map(
                         (item) => `
                       <tr>

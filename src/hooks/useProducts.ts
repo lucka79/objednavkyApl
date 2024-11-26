@@ -31,6 +31,23 @@ export const fetchAllProducts = () => {
   });
 };
 
+export const fetchStoreProducts = () => {
+  return useQuery({
+    queryKey: ["products"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("store", true) // Add this line to filter products where store is true
+        .order("name", { ascending: true });
+      if (error) {
+        throw new Error(error.message);
+      }
+      return data;
+    },
+  });
+};
+
 // get product by id
 export const fetchProductById = (productId: number) => {
   return useQuery({
