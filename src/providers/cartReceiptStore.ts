@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { Product, CartItem } from '../../types';
 import { generateReceiptNumber } from '../lib/generateNumbers'; // Import the function
-
+import { useAuthStore } from '@/lib/supabase';
 
 
 type ReceiptStore = {
@@ -17,9 +17,10 @@ type ReceiptStore = {
     insertReceiptItems: any, 
     date: Date,
     receiptTotal: number,
-    user: any
+   
   ) => Promise<void>;
 };
+
 
 
 export const useReceiptStore = create<ReceiptStore>((set, get) => ({
@@ -70,16 +71,15 @@ export const useReceiptStore = create<ReceiptStore>((set, get) => ({
     insertReceiptItems: any,
     date: Date,
     receiptTotal: number,
-    user: any
   ) => {
+    const user = useAuthStore.getState().user; // Retrieve the user from the auth store
 
     try {
-        
         const localDate = new Date(date);
         const utcDate = new Date(localDate.getTime() + (localDate.getTimezoneOffset() * 60000) + 3600000); // Add 1 hour
 
         // Generate the receipt number
-        const receipt_no = await generateReceiptNumber(user?.id || 'defaultId'); // Use user passed as argument
+        const receipt_no = await generateReceiptNumber(user?.id as string); // Pass the sellerId (user.id)
 
         const receiptResult = await insertReceipt({
             total: receiptTotal,

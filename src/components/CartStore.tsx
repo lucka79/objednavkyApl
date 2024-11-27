@@ -1,8 +1,14 @@
 // Cart.tsx
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Coins, SquareMinus, SquarePlus, Trash2 } from "lucide-react";
+import { Coins, SquareMinus, SquarePlus } from "lucide-react";
 import { Label } from "@/components/ui/label";
 // import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/lib/supabase";
@@ -17,7 +23,7 @@ export default function CartStore() {
   const { mutateAsync: insertReceiptItems } = useInsertReceiptItems();
   const {
     items,
-    removeItem,
+    // removeItem,
     updateQuantity,
     clearCart,
 
@@ -27,6 +33,13 @@ export default function CartStore() {
   const date = new Date();
   date.setHours(date.getHours() + 1); // Add 1 hour to the current date
   const formattedDate = date.toISOString(); // Format the date to ISO string for database
+
+  // Format the current date for display
+  const displayDate = date.toLocaleDateString("cs-CZ", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
   const calculateTotal = () => {
     return items.reduce((sum, item) => {
@@ -39,6 +52,8 @@ export default function CartStore() {
       <CardHeader>
         <div className="flex flex-col gap-2">
           <CardTitle className="flex flex-row justify-between gap-2">
+            <div className="w-[200px]">{user?.full_name}</div>
+
             <Button
               variant="outline"
               onClick={() => {
@@ -49,8 +64,12 @@ export default function CartStore() {
             </Button>
           </CardTitle>
         </div>
+        <CardDescription>
+          <div className="text-sm">{displayDate}</div>{" "}
+          {/* Display the formatted date */}
+        </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-2">
         {items.length === 0 ? (
           <p>Není vložený výrobek.</p>
         ) : (
@@ -62,7 +81,7 @@ export default function CartStore() {
               <span className="text-sm line-clamp-1 hover:line-clamp-2">
                 {item.product.name}
               </span>
-              <span>
+              <span className="text-sm mx-1">
                 {user?.role === "store" && <>{item.product.price.toFixed(2)}</>}
                 {user?.role === "user" && <>{item.product.price.toFixed(2)}</>}
               </span>
@@ -88,22 +107,22 @@ export default function CartStore() {
                   }
                   className="text-stone-300"
                 />
-                <Label className="w-16 mx-4">
+                <Label className="w-16 mx-2 justify-end">
                   {user?.role === "store" && (
-                    <>{(item.product.price * item.quantity).toFixed(2)}</>
+                    <>{(item.product.price * item.quantity).toFixed(2)} Kč</>
                   )}
                   {user?.role === "user" && (
-                    <>{(item.product.price * item.quantity).toFixed(2)}</>
+                    <>{(item.product.price * item.quantity).toFixed(2)} Kč</>
                   )}
                   {/* {(item.product.price * item.quantity).toFixed(2)} Kč */}
                 </Label>
-                <Button
+                {/* <Button
                   variant="destructive"
                   onClick={() => removeItem(item.product.id)}
                   // className="w-12 ml-8"
                 >
                   <Trash2 className="w-5 h-5" />
-                </Button>
+                </Button> */}
               </div>
             </div>
           ))
@@ -135,8 +154,7 @@ export default function CartStore() {
                 insertReceipt,
                 insertReceiptItems,
                 new Date(formattedDate),
-                orderTotal,
-                user
+                orderTotal
               );
 
               toast({

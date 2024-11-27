@@ -1,8 +1,5 @@
 import { supabase } from './supabase'
 
-
-
-
 export async function generateReceiptNumber(sellerId: string): Promise<string> {
   const currentYear = new Date().getFullYear()
 
