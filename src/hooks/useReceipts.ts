@@ -24,6 +24,29 @@ export const fetchAllReceipts = () => {
     });
   };
 
+  export const fetchReceiptsBySellerId = (sellerId?: string) => { // Add sellerId parameter
+    // const queryClient = useQueryClient();
+    return useQuery({
+      queryKey: ['receipts', sellerId], // Include sellerId in the query key
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from('receipts')
+          .select(`
+            *,
+            receipt_items (
+            *,
+            product:products (*)
+            )
+          `)
+          .order('created_at', { ascending: false })
+          .filter('seller_id', 'eq', sellerId); // Filter by seller_id
+  
+        if (error) throw error;
+        return data as Receipt[];
+      },
+    });
+  };
+
 
 export const useInsertReceipt = () => {
     const queryClient = useQueryClient();

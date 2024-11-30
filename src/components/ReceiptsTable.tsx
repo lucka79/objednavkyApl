@@ -39,8 +39,9 @@ import { cn } from "@/lib/utils";
 // import { useDeleteReceipt } from "@/hooks/useReceipts";
 import { Receipt, ReceiptItem } from "types";
 import { fetchAllProducts } from "@/hooks/useProducts";
-import { fetchAllReceipts } from "@/hooks/useReceipts";
+import { fetchAllReceipts, fetchReceiptsBySellerId } from "@/hooks/useReceipts";
 import { Input } from "./ui/input";
+import { useAuthStore } from "@/lib/supabase";
 
 //   const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
 
@@ -119,6 +120,7 @@ export function ReceiptsTable({
   selectedReceiptId: initialReceiptId,
   initialProductId,
 }: ReceiptsTableProps) {
+  const user = useAuthStore((state) => state.user);
   const [date, setDate] = useState<Date>();
   const [selectedProductId, setSelectedProductId] = useState(
     initialProductId || ""
@@ -126,7 +128,12 @@ export function ReceiptsTable({
   const [selectedReceiptId, setSelectedReceiptId] = useState<number | null>(
     initialReceiptId ? Number(initialReceiptId) : null
   );
-  const { data: receipts, isLoading, error } = fetchAllReceipts();
+  //   const { data: receipts, isLoading, error } = fetchAllReceipts();
+  const {
+    data: receipts,
+    isLoading,
+    error,
+  } = fetchReceiptsBySellerId(user!.id);
   const { data: products } = fetchAllProducts();
   //   const [selectedDay, setSelectedDay] = useState<string>("all");
   //   const { mutateAsync: insertOrder } = useInsertOrder();
