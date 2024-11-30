@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { Receipt, ReceiptItem } from "types";
 import { fetchAllProducts } from "@/hooks/useProducts";
 import { fetchAllReceipts } from "@/hooks/useReceipts";
+import { Input } from "./ui/input";
 
 //   const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
 
@@ -131,6 +132,7 @@ export function ReceiptsTable({
   //   const { mutateAsync: insertOrder } = useInsertOrder();
   //   const { mutateAsync: insertOrderItems } = useInsertOrderItems();
   //   const user = useAuthStore((state) => state.user);
+  const [globalFilter, setGlobalFilter] = useState("");
 
   console.log(selectedReceiptId);
 
@@ -139,16 +141,22 @@ export function ReceiptsTable({
   if (!receipts) return <div>No orders found</div>;
 
   const filteredReceipts = receipts.filter((receipt) => {
-    // First filter by selected day
-    // if (selectedDay !== "all" && !receipt.days?.includes(selectedDay))
-    //   return false;
-
-    // Then filter by selected product
+    // First filter by selected product
     if (selectedProductId && selectedProductId !== "all") {
       return receipt.receipt_items?.some(
         (item: ReceiptItem) => item.product_id.toString() === selectedProductId
       );
     }
+
+    // Then filter by globalFilter
+    if (globalFilter) {
+      return (
+        receipt.receipt_no.toLowerCase().includes(globalFilter.toLowerCase()) ||
+        receipt.total.toString().includes(globalFilter) ||
+        new Date(receipt.date).toLocaleDateString().includes(globalFilter) // Example for date search
+      );
+    }
+
     return true;
   });
 
@@ -157,6 +165,16 @@ export function ReceiptsTable({
       <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible print:transform-none">
         <div className="space-y-4 overflow-x-auto print:!m-0">
           <div className="space-y-2">
+            {" "}
+            <div className="flex gap-2 items-center">
+              <Input
+                type="text"
+                placeholder="Search receipts..."
+                value={globalFilter}
+                onChange={(e) => setGlobalFilter(e.target.value)}
+                className="max-w-sm"
+              />
+            </div>
             <div className="flex justify-between items-center gap-2">
               <Select
                 value={selectedProductId}
