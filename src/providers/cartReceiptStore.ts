@@ -17,7 +17,6 @@ type ReceiptStore = {
     insertReceiptItems: any, 
     date: Date,
     receiptTotal: number,
-   
   ) => Promise<void>;
 };
 

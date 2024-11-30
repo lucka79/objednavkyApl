@@ -122,3 +122,22 @@ export interface HistoryEntry {
     full_name: string;
   };
 }
+
+export type Receipt = {
+  id: number;
+  date: string;
+  receipt_no: string;
+  total: number;
+  paid_By: string | null;
+  seller_id: string | null;
+  buyer_id: string | null;
+  receipt_items: ReceiptItem[];
+};
+
+export interface ReceiptItem {
+  id: number;
+  product_id: number;
+  product: Product;
+  quantity: number;
+  price: number;
+}

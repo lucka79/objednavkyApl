@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ShoppingCartIcon, FileSliders } from "lucide-react";
 import { StoreCategory } from "@/components/StoreCategory";
 import CartStore from "@/components/CartStore";
+import { ReceiptsTable } from "@/components/ReceiptsTable";
 
 export const Route = createFileRoute("/store/")({
   component: StoreDashboard,
@@ -45,6 +46,9 @@ function StoreDashboard() {
             {/* {activeView === "table" ? <ProductsTable /> : <ProductCategory />} */}
 
             {activeView === "createOrder" && <StoreCategory />}
+            {activeView === "orders" && (
+              <ReceiptsTable selectedReceiptId={null} />
+            )}
           </div>
         </div>
         <div className="h-full overflow-y-auto overflow-x-hidden">

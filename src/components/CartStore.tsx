@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useReceiptStore } from "@/providers/cartReceiptStore";
-import { useInsertReceipt, useInsertReceiptItems } from "@/hooks/useReceipt";
+import { useInsertReceipt, useInsertReceiptItems } from "@/hooks/useReceipts";
 
 export default function CartStore() {
   const { toast } = useToast();

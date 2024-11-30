@@ -1,8 +1,28 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { supabase, useAuthStore } from '@/lib/supabase';
-import { InsertTables } from '../../types';
+import { InsertTables, Receipt } from '../../types';
 
-
+export const fetchAllReceipts = () => {
+    // const queryClient = useQueryClient();
+    return useQuery({
+      queryKey: ['receipts'],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from('receipts')
+          .select(`
+            *,
+            receipt_items (
+            *,
+            product:products (*)
+            )
+          `)
+          .order('created_at', { ascending: false });
+  
+        if (error) throw error;
+        return data as Receipt[];
+      },
+    });
+  };
 
 
 export const useInsertReceipt = () => {
