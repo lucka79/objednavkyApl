@@ -6,6 +6,7 @@ import { ShoppingCartIcon, FileSliders } from "lucide-react";
 import { StoreCategory } from "@/components/StoreCategory";
 import CartStore from "@/components/CartStore";
 import { ReceiptsTable } from "@/components/ReceiptsTable";
+import { ReceiptDetailsDialog } from "@/components/ReceiptDetailsDialog";
 
 export const Route = createFileRoute("/store/")({
   component: StoreDashboard,
@@ -56,7 +57,7 @@ function StoreDashboard() {
 
           {/* {activeView === "products" && <ProductDetailsCard />} */}
           {activeView === "createOrder" && <CartStore />}
-          {/* {activeView === "orders" && <OrderDetailsDialog />} */}
+          {activeView === "orders" && <ReceiptDetailsDialog />}
         </div>
       </main>
     </div>

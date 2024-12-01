@@ -128,7 +128,7 @@ export type Receipt = {
   date: string;
   receipt_no: string;
   total: number;
-  paid_By: string | null;
+  paid_by: string | null;
   seller_id: string | null;
   buyer_id: string | null;
   receipt_items: ReceiptItem[];

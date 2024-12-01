@@ -378,7 +378,7 @@ export type Database = {
           created_at: string
           date: string | null
           id: number
-          paid_By: string | null
+          paid_by: string | null
           receipt_no: string
           seller_id: string | null
           total: number | null
@@ -389,7 +389,7 @@ export type Database = {
           created_at?: string
           date?: string | null
           id?: number
-          paid_By?: string | null
+          paid_by?: string | null
           receipt_no?: string
           seller_id?: string | null
           total?: number | null
@@ -400,7 +400,7 @@ export type Database = {
           created_at?: string
           date?: string | null
           id?: number
-          paid_By?: string | null
+          paid_by?: string | null
           receipt_no?: string
           seller_id?: string | null
           total?: number | null

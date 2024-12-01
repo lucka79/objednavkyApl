@@ -47,6 +47,42 @@ export const fetchAllReceipts = () => {
     });
   };
 
+  // order by id
+export const useFetchReceiptById = (receiptId: number | null) => {
+  return useQuery({
+    queryKey: ['receipt', receiptId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('receipts')
+        .select(`
+          *,
+          seller:profiles!receipts_user_id_fkey(id, full_name),
+          buyer:profiles!receipts_buyer_id_fkey(id, full_name),
+          receipt_items(*, product:products(*))
+        `)
+        .eq('id', receiptId)
+        .single();
+
+      if (error) throw error;
+      return [data];
+    },
+    // Disable the query when receiptId is null
+    enabled: !!receiptId
+  });
+};
+
+  export const useFetchReceiptItems = async (receiptId: number) => {
+    const { data, error } = await supabase
+      .from('receipt_items')
+      .select(`
+        *,
+        product:products(*)
+      `)
+      .eq('receipt_id', receiptId);
+  
+    if (error) throw error;
+    return data;
+  };
 
 export const useInsertReceipt = () => {
     const queryClient = useQueryClient();

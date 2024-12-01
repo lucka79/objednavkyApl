@@ -39,11 +39,28 @@ import { cn } from "@/lib/utils";
 // import { useDeleteReceipt } from "@/hooks/useReceipts";
 import { Receipt, ReceiptItem } from "types";
 import { fetchAllProducts } from "@/hooks/useProducts";
-import { fetchAllReceipts, fetchReceiptsBySellerId } from "@/hooks/useReceipts";
+import { fetchReceiptsBySellerId } from "@/hooks/useReceipts";
 import { Input } from "./ui/input";
 import { useAuthStore } from "@/lib/supabase";
+import {
+  startOfToday,
+  startOfYesterday,
+  startOfMonth,
+  subMonths,
+  endOfMonth,
+} from "date-fns";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ReceiptDetailsDialog } from "./ReceiptDetailsDialog";
+import { useReceiptStore } from "@/providers/receiptStore";
 
 //   const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
+
+type DateFilter =
+  | "today"
+  | "yesterday"
+  | "this-month"
+  | "last-month"
+  | "custom";
 
 const columns: ColumnDef<Receipt>[] = [
   {
@@ -66,7 +83,10 @@ const columns: ColumnDef<Receipt>[] = [
   },
   {
     accessorKey: "total",
-    header: "Celkem",
+    header: () => <div className="text-right">Celkem</div>,
+    cell: ({ row }) => (
+      <div className="text-right">{row.original.total.toFixed(2)} Kč</div>
+    ),
   },
 
   //   {
@@ -125,8 +145,8 @@ export function ReceiptsTable({
   const [selectedProductId, setSelectedProductId] = useState(
     initialProductId || ""
   );
-  const [selectedReceiptId, setSelectedReceiptId] = useState<number | null>(
-    initialReceiptId ? Number(initialReceiptId) : null
+  const setSelectedReceiptId = useReceiptStore(
+    (state) => state.setSelectedReceiptId
   );
   //   const { data: receipts, isLoading, error } = fetchAllReceipts();
   const {
@@ -140,8 +160,40 @@ export function ReceiptsTable({
   //   const { mutateAsync: insertOrderItems } = useInsertOrderItems();
   //   const user = useAuthStore((state) => state.user);
   const [globalFilter, setGlobalFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("today");
 
-  console.log(selectedReceiptId);
+  const isDateInRange = (receiptDate: Date, filter: DateFilter) => {
+    const date = new Date(receiptDate);
+
+    switch (filter) {
+      case "today":
+        const today = startOfToday();
+        return date >= today;
+      case "yesterday":
+        const yesterday = startOfYesterday();
+        return date >= yesterday && date < startOfToday();
+      case "this-month":
+        const firstDayOfMonth = startOfMonth(new Date());
+        return date >= firstDayOfMonth;
+      case "last-month":
+        const firstDayLastMonth = startOfMonth(subMonths(new Date(), 1));
+        const lastDayLastMonth = endOfMonth(firstDayLastMonth);
+        return date >= firstDayLastMonth && date <= lastDayLastMonth;
+      default:
+        return true;
+    }
+  };
+
+  const getReceiptCountForFilter = (filter: DateFilter) => {
+    return (
+      receipts?.filter((receipt) => {
+        if (filter === "custom") {
+          return false; // Don't show count for custom filter
+        }
+        return isDateInRange(new Date(receipt.date), filter);
+      }).length || 0
+    );
+  };
 
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders: {error.message}</div>;
@@ -150,9 +202,27 @@ export function ReceiptsTable({
   const filteredReceipts = receipts.filter((receipt) => {
     // First filter by selected product
     if (selectedProductId && selectedProductId !== "all") {
-      return receipt.receipt_items?.some(
+      const hasProduct = receipt.receipt_items?.some(
         (item: ReceiptItem) => item.product_id.toString() === selectedProductId
       );
+      if (!hasProduct) return false;
+    }
+
+    // Then filter by date
+    if (date) {
+      const receiptDate = new Date(receipt.date);
+      const selectedDate = new Date(date);
+      if (
+        receiptDate.getDate() !== selectedDate.getDate() ||
+        receiptDate.getMonth() !== selectedDate.getMonth() ||
+        receiptDate.getFullYear() !== selectedDate.getFullYear()
+      ) {
+        return false;
+      }
+    } else if (dateFilter !== "custom") {
+      if (!isDateInRange(new Date(receipt.date), dateFilter)) {
+        return false;
+      }
     }
 
     // Then filter by globalFilter
@@ -160,12 +230,15 @@ export function ReceiptsTable({
       return (
         receipt.receipt_no.toLowerCase().includes(globalFilter.toLowerCase()) ||
         receipt.total.toString().includes(globalFilter) ||
-        new Date(receipt.date).toLocaleDateString().includes(globalFilter) // Example for date search
+        new Date(receipt.date).toLocaleDateString().includes(globalFilter)
       );
     }
 
     return true;
   });
+
+  // Add console log to check when component renders
+  console.log("ReceiptsTable render, selectedReceiptId:", initialReceiptId);
 
   return (
     <>
@@ -214,33 +287,76 @@ export function ReceiptsTable({
                 </SelectContent>
               </Select>
               <div className="flex gap-2 items-center">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-[240px] justify-start text-left font-normal",
-                        !date && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {date ? (
-                        date.toLocaleDateString()
-                      ) : (
-                        <span>Datum objednávky</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={date}
-                      onSelect={setDate}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
+                {dateFilter === "custom" && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-[240px] justify-start text-left font-normal",
+                          !date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {date ? format(date, "PP") : <span>Vybrat datum</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={date}
+                        onSelect={setDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </div>{" "}
+            </div>
+            <div className="flex justify-between items-center gap-2">
+              <Tabs
+                defaultValue="today"
+                value={dateFilter}
+                onValueChange={(value) => {
+                  setDateFilter(value as DateFilter);
+                  setDate(undefined);
+                }}
+                className="w-full"
+              >
+                <TabsList className="grid grid-cols-5">
+                  <TabsTrigger value="today">
+                    Dnes
+                    <Badge variant="secondary" className="ml-2">
+                      {getReceiptCountForFilter("today")}
+                    </Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="yesterday">
+                    Včera
+                    <Badge variant="secondary" className="ml-2">
+                      {getReceiptCountForFilter("yesterday")}
+                    </Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="this-month">
+                    Tento měsíc
+                    <Badge variant="secondary" className="ml-2">
+                      {getReceiptCountForFilter("this-month")}
+                    </Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="last-month">
+                    Minulý měsíc
+                    <Badge variant="secondary" className="ml-2">
+                      {getReceiptCountForFilter("last-month")}
+                    </Badge>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="custom"
+                    className="flex items-center gap-2"
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                    {date ? format(date, "PP") : "Vlastní datum"}
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
           </div>
 
@@ -251,11 +367,6 @@ export function ReceiptsTable({
           />
         </div>
       </Card>
-
-      {/* <ReceiptDetailsDialog
-        receiptId={selectedReceiptId}
-        onClose={() => setSelectedReceiptId(null)}
-      /> */}
     </>
   );
 }
@@ -275,6 +386,11 @@ function ReceiptsTableContent({
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
+
+  const handleRowClick = (id: number) => {
+    console.log("Row clicked, id:", id);
+    setSelectedReceiptId(id);
+  };
 
   return (
     <Table>
@@ -299,7 +415,7 @@ function ReceiptsTableContent({
           table.getRowModel().rows.map((row) => (
             <TableRow
               key={row.id}
-              onClick={() => setSelectedReceiptId(row.original.id)}
+              onClick={() => handleRowClick(row.original.id)}
               className="cursor-pointer hover:bg-muted/50"
             >
               {row.getVisibleCells().map((cell) => (
