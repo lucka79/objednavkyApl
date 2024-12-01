@@ -7,6 +7,7 @@ import { StoreCategory } from "@/components/StoreCategory";
 import CartStore from "@/components/CartStore";
 import { ReceiptsTable } from "@/components/ReceiptsTable";
 import { ReceiptDetailsDialog } from "@/components/ReceiptDetailsDialog";
+import { ReceiptDetailsCard } from "@/components/ReceiptDetailsCard";
 
 export const Route = createFileRoute("/store/")({
   component: StoreDashboard,
@@ -57,7 +58,7 @@ function StoreDashboard() {
 
           {/* {activeView === "products" && <ProductDetailsCard />} */}
           {activeView === "createOrder" && <CartStore />}
-          {activeView === "receipts" && <ReceiptDetailsDialog />}
+          {activeView === "receipts" && <ReceiptDetailsCard />}
         </div>
       </main>
     </div>

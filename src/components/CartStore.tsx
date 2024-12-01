@@ -47,6 +47,51 @@ export default function CartStore() {
     }, 0);
   };
 
+  const handleSubmit = async () => {
+    if (items.length === 0) {
+      toast({
+        title: "Error",
+        description: "Zeje to tu prázdnotou",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const orderTotal = calculateTotal();
+      console.log(
+        "Položky na účtence:",
+        items.map((item) => ({
+          productId: item.product.id,
+          name: item.product.name,
+          quantity: item.quantity,
+          price: item.product.price,
+        }))
+      );
+
+      await checkout(
+        insertReceipt,
+        insertReceiptItems,
+        new Date(formattedDate),
+        orderTotal
+      );
+
+      toast({
+        title: "Účtenka vytvořena",
+        description: "Účtenka byla vytvořena",
+        variant: "default",
+      });
+      console.log("Checkout účtenky completed");
+    } catch (error) {
+      console.error("Checkout účtenky failed:", error);
+      toast({
+        title: "Chyba při vytvoření účtenky",
+        description: "Při vytvoření účtenky nastala chyba.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -128,50 +173,7 @@ export default function CartStore() {
           ))
         )}
         <Button
-          onClick={async () => {
-            if (items.length === 0) {
-              toast({
-                title: "Error",
-                description: "Zeje to tu prázdnotou",
-                variant: "destructive",
-              });
-              return;
-            }
-
-            try {
-              const orderTotal = calculateTotal();
-              console.log(
-                "Položky na účtence:",
-                items.map((item) => ({
-                  productId: item.product.id,
-                  name: item.product.name,
-                  quantity: item.quantity,
-                  price: item.product.price,
-                }))
-              );
-
-              await checkout(
-                insertReceipt,
-                insertReceiptItems,
-                new Date(formattedDate),
-                orderTotal
-              );
-
-              toast({
-                title: "Účtenka vytvořena",
-                description: "Účtenka byla vytvořena",
-                variant: "default",
-              });
-              console.log("Checkout účtenky completed");
-            } catch (error) {
-              console.error("Checkout účtenky failed:", error);
-              toast({
-                title: "Chyba při vytvoření účtenky",
-                description: "Při vytvoření účtenky nastala chyba.",
-                variant: "destructive",
-              });
-            }
-          }}
+          onClick={handleSubmit}
           variant="outline"
           className="flex flex-row font-bold text-slate-600 w-full mb-auto"
         >
