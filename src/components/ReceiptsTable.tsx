@@ -50,7 +50,6 @@ import {
   endOfMonth,
 } from "date-fns";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ReceiptDetailsDialog } from "./ReceiptDetailsDialog";
 import { useReceiptStore } from "@/providers/receiptStore";
 
 //   const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;

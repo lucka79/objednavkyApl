@@ -1,7 +1,7 @@
 // ProductList.tsx
 import React, { useState } from "react";
 import { fetchStoreProducts } from "@/hooks/useProducts";
-import { useReceiptStore } from "@/providers/cartReceiptStore";
+import { useReceiptStore } from "@/providers/receiptStore";
 import { Button } from "@/components/ui/button";
 import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";

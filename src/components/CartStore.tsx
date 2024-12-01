@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 // import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
-import { useReceiptStore } from "@/providers/cartReceiptStore";
+import { useReceiptStore } from "@/providers/receiptStore";
 import { useInsertReceipt, useInsertReceiptItems } from "@/hooks/useReceipts";
 
 export default function CartStore() {

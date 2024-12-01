@@ -13,7 +13,7 @@ export const Route = createFileRoute("/store/")({
 });
 
 function StoreDashboard() {
-  const [activeView, setActiveView] = useState<"createOrder" | "orders">(
+  const [activeView, setActiveView] = useState<"createOrder" | "receipts">(
     "createOrder"
   );
 
@@ -33,9 +33,9 @@ function StoreDashboard() {
           <ShoppingCartIcon className="h-5 w-5" />
         </Button>
         <Button
-          variant={activeView === "orders" ? "outline" : "ghost"}
+          variant={activeView === "receipts" ? "outline" : "ghost"}
           size="icon"
-          onClick={() => setActiveView("orders")}
+          onClick={() => setActiveView("receipts")}
         >
           <FileSliders className="h-5 w-5" />
         </Button>
@@ -47,7 +47,7 @@ function StoreDashboard() {
             {/* {activeView === "table" ? <ProductsTable /> : <ProductCategory />} */}
 
             {activeView === "createOrder" && <StoreCategory />}
-            {activeView === "orders" && (
+            {activeView === "receipts" && (
               <ReceiptsTable selectedReceiptId={null} />
             )}
           </div>
@@ -57,7 +57,7 @@ function StoreDashboard() {
 
           {/* {activeView === "products" && <ProductDetailsCard />} */}
           {activeView === "createOrder" && <CartStore />}
-          {activeView === "orders" && <ReceiptDetailsDialog />}
+          {activeView === "receipts" && <ReceiptDetailsDialog />}
         </div>
       </main>
     </div>
