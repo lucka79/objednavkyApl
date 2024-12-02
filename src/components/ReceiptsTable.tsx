@@ -32,11 +32,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, PrinterIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-// import { useAuthStore } from "@/lib/supabase";
-// import { Dialog, DialogTrigger } from "@/components/ui/dialog";
-// import { useDeleteReceipt } from "@/hooks/useReceipts";
 import { Receipt, ReceiptItem } from "types";
 import { fetchAllProducts } from "@/hooks/useProducts";
 import { fetchReceiptsBySellerId } from "@/hooks/useReceipts";
@@ -53,6 +50,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useReceiptStore } from "@/providers/receiptStore";
 import { useReactToPrint } from "react-to-print";
 import { PrintSummaryTotalReceipts } from "./PrintSummary";
+import { PrintReceipt } from "./PrintReceipt";
 
 //   const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
 
@@ -63,38 +61,10 @@ type DateFilter =
   | "last-month"
   | "custom";
 
-const columns: ColumnDef<Receipt>[] = [
-  {
-    accessorKey: "date",
-    header: () => <div className="w-18 text-left">Datum</div>,
-    cell: ({ row }) => (
-      <div className="w-18 text-left">
-        {new Date(row.original.date).toLocaleDateString()}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "id",
-    header: "# ID",
-  },
-
-  {
-    accessorKey: "receipt_no",
-    header: "# cislo",
-  },
-  {
-    accessorKey: "total",
-    header: () => <div className="text-right">Celkem</div>,
-    cell: ({ row }) => (
-      <div className="text-right">{row.original.total.toFixed(2)} Kč</div>
-    ),
-  },
-];
-
-interface ReceiptsTableProps {
-  selectedReceiptId: string | null;
+type ReceiptsTableProps = {
+  selectedReceiptId?: number;
   initialProductId?: string;
-}
+};
 
 export function ReceiptsTable({
   selectedReceiptId: initialReceiptId,
@@ -107,9 +77,12 @@ export function ReceiptsTable({
   );
   const [globalFilter, setGlobalFilter] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilter>("today");
+  const [selectedReceiptForPrint, setSelectedReceiptForPrint] =
+    useState<Receipt | null>(null);
 
   // 2. All refs
   const printRef = useRef<HTMLDivElement>(null);
+  const printReceiptRef = useRef<HTMLDivElement>(null);
 
   // 3. All store hooks
   const user = useAuthStore((state) => state.user);
@@ -124,10 +97,6 @@ export function ReceiptsTable({
     error,
   } = fetchReceiptsBySellerId(user!.id);
   const { data: products } = fetchAllProducts();
-  //   const [selectedDay, setSelectedDay] = useState<string>("all");
-  //   const { mutateAsync: insertOrder } = useInsertOrder();
-  //   const { mutateAsync: insertOrderItems } = useInsertOrderItems();
-  //   const user = useAuthStore((state) => state.user);
 
   const isDateInRange = (receiptDate: Date, filter: DateFilter) => {
     const date = new Date(receiptDate);
@@ -214,6 +183,7 @@ export function ReceiptsTable({
   console.log("ReceiptsTable render, selectedReceiptId:", initialReceiptId);
 
   const handlePrint = useReactToPrint({
+    // @ts-ignore
     content: () => printRef.current,
     contentRef: printRef,
     documentTitle: "Souhrn tržeb",
@@ -230,6 +200,70 @@ export function ReceiptsTable({
       }
     `,
   });
+
+  const handlePrintReceipt = (receipt: Receipt) => {
+    setSelectedReceiptForPrint(receipt);
+    handlePrintReceiptRef();
+  };
+
+  const handlePrintReceiptRef = useReactToPrint({
+    // @ts-ignore
+    content: () => printReceiptRef.current,
+    contentRef: printReceiptRef,
+    documentTitle: "Doklad",
+    removeAfterPrint: true,
+    pageStyle: `
+      @page {
+        size: 58mm 297mm;
+        margin: 0mm;
+      }
+    `,
+  });
+
+  const columns: ColumnDef<Receipt>[] = [
+    {
+      accessorKey: "date",
+      header: () => <div className="w-18 text-left">Datum</div>,
+      cell: ({ row }) => (
+        <div className="w-18 text-left">
+          {new Date(row.original.date).toLocaleDateString()}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "id",
+      header: "# ID",
+    },
+
+    {
+      accessorKey: "receipt_no",
+      header: "# cislo",
+    },
+    {
+      accessorKey: "total",
+      header: () => <div className="text-right">Celkem</div>,
+      cell: ({ row }) => (
+        <div className="text-right">{row.original.total.toFixed(2)} Kč</div>
+      ),
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => (
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={(e) => {
+            e.stopPropagation();
+            console.log("Print button clicked for receipt:", row.original);
+            handlePrintReceipt(row.original);
+          }}
+        >
+          <PrinterIcon className="h-4 w-4" />
+        </Button>
+      ),
+    },
+  ];
 
   return (
     <>
@@ -280,10 +314,10 @@ export function ReceiptsTable({
               <div className="flex justify-between items-center gap-2">
                 <Button
                   variant="outline"
-                  onClick={handlePrint}
+                  onClick={() => handlePrint()}
                   className="print:hidden"
                 >
-                  Vytisknout souhrn
+                  <PrinterIcon className="h-4 w-4" />
                 </Button>
                 <Badge variant="secondary" className="text-md">
                   Celkem: {filteredTotal.toFixed(2)} Kč
@@ -390,6 +424,11 @@ export function ReceiptsTable({
             userName={user?.full_name ?? ""}
           />
         </div>
+        {selectedReceiptForPrint && (
+          <div ref={printReceiptRef}>
+            <PrintReceipt receipt={selectedReceiptForPrint} />
+          </div>
+        )}
       </div>
     </>
   );
