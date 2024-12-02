@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import {
@@ -90,13 +90,58 @@ export function ReceiptsTable({
     (state) => state.setSelectedReceiptId
   );
 
-  // 4. All queries
+  // 4. All react-to-print hooks (MOVE THESE BEFORE ANY CONDITIONAL LOGIC)
+  const handlePrint = useReactToPrint({
+    content: () => printRef.current,
+    contentRef: printRef,
+    documentTitle: "Souhrn tržeb",
+    removeAfterPrint: true,
+    pageStyle: `
+      @page {
+        size: 58mm 297mm;
+        margin: 00mm;
+      }
+      @media print {
+        body {
+          -webkit-print-color-adjust: exact;
+        }
+      }
+    `,
+  });
+
+  const handlePrintReceiptRef = useReactToPrint({
+    content: () => printReceiptRef.current,
+    contentRef: printReceiptRef,
+    documentTitle: "Doklad",
+    removeAfterPrint: true,
+    onBeforePrint: async () => {
+      console.log("Before printing, receipt:", selectedReceiptForPrint);
+      return Promise.resolve();
+    },
+    pageStyle: `
+      @page {
+        size: 58mm 297mm;
+        margin: 0mm;
+      }
+    `,
+  });
+
+  // 5. All queries
   const {
     data: receipts,
     isLoading,
     error,
   } = fetchReceiptsBySellerId(user!.id);
   const { data: products } = fetchAllProducts();
+
+  // 6. All callbacks
+  const handlePrintReceipt = useCallback(
+    (receipt: Receipt) => {
+      setSelectedReceiptForPrint(receipt);
+      handlePrintReceiptRef();
+    },
+    [handlePrintReceiptRef]
+  );
 
   const isDateInRange = (receiptDate: Date, filter: DateFilter) => {
     const date = new Date(receiptDate);
@@ -135,6 +180,7 @@ export function ReceiptsTable({
     return receipts.reduce((sum, receipt) => sum + receipt.total, 0);
   };
 
+  // Early returns AFTER all hooks
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders: {error.message}</div>;
   if (!receipts) return <div>No orders found</div>;
@@ -181,56 +227,6 @@ export function ReceiptsTable({
 
   // Add console log to check when component renders
   console.log("ReceiptsTable render, selectedReceiptId:", initialReceiptId);
-
-  const handlePrint = useReactToPrint({
-    // @ts-ignore
-    content: () => printRef.current,
-    contentRef: printRef,
-    documentTitle: "Souhrn tržeb",
-    removeAfterPrint: true,
-    pageStyle: `
-      @page {
-        size: 58mm 297mm;
-        margin: 00mm;
-      }
-      @media print {
-        body {
-          -webkit-print-color-adjust: exact;
-        }
-      }
-    `,
-  });
-
-  const handlePrintReceipt = async (receipt: Receipt) => {
-    console.log("Starting print process for receipt:", receipt);
-    await new Promise((resolve) => {
-      setSelectedReceiptForPrint(receipt);
-      resolve(true);
-    });
-    console.log("State updated, printing receipt:", selectedReceiptForPrint);
-    handlePrintReceiptRef();
-  };
-
-  const handlePrintReceiptRef = useReactToPrint({
-    // @ts-ignore
-    content: () => {
-      console.log("Print content generating for:", selectedReceiptForPrint);
-      return printReceiptRef.current;
-    },
-    contentRef: printReceiptRef,
-    documentTitle: "Doklad",
-    removeAfterPrint: true,
-    onBeforePrint: async () => {
-      console.log("Before printing, receipt:", selectedReceiptForPrint);
-      return Promise.resolve();
-    },
-    pageStyle: `
-      @page {
-        size: 58mm 297mm;
-        margin: 0mm;
-      }
-    `,
-  });
 
   const columns: ColumnDef<Receipt>[] = [
     {
