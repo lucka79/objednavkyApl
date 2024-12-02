@@ -30,7 +30,7 @@ export function ReceiptItems({ items }: ReceiptItemsProps) {
         {items.map((item) => (
           <TableRow key={item.id}>
             <TableCell className="flex flex-col gap-1 ">
-              <span className="print:print-receipt-no print:text-[9px]">
+              <span className="print:text-[9px]">
                 {item.product.name.length > 15
                   ? `${item.product.name.slice(0, 15)}...`
                   : item.product.name}

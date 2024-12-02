@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import {
@@ -51,6 +51,8 @@ import {
 } from "date-fns";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useReceiptStore } from "@/providers/receiptStore";
+import { useReactToPrint } from "react-to-print";
+import { PrintSummaryTotalReceipts } from "./PrintSummary";
 
 //   const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
 
@@ -153,6 +155,10 @@ export function ReceiptsTable({
     );
   };
 
+  const getTotalForFilteredReceipts = (receipts: Receipt[]) => {
+    return receipts.reduce((sum, receipt) => sum + receipt.total, 0);
+  };
+
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders: {error.message}</div>;
   if (!receipts) return <div>No orders found</div>;
@@ -195,8 +201,29 @@ export function ReceiptsTable({
     return true;
   });
 
+  const filteredTotal = getTotalForFilteredReceipts(filteredReceipts);
+
   // Add console log to check when component renders
   console.log("ReceiptsTable render, selectedReceiptId:", initialReceiptId);
+
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    content: () => printRef.current,
+    contentRef: printRef,
+    documentTitle: "Souhrn tržeb",
+    removeAfterPrint: true,
+    pageStyle: `
+      @page {
+        size: 58mm 297mm;
+        margin: 00mm;
+      }
+      @media print {
+        body {
+          -webkit-print-color-adjust: exact;
+        }
+      }
+    `,
+  });
 
   return (
     <>
@@ -244,6 +271,18 @@ export function ReceiptsTable({
                   ))}
                 </SelectContent>
               </Select>
+              <div className="flex justify-between items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handlePrint}
+                  className="print:hidden"
+                >
+                  Vytisknout souhrn
+                </Button>
+                <Badge variant="secondary" className="text-md">
+                  Celkem: {filteredTotal.toFixed(2)} Kč
+                </Badge>
+              </div>
               <div className="flex gap-2 items-center">
                 {dateFilter === "custom" && (
                   <Popover>
@@ -325,6 +364,27 @@ export function ReceiptsTable({
           />
         </div>
       </Card>
+      <div className="hidden">
+        <div ref={printRef}>
+          <PrintSummaryTotalReceipts
+            date={
+              dateFilter === "custom" && date
+                ? format(date, "PP")
+                : dateFilter === "today"
+                  ? "Dnes"
+                  : dateFilter === "yesterday"
+                    ? "Včera"
+                    : dateFilter === "this-month"
+                      ? "Tento měsíc"
+                      : dateFilter === "last-month"
+                        ? "Minulý měsíc"
+                        : new Date().toLocaleDateString()
+            }
+            total={filteredTotal}
+            userName={user?.full_name ?? ""}
+          />
+        </div>
+      </div>
     </>
   );
 }

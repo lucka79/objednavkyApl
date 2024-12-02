@@ -25,6 +25,7 @@ import { useRef } from "react";
 
 export function ReceiptDetailsCard() {
   const user = useAuthStore((state) => state.user);
+  // @ts-ignore
   const { selectedReceiptId, setSelectedReceiptId } = useReceiptStore();
   const printRef = useRef<HTMLDivElement>(null);
   const {
