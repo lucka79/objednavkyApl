@@ -87,47 +87,6 @@ const columns: ColumnDef<Receipt>[] = [
       <div className="text-right">{row.original.total.toFixed(2)} Kč</div>
     ),
   },
-
-  //   {
-  //     id: "actions",
-  //     cell: ({ row }) => {
-  //       const receipt = row.original;
-  //       const deleteReceipt = useDeleteReceipt();
-  //       const { toast } = useToast();
-
-  //       const handleDelete = async (e: React.MouseEvent) => {
-  //         e.stopPropagation(); // Prevent row click event
-
-  //         try {
-  //           await deleteReceipt.mutateAsync(receipt.id);
-  //           toast({
-  //             title: "Success",
-  //             description: "Receipt deleted successfully",
-  //           });
-  //         } catch (error) {
-  //           console.error("Failed to delete receipt:", error);
-  //           toast({
-  //             title: "Error",
-  //             description: "Failed to delete receipt",
-  //             variant: "destructive",
-  //           });
-  //         }
-  //       };
-
-  //       return (
-  //         <div className="flex justify-end">
-  //           <Button
-  //             variant="ghost"
-  //             size="sm"
-  //             onClick={handleDelete}
-  //             className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-  //           >
-  //             <Trash2 className="h-4 w-4" />
-  //           </Button>
-  //         </div>
-  //       );
-  //     },
-  //   },
 ];
 
 interface ReceiptsTableProps {
@@ -241,7 +200,7 @@ export function ReceiptsTable({
 
   return (
     <>
-      <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible print:transform-none">
+      <Card className="my-0 p-4 print:hidden">
         <div className="space-y-4 overflow-x-auto print:!m-0">
           <div className="space-y-2">
             {" "}

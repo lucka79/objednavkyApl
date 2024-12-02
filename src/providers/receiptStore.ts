@@ -97,6 +97,7 @@ export const useReceiptStore = create<ReceiptStore>((set, get) => ({
             receipt_id: receiptId,
             product_id: item.product.id,
             quantity: item.quantity,
+            vat: item.product.vat,
             price: item.product.price
         }));
         console.log("Receipt items to insert:", receiptItems);

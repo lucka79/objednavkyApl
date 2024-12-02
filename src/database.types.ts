@@ -111,6 +111,7 @@ export type Database = {
           product_id: number
           quantity: number
           updated_at: string | null
+          vat: number
         }
         Insert: {
           checked?: boolean
@@ -121,6 +122,7 @@ export type Database = {
           product_id: number
           quantity?: number
           updated_at?: string | null
+          vat?: number
         }
         Update: {
           checked?: boolean
@@ -131,6 +133,7 @@ export type Database = {
           product_id?: number
           quantity?: number
           updated_at?: string | null
+          vat?: number
         }
         Relationships: [
           {
@@ -251,6 +254,7 @@ export type Database = {
           priceBuyer: number
           priceMobil: number
           store: boolean
+          vat: number
         }
         Insert: {
           active?: boolean
@@ -264,6 +268,7 @@ export type Database = {
           priceBuyer?: number
           priceMobil?: number
           store?: boolean
+          vat?: number
         }
         Update: {
           active?: boolean
@@ -277,6 +282,7 @@ export type Database = {
           priceBuyer?: number
           priceMobil?: number
           store?: boolean
+          vat?: number
         }
         Relationships: [
           {
@@ -338,6 +344,7 @@ export type Database = {
           product_id: number
           quantity: number | null
           receipt_id: number
+          vat: number
         }
         Insert: {
           created_at?: string
@@ -346,6 +353,7 @@ export type Database = {
           product_id: number
           quantity?: number | null
           receipt_id: number
+          vat?: number
         }
         Update: {
           created_at?: string
@@ -354,6 +362,7 @@ export type Database = {
           product_id?: number
           quantity?: number | null
           receipt_id?: number
+          vat?: number
         }
         Relationships: [
           {

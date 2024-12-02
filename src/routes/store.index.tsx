@@ -6,7 +6,6 @@ import { ShoppingCartIcon, FileSliders } from "lucide-react";
 import { StoreCategory } from "@/components/StoreCategory";
 import CartStore from "@/components/CartStore";
 import { ReceiptsTable } from "@/components/ReceiptsTable";
-import { ReceiptDetailsDialog } from "@/components/ReceiptDetailsDialog";
 import { ReceiptDetailsCard } from "@/components/ReceiptDetailsCard";
 
 export const Route = createFileRoute("/store/")({

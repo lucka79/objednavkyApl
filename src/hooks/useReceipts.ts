@@ -84,6 +84,23 @@ export const useFetchReceiptById = (receiptId: number | null) => {
     return data;
   };
 
+export const useLatestReceipt = () => {
+  return useQuery({
+    queryKey: ["latestReceipt"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("receipts")
+        .select("id")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+      
+      console.log('Latest receipt query response:', { data, error });
+      return data;
+    },
+  });
+};
+
 export const useInsertReceipt = () => {
     const queryClient = useQueryClient();
     const { user } = useAuthStore.getState();

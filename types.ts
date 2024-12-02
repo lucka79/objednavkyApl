@@ -25,6 +25,7 @@ export type Product = {
   created_at: string;
   category_id: number | null;
   category?: Category | null;
+  vat: number;
 }
 
   export type Category = {

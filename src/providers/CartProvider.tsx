@@ -43,7 +43,10 @@ const CartProvider = ({ children }: PropsWithChildren) => {
 
     const newCartItem: CartItem = {
       id: Date.now(),
-      product,
+      product: {
+        ...product,
+        vat: 12,
+      },
       product_id: product.id,
       quantity: 1,
     };

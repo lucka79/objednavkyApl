@@ -44,6 +44,7 @@ const productSchema = z.object({
   price: z.number().min(0.01, "Cena musí být větší než 0"),
   priceBuyer: z.number().min(0.01, "Cena musí být větší než 0"),
   priceMobil: z.number().min(0, "Mobilní cena musí být nezáporná"),
+  vat: z.number().min(0, "DPH musí být nezáporná"),
   category_id: z.number().min(1, "Kategorie musí být vybrána"),
   image: z.union([z.instanceof(File), z.string()]).optional(),
 });
@@ -75,6 +76,7 @@ export function ProductForm({ onClose }: ProductFormProps) {
       price: 0,
       priceBuyer: 0,
       priceMobil: 0,
+      vat: 12,
       category_id: 1,
     },
   });

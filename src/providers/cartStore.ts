@@ -90,6 +90,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
         order_id: orderId,
         product_id: item.product.id,
         quantity: item.quantity,
+        vat: item.product.vat,
         price:
           selectedUserRole === "user"
             ? item.product.price
