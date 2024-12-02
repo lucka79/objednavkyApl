@@ -201,17 +201,29 @@ export function ReceiptsTable({
     `,
   });
 
-  const handlePrintReceipt = (receipt: Receipt) => {
-    setSelectedReceiptForPrint(receipt);
+  const handlePrintReceipt = async (receipt: Receipt) => {
+    console.log("Starting print process for receipt:", receipt);
+    await new Promise((resolve) => {
+      setSelectedReceiptForPrint(receipt);
+      resolve(true);
+    });
+    console.log("State updated, printing receipt:", selectedReceiptForPrint);
     handlePrintReceiptRef();
   };
 
   const handlePrintReceiptRef = useReactToPrint({
     // @ts-ignore
-    content: () => printReceiptRef.current,
+    content: () => {
+      console.log("Print content generating for:", selectedReceiptForPrint);
+      return printReceiptRef.current;
+    },
     contentRef: printReceiptRef,
     documentTitle: "Doklad",
     removeAfterPrint: true,
+    onBeforePrint: async () => {
+      console.log("Before printing, receipt:", selectedReceiptForPrint);
+      return Promise.resolve();
+    },
     pageStyle: `
       @page {
         size: 58mm 297mm;
@@ -426,7 +438,10 @@ export function ReceiptsTable({
         </div>
         {selectedReceiptForPrint && (
           <div ref={printReceiptRef}>
-            <PrintReceipt receipt={selectedReceiptForPrint} />
+            <PrintReceipt
+              receipt={selectedReceiptForPrint}
+              userName={user?.full_name ?? ""}
+            />
           </div>
         )}
       </div>

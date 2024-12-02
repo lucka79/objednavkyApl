@@ -12,10 +12,10 @@ export function PrintSummaryTotalReceipts({
   return (
     <div className="p-8 hidden print:block">
       <div className="text-center space-y-4">
-        <h2 className="text-xl font-bold">Souhrn tržeb</h2>
+        <h2 className="text-xl font-bold">Přehled tržeb</h2>
         <div className="space-y-2">
-          <p>Období: {date}</p>
-          <p>Prodejce: {userName}</p>
+          <p>{date}</p>
+          <p>{userName}</p>
 
           <div className="mt-6 mb-6">
             <table className="w-full text-sm">
@@ -30,7 +30,7 @@ export function PrintSummaryTotalReceipts({
           </div>
 
           <div className="mt-4">
-            <p className="text-xl font-bold border-t pt-2">
+            <p className="text-md font-semibold border-t pt-2">
               Celkem: {total.toFixed(2)} Kč
             </p>
           </div>

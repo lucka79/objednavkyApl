@@ -3,12 +3,14 @@ import { format } from "date-fns";
 
 interface PrintReceiptProps {
   receipt: Receipt;
+  userName: string;
 }
 
-export function PrintReceipt({ receipt }: PrintReceiptProps) {
+export function PrintReceipt({ receipt, userName }: PrintReceiptProps) {
   return (
     <div className="p-4 w-[58mm] text-sm">
       <div className="text-center mb-4">
+        <h2 className="font-semibold">{userName}</h2>
         <h2 className="font-semibold">Doklad #{receipt.receipt_no}</h2>
         <p>{format(new Date(receipt.date), "PPP")}</p>
       </div>
