@@ -100,15 +100,24 @@ export function ReceiptsTable({
   selectedReceiptId: initialReceiptId,
   initialProductId,
 }: ReceiptsTableProps) {
-  const user = useAuthStore((state) => state.user);
+  // 1. All useState hooks
   const [date, setDate] = useState<Date>();
   const [selectedProductId, setSelectedProductId] = useState(
     initialProductId || ""
   );
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("today");
+
+  // 2. All refs
+  const printRef = useRef<HTMLDivElement>(null);
+
+  // 3. All store hooks
+  const user = useAuthStore((state) => state.user);
   const setSelectedReceiptId = useReceiptStore(
     (state) => state.setSelectedReceiptId
   );
-  //   const { data: receipts, isLoading, error } = fetchAllReceipts();
+
+  // 4. All queries
   const {
     data: receipts,
     isLoading,
@@ -119,8 +128,6 @@ export function ReceiptsTable({
   //   const { mutateAsync: insertOrder } = useInsertOrder();
   //   const { mutateAsync: insertOrderItems } = useInsertOrderItems();
   //   const user = useAuthStore((state) => state.user);
-  const [globalFilter, setGlobalFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState<DateFilter>("today");
 
   const isDateInRange = (receiptDate: Date, filter: DateFilter) => {
     const date = new Date(receiptDate);
@@ -206,7 +213,6 @@ export function ReceiptsTable({
   // Add console log to check when component renders
   console.log("ReceiptsTable render, selectedReceiptId:", initialReceiptId);
 
-  const printRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
     contentRef: printRef,
