@@ -31,8 +31,8 @@ export function ReceiptItems({ items }: ReceiptItemsProps) {
           <TableRow key={item.id}>
             <TableCell className="flex flex-col gap-1 ">
               <span className="print:text-[9px]">
-                {item.product.name.length > 15
-                  ? `${item.product.name.slice(0, 15)}...`
+                {item.product.name.length > 20
+                  ? `${item.product.name.slice(0, 20)}...`
                   : item.product.name}
               </span>
               <span className="text-sm text-muted-foreground print:print-items print:text-[9px]">

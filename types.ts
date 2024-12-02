@@ -141,4 +141,5 @@ export interface ReceiptItem {
   product: Product;
   quantity: number;
   price: number;
+  vat: number;
 }
