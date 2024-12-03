@@ -21,10 +21,10 @@ import { useReceiptStore } from "@/providers/receiptStore";
 import { Receipt } from "types";
 import { ReceiptItems } from "./ReceiptItems";
 
-interface ReceiptDetailsDialogProps {
-  receiptId: number | null;
-  onOpenChange: (open: boolean) => void;
-}
+// interface ReceiptDetailsDialogProps {
+//   receiptId: number | null;
+//   onOpenChange: (open: boolean) => void;
+// }
 
 export function ReceiptDetailsDialog() {
   const user = useAuthStore((state) => state.user);
