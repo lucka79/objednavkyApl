@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { CartItem, Product } from '../../types';
 import { generateReceiptNumber } from '../lib/generateNumbers'; // Import the function
 import { useAuthStore } from '@/lib/supabase';
+import { useUpdateStoredItems } from '@/hooks/useReceipts';
 
 
 type ReceiptStore = {
@@ -19,6 +20,7 @@ type ReceiptStore = {
     insertReceiptItems: any, 
     date: Date,
     receiptTotal: number,
+    updateStoredItems: any
   ) => Promise<void>;
 };
 
@@ -72,42 +74,53 @@ export const useReceiptStore = create<ReceiptStore>((set, get) => ({
     insertReceiptItems: any,
     date: Date,
     receiptTotal: number,
+    updateStoredItems: any
   ) => {
-    const user = useAuthStore.getState().user; // Retrieve the user from the auth store
+    const user = useAuthStore.getState().user;
 
     try {
-        const localDate = new Date(date);
-        const utcDate = new Date(localDate.getTime() + (localDate.getTimezoneOffset() * 60000) + 3600000); // Add 1 hour
+      const localDate = new Date(date);
+      const utcDate = new Date(localDate.getTime() + (localDate.getTimezoneOffset() * 60000) + 3600000);
 
-        // Generate the receipt number
-        const receipt_no = await generateReceiptNumber(user?.id as string); // Pass the sellerId (user.id)
+      if (!user?.id) {
+        throw new Error("User not authenticated");
+      }
 
-        const receiptResult = await insertReceipt({
-            total: receiptTotal,
-            date: utcDate.toISOString(),
-            receipt_no, // Include the generated receipt_no
-        });
-        console.log('Receipt creation result:', receiptResult);
+      // Generate the receipt number
+      const receipt_no = await generateReceiptNumber(user.id);
 
-        const { id: receiptId } = receiptResult;
-        if (!receiptId) throw new Error('Failed to create receipt');
+      const receiptResult = await insertReceipt({
+        total: receiptTotal,
+        date: utcDate.toISOString(),
+        receipt_no,
+      });
 
-        const receiptItems = get().items.map(item => ({
-            receipt_id: receiptId,
-            product_id: item.product.id,
-            quantity: item.quantity,
-            vat: item.product.vat,
-            price: item.product.price
-        }));
-        console.log("Receipt items to insert:", receiptItems);
+      const { id: receiptId } = receiptResult;
+      if (!receiptId) throw new Error('Failed to create receipt');
 
-        await insertReceiptItems(receiptItems);
-        console.log('Checkout completed successfully');
+      const receiptItems = get().items.map(item => ({
+        receipt_id: receiptId,
+        product_id: item.product.id,
+        quantity: item.quantity,
+        vat: item.product.vat,
+        price: item.product.price
+      }));
 
-        get().clearCart();
+      await insertReceiptItems(receiptItems);
+
+      // Update stored items using the passed function
+      await updateStoredItems({
+        userId: user.id,
+        items: get().items.map(item => ({
+          product_id: item.product.id,
+          quantity: item.quantity
+        }))
+      });
+
+      get().clearCart();
     } catch (error) {
-        console.error('Checkout when inserting receipt failed:', error);
-        throw error; // Re-throw to handle in the UI
+      console.error('Checkout failed:', error);
+      throw error;
     }
   },
 }));

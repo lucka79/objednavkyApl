@@ -14,13 +14,18 @@ import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useReceiptStore } from "@/providers/receiptStore";
-import { useInsertReceipt, useInsertReceiptItems } from "@/hooks/useReceipts";
+import {
+  useInsertReceipt,
+  useInsertReceiptItems,
+  useUpdateStoredItems,
+} from "@/hooks/useReceipts";
 
 export default function CartStore() {
   const { toast } = useToast();
   const user = useAuthStore((state) => state.user);
   const { mutateAsync: insertReceipt } = useInsertReceipt();
   const { mutateAsync: insertReceiptItems } = useInsertReceiptItems();
+  const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
   const {
     items,
     // removeItem,
@@ -69,11 +74,16 @@ export default function CartStore() {
         }))
       );
 
+      if (!user?.id) {
+        throw new Error("User not authenticated");
+      }
+
       await checkout(
         insertReceipt,
         insertReceiptItems,
         new Date(formattedDate),
-        orderTotal
+        orderTotal,
+        updateStoredItems
       );
 
       toast({
