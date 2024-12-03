@@ -48,6 +48,7 @@ function StoreDashboard() {
 
             {activeView === "createOrder" && <StoreCategory />}
             {activeView === "receipts" && (
+              // @ts-ignore
               <ReceiptsTable selectedReceiptId={null} />
             )}
           </div>

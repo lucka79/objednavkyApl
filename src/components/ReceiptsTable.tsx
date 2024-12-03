@@ -66,6 +66,20 @@ type ReceiptsTableProps = {
   initialProductId?: string;
 };
 
+// Update the helper functions
+const countItemsByQuantity = (receipt: Receipt) => {
+  const counts = receipt.receipt_items?.reduce(
+    (acc, item) => {
+      if (item.quantity < 0) acc.negative++;
+      if (item.quantity === 0) acc.zero++;
+      return acc;
+    },
+    { negative: 0, zero: 0 }
+  ) || { negative: 0, zero: 0 };
+
+  return counts;
+};
+
 export function ReceiptsTable({
   selectedReceiptId: initialReceiptId,
   initialProductId,
@@ -92,6 +106,7 @@ export function ReceiptsTable({
 
   // 4. All react-to-print hooks (MOVE THESE BEFORE ANY CONDITIONAL LOGIC)
   const handlePrint = useReactToPrint({
+    // @ts-ignore
     content: () => printRef.current,
     contentRef: printRef,
     documentTitle: "Souhrn tržeb",
@@ -110,6 +125,7 @@ export function ReceiptsTable({
   });
 
   const handlePrintReceiptRef = useReactToPrint({
+    // @ts-ignore
     content: () => printReceiptRef.current,
     contentRef: printReceiptRef,
     documentTitle: "Doklad",
@@ -242,16 +258,39 @@ export function ReceiptsTable({
       accessorKey: "id",
       header: "# ID",
     },
-
     {
       accessorKey: "receipt_no",
       header: "# cislo",
+      cell: ({ row }) => {
+        const counts = countItemsByQuantity(row.original);
+        return (
+          <div className="flex items-center gap-2">
+            <span>{row.original.receipt_no}</span>
+            <div className="flex gap-1">
+              {counts.negative > 0 && (
+                <Badge variant="destructive" className="text-xs">
+                  -{counts.negative}
+                </Badge>
+              )}
+              {counts.zero > 0 && (
+                <Badge variant="outline" className="text-xs">
+                  {counts.zero}
+                </Badge>
+              )}
+            </div>
+          </div>
+        );
+      },
     },
     {
       accessorKey: "total",
       header: () => <div className="text-right">Celkem</div>,
       cell: ({ row }) => (
-        <div className="text-right">{row.original.total.toFixed(2)} Kč</div>
+        <div className="text-right">
+          <span className={row.original.total < 0 ? "text-destructive" : ""}>
+            {row.original.total.toFixed(2)} Kč
+          </span>
+        </div>
       ),
     },
     {

@@ -1,6 +1,6 @@
 // cartStore.ts
 import { create } from 'zustand';
-import { Product, CartItem } from '../../types';
+import { CartItem, Product } from '../../types';
 import { generateReceiptNumber } from '../lib/generateNumbers'; // Import the function
 import { useAuthStore } from '@/lib/supabase';
 
@@ -10,7 +10,7 @@ type ReceiptStore = {
   setSelectedReceiptId: (id: number) => void;
   items: CartItem[];
   addItem: (product: Product) => void;
-  removeItem: (productId: number) => void;
+  // removeItem: (productId: number) => void;
   updateQuantity: (productId: number, quantity: number) => void;
   clearCart: () => void;
   
@@ -52,17 +52,16 @@ export const useReceiptStore = create<ReceiptStore>((set, get) => ({
     //   return { items: [...state.items, { product, quantity: 1 }] };
     });
   },
-  removeItem: (productId) => {
-    set((state) => ({
-      items: state.items.filter((item) =>item.product.id !== productId),
-    }));
-  },
+    // removeItem: (productId) => {
+    //   set((state) => ({
+    //     items: state.items.filter((item) =>item.product.id !== productId),
+    //   }));
+    // },
   updateQuantity: (productId, quantity) => {
     set((state) => ({
       items: state.items.map((item) =>
         item.product.id === productId ? { ...item, quantity } : item
       )
-      .filter((item) => item.quantity > 0), // displey only items with quantity > 0
     }));
   },
   clearCart: () => set({ items: [] }),

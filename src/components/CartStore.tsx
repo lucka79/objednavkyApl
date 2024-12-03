@@ -127,47 +127,33 @@ export default function CartStore() {
                 {item.product.name}
               </span>
               <span className="text-sm mx-1">
-                {user?.role === "store" && <>{item.product.price.toFixed(2)}</>}
-                {user?.role === "user" && <>{item.product.price.toFixed(2)}</>}
+                {item.product.price.toFixed(2)}
               </span>
               <div className="flex items-center">
                 <SquareMinus
                   onClick={() =>
                     updateQuantity(item.product.id, item.quantity - 1)
                   }
-                  className="text-stone-300"
+                  className="text-stone-300 cursor-pointer hover:text-stone-400"
                 />
                 <Input
                   type="number"
-                  min="1"
                   value={item.quantity}
-                  onChange={(e) =>
-                    updateQuantity(item.product.id, parseInt(e.target.value))
-                  }
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 0;
+                    updateQuantity(item.product.id, value);
+                  }}
                   className="w-16 mx-2 text-center"
                 />
                 <SquarePlus
                   onClick={() =>
                     updateQuantity(item.product.id, item.quantity + 1)
                   }
-                  className="text-stone-300"
+                  className="text-stone-300 cursor-pointer hover:text-stone-400"
                 />
                 <Label className="w-16 mx-2 justify-end">
-                  {user?.role === "store" && (
-                    <>{(item.product.price * item.quantity).toFixed(2)} Kč</>
-                  )}
-                  {user?.role === "user" && (
-                    <>{(item.product.price * item.quantity).toFixed(2)} Kč</>
-                  )}
-                  {/* {(item.product.price * item.quantity).toFixed(2)} Kč */}
+                  {(item.product.price * item.quantity).toFixed(2)} Kč
                 </Label>
-                {/* <Button
-                  variant="destructive"
-                  onClick={() => removeItem(item.product.id)}
-                  // className="w-12 ml-8"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </Button> */}
               </div>
             </div>
           ))
