@@ -32,6 +32,7 @@ import { useSubsrciberUsers } from "@/hooks/useProfiles";
 import { CartItem } from "types";
 import { useSelectedUser } from "@/hooks/useProfiles";
 import { useUpdateStoredItems } from "@/hooks/useOrders";
+// import { Command } from "cmdk";
 
 export default function CartAdmin() {
   const { toast } = useToast();
@@ -54,11 +55,14 @@ export default function CartAdmin() {
 
   const [date, setDate] = useState<Date>(tomorrow);
 
-  //   const buyer = user?.full_name;
-
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const { data: subsrciberUsers } = useSubsrciberUsers();
   const { data: selectedUser } = useSelectedUser(selectedUserId);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredUsers = subsrciberUsers?.filter((user) =>
+    user.full_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   useEffect(() => {
     if (user && user.role !== "admin") {
@@ -94,11 +98,24 @@ export default function CartAdmin() {
                   <SelectValue placeholder="Vyberte uživatele" />
                 </SelectTrigger>
                 <SelectContent>
-                  {subsrciberUsers?.map((user) => (
+                  <div className="px-2 py-2">
+                    <Input
+                      placeholder="Hledat uživatele..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="mb-2"
+                    />
+                  </div>
+                  {filteredUsers?.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.full_name}
                     </SelectItem>
                   ))}
+                  {filteredUsers?.length === 0 && (
+                    <div className="px-2 py-2 text-sm text-muted-foreground">
+                      Uživatel nenalezen
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
             ) : (

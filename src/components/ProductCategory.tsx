@@ -2,15 +2,9 @@
 import React, { useState } from "react";
 import { fetchActiveProducts } from "@/hooks/useProducts";
 import { useCartStore } from "@/providers/cartStore";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { ShoppingCart } from "lucide-react";
+
+import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 import { Badge } from "./ui/badge";
 import { Category } from "types";
@@ -97,7 +91,11 @@ export const ProductCategory: React.FC = () => {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 p-2">
         {filteredProducts?.map((product) => (
-          <Card key={product.id} className="text-center h-48 flex flex-col">
+          <Card
+            key={product.id}
+            onClick={() => addItem(product)}
+            className="text-center h-36 flex flex-col cursor-pointer"
+          >
             {/* First half - Product Name */}
             <div className="flex-1">
               <CardHeader className="h-full px-1">
@@ -109,23 +107,20 @@ export const ProductCategory: React.FC = () => {
 
             {/* Second half - Prices and Button */}
             <div className="flex-1 flex flex-col justify-between">
-              <CardContent className="pb-0">
-                {user?.role === "user" && (
-                  <span>{product.price.toFixed(2)} Kč</span>
-                )}
-                {user?.role === "admin" && (
-                  <div className="flex flex-col gap-1 text-sm">
-                    <span>{product.price.toFixed(2)} Kč</span>
-                    <span className="italic font-semibold">
-                      {product.priceMobil.toFixed(2)} Kč
-                    </span>
-                  </div>
-                )}
-              </CardContent>
-              <CardFooter className="justify-center pt-0">
-                <Button variant="outline" onClick={() => addItem(product)}>
-                  <ShoppingCart size={16} />
-                </Button>
+              {/* Empty div to push the footer to the bottom */}
+              <div className="flex-grow"></div>
+              {/* <CardContent className="pb-0 text-xs font-semibold"></CardContent> */}
+              <CardFooter className="flex justify-end pb-2">
+                <Badge variant="outline" className="text-xs">
+                  {user?.role === "admin" && (
+                    <div className="flex flex-col gap-1 text-sm">
+                      <span>{product.priceBuyer.toFixed(2)} Kč</span>
+                      <span className="italic font-semibold">
+                        {product.priceMobil.toFixed(2)} Kč
+                      </span>
+                    </div>
+                  )}
+                </Badge>
               </CardFooter>
             </div>
           </Card>

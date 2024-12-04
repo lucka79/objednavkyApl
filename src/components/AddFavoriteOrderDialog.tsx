@@ -6,6 +6,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Checkbox } from "./ui/checkbox";
+import { ScrollArea } from "./ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
+import { useSubsrciberUsers } from "@/hooks/useProfiles";
 import {
   Select,
   SelectContent,
@@ -13,13 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "./ui/checkbox";
-import { ScrollArea } from "./ui/scroll-area";
-import { useToast } from "@/hooks/use-toast";
-
-import { supabase } from "@/lib/supabase";
-import { useQuery } from "@tanstack/react-query";
-import { useSubsrciberUsers } from "@/hooks/useProfiles";
+import { Input } from "@/components/ui/input";
 
 const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
 type Day = (typeof DAYS)[number];
@@ -32,20 +30,11 @@ export function AddFavoriteOrderDialog() {
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   // @ts-ignore
   const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // Fetch profiles
-  // const { data: profiles } = useQuery({
-  //   queryKey: ["profiles"],
-  //   queryFn: async () => {
-  //     const { data, error } = await supabase
-  //       .from("profiles")
-  //       .select("id, full_name")
-  //       .order("full_name");
-
-  //     if (error) throw error;
-  //     return data;
-  //   },
-  // });
+  const filteredUsers = subsrciberUsers?.filter((user) =>
+    user.full_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handleSubmit = async () => {
     console.log("Starting favorite order creation process");
@@ -123,11 +112,24 @@ export function AddFavoriteOrderDialog() {
               <SelectValue placeholder="Vyberte odběratele..." />
             </SelectTrigger>
             <SelectContent>
-              {subsrciberUsers?.map((user) => (
+              <div className="px-2 py-2">
+                <Input
+                  placeholder="Hledat uživatele..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="mb-2"
+                />
+              </div>
+              {filteredUsers?.map((user) => (
                 <SelectItem key={user.id} value={user.id}>
                   {user.full_name}
                 </SelectItem>
               ))}
+              {filteredUsers?.length === 0 && (
+                <div className="px-2 py-2 text-sm text-muted-foreground">
+                  Uživatel nenalezen
+                </div>
+              )}
             </SelectContent>
           </Select>
         </div>

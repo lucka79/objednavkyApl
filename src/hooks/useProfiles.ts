@@ -1,6 +1,11 @@
 import { supabase } from "@/lib/supabase";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+interface SubscriberUser {
+  id: string;
+  full_name: string;
+}
+
 export const useMobileUsers = () => {
   return useQuery({
     queryKey: ["mobileUsers"],
@@ -17,7 +22,7 @@ export const useMobileUsers = () => {
 }; 
 
 export const useSubsrciberUsers = () => {
-  return useQuery({
+  return useQuery<SubscriberUser[], Error>({
     queryKey: ["subsrciberUsers"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -27,8 +32,9 @@ export const useSubsrciberUsers = () => {
         .eq("active", true);
       
       if (error) throw error;
-      return data;
+      return data || [];
     },
+    initialData: [],
   });
 };
 
