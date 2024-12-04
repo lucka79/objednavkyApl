@@ -10,6 +10,7 @@ import { Category } from "types";
 import { Skeleton } from "./ui/skeleton";
 import { useAuthStore } from "@/lib/supabase";
 import { fetchCategories } from "@/hooks/useCategories";
+import { useStoredItems } from "@/hooks/useStoredItems";
 
 // Category badges component
 const CategoryBadges = ({
@@ -45,11 +46,12 @@ const CategoryBadges = ({
   </ScrollArea>
 );
 export const StoreCategory: React.FC = () => {
+  const user = useAuthStore((state) => state.user);
   const { data: products, isLoading, error } = fetchStoreProducts();
   const { data: categories, isLoading: categoriesLoading } = fetchCategories();
+  const { data: storedItems } = useStoredItems(user?.id ?? "");
 
   const addItem = useReceiptStore((state) => state.addItem);
-  const user = useAuthStore((state) => state.user);
 
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
@@ -88,36 +90,44 @@ export const StoreCategory: React.FC = () => {
         />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 p-2">
-        {filteredProducts?.map((product) => (
-          <Card
-            key={product.id}
-            onClick={() => addItem(product)}
-            className="text-center h-36 flex flex-col hover:cursor-pointer hover:bg-accent"
-          >
-            {/* First half - Product Name */}
-            <div className="flex-1">
-              <CardHeader className="h-full px-1">
-                <CardTitle className="text-sm line-clamp-2 mx-1 hover:line-clamp-3">
-                  {product.name}
-                </CardTitle>
-              </CardHeader>
-            </div>
+        {filteredProducts?.map((product) => {
+          const storedQuantity =
+            storedItems?.find((item) => item.product_id === product.id)
+              ?.quantity || 0;
 
-            {/* Second half - Prices and Button */}
-            <div className="flex-1 flex flex-col justify-between">
-              {/* Empty div to push the footer to the bottom */}
-              <div className="flex-grow"></div>
-              {/* <CardContent className="pb-0 text-xs font-semibold"></CardContent> */}
-              <CardFooter className="flex justify-end pb-2">
-                <Button variant="outline">
-                  {user?.role === "store" && (
-                    <span>{product.price.toFixed(2)} Kč</span>
-                  )}
-                </Button>
-              </CardFooter>
-            </div>
-          </Card>
-        ))}
+          return (
+            <Card
+              key={product.id}
+              onClick={() => addItem(product)}
+              className="text-center h-36 flex flex-col hover:cursor-pointer hover:bg-accent"
+            >
+              <div className="flex-1">
+                <CardHeader className="h-full px-1">
+                  <CardTitle className="text-sm line-clamp-2 mx-1 hover:line-clamp-3">
+                    {product.name}
+                    <Badge variant="outline" className="ml-1">
+                      {storedQuantity}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+              </div>
+
+              {/* Second half - Prices and Button */}
+              <div className="flex-1 flex flex-col justify-between">
+                {/* Empty div to push the footer to the bottom */}
+                <div className="flex-grow"></div>
+                {/* <CardContent className="pb-0 text-xs font-semibold"></CardContent> */}
+                <CardFooter className="flex justify-end pb-2">
+                  <Button variant="outline">
+                    {user?.role === "store" && (
+                      <span>{product.price.toFixed(2)} Kč</span>
+                    )}
+                  </Button>
+                </CardFooter>
+              </div>
+            </Card>
+          );
+        })}
       </div>
     </Card>
   );

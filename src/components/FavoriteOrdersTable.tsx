@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchAllProducts } from "@/hooks/useProducts";
+import { fetchActiveProducts } from "@/hooks/useProducts";
 import { useFavoriteOrders } from "@/hooks/useFavorites";
 import { FavoriteDetailsDialog } from "./FavoriteDetailsDialog";
 import { useInsertOrder, useInsertOrderItems } from "@/hooks/useOrders";
@@ -142,7 +142,7 @@ export function FavoriteOrdersTable({
     initialProductId || ""
   );
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
-  const { data: products } = fetchAllProducts();
+  const { data: products } = fetchActiveProducts();
   const [selectedDay, setSelectedDay] = useState<string>("all");
   const { mutateAsync: insertOrder } = useInsertOrder();
   const { mutateAsync: insertOrderItems } = useInsertOrderItems();

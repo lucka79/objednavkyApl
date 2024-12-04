@@ -24,7 +24,6 @@ import {
 import { AddProduct } from "@/components/AddProduct";
 
 import { useOrderItemsHistory } from "@/hooks/useOrders";
-import { useAuthStore } from "@/lib/supabase";
 
 interface OrderItem {
   id: number;
@@ -106,16 +105,17 @@ export default function UpdateCart({
   selectedUserId,
 }: UpdateCartProps) {
   const [orderItems, setOrderItems] = useState<OrderItem[]>(items);
+  const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const { mutate: updateOrderItems } = useUpdateOrderItems();
   const { mutate: updateOrder } = useUpdateOrder();
+  const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
   // const { mutate: deleteOrderItem } = useDeleteOrderItem();
   const { toast } = useToast();
   // const user = useAuthStore((state) => state.user);
-  const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
+
   // @ts-ignore
   const { data: historyData, isLoading } = useOrderItemHistory(selectedItemId);
   const { data: allHistoryData } = useOrderItemsHistory(orderItems);
-  const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
 
   useEffect(() => {
     console.log("Received items:", items);
@@ -204,7 +204,9 @@ export default function UpdateCart({
           items: [
             {
               product_id: productId,
-              quantity: Math.abs(quantityDifference),
+              // When increasing order quantity (positive difference), increase stored items
+              // When decreasing order quantity (negative difference), decrease stored items
+              quantity: -quantityDifference,
             },
           ],
         });

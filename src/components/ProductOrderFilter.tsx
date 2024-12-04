@@ -1,4 +1,4 @@
-import { fetchAllProducts } from "@/hooks/useProducts";
+import { fetchActiveProducts } from "@/hooks/useProducts";
 import {
   Select,
   SelectContent,
@@ -14,7 +14,7 @@ interface ProductOrderFilterProps {
 export function ProductOrderFilter({
   onProductSelect,
 }: ProductOrderFilterProps) {
-  const { data: products } = fetchAllProducts();
+  const { data: products } = fetchActiveProducts();
 
   return (
     <Select

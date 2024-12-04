@@ -26,6 +26,8 @@ export type Product = {
   category_id: number | null;
   category?: Category | null;
   vat: number;
+  active: boolean;
+  store: boolean;
 }
 
   export type Category = {

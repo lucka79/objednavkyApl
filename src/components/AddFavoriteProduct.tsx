@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { fetchAllProducts } from "@/hooks/useProducts";
+import { fetchActiveProducts } from "@/hooks/useProducts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShoppingCart } from "lucide-react";
@@ -19,7 +19,7 @@ export const AddFavoriteProduct: React.FC<AddFavoriteProductProps> = ({
   favoriteOrderId,
   onUpdate,
 }) => {
-  const { data: products = [], isLoading, error } = fetchAllProducts();
+  const { data: products = [], isLoading, error } = fetchActiveProducts();
   const { data: categories = [] } = fetchCategories();
   const user = useAuthStore((state) => state.user);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);

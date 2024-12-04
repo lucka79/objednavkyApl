@@ -44,7 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchAllProducts } from "@/hooks/useProducts";
+import { fetchActiveProducts } from "@/hooks/useProducts";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -443,7 +443,7 @@ export function OrdersTable({
   const [selectedProductId, setSelectedProductId] = useState(
     initialProductId || ""
   );
-  const { data: products } = fetchAllProducts();
+  const { data: products } = fetchActiveProducts();
   const [activeTab, setActiveTab] = useState("today");
 
   const filteredOrders = useMemo(() => {

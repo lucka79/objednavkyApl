@@ -10,7 +10,7 @@ import { Badge } from "./ui/badge";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 import { useState } from "react";
 import { Category, Product } from "types";
-import { fetchAllProducts } from "@/hooks/useProducts";
+import { fetchActiveProducts } from "@/hooks/useProducts";
 import { fetchCategories } from "@/hooks/useCategories";
 
 // Category badges component
@@ -86,7 +86,7 @@ export default function ProductScrollCategory() {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
   const { data: categories, isLoading: categoriesLoading } = fetchCategories();
-  const { data: products, isLoading } = fetchAllProducts();
+  const { data: products, isLoading } = fetchActiveProducts();
 
   if (categoriesLoading || isLoading) {
     return (

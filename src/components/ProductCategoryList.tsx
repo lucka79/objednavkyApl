@@ -10,11 +10,11 @@ import { Skeleton } from "./ui/skeleton";
 import { Badge } from "./ui/badge";
 import RemoteImage from "./RemoteImage";
 import { defaultProductImage } from "@/constants/Images";
-import { fetchAllProducts } from "@/hooks/useProducts";
+import { fetchActiveProducts } from "@/hooks/useProducts";
 import { fetchCategories } from "@/hooks/useCategories";
 
 export default function ProductCategoryList() {
-  const { data: products, error, isLoading } = fetchAllProducts();
+  const { data: products, error, isLoading } = fetchActiveProducts();
   const {
     data: categories,
     isLoading: categoriesLoading,

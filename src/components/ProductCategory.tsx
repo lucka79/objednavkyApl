@@ -1,6 +1,6 @@
 // ProductList.tsx
 import React, { useState } from "react";
-import { fetchAllProducts } from "@/hooks/useProducts";
+import { fetchActiveProducts } from "@/hooks/useProducts";
 import { useCartStore } from "@/providers/cartStore";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,7 +53,7 @@ const CategoryBadges = ({
 );
 
 export const ProductCategory: React.FC = () => {
-  const { data: products, isLoading, error } = fetchAllProducts();
+  const { data: products, isLoading, error } = fetchActiveProducts();
   const { data: categories, isLoading: categoriesLoading } = fetchCategories();
 
   const addItem = useCartStore((state) => state.addItem);

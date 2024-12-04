@@ -11,6 +11,8 @@ type ProductFormValues = {
   priceMobil: number; // Add this line
   category_id: number;
   image: File | null;
+  active: boolean;
+  store: boolean;
   // imageUrl: string | null;
 };
 
@@ -31,6 +33,24 @@ export const fetchAllProducts = () => {
   });
 };
 
+export const fetchActiveProducts = () => {
+  return useQuery({
+    queryKey: ["products"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("active", true)
+        .order("name", { ascending: true });
+      if (error) {
+        throw new Error(error.message);
+      }
+      return data;
+    },
+  });
+};
+
+
 export const fetchStoreProducts = () => {
   return useQuery({
     queryKey: ["products"],
@@ -39,6 +59,7 @@ export const fetchStoreProducts = () => {
         .from("products")
         .select("*")
         .eq("store", true) // Add this line to filter products where store is true
+        .eq("active", true)
         .order("name", { ascending: true });
       if (error) {
         throw new Error(error.message);
@@ -105,22 +126,24 @@ export const insertProduct = async (product: Omit<Product, 'id' | 'created_at'| 
   return data
 }
 
-export const updateProduct = async (data: ProductFormValues & { id: number }) => {
-  const { error, data: updatedProduct } = await supabase
-    .from("products")
-    .update({
-      name: data.name,
-      description: data.description,
-      price: data.price,
-      priceMobil: data.priceMobil,
-      category_id: data.category_id,
-      image: data.image,
-    })
-    .eq("id", data.id)
-    .single();
+export const useUpdateProduct = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (data: Partial<ProductFormValues> & { id: number }) => {
+      const { error, data: updatedProduct } = await supabase
+        .from("products")
+        .update(data)
+        .eq("id", data.id)
+        .single();
 
-  if (error) {
-    throw new Error(error.message);
-  }
-  return updatedProduct;
+      if (error) {
+        throw new Error(error.message);
+      }
+      return updatedProduct;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
 };

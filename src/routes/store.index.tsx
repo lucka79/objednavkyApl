@@ -13,8 +13,8 @@ export const Route = createFileRoute("/store/")({
 });
 
 function StoreDashboard() {
-  const [activeView, setActiveView] = useState<"createOrder" | "receipts">(
-    "createOrder"
+  const [activeView, setActiveView] = useState<"createReceipt" | "receipts">(
+    "createReceipt"
   );
 
   const user = useAuthStore((state) => state.user);
@@ -26,9 +26,9 @@ function StoreDashboard() {
     <div className="h-full w-full flex">
       <nav className="flex flex-col gap-2 p-2 border-r bg-background print:hidden">
         <Button
-          variant={activeView === "createOrder" ? "outline" : "ghost"}
+          variant={activeView === "createReceipt" ? "outline" : "ghost"}
           size="icon"
-          onClick={() => setActiveView("createOrder")}
+          onClick={() => setActiveView("createReceipt")}
         >
           <ShoppingCartIcon className="h-5 w-5" />
         </Button>
@@ -46,7 +46,7 @@ function StoreDashboard() {
           <div className="h-full overflow-y-auto overflow-x-hidden">
             {/* {activeView === "table" ? <ProductsTable /> : <ProductCategory />} */}
 
-            {activeView === "createOrder" && <StoreCategory />}
+            {activeView === "createReceipt" && <StoreCategory />}
             {activeView === "receipts" && (
               // @ts-ignore
               <ReceiptsTable selectedReceiptId={null} />
@@ -57,7 +57,7 @@ function StoreDashboard() {
           {/* {activeView === "table" ? <ProductDetailsCard /> : <Cart />} */}
 
           {/* {activeView === "products" && <ProductDetailsCard />} */}
-          {activeView === "createOrder" && <CartStore />}
+          {activeView === "createReceipt" && <CartStore />}
           {activeView === "receipts" && <ReceiptDetailsCard />}
         </div>
       </main>

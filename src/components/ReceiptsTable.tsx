@@ -35,7 +35,7 @@ import {
 import { CalendarIcon, PrinterIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Receipt, ReceiptItem } from "types";
-import { fetchAllProducts } from "@/hooks/useProducts";
+import { fetchActiveProducts } from "@/hooks/useProducts";
 import { fetchReceiptsBySellerId } from "@/hooks/useReceipts";
 import { Input } from "./ui/input";
 import { useAuthStore } from "@/lib/supabase";
@@ -148,7 +148,7 @@ export function ReceiptsTable({
     isLoading,
     error,
   } = fetchReceiptsBySellerId(user!.id);
-  const { data: products } = fetchAllProducts();
+  const { data: products } = fetchActiveProducts();
 
   // 6. All callbacks
   const handlePrintReceipt = useCallback(

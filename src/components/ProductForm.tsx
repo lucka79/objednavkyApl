@@ -16,11 +16,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  fetchProductById,
-  insertProduct,
-  updateProduct,
-} from "@/hooks/useProducts";
+import { fetchProductById, insertProduct } from "@/hooks/useProducts";
 import { Textarea } from "./ui/textarea";
 import {
   Select,
@@ -47,6 +43,8 @@ const productSchema = z.object({
   vat: z.number().min(0, "DPH musí být nezáporná"),
   category_id: z.number().min(1, "Kategorie musí být vybrána"),
   image: z.union([z.instanceof(File), z.string()]).optional(),
+  active: z.boolean().default(true),
+  store: z.boolean().default(false),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -78,6 +76,8 @@ export function ProductForm({ onClose }: ProductFormProps) {
       priceMobil: 0,
       vat: 12,
       category_id: 1,
+      active: true,
+      store: false,
     },
   });
 
@@ -90,6 +90,8 @@ export function ProductForm({ onClose }: ProductFormProps) {
         priceBuyer: product.priceBuyer,
         priceMobil: product.priceMobil,
         category_id: product.category_id,
+        active: product.active,
+        store: product.store,
       });
     }
   }, [product, form]);
