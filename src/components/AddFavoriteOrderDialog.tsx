@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 
 import { supabase } from "@/lib/supabase";
 import { useQuery } from "@tanstack/react-query";
+import { useSubsrciberUsers } from "@/hooks/useProfiles";
 
 const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
 type Day = (typeof DAYS)[number];
@@ -27,23 +28,24 @@ export function AddFavoriteOrderDialog() {
   const { toast } = useToast();
   const createFavoriteOrder = useCreateFavoriteOrder();
   const [selectedDays, setSelectedDays] = useState<Day[]>([]);
+  const { data: subsrciberUsers } = useSubsrciberUsers();
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   // @ts-ignore
   const [isOpen, setIsOpen] = useState(false);
 
   // Fetch profiles
-  const { data: profiles } = useQuery({
-    queryKey: ["profiles"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .order("full_name");
+  // const { data: profiles } = useQuery({
+  //   queryKey: ["profiles"],
+  //   queryFn: async () => {
+  //     const { data, error } = await supabase
+  //       .from("profiles")
+  //       .select("id, full_name")
+  //       .order("full_name");
 
-      if (error) throw error;
-      return data;
-    },
-  });
+  //     if (error) throw error;
+  //     return data;
+  //   },
+  // });
 
   const handleSubmit = async () => {
     console.log("Starting favorite order creation process");
@@ -115,15 +117,15 @@ export function AddFavoriteOrderDialog() {
       </DialogHeader>
       <div className="space-y-4 py-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium">Select User</label>
+          <label className="text-sm font-medium">Vyberte odběratele</label>
           <Select value={selectedUserId} onValueChange={setSelectedUserId}>
             <SelectTrigger>
-              <SelectValue placeholder="Select user..." />
+              <SelectValue placeholder="Vyberte odběratele..." />
             </SelectTrigger>
             <SelectContent>
-              {profiles?.map((profile) => (
-                <SelectItem key={profile.id} value={profile.id}>
-                  {profile.full_name}
+              {subsrciberUsers?.map((user) => (
+                <SelectItem key={user.id} value={user.id}>
+                  {user.full_name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -131,7 +133,7 @@ export function AddFavoriteOrderDialog() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">Select Days</label>
+          <label className="text-sm font-medium">Vyberte dny</label>
           <ScrollArea className="h-[100px] w-full rounded-md border p-4">
             <div className="flex flex-wrap gap-4">
               {DAYS.map((day) => (

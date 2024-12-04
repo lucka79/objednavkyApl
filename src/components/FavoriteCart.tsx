@@ -143,7 +143,7 @@ export default function FavoriteCart({
                       parseInt(e.target.value) || 0
                     )
                   }
-                  className="w-16 mx-2 text-center"
+                  className="w-14 mx-2 text-center"
                 />
                 <SquarePlus
                   onClick={() =>
@@ -151,7 +151,7 @@ export default function FavoriteCart({
                   }
                   className="cursor-pointer text-stone-300 hover:text-stone-400"
                 />
-                <Label className="w-16 mx-4 text-end">
+                <Label className="w-16 mx-2 text-end">
                   {(getItemPrice(item) * (item.quantity || 0)).toFixed(2)} Kč
                 </Label>
               </div>

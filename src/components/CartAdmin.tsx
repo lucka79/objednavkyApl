@@ -4,7 +4,7 @@ import { useCartStore } from "@/providers/cartStore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Coins, SquareMinus, SquarePlus, Trash2 } from "lucide-react";
+import { Coins, SquareMinus, SquarePlus } from "lucide-react";
 import { Label } from "@/components/ui/label";
 // import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/lib/supabase";
@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useMobileUsers } from "@/hooks/useProfiles";
+import { useSubsrciberUsers } from "@/hooks/useProfiles";
 import { CartItem } from "types";
 import { useSelectedUser } from "@/hooks/useProfiles";
 import { useUpdateStoredItems } from "@/hooks/useOrders";
@@ -41,7 +41,7 @@ export default function CartAdmin() {
   const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
   const {
     items,
-    removeItem,
+    // removeItem,
     updateQuantity,
     clearCart,
 
@@ -57,7 +57,7 @@ export default function CartAdmin() {
   //   const buyer = user?.full_name;
 
   const [selectedUserId, setSelectedUserId] = useState<string>("");
-  const { data: mobileUsers } = useMobileUsers();
+  const { data: subsrciberUsers } = useSubsrciberUsers();
   const { data: selectedUser } = useSelectedUser(selectedUserId);
 
   useEffect(() => {
@@ -66,15 +66,21 @@ export default function CartAdmin() {
     }
   }, [user]);
 
+  const getItemPrice = (item: CartItem) => {
+    if (selectedUser?.role === "store") {
+      return item.product.priceBuyer;
+    }
+    if (selectedUser?.role === "mobil") {
+      return item.product.priceMobil;
+    }
+    return item.product.price;
+  };
+
   const calculateTotal = () => {
     return items.reduce((sum, item) => {
       const price = getItemPrice(item);
       return sum + price * item.quantity;
     }, 0);
-  };
-
-  const getItemPrice = (item: CartItem) => {
-    return user?.role === "user" ? item.product.price : item.product.priceMobil;
   };
 
   return (
@@ -88,7 +94,7 @@ export default function CartAdmin() {
                   <SelectValue placeholder="Vyberte uživatele" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mobileUsers?.map((user) => (
+                  {subsrciberUsers?.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.full_name}
                     </SelectItem>
@@ -156,15 +162,8 @@ export default function CartAdmin() {
               <span className="text-sm line-clamp-1 hover:line-clamp-2">
                 {item.product.name}
               </span>
-              <span>
-                {user?.role === "mobil" && (
-                  <>{item.product.priceMobil.toFixed(2)}</>
-                )}
-                {user?.role === "admin" && (
-                  <>{item.product.priceMobil.toFixed(2)}</>
-                )}
-                {user?.role === "store" && <>{item.product.price.toFixed(2)}</>}
-                {user?.role === "user" && <>{item.product.price.toFixed(2)}</>}
+              <span className="text-sm flex-1 mr-2 text-end">
+                {getItemPrice(item).toFixed(2)} Kč
               </span>
               <div className="flex items-center">
                 <SquareMinus
@@ -180,7 +179,7 @@ export default function CartAdmin() {
                   onChange={(e) =>
                     updateQuantity(item.product.id, parseInt(e.target.value))
                   }
-                  className="w-16 mx-2 text-center"
+                  className="w-14 mx-2 text-center"
                 />
                 <SquarePlus
                   onClick={() =>
@@ -188,28 +187,16 @@ export default function CartAdmin() {
                   }
                   className="text-stone-300"
                 />
-                <Label className="w-16 mx-4">
-                  {user?.role === "mobil" && (
-                    <>{(item.product.priceMobil * item.quantity).toFixed(2)}</>
-                  )}
-                  {user?.role === "admin" && (
-                    <>{(item.product.priceMobil * item.quantity).toFixed(2)}</>
-                  )}
-                  {user?.role === "store" && (
-                    <>{(item.product.price * item.quantity).toFixed(2)}</>
-                  )}
-                  {user?.role === "user" && (
-                    <>{(item.product.price * item.quantity).toFixed(2)}</>
-                  )}
-                  {/* {(item.product.price * item.quantity).toFixed(2)} Kč */}
+                <Label className="w-16 mx-2 text-end">
+                  {(getItemPrice(item) * (item.quantity || 0)).toFixed(2)} Kč
                 </Label>
-                <Button
+                {/* <Button
                   variant="destructive"
                   onClick={() => removeItem(item.product.id)}
                   // className="w-12 ml-8"
                 >
                   <Trash2 className="w-5 h-5" />
-                </Button>
+                </Button> */}
               </div>
             </div>
           ))

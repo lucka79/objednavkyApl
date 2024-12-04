@@ -296,6 +296,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          active: boolean | null
           address: string | null
           avatar_url: string | null
           crateBig: number | null
@@ -309,6 +310,7 @@ export type Database = {
           website: string | null
         }
         Insert: {
+          active?: boolean | null
           address?: string | null
           avatar_url?: string | null
           crateBig?: number | null
@@ -322,6 +324,7 @@ export type Database = {
           website?: string | null
         }
         Update: {
+          active?: boolean | null
           address?: string | null
           avatar_url?: string | null
           crateBig?: number | null
@@ -455,6 +458,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "stored_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "stored_items_user_id_fkey"
             columns: ["user_id"]

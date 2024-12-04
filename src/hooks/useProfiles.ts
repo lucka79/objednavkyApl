@@ -16,6 +16,22 @@ export const useMobileUsers = () => {
   });
 }; 
 
+export const useSubsrciberUsers = () => {
+  return useQuery({
+    queryKey: ["subsrciberUsers"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("role", ["buyer", "mobil", "store", "user"])
+        .eq("active", true);
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+};
+
 // Add this new mutation
 export const useUpdateProfile = () => {
     const queryClient = useQueryClient();
