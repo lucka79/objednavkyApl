@@ -167,6 +167,7 @@ export function OrderDetailsDialog() {
                   <UpdateCart
                     items={order.order_items}
                     orderId={order.id}
+                    selectedUserId={order.user.id}
                     onUpdate={() => refetch().then(() => {})}
                   />
                 ) : (

@@ -10,6 +10,7 @@ import {
   useUpdateOrder,
   // useDeleteOrderItem,
   useOrderItemHistory,
+  useUpdateStoredItems,
 } from "@/hooks/useOrders";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ import {
 import { AddProduct } from "@/components/AddProduct";
 
 import { useOrderItemsHistory } from "@/hooks/useOrders";
+import { useAuthStore } from "@/lib/supabase";
 
 interface OrderItem {
   id: number;
@@ -41,6 +43,7 @@ interface UpdateCartProps {
   items: OrderItem[];
   orderId: number;
   onUpdate: () => Promise<void>;
+  selectedUserId: string;
 }
 
 // interface OrderHistory {
@@ -100,6 +103,7 @@ export default function UpdateCart({
   items,
   orderId,
   onUpdate,
+  selectedUserId,
 }: UpdateCartProps) {
   const [orderItems, setOrderItems] = useState<OrderItem[]>(items);
   const { mutate: updateOrderItems } = useUpdateOrderItems();
@@ -111,6 +115,7 @@ export default function UpdateCart({
   // @ts-ignore
   const { data: historyData, isLoading } = useOrderItemHistory(selectedItemId);
   const { data: allHistoryData } = useOrderItemsHistory(orderItems);
+  const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
 
   useEffect(() => {
     console.log("Received items:", items);
@@ -179,6 +184,11 @@ export default function UpdateCart({
     if (newQuantity < 0) return;
 
     try {
+      const currentItem = orderItems.find((item) => item.id === itemId);
+      if (!currentItem) return;
+
+      const quantityDifference = newQuantity - currentItem.quantity;
+
       // Update the order item quantity
       await updateOrderItems({
         id: itemId,
@@ -186,6 +196,19 @@ export default function UpdateCart({
           quantity: newQuantity,
         },
       });
+
+      // Update stored items if quantity changed
+      if (quantityDifference !== 0) {
+        await updateStoredItems({
+          userId: selectedUserId,
+          items: [
+            {
+              product_id: productId,
+              quantity: Math.abs(quantityDifference),
+            },
+          ],
+        });
+      }
 
       // Update local state
       const updatedItems = orderItems.map((item) =>
@@ -195,7 +218,7 @@ export default function UpdateCart({
       );
       setOrderItems(updatedItems);
 
-      // Calculate new total from all items
+      // Calculate and update order total
       const newTotal = updatedItems.reduce(
         (sum, item) => sum + item.quantity * item.price,
         0

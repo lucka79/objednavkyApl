@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 
+
 export const useFavoriteOrders = () => {
   return useQuery({
     queryKey: ['favoriteOrders'],
@@ -185,5 +186,52 @@ export const useDeleteFavoriteOrder = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['favoriteOrders'] });
     },
+  });
+};
+
+interface UpdateStoredItemsParams {
+  userId: string;
+  items: {
+    product_id: number;
+    quantity: number;
+    increment?: boolean;
+  }[];
+}
+
+export const useUpdateStoredItems = () => {
+  return useMutation({
+    mutationFn: async ({ userId, items }: UpdateStoredItemsParams) => {
+      for (const item of items) {
+        // Check if item exists
+        const { data: existingItem } = await supabase
+          .from('stored_items')
+          .select('quantity')
+          .eq('user_id', userId)
+          .eq('product_id', item.product_id)
+          .single();
+
+        if (existingItem) {
+          // Update existing item
+          await supabase
+            .from('stored_items')
+            .update({
+              quantity: item.increment 
+                ? existingItem.quantity + item.quantity 
+                : item.quantity
+            })
+            .eq('user_id', userId)
+            .eq('product_id', item.product_id);
+        } else {
+          // Insert new item
+          await supabase
+            .from('stored_items')
+            .insert({
+              user_id: userId,
+              product_id: item.product_id,
+              quantity: item.quantity
+            });
+        }
+      }
+    }
   });
 };

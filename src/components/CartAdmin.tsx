@@ -31,12 +31,14 @@ import {
 import { useMobileUsers } from "@/hooks/useProfiles";
 import { CartItem } from "types";
 import { useSelectedUser } from "@/hooks/useProfiles";
+import { useUpdateStoredItems } from "@/hooks/useOrders";
 
 export default function CartAdmin() {
   const { toast } = useToast();
   const user = useAuthStore((state) => state.user);
   const { mutateAsync: insertOrder } = useInsertOrder();
   const { mutateAsync: insertOrderItems } = useInsertOrderItems();
+  const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
   const {
     items,
     removeItem,
@@ -234,17 +236,15 @@ export default function CartAdmin() {
 
             try {
               const orderTotal = calculateTotal();
-              console.log(
-                "Cart items being inserted:",
-                items.map((item) => ({
-                  productId: item.product.id,
-                  name: item.product.name,
-                  quantity: item.quantity,
-                  price: getItemPrice(item),
 
-                  userRole: user?.role,
-                }))
-              );
+              await updateStoredItems({
+                userId: selectedUserId,
+                items: items.map((item) => ({
+                  product_id: item.product.id,
+                  quantity: item.quantity,
+                  increment: true,
+                })),
+              });
 
               await checkout(
                 insertOrder,
