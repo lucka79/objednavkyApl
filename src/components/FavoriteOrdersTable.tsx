@@ -50,6 +50,17 @@ import { useAuthStore } from "@/lib/supabase";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { useDeleteFavoriteOrder } from "@/hooks/useFavorites";
 import { useUpdateStoredItems } from "@/hooks/useFavorites";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
 
@@ -93,9 +104,7 @@ const columns: ColumnDef<FavoriteOrder>[] = [
       const deleteFavoriteOrder = useDeleteFavoriteOrder();
       const { toast } = useToast();
 
-      const handleDelete = async (e: React.MouseEvent) => {
-        e.stopPropagation(); // Prevent row click event
-
+      const handleDelete = async () => {
         try {
           await deleteFavoriteOrder.mutateAsync(order.id);
           toast({
@@ -113,15 +122,38 @@ const columns: ColumnDef<FavoriteOrder>[] = [
       };
 
       return (
-        <div className="flex justify-end">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDelete}
-            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+        <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Opravdu smazat oblíbenou objednávku?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Tato akce je nevratná. Smaže se oblíbená objednávka a všechny
+                  přiřazené položky.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Smazat
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       );
     },

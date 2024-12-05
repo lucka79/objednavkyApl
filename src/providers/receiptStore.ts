@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { CartItem, Product } from '../../types';
 import { generateReceiptNumber } from '../lib/generateNumbers'; // Import the function
 import { useAuthStore } from '@/lib/supabase';
-import { useUpdateStoredItems } from '@/hooks/useReceipts';
+
 
 
 type ReceiptStore = {

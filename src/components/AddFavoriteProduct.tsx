@@ -1,9 +1,7 @@
 import React, { useState } from "react";
 import { fetchActiveProducts } from "@/hooks/useProducts";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShoppingCart } from "lucide-react";
-import { useAuthStore } from "@/lib/supabase";
+
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchCategories } from "@/hooks/useCategories";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -21,7 +19,7 @@ export const AddFavoriteProduct: React.FC<AddFavoriteProductProps> = ({
 }) => {
   const { data: products = [], isLoading, error } = fetchActiveProducts();
   const { data: categories = [] } = fetchCategories();
-  const user = useAuthStore((state) => state.user);
+
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -90,7 +88,11 @@ export const AddFavoriteProduct: React.FC<AddFavoriteProductProps> = ({
           <div>No products found</div>
         ) : (
           filteredProducts.map((product) => (
-            <Card key={product.id} className="text-center h-48 flex flex-col">
+            <Card
+              key={product.id}
+              onClick={() => handleAddProduct(product)}
+              className="text-center h-32 flex flex-col"
+            >
               <div className="flex-1">
                 <CardHeader className="h-full px-1">
                   <CardTitle className="text-sm line-clamp-2 mx-1 hover:line-clamp-3">
@@ -99,7 +101,7 @@ export const AddFavoriteProduct: React.FC<AddFavoriteProductProps> = ({
                 </CardHeader>
               </div>
               <div className="flex-1 flex flex-col justify-between">
-                <CardContent className="pb-0">
+                {/* <CardContent className="pb-0">
                   {user?.role === "admin" && (
                     <Button
                       variant="outline"
@@ -108,7 +110,7 @@ export const AddFavoriteProduct: React.FC<AddFavoriteProductProps> = ({
                       <ShoppingCart size={16} />
                     </Button>
                   )}
-                </CardContent>
+                </CardContent> */}
               </div>
             </Card>
           ))

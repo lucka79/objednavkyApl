@@ -123,6 +123,7 @@ export function CreateProductForm() {
           insertProductMutation.mutate({ ...data, image: dataImage.path });
         }
       } else {
+        // @ts-ignore
         insertProductMutation.mutate(data);
       }
     } catch (error) {

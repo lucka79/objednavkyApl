@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { fetchStoreProducts } from "@/hooks/useProducts";
 import { useReceiptStore } from "@/providers/receiptStore";
-import { Button } from "@/components/ui/button";
+
 import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 import { Badge } from "./ui/badge";
@@ -11,6 +11,8 @@ import { Skeleton } from "./ui/skeleton";
 import { useAuthStore } from "@/lib/supabase";
 import { fetchCategories } from "@/hooks/useCategories";
 import { useStoredItems } from "@/hooks/useStoredItems";
+import { fetchAllOrders } from "@/hooks/useOrders";
+import { Label } from "./ui/label";
 
 // Category badges component
 const CategoryBadges = ({
@@ -50,10 +52,32 @@ export const StoreCategory: React.FC = () => {
   const { data: products, isLoading, error } = fetchStoreProducts();
   const { data: categories, isLoading: categoriesLoading } = fetchCategories();
   const { data: storedItems } = useStoredItems(user?.id ?? "");
+  const { data: orders } = fetchAllOrders();
 
   const addItem = useReceiptStore((state) => state.addItem);
 
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+
+  // Calculate future quantities for the selected user
+  const getFutureQuantity = (productId: number) => {
+    if (!orders || !user) return 0;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return orders
+      .filter((order) => {
+        const orderDate = new Date(order.date);
+        orderDate.setHours(0, 0, 0, 0);
+        return orderDate > today && order.user_id === user.id;
+      })
+      .reduce((sum, order) => {
+        const orderItem = order.order_items.find(
+          (item: { product_id: number }) => item.product_id === productId
+        );
+        return sum + (orderItem?.quantity || 0);
+      }, 0);
+  };
 
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
@@ -94,20 +118,28 @@ export const StoreCategory: React.FC = () => {
           const storedQuantity =
             storedItems?.find((item) => item.product_id === product.id)
               ?.quantity || 0;
+          const futureQuantity = getFutureQuantity(product.id);
 
           return (
             <Card
               key={product.id}
               onClick={() => addItem(product)}
-              className="text-center h-36 flex flex-col hover:cursor-pointer hover:bg-accent"
+              className="text-center h-36 flex flex-col hover:cursor-pointer hover:bg-accent relative"
             >
               <div className="flex-1">
                 <CardHeader className="h-full px-1">
                   <CardTitle className="text-sm line-clamp-2 mx-1 hover:line-clamp-3">
                     {product.name}
-                    <Badge variant="outline" className="ml-1">
-                      {storedQuantity}
-                    </Badge>
+                    <div className="flex gap-1 justify-end">
+                      <Badge variant="outline" className="ml-1">
+                        {storedQuantity - futureQuantity}
+                      </Badge>
+                      {futureQuantity > 0 && (
+                        <Badge variant="secondary" className="ml-1">
+                          +{futureQuantity}
+                        </Badge>
+                      )}
+                    </div>
                   </CardTitle>
                 </CardHeader>
               </div>
@@ -117,12 +149,12 @@ export const StoreCategory: React.FC = () => {
                 {/* Empty div to push the footer to the bottom */}
                 <div className="flex-grow"></div>
                 {/* <CardContent className="pb-0 text-xs font-semibold"></CardContent> */}
-                <CardFooter className="flex justify-end pb-2">
-                  <Button variant="outline">
+                <CardFooter className="flex justify-center absolute bottom-1">
+                  <Label>
                     {user?.role === "store" && (
                       <span>{product.price.toFixed(2)} Kč</span>
                     )}
-                  </Button>
+                  </Label>
                 </CardFooter>
               </div>
             </Card>

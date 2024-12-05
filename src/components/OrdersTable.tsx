@@ -49,6 +49,17 @@ import { fetchActiveProducts } from "@/hooks/useProducts";
 import { Trash2 } from "lucide-react";
 
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const filterOrdersByDate = (
   orders: Order[],
@@ -226,9 +237,7 @@ const columns: ColumnDef<Order>[] = [
       const deleteOrder = useDeleteOrder();
       const { toast } = useToast();
 
-      const handleDelete = async (e: React.MouseEvent) => {
-        e.stopPropagation(); // Prevent row click event
-
+      const handleDelete = async () => {
         try {
           await deleteOrder.mutateAsync(order.id);
           toast({
@@ -246,15 +255,36 @@ const columns: ColumnDef<Order>[] = [
       };
 
       return (
-        <div className="flex justify-end">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDelete}
-            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+        <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Opravdu smazat objednávku?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Tato akce je nevratná. Smaže se objednávka a všechny přiřazené
+                  položky.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Zrušit</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  className="bg-red-700 hover:bg-red-800"
+                >
+                  Smazat
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       );
     },
@@ -954,7 +984,7 @@ export function OrdersTable({
                     </Badge>
                     <Badge variant="secondary" className="text-red-800">
                       {crateSums.crateBigReceived}
-                      <Container size={20} className="mx-1" /> ↓
+                      <Container size={20} className="mx-1" /> ↑
                     </Badge>
                   </div>
 
