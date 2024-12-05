@@ -8,7 +8,8 @@ type ProductFormValues = {
   name: string;
   description: string;
   price: number;
-  priceMobil: number; // Add this line
+  priceBuyer: number;
+  priceMobil: number;
   category_id: number;
   image: File | null;
   active: boolean;

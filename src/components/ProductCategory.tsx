@@ -25,7 +25,7 @@ const CategoryBadges = ({
   <ScrollArea className="w-full whitespace-nowrap rounded-md border">
     <div className="flex w-max space-x-4 p-4">
       <Badge
-        variant={selectedCategory === null ? "default" : "outline"}
+        variant={selectedCategory === null ? "secondary" : "outline"}
         className="cursor-pointer"
         onClick={() => onSelectCategory(null)}
       >
@@ -34,7 +34,7 @@ const CategoryBadges = ({
       {categories.map((category) => (
         <Badge
           key={category.id}
-          variant={selectedCategory === category.id ? "default" : "outline"}
+          variant={selectedCategory === category.id ? "secondary" : "outline"}
           className="cursor-pointer"
           onClick={() => onSelectCategory(category.id)}
         >

@@ -365,64 +365,64 @@ export const useDeleteOrder = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    async mutationFn(orderId: number) {
-      console.log('Starting deletion process for order:', orderId);
-      try {
-        // First get all order_items for this order
-        const { data: orderItems, error: itemsError } = await supabase
-          .from('order_items')
-          .select('id')
-          .eq('order_id', orderId);
-        
-        if (itemsError) throw itemsError;
-        console.log('Found order items:', orderItems);
+    mutationFn: async (orderId: number) => {
+      // First get the order details
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .select(`
+          id,
+          user_id,
+          order_items (
+            product_id,
+            quantity
+          )
+        `)
+        .eq("id", orderId)
+        .single();
 
-        // Delete order_items_history records for each order item
-        if (orderItems && orderItems.length > 0) {
-          console.log('Deleting history for items:', orderItems.map(item => item.id));
-          const { error: historyError } = await supabase
-            .from('order_items_history')
-            .delete()
-            .in('order_item_id', orderItems.map(item => item.id));
+      if (orderError) throw orderError;
 
-          if (historyError) throw historyError;
-        }
+      // Update stored items one by one
+      for (const item of order.order_items) {
+        const { error: updateError } = await supabase
+          .from('stored_items')
+          .upsert({
+            user_id: order.user_id,
+            product_id: item.product_id,
+            quantity: item.quantity
+          }, {
+            onConflict: 'user_id,product_id'
+          });
 
-        // Then delete order_items
-        console.log('Deleting order items for order:', orderId);
-        const { error: itemsDeleteError } = await supabase
-          .from('order_items')
-          .delete()
-          .eq('order_id', orderId);
-
-        if (itemsDeleteError) throw itemsDeleteError;
-
-        // Finally delete the order
-        console.log('Deleting main order:', orderId);
-        const { error: orderError } = await supabase
-          .from('orders')
-          .delete()
-          .eq('id', orderId);
-
-        if (orderError) throw orderError;
-
-        console.log('Successfully completed deletion of order:', orderId);
-        return orderId;
-      } catch (error) {
-        console.error('Delete failed:', error);
-        throw error;
+        if (updateError) throw updateError;
       }
+
+      // Delete order items first
+      const { error: deleteItemsError } = await supabase
+        .from("order_items")
+        .delete()
+        .eq("order_id", orderId);
+
+      if (deleteItemsError) throw deleteItemsError;
+
+      // Finally delete the order
+      const { error: deleteError } = await supabase
+        .from("orders")
+        .delete()
+        .eq("id", orderId);
+
+      if (deleteError) throw deleteError;
     },
-    onSuccess: (orderId) => {
-      console.log('Mutation succeeded, invalidating queries for order:', orderId);
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["storedItems"] });
     },
   });
 };
 
 export const useUpdateStoredItems = () => {
   const queryClient = useQueryClient();
-  const { user } = useAuthStore.getState();
+  // const { user } = useAuthStore.getState();
   
   return useMutation({
     async mutationFn({ userId, items }: { 

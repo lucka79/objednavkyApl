@@ -245,7 +245,7 @@ export default function CartAdmin() {
                 userId: selectedUserId,
                 items: items.map((item) => ({
                   product_id: item.product.id,
-                  quantity: item.quantity,
+                  quantity: -item.quantity,
                   increment: true,
                 })),
               });
@@ -262,7 +262,8 @@ export default function CartAdmin() {
               newTomorrow.setDate(newTomorrow.getDate() + 1);
               newTomorrow.setHours(12, 0, 0, 0);
               setDate(newTomorrow);
-              setSelectedUserId(""); // Reset the select component
+              setSelectedUserId("");
+              // setOpen(false);
 
               toast({
                 title: "Objednávka vytvořena",

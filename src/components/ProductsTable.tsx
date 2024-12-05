@@ -5,6 +5,8 @@ import {
   getFilteredRowModel,
   getPaginationRowModel,
   flexRender,
+  getSortedRowModel,
+  SortingState,
 } from "@tanstack/react-table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -38,6 +40,63 @@ import { toast } from "@/hooks/use-toast";
 
 type Row = {
   original: Product;
+};
+
+const PriceCell = ({
+  row,
+  priceKey,
+  // header,
+}: {
+  row: Row;
+  priceKey: "price" | "priceMobil" | "priceBuyer";
+  header: string;
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [price, setPrice] = useState(row.original[priceKey]);
+  const { mutateAsync: updateProduct } = useUpdateProduct();
+
+  const handlePriceChange = async (newPrice: number) => {
+    try {
+      await updateProduct({
+        id: row.original.id,
+        [priceKey]: newPrice,
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Failed to update price:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update price",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return isEditing ? (
+    <Input
+      type="number"
+      step="0.01"
+      value={price}
+      onChange={(e) => setPrice(Number(e.target.value))}
+      onBlur={() => handlePriceChange(price)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") handlePriceChange(price);
+        if (e.key === "Escape") {
+          setIsEditing(false);
+          setPrice(row.original[priceKey]);
+        }
+      }}
+      className="w-24 text-right"
+      autoFocus
+    />
+  ) : (
+    <div
+      className="text-right cursor-pointer hover:bg-muted/50"
+      onClick={() => setIsEditing(true)}
+    >
+      {row.original[priceKey].toFixed(2)} Kč
+    </div>
+  );
 };
 
 export function ProductsTable() {
@@ -78,6 +137,8 @@ export function ProductsTable() {
     }
   };
 
+  const [sorting, setSorting] = useState<SortingState>([]);
+
   const columns = useMemo(
     () => [
       {
@@ -92,25 +153,21 @@ export function ProductsTable() {
         accessorKey: "priceBuyer",
         header: () => <div className="text-right">NákupBez</div>,
         cell: ({ row }: { row: Row }) => (
-          <div className="text-right">
-            {row.original.priceBuyer.toFixed(2)} Kč
-          </div>
+          <PriceCell row={row} priceKey="priceBuyer" header="NákupBez" />
         ),
       },
       {
         accessorKey: "priceMobil",
         header: () => <div className="text-right">Mobil</div>,
         cell: ({ row }: { row: Row }) => (
-          <div className="text-right">
-            {row.original.priceMobil.toFixed(2)} Kč
-          </div>
+          <PriceCell row={row} priceKey="priceMobil" header="Mobil" />
         ),
       },
       {
         accessorKey: "price",
         header: () => <div className="text-right">Prodej</div>,
         cell: ({ row }: { row: Row }) => (
-          <div className="text-right">{row.original.price.toFixed(2)} Kč</div>
+          <PriceCell row={row} priceKey="price" header="Prodej" />
         ),
       },
 
@@ -122,6 +179,15 @@ export function ProductsTable() {
             (c) => c.id === row.original.category_id
           );
           return category?.name || "N/A";
+        },
+        sortingFn: (rowA: Row, rowB: Row) => {
+          const catA =
+            categories?.find((c) => c.id === rowA.original.category_id)?.name ||
+            "";
+          const catB =
+            categories?.find((c) => c.id === rowB.original.category_id)?.name ||
+            "";
+          return catA.localeCompare(catB);
         },
       },
       {
@@ -161,7 +227,7 @@ export function ProductsTable() {
         },
       },
     ],
-    []
+    [categories]
   );
 
   const [globalFilter, setGlobalFilter] = useState("");
@@ -209,10 +275,13 @@ export function ProductsTable() {
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     state: {
       globalFilter,
+      sorting,
     },
     onGlobalFilterChange: setGlobalFilter,
+    onSortingChange: setSorting,
   });
 
   if (isLoading) return <div>Loading orders...</div>;
@@ -267,13 +336,25 @@ export function ProductsTable() {
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id}>
+                    <TableHead
+                      key={header.id}
+                      onClick={header.column.getToggleSortingHandler()}
+                      className={
+                        header.column.getCanSort()
+                          ? "cursor-pointer select-none"
+                          : ""
+                      }
+                    >
                       {header.isPlaceholder
                         ? null
                         : flexRender(
                             header.column.columnDef.header,
                             header.getContext()
                           )}
+                      {{
+                        asc: " 🔼",
+                        desc: " 🔽",
+                      }[header.column.getIsSorted() as string] ?? null}
                     </TableHead>
                   ))}
                 </TableRow>
