@@ -366,6 +366,8 @@ export const useDeleteOrder = () => {
 
   return useMutation({
     mutationFn: async (orderId: number) => {
+      console.log('Starting order deletion process for orderId:', orderId);
+
       // First get the order details
       const { data: order, error: orderError } = await supabase
         .from("orders")
@@ -373,6 +375,7 @@ export const useDeleteOrder = () => {
           id,
           user_id,
           order_items (
+            id,
             product_id,
             quantity
           )
@@ -380,43 +383,113 @@ export const useDeleteOrder = () => {
         .eq("id", orderId)
         .single();
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        console.error('Error fetching order details:', orderError);
+        throw orderError;
+      }
+
+      console.log('Fetched order details:', order);
 
       // Update stored items one by one
       for (const item of order.order_items) {
-        const { error: updateError } = await supabase
-          .from('stored_items')
-          .upsert({
-            user_id: order.user_id,
-            product_id: item.product_id,
-            quantity: item.quantity
-          }, {
-            onConflict: 'user_id,product_id'
-          });
+        console.log('Processing order item:', item);
 
-        if (updateError) throw updateError;
+        // First try to get existing stored item
+        const { data: existingItem, error: fetchError } = await supabase
+          .from('stored_items')
+          .select('quantity')
+          .eq('user_id', order.user_id)
+          .eq('product_id', item.product_id)
+          .single();
+
+        if (fetchError) {
+          console.log('No existing stored item found:', fetchError);
+        }
+
+        console.log('Existing stored item:', existingItem);
+
+        if (existingItem) {
+          // Update existing item
+          console.log('Updating existing stored item. New quantity will be:', existingItem.quantity + item.quantity);
+          const { error: updateError } = await supabase
+            .from('stored_items')
+            .update({ 
+              quantity: existingItem.quantity - item.quantity 
+            })
+            .eq('user_id', order.user_id)
+            .eq('product_id', item.product_id);
+
+          if (updateError) {
+            console.error('Error updating stored item:', updateError);
+            throw updateError;
+          }
+        } else {
+          // Insert new item
+          console.log('Inserting new stored item with quantity:', item.quantity);
+          const { error: insertError } = await supabase
+            .from('stored_items')
+            .insert({
+              user_id: order.user_id,
+              product_id: item.product_id,
+              quantity: item.quantity
+            });
+
+          if (insertError) {
+            console.error('Error inserting stored item:', insertError);
+            throw insertError;
+          }
+        }
       }
 
-      // Delete order items first
+      // First delete order_items_history records
+      console.log('Deleting order items history records');
+      const { error: deleteHistoryError } = await supabase
+        .from("order_items_history")
+        .delete()
+        .in(
+          'order_item_id', 
+          order.order_items.map(item => item.id)
+        );
+
+      if (deleteHistoryError) {
+        console.error('Error deleting order items history:', deleteHistoryError);
+        throw deleteHistoryError;
+      }
+
+      // Then delete order items
+      console.log('Deleting order items for orderId:', orderId);
       const { error: deleteItemsError } = await supabase
         .from("order_items")
         .delete()
         .eq("order_id", orderId);
 
-      if (deleteItemsError) throw deleteItemsError;
+      if (deleteItemsError) {
+        console.error('Error deleting order items:', deleteItemsError);
+        throw deleteItemsError;
+      }
 
       // Finally delete the order
+      console.log('Deleting order:', orderId);
       const { error: deleteError } = await supabase
         .from("orders")
         .delete()
         .eq("id", orderId);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error('Error deleting order:', deleteError);
+        throw deleteError;
+      }
+
+      console.log('Order deletion completed successfully');
     },
     onSuccess: () => {
+      console.log('Mutation succeeded, invalidating queries');
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["storedItems"] });
     },
+    onError: (error) => {
+      console.error('Mutation failed:', error);
+    }
   });
 };
 

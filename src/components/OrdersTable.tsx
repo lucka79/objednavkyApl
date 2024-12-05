@@ -45,19 +45,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { fetchActiveProducts } from "@/hooks/useProducts";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "./ui/alert-dialog";
+
 import { Trash2 } from "lucide-react";
-import { useAuthStore } from "@/lib/supabase";
+
+import { useToast } from "@/hooks/use-toast";
 
 const filterOrdersByDate = (
   orders: Order[],
@@ -224,6 +215,46 @@ const columns: ColumnDef<Order>[] = [
             </Badge>
           )}
           <Badge variant="outline">{row.original.status}</Badge>
+        </div>
+      );
+    },
+  },
+  {
+    id: "actions",
+    cell: ({ row }) => {
+      const order = row.original;
+      const deleteOrder = useDeleteOrder();
+      const { toast } = useToast();
+
+      const handleDelete = async (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent row click event
+
+        try {
+          await deleteOrder.mutateAsync(order.id);
+          toast({
+            title: "Success",
+            description: "Order deleted successfully",
+          });
+        } catch (error) {
+          console.error("Failed to delete order:", error);
+          toast({
+            title: "Error",
+            description: "Failed to delete order",
+            variant: "destructive",
+          });
+        }
+      };
+
+      return (
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDelete}
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       );
     },
@@ -985,58 +1016,6 @@ function OrderTableContent({
   columns: ColumnDef<Order>[];
   setSelectedOrderId: (id: number) => void;
 }) {
-  const deleteOrder = useDeleteOrder();
-  const [orderToDelete, setOrderToDelete] = useState<number | null>(null);
-  const { user } = useAuthStore();
-
-  const DeleteButton = ({ orderId }: { orderId: number }) => {
-    if (user?.role !== "admin") return null;
-
-    return (
-      <AlertDialog
-        open={orderToDelete === orderId}
-        onOpenChange={(open) => setOrderToDelete(open ? orderId : null)}
-      >
-        <AlertDialogTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-destructive"
-            onClick={(e) => {
-              e.stopPropagation();
-            }}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              order.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                deleteOrder.mutate(orderId, {
-                  onSuccess: () => {
-                    setOrderToDelete(null);
-                    setSelectedOrderId(0);
-                  },
-                });
-              }}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    );
-  };
-
   const table = useReactTable({
     data,
     columns,
@@ -1077,9 +1056,6 @@ function OrderTableContent({
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
-                <TableCell>
-                  <DeleteButton orderId={row.original.id} />
-                </TableCell>
               </TableRow>
             ))
           ) : (
