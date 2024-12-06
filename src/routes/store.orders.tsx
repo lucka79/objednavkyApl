@@ -3,8 +3,9 @@ import { useAuthStore } from "@/lib/supabase";
 import { useState } from "react";
 
 import { StoreOrdersTable } from "@/components/StoreOrdersTable";
-import { Badge } from "@/components/ui/badge";
+// import { Badge } from "@/components/ui/badge";
 import { StoreOrderDetailsDialog } from "@/components/StoreOrderDetailsDialog";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/store/orders")({
   component: StoreOrders,
@@ -23,20 +24,20 @@ function StoreOrders() {
   return (
     <div className="h-full w-full flex">
       <nav className="flex flex-col gap-2 p-2 border-r bg-background print:hidden">
-        <Badge
+        <Button
           variant={activeView === "createOrder" ? "outline" : "secondary"}
           onClick={() => setActiveView("createOrder")}
           className="cursor-pointer"
         >
           Objednávky
-        </Badge>
-        <Badge
+        </Button>
+        <Button
           variant={activeView === "orders" ? "outline" : "secondary"}
           onClick={() => setActiveView("orders")}
           className="cursor-pointer"
         >
           Vratky
-        </Badge>
+        </Button>
       </nav>
 
       <main className="flex-1 grid h-full w-full items-start gap-4 p-2 sm:px-6 sm:py-0 md:gap-8 lg:grid-cols-2 xl:grid-cols-2">

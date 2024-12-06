@@ -511,6 +511,7 @@ export function OrdersTable({
   const { data: products } = fetchActiveProducts();
   const [activeTab, setActiveTab] = useState("today");
   const [selectedPaidBy, setSelectedPaidBy] = useState<string>("all");
+  const [selectedRole, setSelectedRole] = useState<string>("all");
 
   // Get unique paid_by values from orders
   const uniquePaidByValues = useMemo(() => {
@@ -521,6 +522,16 @@ export function OrdersTable({
     return Array.from(values).sort();
   }, [orders]);
 
+  // Get unique roles from orders
+  const uniqueRoles = useMemo(() => {
+    if (!orders) return [];
+    const roles = new Set(
+      orders.map((order) => order.user?.role).filter(Boolean)
+    );
+    return Array.from(roles).sort();
+  }, [orders]);
+
+  // Update filteredOrders to include role filtering
   const filteredOrders = useMemo(() => {
     let filtered = orders || [];
 
@@ -531,19 +542,23 @@ export function OrdersTable({
     if (selectedProductId && selectedProductId !== "all") {
       filtered = filtered.filter((order) =>
         order.order_items.some(
-          (item: { product_id: number | string }) =>
+          (item: { product_id: number }) =>
             item.product_id.toString() === selectedProductId
         )
       );
     }
 
-    // Add paid_by filtering
     if (selectedPaidBy !== "all") {
       filtered = filtered.filter((order) => order.paid_by === selectedPaidBy);
     }
 
+    // Add role filtering
+    if (selectedRole !== "all") {
+      filtered = filtered.filter((order) => order.user?.role === selectedRole);
+    }
+
     return filtered;
-  }, [orders, selectedProductId, date, selectedPaidBy]);
+  }, [orders, selectedProductId, date, selectedPaidBy, selectedRole]);
 
   const getDateFilteredOrders = (
     orders: Order[],
@@ -830,7 +845,7 @@ export function OrdersTable({
   if (error) return <div>Error loading orders</div>;
 
   return (
-    <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible  print:transform-none">
+    <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible print:transform-none">
       <div className="space-y-4 overflow-x-auto print:!m-0">
         <div className="space-y-2 print:hidden">
           <div className="flex justify-between items-center gap-2">
@@ -941,13 +956,27 @@ export function OrdersTable({
 
             <Select value={selectedPaidBy} onValueChange={setSelectedPaidBy}>
               <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Filter by payment..." />
+                <SelectValue placeholder="Typ platby..." />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Typ platby</SelectItem>
                 {uniquePaidByValues.map((paidBy) => (
                   <SelectItem key={paidBy} value={paidBy}>
                     {paidBy}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={selectedRole} onValueChange={setSelectedRole}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Typ odběratele..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Typ odběratele</SelectItem>
+                {uniqueRoles.map((role) => (
+                  <SelectItem key={role} value={role}>
+                    {role}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1045,6 +1074,7 @@ export function OrdersTable({
                       <SelectValue placeholder="Tisk..." />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="all">Tisk</SelectItem>
                       <SelectItem value="summary">Tisk souhrnu</SelectItem>
                       <SelectItem value="production">Tisk výroby</SelectItem>
                       <SelectItem value="orders">Tisk objednávek</SelectItem>

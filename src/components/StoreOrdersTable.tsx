@@ -941,6 +941,7 @@ export function StoreOrdersTable({
                       <SelectValue placeholder="Tisk..." />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="all">Tisk</SelectItem>
                       <SelectItem value="summary">Tisk souhrnu</SelectItem>
                       <SelectItem value="production">Tisk výroby</SelectItem>
                       <SelectItem value="orders">Tisk objednávek</SelectItem>
