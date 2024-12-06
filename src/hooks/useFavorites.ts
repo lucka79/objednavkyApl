@@ -11,7 +11,7 @@ export const useFavoriteOrders = () => {
           .from('favorite_orders')
           .select(`
               *,
-              user:profiles(id, full_name, role),
+              user:profiles(id, full_name, role, paid_by),
               favorite_items (
                   *,
                   product:products(*)

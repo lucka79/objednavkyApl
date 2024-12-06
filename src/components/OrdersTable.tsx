@@ -163,6 +163,10 @@ const columns: ColumnDef<Order>[] = [
     header: "Odběratel",
   },
   {
+    accessorKey: "paid_by",
+    header: "Platba",
+  },
+  {
     accessorKey: "total",
     header: () => <div className="text-right">Celkem</div>,
     cell: ({ row }) => (

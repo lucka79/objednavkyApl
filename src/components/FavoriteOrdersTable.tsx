@@ -220,6 +220,7 @@ export function FavoriteOrdersTable({
 
         const userRole = favoriteOrder.user?.role;
         const userId = favoriteOrder.user_id;
+        const paidBy = favoriteOrder.user?.paid_by;
 
         // Calculate total using the appropriate price based on user role
         const total = favoriteOrder.favorite_items.reduce(
@@ -235,12 +236,20 @@ export function FavoriteOrdersTable({
           0
         );
 
+        console.log("Creating order with paid_by:", {
+          userId,
+          userRole,
+          paidBy,
+          userProfile: favoriteOrder.user,
+        });
+
         // Create new order
         const newOrder = await insertOrder({
           user_id: userId,
           date: format(date, "yyyy-MM-dd"),
-          status: "New",
+          status: "Pre-order",
           total: total,
+          paid_by: paidBy,
         });
 
         // Map favorite items to order items with role-based pricing
