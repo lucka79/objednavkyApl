@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useAuthStore } from "@/lib/supabase";
 import { useState } from "react";
-import CartStore from "@/components/CartStore";
+
 import { StoreOrdersTable } from "@/components/StoreOrdersTable";
 import { Badge } from "@/components/ui/badge";
 import { StoreOrderDetailsDialog } from "@/components/StoreOrderDetailsDialog";

@@ -510,6 +510,16 @@ export function OrdersTable({
   );
   const { data: products } = fetchActiveProducts();
   const [activeTab, setActiveTab] = useState("today");
+  const [selectedPaidBy, setSelectedPaidBy] = useState<string>("all");
+
+  // Get unique paid_by values from orders
+  const uniquePaidByValues = useMemo(() => {
+    if (!orders) return [];
+    const values = new Set(
+      orders.map((order) => order.paid_by).filter(Boolean)
+    );
+    return Array.from(values).sort();
+  }, [orders]);
 
   const filteredOrders = useMemo(() => {
     let filtered = orders || [];
@@ -527,8 +537,13 @@ export function OrdersTable({
       );
     }
 
+    // Add paid_by filtering
+    if (selectedPaidBy !== "all") {
+      filtered = filtered.filter((order) => order.paid_by === selectedPaidBy);
+    }
+
     return filtered;
-  }, [orders, selectedProductId, date]);
+  }, [orders, selectedProductId, date, selectedPaidBy]);
 
   const getDateFilteredOrders = (
     orders: Order[],
@@ -836,7 +851,7 @@ export function OrdersTable({
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? format(date, "PPP") : <span>Pick a date</span>}
+                  {date ? format(date, "PPP") : <span>Vyberte datum</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -854,14 +869,14 @@ export function OrdersTable({
                 : `${filteredOrders.length} total orders`}
             </Badge>
           </div>
-
-          <Select
-            value={selectedProductId}
-            onValueChange={setSelectedProductId}
-          >
-            <SelectTrigger className="w-full max-w-sm">
-              <SelectValue placeholder="Filter by product..." />
-              {/* {selectedProductId && selectedProductId !== "all" && (
+          <div className="flex flex-row gap-2">
+            <Select
+              value={selectedProductId}
+              onValueChange={setSelectedProductId}
+            >
+              <SelectTrigger className="w-full max-w-sm">
+                <SelectValue placeholder="Filter by product..." />
+                {/* {selectedProductId && selectedProductId !== "all" && (
                 // <Badge variant="secondary" className="ml-2">
                 //   {filteredOrders.length} obj. (
                 //   {calculateTotalQuantityForPeriod(
@@ -876,53 +891,68 @@ export function OrdersTable({
                 //   ks)
                 // </Badge>
               )} */}
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Products</SelectItem>
-              {products?.map((product) => (
-                <SelectItem key={product.id} value={product.id.toString()}>
-                  <div className="flex justify-between items-center w-full">
-                    <span className="mr-2">{product.name}</span>
-                    <div className="flex gap-2">
-                      {" "}
-                      <Badge variant="outline" className="border-green-500">
-                        {calculateTotalQuantityForPeriod(
-                          product.id.toString(),
-                          activeTab as
-                            | "today"
-                            | "tomorrow"
-                            | "week"
-                            | "month"
-                            | "lastMonth"
-                        )}{" "}
-                        ks
-                      </Badge>
-                      <Badge variant="outline" className="border-amber-500">
-                        {
-                          getDateFilteredOrders(
-                            orders || [],
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Products</SelectItem>
+                {products?.map((product) => (
+                  <SelectItem key={product.id} value={product.id.toString()}>
+                    <div className="flex justify-between items-center w-full">
+                      <span className="mr-2">{product.name}</span>
+                      <div className="flex gap-2">
+                        {" "}
+                        <Badge variant="outline" className="border-green-500">
+                          {calculateTotalQuantityForPeriod(
+                            product.id.toString(),
                             activeTab as
                               | "today"
                               | "tomorrow"
                               | "week"
                               | "month"
                               | "lastMonth"
-                          ).filter((order) =>
-                            order.order_items.some(
-                              (item: { product_id: number | string }) =>
-                                item.product_id.toString() ===
-                                product.id.toString()
-                            )
-                          ).length
-                        }{" "}
-                        objed.
-                      </Badge>
+                          )}{" "}
+                          ks
+                        </Badge>
+                        <Badge variant="outline" className="border-amber-500">
+                          {
+                            getDateFilteredOrders(
+                              orders || [],
+                              activeTab as
+                                | "today"
+                                | "tomorrow"
+                                | "week"
+                                | "month"
+                                | "lastMonth"
+                            ).filter((order) =>
+                              order.order_items.some(
+                                (item: { product_id: number | string }) =>
+                                  item.product_id.toString() ===
+                                  product.id.toString()
+                              )
+                            ).length
+                          }{" "}
+                          objed.
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={selectedPaidBy} onValueChange={setSelectedPaidBy}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filter by payment..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Typ platby</SelectItem>
+                {uniquePaidByValues.map((paidBy) => (
+                  <SelectItem key={paidBy} value={paidBy}>
+                    {paidBy}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <Tabs
