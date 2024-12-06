@@ -43,6 +43,7 @@ export type Product = {
   };
   
   export const OrderStatusList: OrderStatus[] = [
+    'Pre-order',
     'New',
     'Expedice',
     'Delivering',
@@ -50,6 +51,8 @@ export type Product = {
   ];
   
   export type OrderStatus = 'Pre-order' | 'New' | 'Expedice' | 'Delivering' | 'Paid';
+
+  export type PaidBy = 'Hotově' | 'Karta' | 'Příkazem';
 
   // export type Day = "Po" | "Út" | "St" | "Čt" | "Pá" | "So" | "Ne";
   
@@ -65,6 +68,7 @@ export type Product = {
     crateBig: number;
     crateSmallReceived: number;
     crateBigReceived: number;
+    paid_by: PaidBy;
     order_items: {
       checked: boolean;
       product_id: number;
@@ -91,6 +95,7 @@ export type Product = {
   days: Day[];
   status: OrderStatus;
   user: Profile;
+  paid_by: PaidBy;
   favorite_items: FavoriteItem[];
  };
 
@@ -111,6 +116,7 @@ export type Product = {
     crateSmallReceived: number;
     crateBigReceived: number;
     shortcut: string;
+    paid_by: PaidBy;
   };
 
 export interface HistoryEntry {

@@ -35,7 +35,7 @@ const RemoteImage = ({ path, fallback }: RemoteImageProps) => {
   if (!image) {
   }
 
-  return <img src={image || fallback} />;
+  return <img src={image || fallback} className="w-1/2" />;
 };
 
 export default RemoteImage;

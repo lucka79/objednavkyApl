@@ -132,6 +132,7 @@ export const useUpdateProduct = () => {
   
   return useMutation({
     mutationFn: async (data: Partial<ProductFormValues> & { id: number }) => {
+      console.log("Updating product with data:", data);
       const { error, data: updatedProduct } = await supabase
         .from("products")
         .update(data)
@@ -139,11 +140,14 @@ export const useUpdateProduct = () => {
         .single();
 
       if (error) {
+        console.error("Error updating product:", error);
         throw new Error(error.message);
       }
+      console.log("Product updated successfully:", updatedProduct);
       return updatedProduct;
     },
     onSuccess: () => {
+      console.log("Invalidating product queries");
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });

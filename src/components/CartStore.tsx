@@ -30,7 +30,7 @@ export default function CartStore() {
     items,
     // removeItem,
     updateQuantity,
-    clearCart,
+    // clearCart,
 
     checkout,
   } = useReceiptStore();
@@ -109,14 +109,14 @@ export default function CartStore() {
           <CardTitle className="flex flex-row justify-between gap-2">
             <div className="w-[200px]">{user?.full_name}</div>
 
-            <Button
+            {/* <Button
               variant="outline"
               onClick={() => {
                 clearCart();
               }}
             >
               Smazat
-            </Button>
+            </Button> */}
           </CardTitle>
         </div>
         <CardDescription>

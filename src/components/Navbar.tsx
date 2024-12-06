@@ -28,6 +28,20 @@ export function Navbar() {
                   Products
                 </Link> */}
 
+                {user.role === "store" && (
+                  <>
+                    <Link to="/store" className="hover:text-gray-300">
+                      Kasa
+                    </Link>
+                    <Link to="/store/orders" className="hover:text-gray-300">
+                      Objednávky
+                    </Link>
+
+                    {/* <Link to="/cart" className="hover:text-gray-300">
+                      <ShoppingCart />
+                    </Link> */}
+                  </>
+                )}
                 {user.role === "user" && (
                   <>
                     <Link to="/user/products" className="hover:text-gray-300">

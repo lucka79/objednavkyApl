@@ -143,7 +143,7 @@ export default function FavoriteCart({
                       parseInt(e.target.value) || 0
                     )
                   }
-                  className="w-14 mx-2 text-center"
+                  className="w-20 mx-1 text-center"
                 />
                 <SquarePlus
                   onClick={() =>

@@ -24,6 +24,7 @@ import {
 import { AddProduct } from "@/components/AddProduct";
 
 import { useOrderItemsHistory } from "@/hooks/useOrders";
+import { useAuthStore } from "@/lib/supabase";
 
 interface OrderItem {
   id: number;
@@ -111,7 +112,7 @@ export default function UpdateCart({
   const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
   // const { mutate: deleteOrderItem } = useDeleteOrderItem();
   const { toast } = useToast();
-  // const user = useAuthStore((state) => state.user);
+  const user = useAuthStore((state) => state.user);
 
   // @ts-ignore
   const { data: historyData, isLoading } = useOrderItemHistory(selectedItemId);
@@ -319,14 +320,15 @@ export default function UpdateCart({
                 item.quantity === 0 ? "text-gray-400 scale-95 print:hidden" : ""
               }`}
             >
-              <Checkbox
-                checked={item.checked || false}
-                onCheckedChange={(checked: boolean) =>
-                  handleCheckChange(item.id, checked)
-                }
-                className="mr-2 border-amber-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500 data-[state=checked]:text-white print:hidden"
-              />
-
+              {(user?.role === "admin" || user?.role === "expedition") && (
+                <Checkbox
+                  checked={item.checked || false}
+                  onCheckedChange={(checked: boolean) =>
+                    handleCheckChange(item.id, checked)
+                  }
+                  className="mr-2 border-amber-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500 data-[state=checked]:text-white print:hidden"
+                />
+              )}
               <span className="text-sm flex-1 text-left mr-4">
                 {item.product.name}
               </span>

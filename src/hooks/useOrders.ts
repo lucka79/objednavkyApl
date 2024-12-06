@@ -44,11 +44,12 @@ export const fetchOrdersByUserId = (userId: string) => {
       .from('orders')
       .select(`
         *,
+        user:profiles (id, full_name, role),
         order_items (
-          *,
-          product:products (*)
-        )
-      `)
+        *,
+        product:products (*)
+    )
+    `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
   

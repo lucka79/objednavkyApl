@@ -57,6 +57,23 @@ interface ProductFormProps {
   onClose: () => void;
 }
 
+const updateProduct = async (data: ProductUpdateValues) => {
+  console.log("Updating product with data:", data);
+  const { error, data: updatedProduct } = await supabase
+    .from("products")
+    .update(data)
+    .eq("id", data.id)
+    .single();
+
+  if (error) {
+    console.error("Error updating product:", error);
+    throw new Error(error.message);
+  }
+
+  console.log("Product updated successfully:", updatedProduct);
+  return updatedProduct;
+};
+
 export function ProductForm({ onClose }: ProductFormProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -89,6 +106,7 @@ export function ProductForm({ onClose }: ProductFormProps) {
         price: product.price,
         priceBuyer: product.priceBuyer,
         priceMobil: product.priceMobil,
+        vat: product.vat,
         category_id: product.category_id,
         active: product.active,
         store: product.store,
@@ -99,8 +117,7 @@ export function ProductForm({ onClose }: ProductFormProps) {
   const productMutation = useMutation({
     mutationFn: (data: ProductFormValues | ProductUpdateValues) =>
       selectedProductId
-        ? // @ts-ignore
-          updateProduct(data as ProductUpdateValues)
+        ? updateProduct(data as ProductUpdateValues)
         : insertProduct(data as ProductFormValues),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -192,7 +209,19 @@ export function ProductForm({ onClose }: ProductFormProps) {
         <CardContent className="flex justify-center">
           <Form {...form}>
             <form
-              onSubmit={form.handleSubmit(onSubmit)}
+              onSubmit={async (e) => {
+                e.preventDefault();
+                console.log("Form submission triggered");
+                console.log("Form values:", form.getValues());
+                console.log("Form errors:", form.formState.errors);
+
+                const isValid = await form.trigger();
+                console.log("Form is valid:", isValid);
+
+                if (isValid) {
+                  form.handleSubmit(onSubmit)(e);
+                }
+              }}
               className="w-2/3 space-y-2"
             >
               <FormField

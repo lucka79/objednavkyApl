@@ -87,6 +87,10 @@ export default function CartAdmin() {
     }, 0);
   };
 
+  const [paid_by, setPaidBy] = useState<"Hotově" | "Kartou" | "Příkazem">(
+    "Hotově"
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -131,40 +135,57 @@ export default function CartAdmin() {
               Smazat
             </Button>
           </CardTitle>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "w-[200px] justify-start text-left font-normal",
-                  !date && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {date ? (
-                  format(date, "d. M. yyyy", { locale: cs })
-                ) : (
-                  <span>Vyberte datum</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={(newDate) => newDate && setDate(newDate)}
-                initialFocus
-                locale={cs}
-                weekStartsOn={1}
-                formatters={{
-                  formatCaption: (date) =>
-                    format(date, "LLLL yyyy", { locale: cs }),
-                  formatWeekdayName: (date) =>
-                    format(date, "EEEEEE", { locale: cs }),
-                }}
-              />
-            </PopoverContent>
-          </Popover>
+          <CardTitle className="flex flex-row justify-between gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-[200px] justify-start text-left font-normal",
+                    !date && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date ? (
+                    format(date, "d. M. yyyy", { locale: cs })
+                  ) : (
+                    <span>Vyberte datum</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={(newDate) => newDate && setDate(newDate)}
+                  initialFocus
+                  locale={cs}
+                  weekStartsOn={1}
+                  formatters={{
+                    formatCaption: (date) =>
+                      format(date, "LLLL yyyy", { locale: cs }),
+                    formatWeekdayName: (date) =>
+                      format(date, "EEEEEE", { locale: cs }),
+                  }}
+                />
+              </PopoverContent>
+            </Popover>{" "}
+            <Select
+              value={paid_by}
+              onValueChange={(value: "Hotově" | "Kartou" | "Příkazem") =>
+                setPaidBy(value)
+              }
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Způsob platby" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Hotově">Hotově</SelectItem>
+                <SelectItem value="Kartou">Kartou</SelectItem>
+                <SelectItem value="Příkazem">Příkazem</SelectItem>
+              </SelectContent>
+            </Select>
+          </CardTitle>
         </div>
       </CardHeader>
       <CardContent>
@@ -256,7 +277,8 @@ export default function CartAdmin() {
                 date,
                 selectedUserId,
                 orderTotal,
-                selectedUser?.role
+                selectedUser?.role,
+                paid_by
               );
               const newTomorrow = new Date();
               newTomorrow.setDate(newTomorrow.getDate() + 1);

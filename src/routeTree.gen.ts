@@ -22,6 +22,7 @@ import { Route as StoreIndexImport } from './routes/store.index'
 import { Route as AdminIndexImport } from './routes/admin.index'
 import { Route as UserProductsImport } from './routes/user.products'
 import { Route as UserOrdersImport } from './routes/user.orders'
+import { Route as StoreOrdersImport } from './routes/store.orders'
 import { Route as AdminProductsImport } from './routes/admin.products'
 import { Route as AdminOrdersImport } from './routes/admin.orders'
 import { Route as AdminCreateImport } from './routes/admin.create'
@@ -81,6 +82,11 @@ const UserProductsRoute = UserProductsImport.update({
 
 const UserOrdersRoute = UserOrdersImport.update({
   path: '/user/orders',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const StoreOrdersRoute = StoreOrdersImport.update({
+  path: '/store/orders',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -171,6 +177,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminProductsImport
       parentRoute: typeof rootRoute
     }
+    '/store/orders': {
+      id: '/store/orders'
+      path: '/store/orders'
+      fullPath: '/store/orders'
+      preLoaderRoute: typeof StoreOrdersImport
+      parentRoute: typeof rootRoute
+    }
     '/user/orders': {
       id: '/user/orders'
       path: '/user/orders'
@@ -240,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/admin/create': typeof AdminCreateRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
+  '/store/orders': typeof StoreOrdersRoute
   '/user/orders': typeof UserOrdersRoute
   '/user/products': typeof UserProductsRoute
   '/admin': typeof AdminIndexRoute
@@ -258,6 +272,7 @@ export interface FileRoutesByTo {
   '/admin/create': typeof AdminCreateRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
+  '/store/orders': typeof StoreOrdersRoute
   '/user/orders': typeof UserOrdersRoute
   '/user/products': typeof UserProductsRoute
   '/admin': typeof AdminIndexRoute
@@ -277,6 +292,7 @@ export interface FileRoutesById {
   '/admin/create': typeof AdminCreateRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
+  '/store/orders': typeof StoreOrdersRoute
   '/user/orders': typeof UserOrdersRoute
   '/user/products': typeof UserProductsRoute
   '/admin/': typeof AdminIndexRoute
@@ -297,6 +313,7 @@ export interface FileRouteTypes {
     | '/admin/create'
     | '/admin/orders'
     | '/admin/products'
+    | '/store/orders'
     | '/user/orders'
     | '/user/products'
     | '/admin'
@@ -314,6 +331,7 @@ export interface FileRouteTypes {
     | '/admin/create'
     | '/admin/orders'
     | '/admin/products'
+    | '/store/orders'
     | '/user/orders'
     | '/user/products'
     | '/admin'
@@ -331,6 +349,7 @@ export interface FileRouteTypes {
     | '/admin/create'
     | '/admin/orders'
     | '/admin/products'
+    | '/store/orders'
     | '/user/orders'
     | '/user/products'
     | '/admin/'
@@ -350,6 +369,7 @@ export interface RootRouteChildren {
   AdminCreateRoute: typeof AdminCreateRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminProductsRoute: typeof AdminProductsRouteWithChildren
+  StoreOrdersRoute: typeof StoreOrdersRoute
   UserOrdersRoute: typeof UserOrdersRoute
   UserProductsRoute: typeof UserProductsRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -367,6 +387,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminCreateRoute: AdminCreateRoute,
   AdminOrdersRoute: AdminOrdersRoute,
   AdminProductsRoute: AdminProductsRouteWithChildren,
+  StoreOrdersRoute: StoreOrdersRoute,
   UserOrdersRoute: UserOrdersRoute,
   UserProductsRoute: UserProductsRoute,
   AdminIndexRoute: AdminIndexRoute,
@@ -395,6 +416,7 @@ export const routeTree = rootRoute
         "/admin/create",
         "/admin/orders",
         "/admin/products",
+        "/store/orders",
         "/user/orders",
         "/user/products",
         "/admin/",
@@ -431,6 +453,9 @@ export const routeTree = rootRoute
       "children": [
         "/admin/products/$productId"
       ]
+    },
+    "/store/orders": {
+      "filePath": "store.orders.tsx"
     },
     "/user/orders": {
       "filePath": "user.orders.tsx"

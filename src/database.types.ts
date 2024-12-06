@@ -203,6 +203,7 @@ export type Database = {
           created_at: string
           date: string
           id: number
+          paid_by: Database["public"]["Enums"]["paidByType"] | null
           status: string
           total: number
           user_id: string
@@ -215,6 +216,7 @@ export type Database = {
           created_at?: string
           date: string
           id?: number
+          paid_by?: Database["public"]["Enums"]["paidByType"] | null
           status?: string
           total?: number
           user_id: string
@@ -227,6 +229,7 @@ export type Database = {
           created_at?: string
           date?: string
           id?: number
+          paid_by?: Database["public"]["Enums"]["paidByType"] | null
           status?: string
           total?: number
           user_id?: string
@@ -296,13 +299,14 @@ export type Database = {
       }
       profiles: {
         Row: {
-          active: boolean | null
+          active: boolean
           address: string | null
           avatar_url: string | null
           crateBig: number | null
           crateSmall: number | null
           full_name: string | null
           id: string
+          paid_by: Database["public"]["Enums"]["paidByType"] | null
           role: Database["public"]["Enums"]["groupUser"]
           shortcut: string | null
           updated_at: string | null
@@ -310,13 +314,14 @@ export type Database = {
           website: string | null
         }
         Insert: {
-          active?: boolean | null
+          active?: boolean
           address?: string | null
           avatar_url?: string | null
           crateBig?: number | null
           crateSmall?: number | null
           full_name?: string | null
           id: string
+          paid_by?: Database["public"]["Enums"]["paidByType"] | null
           role?: Database["public"]["Enums"]["groupUser"]
           shortcut?: string | null
           updated_at?: string | null
@@ -324,13 +329,14 @@ export type Database = {
           website?: string | null
         }
         Update: {
-          active?: boolean | null
+          active?: boolean
           address?: string | null
           avatar_url?: string | null
           crateBig?: number | null
           crateSmall?: number | null
           full_name?: string | null
           id?: string
+          paid_by?: Database["public"]["Enums"]["paidByType"] | null
           role?: Database["public"]["Enums"]["groupUser"]
           shortcut?: string | null
           updated_at?: string | null
@@ -390,7 +396,7 @@ export type Database = {
           created_at: string
           date: string | null
           id: number
-          paid_by: string | null
+          paid_by: Database["public"]["Enums"]["paidByType"] | null
           receipt_no: string
           seller_id: string | null
           total: number | null
@@ -401,7 +407,7 @@ export type Database = {
           created_at?: string
           date?: string | null
           id?: number
-          paid_by?: string | null
+          paid_by?: Database["public"]["Enums"]["paidByType"] | null
           receipt_no?: string
           seller_id?: string | null
           total?: number | null
@@ -412,7 +418,7 @@ export type Database = {
           created_at?: string
           date?: string | null
           id?: number
-          paid_by?: string | null
+          paid_by?: Database["public"]["Enums"]["paidByType"] | null
           receipt_no?: string
           seller_id?: string | null
           total?: number | null
@@ -490,6 +496,7 @@ export type Database = {
         | "store"
         | "mobil"
         | "buyer"
+      paidByType: "Hotov─Ť" | "Kartou" | "P┼Ö├şkazem"
     }
     CompositeTypes: {
       [_ in never]: never
