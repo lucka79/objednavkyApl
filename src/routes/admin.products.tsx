@@ -6,6 +6,7 @@ import {
   CakeSlice,
   FileSliders,
   LayoutTemplate,
+  Undo2,
 } from "lucide-react";
 
 import { useAuthStore } from "@/lib/supabase";
@@ -16,6 +17,8 @@ import { OrdersTable } from "@/components/OrdersTable";
 import CartAdmin from "@/components/CartAdmin";
 import { FavoriteOrdersTable } from "@/components/FavoriteOrdersTable";
 import { OrderDetailsDialog } from "@/components/OrderDetailsDialog";
+import { ReturnsTable } from "@/components/ReturnsTable";
+// import { ReturnsTable } from "@/components/ReturnsTable";
 
 export const Route = createFileRoute("/admin/products")({
   component: AdminProducts,
@@ -23,7 +26,7 @@ export const Route = createFileRoute("/admin/products")({
 
 function AdminProducts() {
   const [activeView, setActiveView] = useState<
-    "products" | "createOrder" | "orders" | "templates"
+    "products" | "createOrder" | "orders" | "returns" | "templates"
   >("orders");
 
   const user = useAuthStore((state) => state.user);
@@ -57,6 +60,13 @@ function AdminProducts() {
           <FileSliders className="h-5 w-5" />
         </Button>
         <Button
+          variant={activeView === "returns" ? "outline" : "ghost"}
+          size="icon"
+          onClick={() => setActiveView("returns")}
+        >
+          <Undo2 className="h-5 w-5" />
+        </Button>
+        <Button
           variant={activeView === "templates" ? "outline" : "ghost"}
           size="icon"
           onClick={() => setActiveView("templates")}
@@ -74,6 +84,7 @@ function AdminProducts() {
             {activeView === "orders" && (
               <OrdersTable selectedProductId={null} />
             )}
+            {activeView === "returns" && <ReturnsTable />}
             {activeView === "templates" && (
               <FavoriteOrdersTable selectedProductId={null} />
             )}

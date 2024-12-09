@@ -6,6 +6,20 @@ interface SubscriberUser {
   full_name: string;
 }
 
+export const useFetchAllProfiles = () => {
+  return useQuery({
+    queryKey: ["profiles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*");
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+}; 
+
 export const useMobileUsers = () => {
   return useQuery({
     queryKey: ["mobileUsers"],

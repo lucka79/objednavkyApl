@@ -152,3 +152,19 @@ export const useUpdateProduct = () => {
     },
   });
 };
+
+export const useProducts = () => {
+  return useQuery({
+    queryKey: ['products'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('active', true)  // Only fetch active products
+        .order('name');      // Order by name
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+};

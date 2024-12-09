@@ -441,6 +441,80 @@ export type Database = {
           },
         ]
       }
+      return_items: {
+        Row: {
+          created_at: string
+          id: number
+          price: number | null
+          product_id: number
+          quantity: number | null
+          return_id: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          price?: number | null
+          product_id: number
+          quantity?: number | null
+          return_id?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          price?: number | null
+          product_id?: number
+          quantity?: number | null
+          return_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_items_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "returns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      returns: {
+        Row: {
+          created_at: string
+          date: string
+          id: number
+          total: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: number
+          total?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: number
+          total?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "returns_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stored_items: {
         Row: {
           created_at: string

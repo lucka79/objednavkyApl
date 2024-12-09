@@ -119,6 +119,8 @@ export type Product = {
     paid_by: PaidBy;
   };
 
+  
+
 export interface HistoryEntry {
   id: number;
   old_quantity: number;
@@ -150,4 +152,23 @@ export interface ReceiptItem {
   quantity: number;
   price: number;
   vat: number;
+}
+
+export type Return = {
+  id: number;
+  created_at: string;
+  date: string;
+  total: number;
+  user_id: string;
+  user: Profile;
+  return_items: ReturnItem[];
+}
+
+export interface ReturnItem {
+  id: number;
+  return_id: number;
+  product_id: number;
+  product: Product;
+  quantity: number;
+  price: number;
 }

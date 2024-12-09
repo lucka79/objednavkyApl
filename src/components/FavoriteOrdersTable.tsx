@@ -168,17 +168,20 @@ export function FavoriteOrdersTable({
   selectedProductId: initialProductId,
 }: FavoriteOrdersTableProps) {
   const { toast } = useToast(); // Add this line
+
   const { data: orders, error, isLoading } = useFavoriteOrders();
+  const { data: products } = fetchActiveProducts();
+
+  const user = useAuthStore((state) => state.user);
   const [date, setDate] = useState<Date>();
   const [selectedProductId, setSelectedProductId] = useState(
     initialProductId || ""
   );
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
-  const { data: products } = fetchActiveProducts();
   const [selectedDay, setSelectedDay] = useState<string>("all");
+
   const { mutateAsync: insertOrder } = useInsertOrder();
   const { mutateAsync: insertOrderItems } = useInsertOrderItems();
-  const user = useAuthStore((state) => state.user);
   const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
 
   if (isLoading) return <div>Loading orders...</div>;
