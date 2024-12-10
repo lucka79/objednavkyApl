@@ -1,6 +1,6 @@
 // cartStore.ts
 import { create } from 'zustand';
-import { CartItem, Product } from '../../types';
+import { ReturnItem, Product } from '../../types';
 import { useAuthStore } from '@/lib/supabase';
 
 
@@ -8,7 +8,7 @@ import { useAuthStore } from '@/lib/supabase';
 type ReturnStore = {
   selectedReturnId?: number | null;
   setSelectedReturnId: (id: number) => void;
-  items: CartItem[];
+  items: ReturnItem[];
   addItem: (product: Product) => void;
   // removeItem: (productId: number) => void;
   updateQuantity: (productId: number, quantity: number) => void;
@@ -18,6 +18,8 @@ type ReturnStore = {
     insertReturn: any, 
     insertReturnItems: any, 
     date: Date,
+    // selectedUserId: string,
+    // selectedUserRole: string,
     returnTotal: number,
     updateStoredItems: any
   ) => Promise<void>;
@@ -42,15 +44,18 @@ export const useReturnStore = create<ReturnStore>((set, get) => ({
         };
       } 
 
-        const newItem: CartItem = {
-          id: Date.now(), // Implement this function to generate a unique ID
-          product_id: product.id,
-          product,
-          quantity: 1
-        };
-        return { items: [...state.items, newItem] };
-      
-    //   return { items: [...state.items, { product, quantity: 1 }] };
+      const user = useAuthStore.getState().user;
+      const newItem: ReturnItem = {
+        id: Date.now(), // Implement this function to generate a unique ID
+        product_id: product.id,
+        product,
+        quantity: 1,
+        return_id: 0,
+        price: user?.role === "store" || "user"
+          ? product.price
+          : product.priceMobil,
+      };
+      return { items: [...state.items, newItem] };
     });
   },
     // removeItem: (productId) => {
@@ -72,6 +77,8 @@ export const useReturnStore = create<ReturnStore>((set, get) => ({
     insertReturn: any, 
     insertReturnItems: any,
     date: Date,
+    // selectedUserId: string,
+    // selectedUserRole: string,
     returnTotal: number,
     updateStoredItems: any
   ) => {
@@ -101,7 +108,10 @@ export const useReturnStore = create<ReturnStore>((set, get) => ({
         product_id: item.product.id,
         quantity: item.quantity,
         vat: item.product.vat,
-        price: item.product.price
+        price:
+          user?.role === "user" || "store" || "admin"
+            ? item.product.price
+            : item.product.priceMobil,
       }));
 
       await insertReturnItems(returnItems);

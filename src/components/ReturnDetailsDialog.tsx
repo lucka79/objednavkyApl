@@ -8,17 +8,21 @@ import {
 } from "@/components/ui/card";
 
 import { Badge } from "./ui/badge";
-import { ReturnItems } from "./ReturnItems";
 import { useAuthStore } from "@/lib/supabase";
 
-import UpdateReturnCart from "./UpdateReturnCart";
+// import UpdateReturnCart from "./UpdateReturnCart";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogTrigger,
 } from "@/components/ui/dialog";
+import { AddReturnProduct } from "./AddReturnProduct";
+import { Button } from "./ui/button";
+import { Plus } from "lucide-react";
+import UpdateReturnCart from "./UpdateReturnCart";
 
 export function ReturnDetailsDialog({
   returnId,
@@ -57,35 +61,56 @@ export function ReturnDetailsDialog({
           </DialogDescription>
         </DialogHeader>
         <div>
-          {returns?.map((return_) => (
-            <Card key={return_.id}>
+          {returns?.map((returnItem) => (
+            <Card key={returnItem.id}>
               <CardHeader>
                 <CardTitle className="flex justify-between">
-                  {return_.user?.full_name}
+                  {returnItem.user?.full_name}
                   <Badge variant="outline">
-                    {new Date(return_.date).toLocaleDateString()}
+                    {new Date(returnItem.date).toLocaleDateString()}
                   </Badge>
                 </CardTitle>
                 <CardDescription className="flex flex-col gap-2">
                   <div className="flex justify-between items-center">
-                    <span>Return #{return_.id}</span>
+                    <span>Return #{returnItem.id}</span>
                     <span className="text-muted-foreground font-semibold">
-                      {new Date(return_.created_at).toLocaleDateString()}
+                      {new Date(returnItem.created_at).toLocaleDateString()}
                     </span>
                   </div>
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {user?.role === "admin" ? (
-                  <UpdateReturnCart
-                    items={return_.return_items}
-                    returnId={return_.id}
-                    selectedUserId={return_.user?.id}
-                    onUpdate={() => refetch().then(() => {})}
-                  />
-                ) : (
-                  <ReturnItems items={return_.return_items} />
-                )}
+                <div className="flex justify-end mb-4">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Product
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Vyberte položku vratky</DialogTitle>
+                      </DialogHeader>
+                      <AddReturnProduct
+                        returnId={returnItem.id}
+                        onUpdate={async () => {
+                          await refetch();
+                        }}
+                        selectedUserRole={user?.role || ""}
+                      />
+                    </DialogContent>
+                  </Dialog>
+                </div>
+                <UpdateReturnCart
+                  items={returnItem.return_items}
+                  returnId={returnItem.id}
+                  selectedUserRole={returnItem.user?.role || ""}
+                  onUpdate={async () => {
+                    await refetch();
+                  }}
+                />
+                {/* <ReturnItems items={return_.return_items} /> */}
               </CardContent>
             </Card>
           ))}

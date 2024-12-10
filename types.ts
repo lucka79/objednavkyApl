@@ -171,4 +171,5 @@ export interface ReturnItem {
   product: Product;
   quantity: number;
   price: number;
+  priceMobil: number;
 }

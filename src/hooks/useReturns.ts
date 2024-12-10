@@ -11,7 +11,7 @@ export const fetchAllReturns = () => {
           .from('returns')
           .select(`
             *,
-            user:profiles (id, full_name),
+            user:profiles (id, full_name, role),
             return_items (
             *,
             product:products (*)
@@ -57,7 +57,7 @@ export const useFetchReturnById = (returnId: number | null) => {
         .from('returns')
         .select(`
           *,
-          user:profiles!returns_user_id_fkey(id, full_name),
+          user:profiles!returns_user_id_fkey(id, full_name, role),
           return_items(*, product:products(*))
         `)
         .eq('id', returnId)

@@ -2,19 +2,21 @@ import { useState, useEffect } from "react";
 import { ReturnItem } from "../../types";
 import { Card, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
-import { Trash2 } from "lucide-react";
+import { Trash2, PlusSquare, MinusSquare } from "lucide-react";
 import { useDeleteReturnItem } from "@/hooks/useReturns";
+import { supabase } from "@/lib/supabase";
 
 interface UpdateReturnCartProps {
   items: ReturnItem[];
   returnId: number;
-  selectedUserId?: string;
+  selectedUserRole?: string;
   onUpdate: () => Promise<void>;
 }
 
 export default function UpdateReturnCart({
   items = [],
   returnId,
+  selectedUserRole = "",
   onUpdate,
 }: UpdateReturnCartProps) {
   const [returnItems, setReturnItems] = useState<ReturnItem[]>(items);
@@ -37,9 +39,27 @@ export default function UpdateReturnCart({
     }
   };
 
+  const handleQuantityChange = async (itemId: number, newQuantity: number) => {
+    try {
+      const { error } = await supabase
+        .from("return_items")
+        .update({ quantity: newQuantity })
+        .eq("id", itemId);
+
+      if (!error) await onUpdate();
+    } catch (error) {
+      console.error("Failed to change quantity:", error);
+    }
+  };
+
   const total =
     returnItems?.reduce(
-      (sum, item) => sum + (item?.price || 0) * (item?.quantity || 0),
+      (sum, item) =>
+        sum +
+        (selectedUserRole === "store"
+          ? item?.price || 0
+          : item.product?.priceMobil || 0) *
+          (item?.quantity || 0),
       0
     ) || 0;
 
@@ -55,17 +75,40 @@ export default function UpdateReturnCart({
               className="flex items-center justify-between pt-2 mb-2"
             >
               <span className="text-sm flex-1">{item.product?.name}</span>
-              <Input
-                type="number"
-                value={item.quantity || 0}
-                className="w-20 mx-4"
-                disabled
-              />
-              <span className="text-sm w-20 text-right">
-                {(item.price || 0).toFixed(2)} Kč
+              <div className="flex items-center">
+                <MinusSquare
+                  className="h-5 w-5 cursor-pointer text-gray-500 hover:text-gray-700"
+                  onClick={() =>
+                    handleQuantityChange(item.id, (item.quantity || 0) - 1)
+                  }
+                />
+                <Input
+                  type="number"
+                  value={item.quantity || 0}
+                  className="w-16 mx-2"
+                  disabled
+                />
+                <PlusSquare
+                  className="h-5 w-5 cursor-pointer text-gray-500 hover:text-gray-700"
+                  onClick={() =>
+                    handleQuantityChange(item.id, (item.quantity || 0) + 1)
+                  }
+                />
+              </div>
+              <span className="text-sm w-20 text-right ml-4">
+                {(selectedUserRole === "store"
+                  ? item.price || 0
+                  : item.product?.priceMobil || 0
+                ).toFixed(2)}{" "}
+                Kč
               </span>
               <span className="text-sm w-24 text-right font-medium">
-                {((item.price || 0) * (item.quantity || 0)).toFixed(2)} Kč
+                {(
+                  (selectedUserRole === "store"
+                    ? item.price || 0
+                    : item.product?.priceMobil || 0) * (item.quantity || 0)
+                ).toFixed(2)}{" "}
+                Kč
               </span>
               <Trash2
                 className="ml-2 h-4 w-4 cursor-pointer text-red-500"
