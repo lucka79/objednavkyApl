@@ -110,7 +110,6 @@ export function ReturnDetailsDialog({
                     await refetch();
                   }}
                 />
-                {/* <ReturnItems items={return_.return_items} /> */}
               </CardContent>
             </Card>
           ))}

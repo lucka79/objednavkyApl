@@ -3,8 +3,10 @@ import { ReturnItem } from "../../types";
 import { Card, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
 import { Trash2, PlusSquare, MinusSquare } from "lucide-react";
-import { useDeleteReturnItem } from "@/hooks/useReturns";
-import { supabase } from "@/lib/supabase";
+import {
+  useDeleteReturnItem,
+  useUpdateReturnQuantity,
+} from "@/hooks/useReturns";
 
 interface UpdateReturnCartProps {
   items: ReturnItem[];
@@ -21,6 +23,7 @@ export default function UpdateReturnCart({
 }: UpdateReturnCartProps) {
   const [returnItems, setReturnItems] = useState<ReturnItem[]>(items);
   const deleteReturnItem = useDeleteReturnItem();
+  const updateQuantity = useUpdateReturnQuantity();
 
   useEffect(() => {
     if (!items) return;
@@ -41,14 +44,16 @@ export default function UpdateReturnCart({
 
   const handleQuantityChange = async (itemId: number, newQuantity: number) => {
     try {
-      const { error } = await supabase
-        .from("return_items")
-        .update({ quantity: newQuantity })
-        .eq("id", itemId);
-
-      if (!error) await onUpdate();
+      await updateQuantity.mutateAsync({
+        itemId,
+        newQuantity,
+        userRole: selectedUserRole,
+      });
+      if (onUpdate) {
+        await onUpdate();
+      }
     } catch (error) {
-      console.error("Failed to change quantity:", error);
+      console.error("Failed to update quantity:", error);
     }
   };
 

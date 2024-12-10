@@ -2,28 +2,42 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { InsertTables, Return } from '../../types';
 
-export const fetchAllReturns = () => {
-    // const queryClient = useQueryClient();
-    return useQuery({
-      queryKey: ['returns'],
-      queryFn: async () => {
-        const { data, error } = await supabase
-          .from('returns')
-          .select(`
-            *,
-            user:profiles (id, full_name, role),
-            return_items (
+
+interface DbReturnItem {
+  quantity: number;
+  product: {
+    price: number;
+    priceMobil: number;
+  };
+}
+
+export const fetchAllReturns = (userId?: string, userRole?: string) => {
+  return useQuery({
+    queryKey: ['returns', userId, userRole],
+    queryFn: async () => {
+      let query = supabase
+        .from('returns')
+        .select(`
+          *,
+          user:profiles (id, full_name, role),
+          return_items (
             *,
             product:products (*)
-            )
-          `)
-          .order('created_at', { ascending: false });
-  
-        if (error) throw error;
-        return data as Return[];
-      },
-    });
-  };
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      // Filter returns if user is not admin
+      if (userRole && userRole !== 'admin' && userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as Return[];
+    },
+  });
+};
 
   export const fetchReturnsBySellerId = (sellerId?: string) => { // Add sellerId parameter
     // const queryClient = useQueryClient();
@@ -336,5 +350,56 @@ export const useDeleteReturnItem = () => {
       }
     });
   };
+  
+export const useUpdateReturnQuantity = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    async mutationFn({ itemId, newQuantity, userRole }: { itemId: number; newQuantity: number; userRole: string }) {
+      // Update quantity first
+      const { data: updatedItem } = await supabase
+        .from("return_items")
+        .update({ quantity: newQuantity })
+        .eq("id", itemId)
+        .select("return_id")
+        .single();
+
+      if (!updatedItem?.return_id) throw new Error("Failed to update item");
+
+      // Get items with product info
+      const { data: items } = await supabase
+        .from("return_items")
+        .select(`
+          quantity,
+          product:products!inner (
+            price,
+            priceMobil
+          )
+        `)
+        .eq("return_id", updatedItem.return_id)
+        .returns<DbReturnItem[]>();
+
+      // Use returnStore logic for price calculation
+      const newTotal = items?.reduce((sum: number, item: DbReturnItem) => {
+        const price = userRole === 'mobil' 
+          ? item.product.priceMobil 
+          : item.product.price;
+        return sum + (price * item.quantity);
+      }, 0) || 0;
+
+      // Update return total
+      await supabase
+        .from("returns")
+        .update({ total: newTotal })
+        .eq("id", updatedItem.return_id);
+
+      return updatedItem;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["return", data.return_id] });
+      queryClient.invalidateQueries({ queryKey: ["returns"] });
+    },
+  });
+};
   
   

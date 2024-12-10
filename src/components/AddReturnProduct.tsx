@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { fetchActiveProducts } from "@/hooks/useProducts";
 
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchCategories } from "@/hooks/useCategories";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { CategoryBadges } from "./CategoryBadges";
 import { useToast } from "@/hooks/use-toast";
+
+import { Badge } from "./ui/badge";
 
 interface AddReturnProductProps {
   returnId: number;
@@ -28,6 +30,16 @@ export const AddReturnProduct: React.FC<AddReturnProductProps> = ({
 
   const handleAddProduct = async (product: any) => {
     try {
+      console.log("Selected User Role:", selectedUserRole);
+      console.log("Product:", {
+        price: product.price,
+        priceMobil: product.priceMobil,
+        selectedPrice:
+          selectedUserRole === "store" || "user"
+            ? product.price
+            : product.priceMobil,
+      });
+
       const { data: existingItem } = await supabase
         .from("return_items")
         .select()
@@ -97,27 +109,33 @@ export const AddReturnProduct: React.FC<AddReturnProductProps> = ({
             <Card
               key={product.id}
               onClick={() => handleAddProduct(product)}
-              className="text-center h-32 flex flex-col"
+              className="text-center h-32 flex flex-col cursor-pointer"
             >
               <div className="flex-1">
-                <CardHeader className="h-full px-1">
+                <CardHeader className="h-full px-1 pb-0">
                   <CardTitle className="text-sm line-clamp-2 mx-1 hover:line-clamp-3">
                     {product.name}
                   </CardTitle>
                 </CardHeader>
               </div>
-              <div className="flex-1 flex flex-col justify-between">
-                {/* <CardContent className="pb-0">
-                  {user?.role === "admin" && (
-                    <Button
-                      variant="outline"
-                      onClick={() => handleAddProduct(product)}
-                    >
-                      <ShoppingCart size={16} />
-                    </Button>
+              <CardFooter className="pt-0 pb-2">
+                <Badge variant="outline" className="text-xs w-full">
+                  {selectedUserRole === "admin" ? (
+                    <>
+                      {product.price.toFixed(2)} /{" "}
+                      {product.priceMobil.toFixed(2)} Kč
+                    </>
+                  ) : (
+                    <>
+                      {(selectedUserRole === "store"
+                        ? product.price
+                        : product.priceMobil
+                      ).toFixed(2)}{" "}
+                      Kč
+                    </>
                   )}
-                </CardContent> */}
-              </div>
+                </Badge>
+              </CardFooter>
             </Card>
           ))
         )}

@@ -54,6 +54,7 @@ export const useReturnStore = create<ReturnStore>((set, get) => ({
         price: user?.role === "store" || "user"
           ? product.price
           : product.priceMobil,
+        priceMobil: product.priceMobil
       };
       return { items: [...state.items, newItem] };
     });

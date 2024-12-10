@@ -24,6 +24,7 @@ import { ReturnDetailsDialog } from "./ReturnDetailsDialog";
 import { Plus } from "lucide-react";
 import { Button } from "./ui/button";
 import { AddReturnDialog } from "./AddReturnDialog";
+import { useAuthStore } from "@/lib/supabase";
 
 const columns: ColumnDef<Return>[] = [
   //   {
@@ -58,13 +59,11 @@ const columns: ColumnDef<Return>[] = [
     header: "Odběratel",
     cell: ({ row }) => <div>{row.original.user?.full_name || "N/A"}</div>,
   },
-  //   {
-  //     accessorKey: "return_items",
-  //     header: () => <div className="text-right">Položky</div>,
-  //     cell: ({ row }) => (
-  //       <div className="text-right">{row.original.return_items?.length || 0}</div>
-  //     ),
-  //   },
+  {
+    accessorKey: "user.role",
+    header: "Typ",
+    cell: ({ row }) => <div>{row.original.user?.role || "N/A"}</div>,
+  },
   {
     accessorKey: "total",
     header: () => <div className="text-right">Celkem</div>,
@@ -77,11 +76,16 @@ const columns: ColumnDef<Return>[] = [
 ];
 
 export function ReturnsTable() {
+  const user = useAuthStore((state) => state.user);
   const [globalFilter, setGlobalFilter] = useState("");
   const [selectedReturnId, setSelectedReturnId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
 
-  const { data: returns, isLoading, error } = fetchAllReturns();
+  const {
+    data: returns,
+    isLoading,
+    error,
+  } = fetchAllReturns(user?.id, user?.role);
 
   const table = useReactTable({
     data: returns || [],

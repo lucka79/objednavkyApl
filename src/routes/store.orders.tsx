@@ -6,6 +6,8 @@ import { StoreOrdersTable } from "@/components/StoreOrdersTable";
 // import { Badge } from "@/components/ui/badge";
 import { StoreOrderDetailsDialog } from "@/components/StoreOrderDetailsDialog";
 import { Button } from "@/components/ui/button";
+import { ReturnsTable } from "@/components/ReturnsTable";
+import { ReturnDetailsDialog } from "@/components/ReturnDetailsDialog";
 
 export const Route = createFileRoute("/store/orders")({
   component: StoreOrders,
@@ -15,6 +17,7 @@ function StoreOrders() {
   const user = useAuthStore((state) => state.user);
   const [selectedProductId] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<"orders" | "returns">("orders");
+  const [selectedReturnId, setSelectedReturnId] = useState<number | null>(null);
 
   if (user?.role !== "store") {
     return <div>Access denied. Store only.</div>;
@@ -44,10 +47,19 @@ function StoreOrders() {
             {activeView === "orders" && (
               <StoreOrdersTable selectedProductId={selectedProductId} />
             )}
+            {activeView === "returns" && <ReturnsTable />}
           </div>
         </div>
         <div className="h-full overflow-y-auto overflow-x-hidden">
-          {activeView === "returns" && <StoreOrderDetailsDialog />}
+          {activeView === "orders" && <StoreOrderDetailsDialog />}
+        </div>
+        <div className="h-full overflow-y-auto overflow-x-hidden">
+          {activeView === "returns" && (
+            <ReturnDetailsDialog
+              returnId={selectedReturnId}
+              onClose={() => setSelectedReturnId(null)}
+            />
+          )}
         </div>
       </main>
     </div>

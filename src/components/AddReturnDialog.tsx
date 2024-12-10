@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useFetchAllProfiles } from "@/hooks/useProfiles";
-// import { useAuthStore } from "@/lib/supabase";
+import { useAuthStore } from "@/lib/supabase";
 import { Profile } from "../../types";
 import { useReturnStore } from "@/providers/returnStore";
 import {
@@ -34,7 +34,7 @@ export function AddReturnDialog({ open, onClose }: AddReturnDialogProps) {
   const { data: users } = useFetchAllProfiles();
   const insertReturn = useInsertReturn();
   const { toast } = useToast();
-  //   const user = useAuthStore((state) => state.user);
+  const user = useAuthStore((state) => state.user);
   const setSelectedReturnId = useReturnStore(
     (state) => state.setSelectedReturnId
   );
@@ -45,7 +45,9 @@ export function AddReturnDialog({ open, onClose }: AddReturnDialogProps) {
 
   const handleSubmit = async () => {
     try {
-      if (!selectedUserId) {
+      const effectiveUserId = user?.role === "store" ? user.id : selectedUserId;
+
+      if (!effectiveUserId) {
         toast({
           title: "Error",
           description: "Please select a user",
@@ -55,10 +57,9 @@ export function AddReturnDialog({ open, onClose }: AddReturnDialogProps) {
       }
 
       const result = await insertReturn.mutateAsync({
-        user_id: selectedUserId,
+        user_id: effectiveUserId,
         date: format(date, "yyyy-MM-dd"),
         total: 0,
-        // seller_id: user?.id,
       });
 
       toast({
@@ -66,11 +67,9 @@ export function AddReturnDialog({ open, onClose }: AddReturnDialogProps) {
         description: "Return created successfully",
       });
 
-      // Close this dialog and open ReturnDetailsDialog
       onClose();
       setSelectedReturnId(result.id);
 
-      // Reset form
       setSelectedUserId("");
       setDate(new Date());
     } catch (error) {
@@ -90,23 +89,25 @@ export function AddReturnDialog({ open, onClose }: AddReturnDialogProps) {
           <DialogTitle>Vytvořit vratku</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Select
-              value={selectedUserId}
-              onValueChange={(value) => setSelectedUserId(value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Vyberte odběratele" />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredUsers?.map((user: Profile) => (
-                  <SelectItem key={user.id} value={user.id}>
-                    {user.full_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {user?.role === "admin" && (
+            <div className="space-y-2">
+              <Select
+                value={selectedUserId}
+                onValueChange={(value) => setSelectedUserId(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Vyberte odběratele" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredUsers?.map((user: Profile) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <Card className="p-4">
             <Calendar
