@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { useInsertReturn } from "@/hooks/useReturns";
+import {
+  useInsertReturn,
+  useCheckExistingReturn,
+  // useUpdateStoredItems,
+} from "@/hooks/useReturns";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "@/components/ui/calendar";
@@ -38,6 +42,7 @@ export function AddReturnDialog({ open, onClose }: AddReturnDialogProps) {
   const setSelectedReturnId = useReturnStore(
     (state) => state.setSelectedReturnId
   );
+  const checkExistingReturn = useCheckExistingReturn();
 
   const filteredUsers = users?.filter(
     (user: Profile) => user.role === "store" || user.role === "mobil"
@@ -51,6 +56,20 @@ export function AddReturnDialog({ open, onClose }: AddReturnDialogProps) {
         toast({
           title: "Error",
           description: "Please select a user",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const existingReturn = await checkExistingReturn.mutateAsync({
+        userId: effectiveUserId,
+        date: format(date, "yyyy-MM-dd"),
+      });
+
+      if (existingReturn) {
+        toast({
+          title: "Return Exists",
+          description: "A return already exists for this date",
           variant: "destructive",
         });
         return;

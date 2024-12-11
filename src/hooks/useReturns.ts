@@ -401,5 +401,24 @@ export const useUpdateReturnQuantity = () => {
     },
   });
 };
+
+export const useCheckExistingReturn = () => {
+  return useMutation({
+    mutationFn: async ({ userId, date }: { userId: string; date: string }) => {
+      const { data, error } = await supabase
+        .from('returns')
+        .select()
+        .eq('user_id', userId)
+        .eq('date', date)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+        throw error;
+      }
+
+      return data;
+    }
+  });
+};
   
   
