@@ -19,7 +19,7 @@ import { Card } from "@/components/ui/card";
 import { useFetchAllProfiles } from "@/hooks/useProfiles";
 import { useAuthStore } from "@/lib/supabase";
 import { Profile } from "../../types";
-import { useReturnStore } from "@/providers/returnStore";
+import { useReturnItemsStore } from "@/providers/returnStore";
 import {
   Dialog,
   DialogContent,
@@ -39,7 +39,7 @@ export function AddReturnDialog({ open, onClose }: AddReturnDialogProps) {
   const insertReturn = useInsertReturn();
   const { toast } = useToast();
   const user = useAuthStore((state) => state.user);
-  const setSelectedReturnId = useReturnStore(
+  const setSelectedReturnId = useReturnItemsStore(
     (state) => state.setSelectedReturnId
   );
   const checkExistingReturn = useCheckExistingReturn();

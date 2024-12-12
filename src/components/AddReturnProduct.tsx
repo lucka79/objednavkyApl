@@ -1,145 +1,79 @@
-import React, { useState } from "react";
+import { useState } from "react";
+import { useInsertReturnItems } from "@/hooks/useReturns";
 import { fetchActiveProducts } from "@/hooks/useProducts";
-
-import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchCategories } from "@/hooks/useCategories";
-import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { Product } from "../../types";
+import { Input } from "./ui/input";
+import { Card } from "./ui/card";
 import { CategoryBadges } from "./CategoryBadges";
-import { useToast } from "@/hooks/use-toast";
-
-import { Badge } from "./ui/badge";
 
 interface AddReturnProductProps {
   returnId: number;
   onUpdate: () => Promise<void>;
-  selectedUserRole: string;
 }
 
-export const AddReturnProduct: React.FC<AddReturnProductProps> = ({
+export function AddReturnProduct({
   returnId,
   onUpdate,
-  selectedUserRole,
-}) => {
-  const { data: products = [], isLoading, error } = fetchActiveProducts();
-  const { data: categories = [] } = fetchCategories();
-
+}: AddReturnProductProps) {
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { data: products } = fetchActiveProducts();
+  const { data: categories } = fetchCategories();
+  const { mutateAsync: insertReturnItems } = useInsertReturnItems();
 
-  const handleAddProduct = async (product: any) => {
+  const filteredProducts = products?.filter((product: Product) => {
+    const matchesSearch = product.name
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory
+      ? product.category_id === selectedCategory
+      : true;
+    return matchesSearch && matchesCategory;
+  });
+
+  const handleAddProduct = async (product: Product) => {
     try {
-      console.log("Selected User Role:", selectedUserRole);
-      console.log("Product:", {
-        price: product.price,
-        priceMobil: product.priceMobil,
-        selectedPrice:
-          selectedUserRole === "store" || "user"
-            ? product.price
-            : product.priceMobil,
-      });
-
-      const { data: existingItem } = await supabase
-        .from("return_items")
-        .select()
-        .eq("return_id", returnId)
-        .eq("product_id", product.id)
-        .single();
-
-      if (existingItem) {
-        toast({
-          title: "Product already exists",
-          description: "This product is already in your return list",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const { error } = await supabase
-        .from("return_items")
-        .insert({
+      await insertReturnItems([
+        {
           return_id: returnId,
           product_id: product.id,
-          price:
-            selectedUserRole === "store" || "user"
-              ? product.price
-              : product.priceMobil,
-          quantity: 1,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      await queryClient.invalidateQueries({ queryKey: ["returns"] });
+          quantity: 0,
+          price: product.price,
+        },
+      ]);
       await onUpdate();
     } catch (error) {
-      console.error("Failed to add return product:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add product",
-        variant: "destructive",
-      });
+      console.error("Failed to add product:", error);
     }
   };
 
-  const filteredProducts =
-    products?.filter((product) =>
-      selectedCategory ? product.category_id === selectedCategory : true
-    ) ?? [];
-
-  if (isLoading) return <div>Loading products...</div>;
-  if (error) return <div>Error loading products</div>;
-
   return (
-    <Card className="p-4 print:hidden">
-      <div className="container mx-auto p-2">
+    <Card className="p-4">
+      <div className="space-y-4">
+        <Input
+          placeholder="Search products..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
         <CategoryBadges
-          categories={categories}
+          categories={categories || []}
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
         />
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 p-2">
-        {filteredProducts.length === 0 ? (
-          <div>No products found</div>
-        ) : (
-          filteredProducts.map((product) => (
-            <Card
+        <div className="grid grid-cols-1 gap-2 max-h-[60vh] overflow-y-auto">
+          {filteredProducts?.map((product) => (
+            <div
               key={product.id}
+              className="flex justify-between items-center p-2 hover:bg-slate-100 rounded cursor-pointer"
               onClick={() => handleAddProduct(product)}
-              className="text-center h-32 flex flex-col cursor-pointer"
             >
-              <div className="flex-1">
-                <CardHeader className="h-full px-1 pb-0">
-                  <CardTitle className="text-sm line-clamp-2 mx-1 hover:line-clamp-3">
-                    {product.name}
-                  </CardTitle>
-                </CardHeader>
-              </div>
-              <CardFooter className="pt-0 pb-2">
-                <Badge variant="outline" className="text-xs w-full">
-                  {selectedUserRole === "admin" ? (
-                    <>
-                      {product.price.toFixed(2)} /{" "}
-                      {product.priceMobil.toFixed(2)} Kč
-                    </>
-                  ) : (
-                    <>
-                      {(selectedUserRole === "store"
-                        ? product.price
-                        : product.priceMobil
-                      ).toFixed(2)}{" "}
-                      Kč
-                    </>
-                  )}
-                </Badge>
-              </CardFooter>
-            </Card>
-          ))
-        )}
+              <span>{product.name}</span>
+              <span>{product.price} Kč</span>
+            </div>
+          ))}
+        </div>
       </div>
     </Card>
   );
-};
+}

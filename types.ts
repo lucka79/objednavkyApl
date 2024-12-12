@@ -173,3 +173,8 @@ export interface ReturnItem {
   price: number;
   priceMobil: number;
 }
+
+export interface StoredItem {
+  product: Product;
+  quantity: number;
+}

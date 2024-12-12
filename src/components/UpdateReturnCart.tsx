@@ -2,28 +2,35 @@ import { useState, useEffect } from "react";
 import { ReturnItem } from "../../types";
 import { Card, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
-import { Trash2, PlusSquare, MinusSquare } from "lucide-react";
-import {
-  useDeleteReturnItem,
-  useUpdateReturnQuantity,
-} from "@/hooks/useReturns";
+import { Trash2, PlusSquare, MinusSquare, Plus } from "lucide-react";
+import { useUpdateReturnItems } from "@/hooks/useReturns";
+import { useUpdateStoredItems } from "@/hooks/useOrders";
+import { useDeleteReturnItem } from "@/hooks/useReturns";
+import { Button } from "./ui/button";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { AddReturnProduct } from "./AddReturnProduct";
 
 interface UpdateReturnCartProps {
   items: ReturnItem[];
   returnId: number;
-  selectedUserRole?: string;
   onUpdate: () => Promise<void>;
+  selectedUserId: string;
+  selectedUserRole: string;
 }
 
 export default function UpdateReturnCart({
-  items = [],
+  items,
   returnId,
-  selectedUserRole = "",
   onUpdate,
+  selectedUserId,
+  selectedUserRole,
 }: UpdateReturnCartProps) {
   const [returnItems, setReturnItems] = useState<ReturnItem[]>(items);
-  const deleteReturnItem = useDeleteReturnItem();
-  const updateQuantity = useUpdateReturnQuantity();
+  const { mutate: updateReturnItems } = useUpdateReturnItems();
+  // const { mutate: updateReturn } = useUpdateReturn();
+  const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
+  const { mutateAsync: deleteReturnItem } = useDeleteReturnItem();
+  // const { toast } = useToast();
 
   useEffect(() => {
     if (!items) return;
@@ -35,7 +42,7 @@ export default function UpdateReturnCart({
 
   const handleDelete = async (itemId: number) => {
     try {
-      await deleteReturnItem.mutateAsync({ itemId, returnId });
+      await deleteReturnItem({ itemId, returnId });
       await onUpdate();
     } catch (error) {
       console.error("Failed to delete item:", error);
@@ -44,16 +51,54 @@ export default function UpdateReturnCart({
 
   const handleQuantityChange = async (itemId: number, newQuantity: number) => {
     try {
-      await updateQuantity.mutateAsync({
+      const currentItem = returnItems.find((item) => item.id === itemId);
+      if (!currentItem) {
+        console.error("No current item found with id:", itemId);
+        return;
+      }
+
+      const quantityDifference = newQuantity - currentItem.quantity;
+
+      console.log("UpdateReturnCart - Starting quantity update:", {
+        currentItem,
+        currentQuantity: currentItem.quantity,
+        newQuantity,
+        quantityDifference,
+        selectedUserId,
+      });
+
+      // Update return item quantity
+      const updatedReturnItem = await updateReturnItems({
         itemId,
         newQuantity,
-        userRole: selectedUserRole,
       });
+      console.log("Return item updated:", updatedReturnItem);
+
+      // Update stored items if quantity changed
+      if (quantityDifference !== 0) {
+        console.log("UpdateReturnCart - Updating stored items:", {
+          userId: selectedUserId,
+          productId: currentItem.product_id,
+          quantityChange: -quantityDifference,
+        });
+
+        const result = await updateStoredItems({
+          userId: selectedUserId,
+          items: [
+            {
+              product_id: currentItem.product_id,
+              quantity: -quantityDifference,
+            },
+          ],
+        });
+        console.log("Stored items update result:", result);
+      }
+
       if (onUpdate) {
         await onUpdate();
       }
     } catch (error) {
-      console.error("Failed to update quantity:", error);
+      console.error("Failed to update quantities:", error);
     }
   };
 
@@ -71,6 +116,20 @@ export default function UpdateReturnCart({
   return (
     <Card>
       <CardContent>
+        <div className="flex gap-2 mb-4">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Product
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogTitle>Add Product to Return</DialogTitle>
+              <AddReturnProduct returnId={returnId} onUpdate={onUpdate} />
+            </DialogContent>
+          </Dialog>
+        </div>
         {!returnItems || returnItems.length === 0 ? (
           <p>No items in return.</p>
         ) : (

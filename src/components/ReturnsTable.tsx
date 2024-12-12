@@ -5,7 +5,7 @@ import {
   ColumnDef,
   flexRender,
 } from "@tanstack/react-table";
-import { fetchAllReturns } from "@/hooks/useReturns";
+import { useReturns } from "@/hooks/useReturns";
 import { Return } from "../../types";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,7 +24,6 @@ import { ReturnDetailsDialog } from "./ReturnDetailsDialog";
 import { Plus } from "lucide-react";
 import { Button } from "./ui/button";
 import { AddReturnDialog } from "./AddReturnDialog";
-import { useAuthStore } from "@/lib/supabase";
 
 const columns: ColumnDef<Return>[] = [
   //   {
@@ -76,16 +75,14 @@ const columns: ColumnDef<Return>[] = [
 ];
 
 export function ReturnsTable() {
-  const user = useAuthStore((state) => state.user);
+  // const user = useAuthStore((state) => state.user);
   const [globalFilter, setGlobalFilter] = useState("");
   const [selectedReturnId, setSelectedReturnId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
 
-  const {
-    data: returns,
-    isLoading,
-    error,
-  } = fetchAllReturns(user?.id, user?.role);
+  const { data: returns, isLoading, error } = useReturns();
+
+  console.log("Fetched returns:", returns);
 
   const table = useReactTable({
     data: returns || [],
