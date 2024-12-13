@@ -25,6 +25,8 @@ export const useFetchReturnById = (returnId: number | null) => {
   return useQuery({
     queryKey: ['return', returnId],
     queryFn: async () => {
+      if (!returnId) return null;
+      
       const { data, error } = await supabase
         .from('returns')
         .select(`
@@ -37,7 +39,8 @@ export const useFetchReturnById = (returnId: number | null) => {
       if (error) throw error;
       return data[0];
     },
-    enabled: !!returnId
+    enabled: !!returnId,
+    staleTime: 1000,
   });
 };
 
@@ -119,31 +122,26 @@ export const useUpdateReturnItems = () => {
       returnId: number;
       total: number;
     }) {
-      // Update return item quantity
+      // First update the return_items quantity
       const { error: itemError } = await supabase
         .from('return_items')
         .update({ quantity: newQuantity })
         .eq('id', itemId);
 
-      if (itemError) {
-        throw new Error(itemError.message);
-      }
+      if (itemError) throw itemError;
 
-      // Update return total
+      // Then update the return total
       const { error: totalError } = await supabase
         .from('returns')
         .update({ total })
         .eq('id', returnId);
 
-      if (totalError) {
-        throw new Error(totalError.message);
-      }
+      if (totalError) throw totalError;
 
       return { success: true };
     },
-    async onSuccess() {
-      await queryClient.invalidateQueries({ queryKey: ['returns'] });
-
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['returns'] });
     },
   });
 };

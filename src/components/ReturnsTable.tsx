@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card } from "./ui/card";
 // import { Badge } from "./ui/badge";
 
@@ -24,6 +24,8 @@ import { ReturnDetailsDialog } from "./ReturnDetailsDialog";
 import { Plus } from "lucide-react";
 import { Button } from "./ui/button";
 import { AddReturnDialog } from "./AddReturnDialog";
+import { Badge } from "./ui/badge";
+import { useAuthStore } from "@/lib/supabase";
 
 const columns: ColumnDef<Return>[] = [
   //   {
@@ -64,6 +66,17 @@ const columns: ColumnDef<Return>[] = [
     cell: ({ row }) => <div>{row.original.user?.role || "N/A"}</div>,
   },
   {
+    accessorKey: "return_items",
+    header: () => <div className="text-left">Items</div>,
+    cell: ({ row }) => (
+      <div className="text-left">
+        <Badge variant="outline">
+          {row.original.return_items?.length || 0}
+        </Badge>
+      </div>
+    ),
+  },
+  {
     accessorKey: "total",
     header: () => <div className="text-right">Celkem</div>,
     cell: ({ row }) => (
@@ -75,17 +88,26 @@ const columns: ColumnDef<Return>[] = [
 ];
 
 export function ReturnsTable() {
-  // const user = useAuthStore((state) => state.user);
+  const user = useAuthStore((state) => state.user);
   const [globalFilter, setGlobalFilter] = useState("");
   const [selectedReturnId, setSelectedReturnId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
 
   const { data: returns, isLoading, error, refetch } = useReturns();
 
-  console.log("Fetched returns:", returns);
+  const filteredReturns = useMemo(() => {
+    if (!returns) return [];
+    if (user?.role === "store") {
+      return returns.filter((ret) => ret.user_id === user.id);
+    }
+    if (user?.role === "admin") {
+      return returns;
+    }
+    return [];
+  }, [returns, user]);
 
   const table = useReactTable({
-    data: returns || [],
+    data: filteredReturns,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
