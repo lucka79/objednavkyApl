@@ -4,8 +4,9 @@ import { fetchActiveProducts } from "@/hooks/useProducts";
 import { fetchCategories } from "@/hooks/useCategories";
 import { Product } from "../../types";
 import { Input } from "./ui/input";
-import { Card } from "./ui/card";
+import { Card, CardTitle, CardHeader } from "./ui/card";
 import { CategoryBadges } from "./CategoryBadges";
+import { supabase } from "@/lib/supabase";
 
 interface AddReturnProductProps {
   returnId: number;
@@ -33,13 +34,29 @@ export function AddReturnProduct({
   });
 
   const handleAddProduct = async (product: Product) => {
+    // Determine price based on user's role
+
     try {
+      // Get the return's user role first
+      const { data: returnData } = await supabase
+        .from("returns")
+        .select(
+          `*,
+          user:profiles!inner(role)
+        `
+        )
+        .eq("id", returnId)
+        .single();
+
+      // Determine price based on user's role
+      const price =
+        returnData?.user?.role === "mobil" ? product.priceMobil : product.price;
       await insertReturnItems([
         {
           return_id: returnId,
           product_id: product.id,
           quantity: 0,
-          price: product.price,
+          price: price,
         },
       ]);
       await onUpdate();
@@ -61,7 +78,7 @@ export function AddReturnProduct({
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
         />
-        <div className="grid grid-cols-1 gap-2 max-h-[60vh] overflow-y-auto">
+        {/* <div className="grid grid-cols-1 gap-2 max-h-[60vh] overflow-y-auto">
           {filteredProducts?.map((product) => (
             <div
               key={product.id}
@@ -72,6 +89,28 @@ export function AddReturnProduct({
               <span>{product.price} Kč</span>
             </div>
           ))}
+        </div> */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 p-2">
+          {(filteredProducts ?? []).length === 0 ? (
+            <div>No products found</div>
+          ) : (
+            (filteredProducts ?? []).map((product) => (
+              <Card
+                key={product.id}
+                onClick={() => handleAddProduct(product)}
+                className="text-center h-32 flex flex-col"
+              >
+                <div className="flex-1">
+                  <CardHeader className="h-full px-1">
+                    <CardTitle className="text-sm line-clamp-2 mx-1 hover:line-clamp-3">
+                      {product.name}
+                    </CardTitle>
+                  </CardHeader>
+                </div>
+                <div className="flex-1 flex flex-col justify-between"></div>
+              </Card>
+            ))
+          )}
         </div>
       </div>
     </Card>

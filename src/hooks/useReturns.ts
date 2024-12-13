@@ -113,21 +113,37 @@ export const useUpdateReturnItems = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    async mutationFn({ itemId, newQuantity }: { itemId: number; newQuantity: number }) {
-      const { error, data: updatedItem } = await supabase
+    async mutationFn({ itemId, newQuantity, returnId, total }: { 
+      itemId: number; 
+      newQuantity: number;
+      returnId: number;
+      total: number;
+    }) {
+      // Update return item quantity
+      const { error: itemError } = await supabase
         .from('return_items')
         .update({ quantity: newQuantity })
-        .eq('id', itemId)
-        .select()
-        .single();
+        .eq('id', itemId);
 
-      if (error) {
-        throw new Error(error.message);
+      if (itemError) {
+        throw new Error(itemError.message);
       }
-      return updatedItem;
+
+      // Update return total
+      const { error: totalError } = await supabase
+        .from('returns')
+        .update({ total })
+        .eq('id', returnId);
+
+      if (totalError) {
+        throw new Error(totalError.message);
+      }
+
+      return { success: true };
     },
     async onSuccess() {
       await queryClient.invalidateQueries({ queryKey: ['returns'] });
+
     },
   });
 };

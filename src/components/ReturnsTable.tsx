@@ -80,7 +80,7 @@ export function ReturnsTable() {
   const [selectedReturnId, setSelectedReturnId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
 
-  const { data: returns, isLoading, error } = useReturns();
+  const { data: returns, isLoading, error, refetch } = useReturns();
 
   console.log("Fetched returns:", returns);
 
@@ -91,6 +91,11 @@ export function ReturnsTable() {
     getFilteredRowModel: getFilteredRowModel(),
     state: { globalFilter },
   });
+
+  const handleDialogClose = async () => {
+    setSelectedReturnId(null);
+    await refetch();
+  };
 
   if (isLoading) return <div>Loading returns...</div>;
   if (error) return <div>Error loading returns</div>;
@@ -162,7 +167,7 @@ export function ReturnsTable() {
 
       <ReturnDetailsDialog
         returnId={selectedReturnId}
-        onClose={() => setSelectedReturnId(null)}
+        onClose={handleDialogClose}
       />
     </div>
   );

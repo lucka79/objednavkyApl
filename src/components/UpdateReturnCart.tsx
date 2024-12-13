@@ -9,6 +9,7 @@ import { useDeleteReturnItem } from "@/hooks/useReturns";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { AddReturnProduct } from "./AddReturnProduct";
+import { supabase } from "@/lib/supabase";
 
 interface UpdateReturnCartProps {
   items: ReturnItem[];
@@ -42,7 +43,22 @@ export default function UpdateReturnCart({
 
   const handleDelete = async (itemId: number) => {
     try {
+      const itemToDelete = returnItems.find((item) => item.id === itemId);
+      if (!itemToDelete) return;
+
       await deleteReturnItem({ itemId, returnId });
+
+      // Increase stored quantity by the deleted item's quantity
+      await updateStoredItems({
+        userId: selectedUserId,
+        items: [
+          {
+            product_id: itemToDelete.product_id,
+            quantity: -itemToDelete.quantity || 0,
+          },
+        ],
+      });
+
       await onUpdate();
     } catch (error) {
       console.error("Failed to delete item:", error);
@@ -59,39 +75,25 @@ export default function UpdateReturnCart({
 
       const quantityDifference = newQuantity - currentItem.quantity;
 
-      console.log("UpdateReturnCart - Starting quantity update:", {
-        currentItem,
-        currentQuantity: currentItem.quantity,
-        newQuantity,
-        quantityDifference,
-        selectedUserId,
-      });
-
-      // Update return item quantity
-      const updatedReturnItem = await updateReturnItems({
+      // Update return item quantity and total
+      await updateReturnItems({
         itemId,
         newQuantity,
+        returnId,
+        total, // Pass the current calculated total
       });
-      console.log("Return item updated:", updatedReturnItem);
 
       // Update stored items if quantity changed
       if (quantityDifference !== 0) {
-        console.log("UpdateReturnCart - Updating stored items:", {
-          userId: selectedUserId,
-          productId: currentItem.product_id,
-          quantityChange: -quantityDifference,
-        });
-
-        const result = await updateStoredItems({
+        await updateStoredItems({
           userId: selectedUserId,
           items: [
             {
               product_id: currentItem.product_id,
-              quantity: -quantityDifference,
+              quantity: quantityDifference,
             },
           ],
         });
-        console.log("Stored items update result:", result);
       }
 
       if (onUpdate) {
@@ -103,20 +105,40 @@ export default function UpdateReturnCart({
   };
 
   const total =
-    returnItems?.reduce(
-      (sum, item) =>
-        sum +
-        (selectedUserRole === "store"
-          ? item?.price || 0
-          : item.product?.priceMobil || 0) *
-          (item?.quantity || 0),
-      0
-    ) || 0;
+    returnItems?.reduce((sum, item) => {
+      const itemPrice =
+        selectedUserRole === "store"
+          ? item.price || 0
+          : item.product?.priceMobil || 0;
+      return sum + itemPrice * (item.quantity || 0);
+    }, 0) || 0;
+
+  // After any quantity change or item deletion, we should update the return's total
+  useEffect(() => {
+    const updateReturnTotal = async () => {
+      try {
+        const { error } = await supabase
+          .from("returns")
+          .update({ total })
+          .eq("id", returnId);
+
+        if (error) throw error;
+
+        if (onUpdate) {
+          await onUpdate();
+        }
+      } catch (error) {
+        console.error("Failed to update return total:", error);
+      }
+    };
+
+    updateReturnTotal();
+  }, [total, returnId, onUpdate]);
 
   return (
     <Card>
       <CardContent>
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 justify-end mt-4">
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
@@ -125,7 +147,7 @@ export default function UpdateReturnCart({
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogTitle>Add Product to Return</DialogTitle>
+              <DialogTitle>Vložit výrobek do vratky</DialogTitle>
               <AddReturnProduct returnId={returnId} onUpdate={onUpdate} />
             </DialogContent>
           </Dialog>
