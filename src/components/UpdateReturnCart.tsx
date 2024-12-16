@@ -171,8 +171,10 @@ export default function UpdateReturnCart({
                 <Input
                   type="number"
                   value={item.quantity || 0}
+                  onChange={(e) =>
+                    handleQuantityChange(item.id, parseInt(e.target.value) || 0)
+                  }
                   className="w-16 mx-2"
-                  disabled
                 />
                 <PlusSquare
                   className="h-5 w-5 cursor-pointer text-gray-500 hover:text-gray-700"

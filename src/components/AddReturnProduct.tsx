@@ -98,7 +98,7 @@ export function AddReturnProduct({
               <Card
                 key={product.id}
                 onClick={() => handleAddProduct(product)}
-                className="text-center h-32 flex flex-col"
+                className="text-center h-32 flex flex-col cursor-pointer"
               >
                 <div className="flex-1">
                   <CardHeader className="h-full px-1">

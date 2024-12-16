@@ -47,7 +47,7 @@ import {
   endOfMonth,
 } from "date-fns";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useReceiptStore } from "@/providers/receiptStore";
+// import { useReceiptStore } from "@/providers/receiptStore";
 import { useReactToPrint } from "react-to-print";
 import { PrintSummaryTotalReceipts } from "./PrintSummary";
 import { PrintReceipt } from "./PrintReceipt";
@@ -64,6 +64,7 @@ type DateFilter =
 type ReceiptsTableProps = {
   selectedReceiptId?: number;
   initialProductId?: string;
+  onSelectReceipt?: (id: number) => void;
 };
 
 // Update the helper functions
@@ -81,8 +82,9 @@ const countItemsByQuantity = (receipt: Receipt) => {
 };
 
 export function ReceiptsTable({
-  selectedReceiptId: initialReceiptId,
+  selectedReceiptId,
   initialProductId,
+  onSelectReceipt,
 }: ReceiptsTableProps) {
   // 1. All useState hooks
   const [date, setDate] = useState<Date>();
@@ -100,9 +102,9 @@ export function ReceiptsTable({
 
   // 3. All store hooks
   const user = useAuthStore((state) => state.user);
-  const setSelectedReceiptId = useReceiptStore(
-    (state) => state.setSelectedReceiptId
-  );
+  // const setSelectedReceiptId = useReceiptStore(
+  //   (state) => state.setSelectedReceiptId
+  // );
 
   // 4. All react-to-print hooks (MOVE THESE BEFORE ANY CONDITIONAL LOGIC)
   const handlePrint = useReactToPrint({
@@ -242,7 +244,7 @@ export function ReceiptsTable({
   const filteredTotal = getTotalForFilteredReceipts(filteredReceipts);
 
   // Add console log to check when component renders
-  console.log("ReceiptsTable render, selectedReceiptId:", initialReceiptId);
+  console.log("ReceiptsTable render, selectedReceiptId:", selectedReceiptId);
 
   const columns: ColumnDef<Receipt>[] = [
     {
@@ -311,6 +313,11 @@ export function ReceiptsTable({
       ),
     },
   ];
+
+  const handleRowClick = (id: number) => {
+    console.log("Row clicked, id:", id);
+    onSelectReceipt?.(id);
+  };
 
   return (
     <>
@@ -447,7 +454,7 @@ export function ReceiptsTable({
           <ReceiptsTableContent
             data={filteredReceipts}
             columns={columns}
-            setSelectedReceiptId={setSelectedReceiptId}
+            setSelectedReceiptId={handleRowClick}
           />
         </div>
       </Card>

@@ -383,6 +383,13 @@ export function FavoriteOrdersTable({
                       selected={date}
                       onSelect={setDate}
                       initialFocus
+                      className="rounded-md border"
+                      classNames={{
+                        day_today:
+                          "text-orange-900 border-orange-600 hover:bg-orange-100 ",
+                        day_selected:
+                          "bg-orange-600 text-white hover:bg-orange-600 focus:bg-orange-600",
+                      }}
                     />
                   </PopoverContent>
                 </Popover>

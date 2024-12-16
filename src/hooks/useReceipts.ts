@@ -4,6 +4,8 @@ import { InsertTables, Receipt } from '../../types';
 
 export const fetchAllReceipts = () => {
     // const queryClient = useQueryClient();
+
+
     return useQuery({
       queryKey: ['receipts'],
       queryFn: async () => {
@@ -49,6 +51,10 @@ export const fetchAllReceipts = () => {
 
   // order by id
 export const useFetchReceiptById = (receiptId: number | null) => {
+  if (!receiptId) {
+    return { data: null, error: null };
+  }
+
   return useQuery({
     queryKey: ['receipt', receiptId],
     queryFn: async () => {

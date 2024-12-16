@@ -34,7 +34,7 @@ export function Navbar() {
                       Kasa
                     </Link>
                     <Link to="/store/orders" className="hover:text-gray-300">
-                      Objednávky
+                      Prodejna
                     </Link>
 
                     {/* <Link to="/cart" className="hover:text-gray-300">
