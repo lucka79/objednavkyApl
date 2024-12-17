@@ -33,7 +33,7 @@ export function ReceiptDetailsDialog() {
   const {
     data: receipts,
     error,
-    isLoading,
+    // isLoading,
     // refetch,
   } = useFetchReceiptById(selectedReceiptId ?? null);
 
@@ -43,7 +43,7 @@ export function ReceiptDetailsDialog() {
 
   //
 
-  if (isLoading) return <div>Loading receipt details...</div>;
+  // if (isLoading) return <div>Loading receipt details...</div>;
   if (error) return <div>Error loading receipt details</div>;
 
   return (
