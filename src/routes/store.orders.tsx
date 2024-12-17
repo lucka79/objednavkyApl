@@ -8,6 +8,7 @@ import { StoreOrderDetailsDialog } from "@/components/StoreOrderDetailsDialog";
 import { Button } from "@/components/ui/button";
 import { ReturnsTable } from "@/components/ReturnsTable";
 import { ReturnDetailsDialog } from "@/components/ReturnDetailsDialog";
+import { ProductionsTable } from "@/components/ProductionsTable";
 
 export const Route = createFileRoute("/store/orders")({
   component: StoreOrders,
@@ -16,7 +17,9 @@ export const Route = createFileRoute("/store/orders")({
 function StoreOrders() {
   const user = useAuthStore((state) => state.user);
   const [selectedProductId] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<"orders" | "returns">("orders");
+  const [activeView, setActiveView] = useState<
+    "orders" | "returns" | "productions"
+  >("orders");
   const [selectedReturnId, setSelectedReturnId] = useState<number | null>(null);
 
   if (user?.role !== "store") {
@@ -39,6 +42,13 @@ function StoreOrders() {
         >
           Vratky
         </Button>
+        <Button
+          variant={activeView === "productions" ? "outline" : "secondary"}
+          onClick={() => setActiveView("productions")}
+          className="cursor-pointer"
+        >
+          Výroby
+        </Button>
       </nav>
 
       <main className="flex-1 grid h-full w-full items-start gap-4 p-2 sm:px-6 sm:py-0 md:gap-8 lg:grid-cols-2 xl:grid-cols-2">
@@ -48,6 +58,7 @@ function StoreOrders() {
               <StoreOrdersTable selectedProductId={selectedProductId} />
             )}
             {activeView === "returns" && <ReturnsTable />}
+            {activeView === "productions" && <ProductionsTable />}
           </div>
         </div>
         <div className="h-full overflow-y-auto overflow-x-hidden">

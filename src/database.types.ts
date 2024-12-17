@@ -244,6 +244,80 @@ export type Database = {
           },
         ]
       }
+      production_items: {
+        Row: {
+          created_at: string
+          id: number
+          price: number | null
+          product_id: number
+          production_id: number
+          quantity: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          price?: number | null
+          product_id: number
+          production_id: number
+          quantity?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          price?: number | null
+          product_id?: number
+          production_id?: number
+          quantity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_items_production_id_fkey"
+            columns: ["production_id"]
+            isOneToOne: false
+            referencedRelation: "productions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      productions: {
+        Row: {
+          created_at: string
+          date: string
+          id: number
+          total: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: number
+          total?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: number
+          total?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "productions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           active: boolean
@@ -256,6 +330,7 @@ export type Database = {
           price: number
           priceBuyer: number
           priceMobil: number
+          seller_id: string | null
           store: boolean
           vat: number
         }
@@ -270,6 +345,7 @@ export type Database = {
           price?: number
           priceBuyer?: number
           priceMobil?: number
+          seller_id?: string | null
           store?: boolean
           vat?: number
         }
@@ -284,6 +360,7 @@ export type Database = {
           price?: number
           priceBuyer?: number
           priceMobil?: number
+          seller_id?: string | null
           store?: boolean
           vat?: number
         }
@@ -293,6 +370,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -448,7 +532,7 @@ export type Database = {
           price: number | null
           product_id: number
           quantity: number | null
-          return_id: number | null
+          return_id: number
         }
         Insert: {
           created_at?: string
@@ -456,7 +540,7 @@ export type Database = {
           price?: number | null
           product_id: number
           quantity?: number | null
-          return_id?: number | null
+          return_id: number
         }
         Update: {
           created_at?: string
@@ -464,7 +548,7 @@ export type Database = {
           price?: number | null
           product_id?: number
           quantity?: number | null
-          return_id?: number | null
+          return_id?: number
         }
         Relationships: [
           {

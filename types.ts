@@ -178,3 +178,23 @@ export interface StoredItem {
   product: Product;
   quantity: number;
 }
+
+export interface ProductionItem {
+  id: number;
+  production_id: number;
+  product_id: number;
+  product: Product;
+  quantity: number;
+  price: number;
+
+}
+
+export type Production = {
+  id: number;
+  created_at: string;
+  date: string;
+  total: number;
+  user_id: string;
+  user: Profile;
+  production_items: ProductionItem[];
+}
