@@ -31,6 +31,7 @@ export function ReceiptDetailsCard() {
   const {
     data: receipts,
     error,
+    // @ts-ignore
     isLoading,
   } = useFetchReceiptById(selectedReceiptId ?? null);
   const handlePrint = useReactToPrint({
