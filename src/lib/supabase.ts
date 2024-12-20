@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { create } from 'zustand'
+import { QueryClient } from '@tanstack/react-query'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -36,6 +37,9 @@ interface AuthState {
   fetchProfile: () => Promise<void>
   createUser: (userData: UserData) => Promise<{ user: any, session: any }>
 }
+
+// Create a singleton query client instance
+const queryClient = new QueryClient()
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
@@ -90,6 +94,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         phone_confirm: true,
         user_metadata: {
           full_name: userData.full_name,
+          phone: userData.phone,
+          role: userData.role,
         }
       });
 
@@ -99,15 +105,20 @@ export const useAuthStore = create<AuthState>((set) => ({
       // Create profile with the auth user's ID
       const { error: profileError } = await supabase
         .from('profiles')
-        .insert({
+        .upsert({
           id: authData.user.id,
           full_name: userData.full_name,
           phone: userData.phone,
           avatar_url: '',
           role: userData.role
+        }, {
+          onConflict: 'id'
         });
 
       if (profileError) throw profileError;
+
+      // Add this line before the return
+      await queryClient.invalidateQueries({ queryKey: ['profiles'] });
 
       return { user: authData.user, session: null };
     } catch (error) {

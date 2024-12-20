@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuthStore } from "../lib/supabase";
 import { UserRole } from "../../types";
+import { useToast } from "@/hooks/use-toast";
 
 const roles = [
   "buyer",
@@ -13,9 +14,11 @@ const roles = [
 
 export function CreateUserForm() {
   const createUser = useAuthStore((state) => state.createUser);
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const { toast } = useToast();
 
   // Reset form when component mounts
   useEffect(() => {
@@ -43,7 +46,10 @@ export function CreateUserForm() {
       // Optional: Reset any form-related state if you have any
       setError(null);
 
-      alert("User created successfully!");
+      toast({
+        title: "Success",
+        description: "User created successfully",
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
