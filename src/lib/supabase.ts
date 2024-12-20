@@ -32,7 +32,7 @@ interface AuthState {
   user: Profile | null
   isLoading: boolean
   signUp: (email: string, password: string, full_name: string) => Promise<void>
-  signIn: (email: string, password: string) => Promise<void>
+  signIn: (identifier: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   fetchProfile: () => Promise<void>
   createUser: (userData: UserData) => Promise<{ user: any, session: any }>
@@ -56,16 +56,55 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user: { id: data.user.id, full_name, avatar_url: '', role: 'user' } })
     }
   },
-  signIn: async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
-    if (data.user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', data.user.id)
-        .single()
-      set({ user: profile })
+  signIn: async (identifier: string, password: string) => {
+    const isEmail = identifier.includes('@');
+    
+    // Format phone number if it's not an email
+    let formattedIdentifier = identifier;
+    if (!isEmail) {
+      // Remove any spaces, dashes, or parentheses
+      let cleaned = identifier.replace(/\D/g, '');
+      
+      // Handle Czech numbers
+      if (cleaned.startsWith('420')) {
+        cleaned = cleaned.substring(3); // Remove 420 if it exists
+      } else if (cleaned.startsWith('00420')) {
+        cleaned = cleaned.substring(5); // Remove 00420 if it exists
+      }
+      
+      // Always format to international format
+      formattedIdentifier = `+420${cleaned}`;
+      
+      console.log('Formatted phone number:', formattedIdentifier);
+    }
+
+    const credentials = isEmail 
+      ? { email: identifier, password }
+      : { phone: formattedIdentifier, password };
+    
+    console.log('Attempting login with:', credentials);
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword(credentials);
+      if (error) {
+        console.error('Auth error details:', error);
+        if (error.message === 'Invalid login credentials') {
+          throw new Error('User not found or incorrect password');
+        }
+        throw error;
+      }
+      
+      if (data.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+        set({ user: profile });
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
     }
   },
   signOut: async () => {

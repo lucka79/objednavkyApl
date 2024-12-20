@@ -129,7 +129,7 @@ export function CreateUserForm() {
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Buyer" />
+                    <SelectValue placeholder="Vyberte..." />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
