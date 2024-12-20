@@ -1,7 +1,26 @@
-import { useState, useRef, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { useAuthStore } from "../lib/supabase";
-import { UserRole } from "../../types";
+
 import { useToast } from "@/hooks/use-toast";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
 const roles = [
   "buyer",
@@ -12,130 +31,128 @@ const roles = [
   "admin",
 ] as const;
 
+const formSchema = z.object({
+  full_name: z.string().min(1, "Full name is required"),
+  phone: z.string().min(1, "Phone is required"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  role: z.enum(roles, {
+    required_error: "Please select a role",
+  }),
+});
+
 export function CreateUserForm() {
   const createUser = useAuthStore((state) => state.createUser);
-
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
   const { toast } = useToast();
 
-  // Reset form when component mounts
-  useEffect(() => {
-    formRef.current?.reset();
-  }, []);
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      full_name: "",
+      phone: "",
+      password: "",
+      role: undefined,
+    },
+  });
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-
-    const formData = new FormData(e.currentTarget);
-
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      await createUser({
-        phone: formData.get("phone") as string,
-        password: formData.get("password") as string,
-        full_name: formData.get("full_name") as string,
-        role: formData.get("role") as UserRole,
-      });
-
-      // Clear form after successful creation
-      formRef.current?.reset();
-
-      // Optional: Reset any form-related state if you have any
-      setError(null);
-
+      await createUser(values);
+      form.reset();
       toast({
         title: "Success",
         description: "User created successfully",
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setIsLoading(false);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: err instanceof Error ? err.message : "An error occurred",
+      });
     }
-  };
+  }
 
   return (
-    <form
-      ref={formRef}
-      onSubmit={handleSubmit}
-      className="space-y-4"
-      autoComplete="off"
-    >
-      {error && (
-        <div className="bg-red-100 text-red-700 p-3 rounded">{error}</div>
-      )}
-
-      <div>
-        <label htmlFor="full_name" className="block text-sm font-medium">
-          Full Name
-        </label>
-        <input
-          type="text"
-          id="full_name"
-          name="full_name"
-          required
-          autoComplete="off"
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="phone" className="block text-sm font-medium">
-          Phone
-        </label>
-        <input
-          type="tel"
-          id="phone"
-          name="phone"
-          required
-          autoComplete="off"
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="role" className="block text-sm font-medium">
-          Role
-        </label>
-        <select
-          id="role"
-          name="role"
-          required
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-        >
-          <option value="">Select a role</option>
-          {roles.map((role) => (
-            <option key={role} value={role}>
-              {role.charAt(0).toUpperCase() + role.slice(1)}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label htmlFor="password" className="block text-sm font-medium">
-          Password
-        </label>
-        <input
-          type="password"
-          id="password"
-          name="password"
-          required
-          autoComplete="new-password"
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-        />
-      </div>
-
-      <button
-        type="submit"
-        disabled={isLoading}
-        className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+    <Form {...form}>
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="space-y-4"
+        autoComplete="off"
       >
-        {isLoading ? "Creating..." : "Create User"}
-      </button>
-    </form>
+        <FormField
+          control={form.control}
+          name="full_name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Full Name</FormLabel>
+              <FormControl>
+                <Input {...field} autoComplete="off" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="phone"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Phone</FormLabel>
+              <FormControl>
+                <Input type="tel" {...field} autoComplete="off" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Password</FormLabel>
+              <FormControl>
+                <Input type="password" {...field} autoComplete="new-password" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="role"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Role</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Buyer" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {roles.map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {role.charAt(0).toUpperCase() + role.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <Button
+          type="submit"
+          className="w-full bg-orange-600 text-white hover:bg-orange-700 focus:bg-orange-700"
+          disabled={form.formState.isSubmitting}
+        >
+          {form.formState.isSubmitting ? "Creating..." : "Create User"}
+        </Button>
+      </form>
+    </Form>
   );
 }
