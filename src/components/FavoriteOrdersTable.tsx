@@ -61,6 +61,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { supabase } from "@/lib/supabase";
+import { Input } from "@/components/ui/input";
 
 const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
 
@@ -167,7 +169,7 @@ interface FavoriteOrdersTableProps {
 export function FavoriteOrdersTable({
   selectedProductId: initialProductId,
 }: FavoriteOrdersTableProps) {
-  const { toast } = useToast(); // Add this line
+  const { toast } = useToast();
 
   const { data: orders, error, isLoading } = useFavoriteOrders();
   const { data: products } = fetchActiveProducts();
@@ -179,6 +181,7 @@ export function FavoriteOrdersTable({
   );
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [selectedDay, setSelectedDay] = useState<string>("all");
+  const [userNameFilter, setUserNameFilter] = useState("");
 
   const { mutateAsync: insertOrder } = useInsertOrder();
   const { mutateAsync: insertOrderItems } = useInsertOrderItems();
@@ -195,10 +198,21 @@ export function FavoriteOrdersTable({
 
     // Then filter by selected product
     if (selectedProductId && selectedProductId !== "all") {
-      return order.favorite_items?.some(
-        (item: FavoriteItem) => item.product_id.toString() === selectedProductId
-      );
+      if (
+        !order.favorite_items?.some(
+          (item: FavoriteItem) =>
+            item.product_id.toString() === selectedProductId
+        )
+      )
+        return false;
     }
+
+    // Finally filter by user name
+    if (userNameFilter) {
+      const userName = order.user?.full_name?.toLowerCase() || "";
+      if (!userName.includes(userNameFilter.toLowerCase())) return false;
+    }
+
     return true;
   });
 
@@ -214,6 +228,32 @@ export function FavoriteOrdersTable({
 
     try {
       for (const favoriteOrder of filteredOrders) {
+        // Check for existing order
+        const { data: existingOrder, error: checkError } = await supabase
+          .from("orders")
+          .select(
+            `
+            *,
+            user:profiles(full_name)
+          `
+          )
+          .eq("user_id", favoriteOrder.user_id)
+          .eq("date", format(date, "yyyy-MM-dd"))
+          .maybeSingle();
+
+        if (checkError) throw checkError;
+
+        if (existingOrder) {
+          toast({
+            title: "Warning",
+            description: `Order already exists for ${existingOrder.user?.full_name} on ${format(date, "PP")}`,
+            variant: "destructive",
+            duration: 3000,
+            style: { zIndex: 9999 },
+          });
+          continue; // Skip this order and continue with the next one
+        }
+
         if (!favoriteOrder.favorite_items?.length) {
           console.log(
             `Skipping order for user ${favoriteOrder.user_id} - no items`
@@ -288,6 +328,8 @@ export function FavoriteOrdersTable({
       toast({
         title: "Success",
         description: `Created ${filteredOrders.length} orders for ${format(date, "PP")}`,
+        duration: 3000,
+        style: { zIndex: 9999 },
       });
     } catch (error) {
       console.error("Error creating orders:", error);
@@ -295,6 +337,8 @@ export function FavoriteOrdersTable({
         title: "Error",
         description: "Failed to create orders",
         variant: "destructive",
+        duration: 3000,
+        style: { zIndex: 9999 },
       });
     }
   };
@@ -329,36 +373,47 @@ export function FavoriteOrdersTable({
             </Tabs>
 
             <div className="flex justify-between items-center gap-2">
-              <Select
-                value={selectedProductId}
-                onValueChange={setSelectedProductId}
-              >
-                <SelectTrigger className="w-full max-w-sm">
-                  <SelectValue placeholder="Filter by product..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Products</SelectItem>
-                  {products?.map((product) => (
-                    <SelectItem key={product.id} value={product.id.toString()}>
-                      <div className="flex justify-between items-center w-full">
-                        <span className="mr-2">{product.name}</span>
-                        <Badge variant="outline">
-                          {
-                            filteredOrders.filter((order) =>
-                              order.favorite_items?.some(
-                                (item: FavoriteItem) =>
-                                  item.product_id.toString() ===
-                                  product.id.toString()
-                              )
-                            ).length
-                          }{" "}
-                          orders
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2 flex-1">
+                <Select
+                  value={selectedProductId}
+                  onValueChange={setSelectedProductId}
+                >
+                  <SelectTrigger className="w-full max-w-sm">
+                    <SelectValue placeholder="Filter by product..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Products</SelectItem>
+                    {products?.map((product) => (
+                      <SelectItem
+                        key={product.id}
+                        value={product.id.toString()}
+                      >
+                        <div className="flex justify-between items-center w-full">
+                          <span className="mr-2">{product.name}</span>
+                          <Badge variant="outline">
+                            {
+                              filteredOrders.filter((order) =>
+                                order.favorite_items?.some(
+                                  (item: FavoriteItem) =>
+                                    item.product_id.toString() ===
+                                    product.id.toString()
+                                )
+                              ).length
+                            }{" "}
+                            orders
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  placeholder="Filter by user name..."
+                  value={userNameFilter}
+                  onChange={(e) => setUserNameFilter(e.target.value)}
+                  className="max-w-xs"
+                />
+              </div>
               <div className="flex gap-2 items-center">
                 <Popover>
                   <PopoverTrigger asChild>
@@ -381,14 +436,21 @@ export function FavoriteOrdersTable({
                     <Calendar
                       mode="single"
                       selected={date}
-                      onSelect={setDate}
+                      onSelect={(date) => date && setDate(date)}
+                      disabled={(date) => {
+                        const yesterday = new Date();
+                        yesterday.setDate(yesterday.getDate() - 1);
+
+                        const nextMonth = new Date();
+                        nextMonth.setMonth(nextMonth.getMonth() + 1, 0);
+
+                        return date < yesterday || date > nextMonth;
+                      }}
                       initialFocus
                       className="rounded-md border"
                       classNames={{
-                        day_today:
-                          "text-orange-900 border-orange-600 hover:bg-orange-100 ",
                         day_selected:
-                          "bg-orange-600 text-white hover:bg-orange-600 focus:bg-orange-600",
+                          "bg-orange-800 text-white hover:bg-orange-700 focus:bg-orange-700",
                       }}
                     />
                   </PopoverContent>
@@ -396,7 +458,8 @@ export function FavoriteOrdersTable({
                 <Button
                   onClick={createOrdersFromFavorites}
                   disabled={!date || filteredOrders.length === 0}
-                  className="gap-2"
+                  className="gap-2 bg-orange-600 text-white"
+                  variant="outline"
                 >
                   <CirclePlus className="h-4 w-4" />
                   Create Orders ({filteredOrders.length})

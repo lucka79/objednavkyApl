@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase, useAuthStore } from '@/lib/supabase';
 import { InsertTables, Order, OrderItem, UpdateTables } from '../../types';
+import { useToast } from "@/hooks/use-toast";
 
 export const useOrders = () => {
     return useQuery<Order[], Error>({
@@ -126,9 +127,28 @@ return data
 export const useInsertOrder = () => {
   const queryClient = useQueryClient();
   const { user } = useAuthStore.getState();
+  const { toast } = useToast();
 
   return useMutation({
     async mutationFn(data: InsertTables<"orders">) {
+      // Check for existing order with user details
+      const { data: existingOrder, error: checkError } = await supabase
+        .from("orders")
+        .select(`
+          *,
+          user:profiles(full_name)
+        `)
+        .eq('user_id', data.user_id || user?.id)
+        .eq('date', data.date)
+        .maybeSingle();
+
+      if (checkError) throw new Error(checkError.message);
+      
+      if (existingOrder) {
+        const userName = existingOrder.user?.full_name || 'Unknown user';
+        throw new Error(`Order already exists for ${userName} on ${new Date(data.date).toLocaleDateString()}`);
+      }
+
       const orderData = {
         ...data,
         user_id: data.user_id || user?.id
@@ -144,6 +164,13 @@ export const useInsertOrder = () => {
         throw new Error(error.message);
       }
       return newOrder;
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message
+      });
     },
     async onSuccess() {
       await queryClient.invalidateQueries({ queryKey: ["orders"] });

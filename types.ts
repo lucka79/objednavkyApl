@@ -55,6 +55,7 @@ export type Product = {
   export type PaidBy = 'Hotově' | 'Karta' | 'Příkazem';
 
   // export type Day = "Po" | "Út" | "St" | "Čt" | "Pá" | "So" | "Ne";
+  export type UserRole = 'buyer' | 'driver' | 'user' | 'store' | 'mobil' | 'expedition' | 'admin';
   
   export type Order = {
     id: number;

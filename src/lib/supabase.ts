@@ -3,8 +3,10 @@ import { create } from 'zustand'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_KEY  // Add this
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
 type UserRole = 'admin' | 'expedition' | 'driver' | 'user' | 'mobil' | 'store' |'buyer'
 
@@ -16,6 +18,15 @@ interface Profile {
   role: UserRole
 }
 
+interface UserData {
+  full_name: string
+  phone: string
+  email?: string
+  password: string
+  role: UserRole
+  address?: string  // Optional since it's only used for buyers
+}
+
 interface AuthState {
   user: Profile | null
   isLoading: boolean
@@ -23,6 +34,7 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   fetchProfile: () => Promise<void>
+  createUser: (userData: UserData) => Promise<{ user: any, session: any }>
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -65,6 +77,42 @@ export const useAuthStore = create<AuthState>((set) => ({
         .eq('id', user.id)
         .single()
       set({ user: profile })
+    }
+  },
+  createUser: async (userData: UserData) => {
+    try {
+      console.log('Creating user with data:', userData);
+      
+      // Create user with admin API
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        phone: userData.phone,
+        password: userData.password,
+        phone_confirm: true,
+        user_metadata: {
+          full_name: userData.full_name,
+        }
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('No user returned from auth creation');
+
+      // Create profile with the auth user's ID
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          full_name: userData.full_name,
+          phone: userData.phone,
+          avatar_url: '',
+          role: userData.role
+        });
+
+      if (profileError) throw profileError;
+
+      return { user: authData.user, session: null };
+    } catch (error) {
+      console.error('Caught error in createUser:', error);
+      throw error;
     }
   },
 }))

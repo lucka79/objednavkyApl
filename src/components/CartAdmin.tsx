@@ -297,7 +297,10 @@ export default function CartAdmin() {
               console.error("Checkout failed:", error);
               toast({
                 title: "Checkout Failed",
-                description: "There was an error processing your order.",
+                description:
+                  error instanceof Error
+                    ? error.message
+                    : "There was an error processing your order.",
                 variant: "destructive",
               });
             }

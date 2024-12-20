@@ -10,6 +10,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { CreateUserForm } from "@/components/CreateUserForm";
+import { CirclePlus } from "lucide-react";
+import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/admin/")({
   component: AdminDashboard,
@@ -35,6 +39,22 @@ function AdminDashboard() {
 
   return (
     <Card>
+      <div>
+        {user?.role === "admin" && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <CirclePlus className="h-4 w-4 mr-2" />
+                Nový uživatel
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <CreateUserForm />
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+
       <CardHeader>
         <CardTitle>Admin Dashboard</CardTitle>
       </CardHeader>

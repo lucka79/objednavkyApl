@@ -9,6 +9,38 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      buyers: {
+        Row: {
+          created_at: string | null
+          full_name: string
+          id: string
+          password: string
+          phone: string
+        }
+        Insert: {
+          created_at?: string | null
+          full_name: string
+          id?: string
+          password: string
+          phone: string
+        }
+        Update: {
+          created_at?: string | null
+          full_name?: string
+          id?: string
+          password?: string
+          phone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "buyers_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string
@@ -391,6 +423,7 @@ export type Database = {
           full_name: string | null
           id: string
           paid_by: Database["public"]["Enums"]["paidByType"] | null
+          phone: string | null
           role: Database["public"]["Enums"]["groupUser"]
           shortcut: string | null
           updated_at: string | null
@@ -406,6 +439,7 @@ export type Database = {
           full_name?: string | null
           id: string
           paid_by?: Database["public"]["Enums"]["paidByType"] | null
+          phone?: string | null
           role?: Database["public"]["Enums"]["groupUser"]
           shortcut?: string | null
           updated_at?: string | null
@@ -421,6 +455,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           paid_by?: Database["public"]["Enums"]["paidByType"] | null
+          phone?: string | null
           role?: Database["public"]["Enums"]["groupUser"]
           shortcut?: string | null
           updated_at?: string | null

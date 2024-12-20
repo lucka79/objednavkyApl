@@ -120,6 +120,7 @@ export function FavoriteDetailsDialog({
                             onCheckedChange={(checked) =>
                               handleDayToggle(day, checked as boolean)
                             }
+                            className="border-orange-800 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
                           />
                           <label
                             htmlFor={`day-${day}`}
