@@ -1,5 +1,5 @@
 // Cart.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useCartStore } from "@/providers/cartStore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,13 +56,19 @@ export default function CartAdmin() {
   const [date, setDate] = useState<Date>(tomorrow);
 
   const [selectedUserId, setSelectedUserId] = useState<string>("");
-  const { data: subsrciberUsers } = useSubsrciberUsers();
+  const { data: subsrciberUsers, isLoading: isLoadingUsers } =
+    useSubsrciberUsers();
   const { data: selectedUser } = useSelectedUser(selectedUserId);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredUsers = subsrciberUsers?.filter((user) =>
-    user.full_name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = useMemo(() => {
+    if (!subsrciberUsers) return [];
+    if (!searchQuery) return subsrciberUsers;
+
+    return subsrciberUsers.filter((user) =>
+      user.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [subsrciberUsers, searchQuery]);
 
   useEffect(() => {
     if (user && user.role !== "admin") {
@@ -110,12 +116,17 @@ export default function CartAdmin() {
                       className="mb-2"
                     />
                   </div>
-                  {filteredUsers?.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.full_name}
-                    </SelectItem>
-                  ))}
-                  {filteredUsers?.length === 0 && (
+                  {isLoadingUsers ? (
+                    <div className="px-2 py-2 text-sm text-muted-foreground">
+                      Načítání...
+                    </div>
+                  ) : filteredUsers.length > 0 ? (
+                    filteredUsers.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.full_name || "Unnamed User"}
+                      </SelectItem>
+                    ))
+                  ) : (
                     <div className="px-2 py-2 text-sm text-muted-foreground">
                       Uživatel nenalezen
                     </div>

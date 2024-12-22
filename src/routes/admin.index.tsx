@@ -65,7 +65,8 @@ function AdminDashboard() {
               <TableHead>ID</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>Adresa</TableHead>
+              <TableHead>Phone</TableHead>
+              <TableHead>Address</TableHead>
               <TableHead>Role</TableHead>
             </TableRow>
           </TableHeader>
@@ -75,6 +76,7 @@ function AdminDashboard() {
                 <TableCell>{user.id}</TableCell>
                 <TableCell>{user.full_name}</TableCell>
                 <TableCell>{user.email}</TableCell>
+                <TableCell>{user.phone}</TableCell>
                 <TableCell>{user.address}</TableCell>
                 <TableCell>{user.role}</TableCell>
               </TableRow>

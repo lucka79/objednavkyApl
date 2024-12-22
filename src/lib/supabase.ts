@@ -32,7 +32,8 @@ interface AuthState {
   user: Profile | null
   isLoading: boolean
   signUp: (email: string, password: string, full_name: string) => Promise<void>
-  signIn: (identifier: string, password: string) => Promise<void>
+  signInWithEmail: (email: string, password: string) => Promise<UserRole>
+  signInWithPhone: (phone: string, password: string) => Promise<UserRole>
   signOut: () => Promise<void>
   fetchProfile: () => Promise<void>
   createUser: (userData: UserData) => Promise<{ user: any, session: any }>
@@ -56,55 +57,111 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user: { id: data.user.id, full_name, avatar_url: '', role: 'user' } })
     }
   },
-  signIn: async (identifier: string, password: string) => {
-    const isEmail = identifier.includes('@');
-    
-    // Format phone number if it's not an email
-    let formattedIdentifier = identifier;
-    if (!isEmail) {
-      // Remove any spaces, dashes, or parentheses
-      let cleaned = identifier.replace(/\D/g, '');
-      
-      // Handle Czech numbers
-      if (cleaned.startsWith('420')) {
-        cleaned = cleaned.substring(3); // Remove 420 if it exists
-      } else if (cleaned.startsWith('00420')) {
-        cleaned = cleaned.substring(5); // Remove 00420 if it exists
-      }
-      
-      // Always format to international format
-      formattedIdentifier = `+420${cleaned}`;
-      
-      console.log('Formatted phone number:', formattedIdentifier);
-    }
-
-    const credentials = isEmail 
-      ? { email: identifier, password }
-      : { phone: formattedIdentifier, password };
-    
-    console.log('Attempting login with:', credentials);
-    
+  signInWithEmail: async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword(credentials);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
       if (error) {
         console.error('Auth error details:', error);
         if (error.message === 'Invalid login credentials') {
-          throw new Error('User not found or incorrect password');
+          throw new Error('Nesprávné přihlašovací údaje');
         }
         throw error;
       }
-      
-      if (data.user) {
-        const { data: profile } = await supabase
+
+      if (!data.user) {
+        throw new Error('Přihlášení se nezdařilo');
+      }
+
+      // Fetch user profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profileError || !profile) {
+        throw new Error('Profil nenalezen');
+      }
+
+      set({ user: profile });
+      return profile.role;
+    } catch (error) {
+      console.error('Email login error:', error);
+      throw error;
+    }
+  },
+  signInWithPhone: async (phone: string, password: string) => {
+    try {
+      console.log('🔍 Looking up user by phone:', phone);
+
+      // First try without the country code
+      let { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('phone', phone.replace('+420', ''))
+        .single();
+
+      // If not found, try with the country code
+      if (!profile) {
+        console.log('🔄 Retrying with full phone number:', phone);
+        ({ data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', data.user.id)
-          .single();
-        set({ user: profile });
+          .eq('phone', phone)
+          .single());
       }
+
+      if (profileError) {
+        console.error('❌ Profile lookup error:', profileError);
+        throw new Error('Chyba při hledání uživatele');
+      }
+
+      if (!profile) {
+        console.error('❌ No profile found for phone:', phone);
+        throw new Error('Uživatel s tímto telefonem nenalezen');
+      }
+
+      console.log('✅ Found profile:', {
+        id: profile.id,
+        phone: profile.phone,
+        email: profile.email,
+        role: profile.role
+      });
+
+      // Use the profile's email to authenticate
+      const { data, error } = await supabase.auth.signInWithPassword({
+        phone: profile.phone,
+        password: password
+      });
+
+      if (error) {
+        console.error('❌ Auth error:', error);
+        switch (error.message) {
+          case 'Invalid login credentials':
+            throw new Error('Nesprávné heslo');
+          default:
+            throw new Error(`Chyba přihlášení: ${error.message}`);
+        }
+      }
+
+      if (!data.user) {
+        throw new Error('Přihlášení se nezdařilo');
+      }
+
+      console.log('🎉 Login successful');
+      set({ user: profile });
+      return profile.role;
+
     } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+      console.error('❌ Phone login error:', error);
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Neočekávaná chyba při přihlášení');
     }
   },
   signOut: async () => {
