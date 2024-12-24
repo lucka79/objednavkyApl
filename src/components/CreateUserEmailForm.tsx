@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
-interface CreateUserFormProps {
+interface CreateUserEmailFormProps {
   onSuccess: () => void;
 }
 
@@ -37,30 +37,32 @@ const roles = [
 
 const formSchema = z.object({
   full_name: z.string().min(1, "Full name is required"),
-  phone: z.string().min(1, "Phone is required"),
+  email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   role: z.enum(roles, {
     required_error: "Please select a role",
   }),
+  phone: z.string().default(""),
 });
 
-export function CreateUserForm({ onSuccess }: CreateUserFormProps) {
-  const createUser = useAuthStore((state) => state.createUser);
+export function CreateUserEmailForm({ onSuccess }: CreateUserEmailFormProps) {
+  const createUserEmail = useAuthStore((state) => state.createUserEmail);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       full_name: "",
-      phone: "",
+      email: "",
       password: "",
       role: undefined,
+      phone: "",
     },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      await createUser(values);
+      await createUserEmail(values);
       form.reset();
       toast({
         title: "Success",
@@ -99,12 +101,12 @@ export function CreateUserForm({ onSuccess }: CreateUserFormProps) {
 
         <FormField
           control={form.control}
-          name="phone"
+          name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Phone</FormLabel>
+              <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input type="tel" {...field} autoComplete="off" />
+                <Input type="email" {...field} autoComplete="off" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -134,7 +136,7 @@ export function CreateUserForm({ onSuccess }: CreateUserFormProps) {
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Vyberte..." />
+                    <SelectValue placeholder="Select..." />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>

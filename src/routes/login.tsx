@@ -21,7 +21,7 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const signInWithEmail = useAuthStore((state) => state.signInWithEmail);
   const signInWithPhone = useAuthStore((state) => state.signInWithPhone);
-  const user = useAuthStore((state) => state.user);
+  // const user = useAuthStore((state) => state.user);
   const navigate = useNavigate();
   const { toast } = useToast();
 
