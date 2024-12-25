@@ -6,19 +6,22 @@ interface SubscriberUser {
   full_name: string;
 }
 
-export const useFetchAllProfiles = () => {
+
+export const useUsers = () => {
   return useQuery({
-    queryKey: ["profiles"],
+    queryKey: ["users"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("*");
+        .select("*")
+        .order('active', { ascending: false })
+        .order('full_name', { ascending: true });
       
       if (error) throw error;
       return data;
     },
   });
-}; 
+};
 
 export const useMobileUsers = () => {
   return useQuery({
@@ -42,8 +45,10 @@ export const useSubsrciberUsers = () => {
       const { data, error } = await supabase
         .from("profiles")
         .select("id, full_name")
-        .in("role", ["buyer", "mobil", "store", "user"])
-        .eq("active", true);
+        .in("role", ["buyer", "mobil", "store"])
+        .eq("active", true)
+        .order("full_name", { ascending: true })
+
       
       if (error) throw error;
       return data || [];
@@ -95,3 +100,4 @@ export const useSelectedUser = (userId: string) => {
     enabled: !!userId, // Only run query if userId exists
   });
 };
+

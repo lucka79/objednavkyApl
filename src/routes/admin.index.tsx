@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useAuthStore, supabase } from "../lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -21,7 +21,7 @@ import {
   DialogDescription,
   DialogHeader,
 } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useState, Suspense, useMemo } from "react";
 import {
   createColumnHelper,
   flexRender,
@@ -38,6 +38,8 @@ import {
 } from "@/components/ui/select";
 import { UserRole } from "../../types";
 import { CreateUserEmailForm } from "@/components/CreateUserEmailForm";
+import { useUsers } from "@/hooks/useProfiles";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export const Route = createFileRoute("/admin/")({
   component: AdminDashboard,
@@ -48,21 +50,27 @@ function AdminDashboard() {
   const [openMobile, setOpenMobile] = useState(false);
   const [openEmail, setOpenEmail] = useState(false);
   const queryClient = useQueryClient();
-
-  const { data: users, isLoading } = useQuery({
-    queryKey: ["users"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("*");
-      if (error) throw error;
-      return data;
-    },
-  });
+  const { data: users, isLoading } = useUsers();
 
   const updateProfile = useMutation({
-    mutationFn: async ({ id, address }: { id: string; address: string }) => {
+    mutationFn: async ({
+      id,
+      address,
+      ico,
+      mo_partners,
+    }: {
+      id: string;
+      address?: string;
+      ico?: string;
+      mo_partners?: string;
+    }) => {
       const { error } = await supabase
         .from("profiles")
-        .update({ address })
+        .update({
+          ...(address && { address }),
+          ...(ico && { ico }),
+          ...(mo_partners && { mo_partners }),
+        })
         .eq("id", id);
       if (error) throw error;
     },
@@ -97,6 +105,19 @@ function AdminDashboard() {
     },
   });
 
+  const updateActive = useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ active })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+
   const columnHelper = createColumnHelper<any>();
 
   const columns = [
@@ -107,6 +128,36 @@ function AdminDashboard() {
     columnHelper.accessor("full_name", {
       header: "Name",
       cell: (info) => info.getValue(),
+    }),
+    columnHelper.accessor("ico", {
+      header: "IČO",
+      cell: ({ row, getValue }) => {
+        const [isEditing, setIsEditing] = useState(false);
+        const [value, setValue] = useState(getValue());
+
+        const onBlur = () => {
+          setIsEditing(false);
+          if (value !== getValue()) {
+            updateProfile.mutate({
+              id: row.original.id,
+              ico: value,
+            });
+          }
+        };
+
+        return isEditing ? (
+          <Input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onBlur={onBlur}
+            autoFocus
+          />
+        ) : (
+          <div onDoubleClick={() => setIsEditing(true)}>
+            {getValue() || "—"}
+          </div>
+        );
+      },
     }),
     columnHelper.accessor("email", {
       header: "Email",
@@ -198,6 +249,68 @@ function AdminDashboard() {
         </Select>
       ),
     }),
+    columnHelper.accessor("mo_partners", {
+      header: "MoPartners",
+      cell: ({ row, getValue }) => {
+        const handleChange = useMemo(
+          () => async (checked: boolean) => {
+            await Promise.all([
+              queryClient.setQueryData(["users"], (oldData: any) =>
+                oldData.map((user: any) =>
+                  user.id === row.original.id
+                    ? { ...user, mo_partners: checked ? "true" : "false" }
+                    : user
+                )
+              ),
+              updateProfile.mutate({
+                id: row.original.id,
+                mo_partners: checked ? "true" : "false",
+              }),
+            ]);
+          },
+          [row.original.id]
+        );
+
+        return (
+          <Checkbox
+            checked={!!getValue()}
+            onCheckedChange={handleChange}
+            className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
+          />
+        );
+      },
+    }),
+    columnHelper.accessor("active", {
+      header: "Active",
+      cell: ({ row, getValue }) => {
+        const handleChange = useMemo(
+          () => async (checked: boolean) => {
+            await Promise.all([
+              queryClient.setQueryData(["users"], (oldData: any) =>
+                oldData.map((user: any) =>
+                  user.id === row.original.id
+                    ? { ...user, active: checked }
+                    : user
+                )
+              ),
+              updateActive.mutate({
+                id: row.original.id,
+                active: checked,
+              }),
+            ]);
+          },
+          [row.original.id]
+        );
+
+        return (
+          <Checkbox
+            checked={getValue()}
+            onCheckedChange={handleChange}
+            className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
+          />
+        );
+      },
+    }),
   ];
 
   const table = useReactTable({
@@ -257,12 +370,14 @@ function AdminDashboard() {
                   přístupem.
                 </DialogDescription>
               </DialogHeader>
-              <CreateUserEmailForm
-                onSuccess={() => {
-                  setOpenEmail(false);
-                  queryClient.invalidateQueries({ queryKey: ["users"] });
-                }}
-              />
+              <Suspense fallback={<div>Loading...</div>}>
+                <CreateUserEmailForm
+                  onSuccess={() => {
+                    setOpenEmail(false);
+                    queryClient.invalidateQueries({ queryKey: ["users"] });
+                  }}
+                />
+              </Suspense>
             </DialogContent>
           </Dialog>
         )}

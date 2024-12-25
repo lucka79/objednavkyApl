@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { useFetchAllProfiles } from "@/hooks/useProfiles";
+import { useUsers } from "@/hooks/useProfiles";
 import { useAuthStore } from "@/lib/supabase";
 import { Profile } from "../../types";
 import { useProductionItemsStore } from "@/providers/productionStore";
@@ -37,7 +37,7 @@ export function AddProductionDialog({
 }: AddProductionDialogProps) {
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [date, setDate] = useState<Date>(new Date());
-  const { data: users } = useFetchAllProfiles();
+  const { data: users } = useUsers();
   const insertProduction = useInsertProduction();
   const { toast } = useToast();
   const user = useAuthStore((state) => state.user);
