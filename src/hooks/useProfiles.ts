@@ -101,3 +101,97 @@ export const useSelectedUser = (userId: string) => {
   });
 };
 
+
+export const updateProfile = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      address,
+      ico,
+      mo_partners,
+    }: {
+      id: string;
+      address?: string;
+      ico?: string;
+      mo_partners?: string;
+    }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          ...(address && { address }),
+          ...(ico && { ico }),
+          ...(mo_partners && { mo_partners }),
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+};
+
+export const updateRole = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, role }: { id: string; role: string }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+};
+
+export const updatePaidBy = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, paid_by }: { id: string; paid_by: string }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ paid_by })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+};
+
+export const updateActive = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ active })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+};
+
+export const deleteUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+};
