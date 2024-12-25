@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../lib/supabase";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 import { Button } from "@/components/ui/button";
 import { CreateUserForm } from "@/components/CreateUserForm";
@@ -93,9 +93,7 @@ function AdminDashboard() {
           </Dialog>
         )}
       </div>
-      <CardHeader>
-        <CardTitle>Admin Dashboard</CardTitle>
-      </CardHeader>
+
       <CardContent>
         <AdminTable />
       </CardContent>
