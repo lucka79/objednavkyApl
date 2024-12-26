@@ -67,10 +67,6 @@ export function AdminTable() {
   const columnHelper = createColumnHelper<any>();
 
   const columns = [
-    // columnHelper.accessor("id", {
-    //   header: "ID",
-    //   cell: (info) => info.getValue(),
-    // }),
     columnHelper.accessor("full_name", {
       header: "Name",
       cell: (info) => info.getValue(),
@@ -263,13 +259,15 @@ export function AdminTable() {
         const isAdmin = row.original.role === "admin";
         const handleDelete = async () => {
           try {
+            // console.log("Attempting to delete user:", row.original.id);
             await deleteUserMutation.mutateAsync({ id: row.original.id });
+            // console.log("Delete mutation completed");
             toast({
               title: "Success",
               description: "User deleted successfully",
             });
           } catch (error) {
-            console.error("Failed to delete user:", error);
+            // console.error("Failed to delete user:", error);
             toast({
               title: "Error",
               description: "Failed to delete user",
@@ -320,19 +318,30 @@ export function AdminTable() {
   ];
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [paidByFilter, setPaidByFilter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState("all");
 
   const filteredUsers = useMemo(() => {
     return (users ?? []).filter((user) => {
       const searchLower = searchQuery.toLowerCase();
-      return (
+      const matchesSearch =
         user.full_name?.toLowerCase().includes(searchLower) ||
         user.ico?.toLowerCase().includes(searchLower) ||
         user.email?.toLowerCase().includes(searchLower) ||
         user.phone?.toLowerCase().includes(searchLower) ||
-        user.address?.toLowerCase().includes(searchLower)
-      );
+        user.address?.toLowerCase().includes(searchLower);
+
+      const matchesRole = roleFilter === "all" || user.role === roleFilter;
+      const matchesPaidBy =
+        paidByFilter === "all" || user.paid_by === paidByFilter;
+      const matchesActive =
+        activeFilter === "all" ||
+        (activeFilter === "true" ? user.active : !user.active);
+
+      return matchesSearch && matchesRole && matchesPaidBy && matchesActive;
     });
-  }, [users, searchQuery]);
+  }, [users, searchQuery, roleFilter, paidByFilter, activeFilter]);
 
   const table = useReactTable({
     data: filteredUsers,
@@ -346,42 +355,96 @@ export function AdminTable() {
 
   return (
     <>
-      <div className="flex items-center py-4">
+      <div className="flex items-center gap-4 py-4">
         <Input
           placeholder="Search users..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="max-w-sm"
         />
+
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-[150px]">
+            <SelectValue placeholder="Filter by role" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All roles</SelectItem>
+            {[
+              "user",
+              "buyer",
+              "driver",
+              "store",
+              "mobil",
+              "expedition",
+              "admin",
+            ].map((role) => (
+              <SelectItem key={role} value={role}>
+                {role.charAt(0).toUpperCase() + role.slice(1)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={paidByFilter} onValueChange={setPaidByFilter}>
+          <SelectTrigger className="w-[150px]">
+            <SelectValue placeholder="Filter by payment" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All payments</SelectItem>
+            {["Hotově", "Příkazem"].map((type) => (
+              <SelectItem key={type} value={type}>
+                {type}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={activeFilter} onValueChange={setActiveFilter}>
+          <SelectTrigger className="w-[150px]">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All status</SelectItem>
+            <SelectItem value="true">Active</SelectItem>
+            <SelectItem value="false">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <TableHead key={header.id}>
-                  {flexRender(
-                    header.column.columnDef.header,
-                    header.getContext()
-                  )}
-                </TableHead>
+      <div className="border rounded-md">
+        <div className="max-h-[800px] overflow-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+          <Table>
+            <TableHeader className="sticky top-0 bg-background z-10 border-b">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id} className="bg-background h-12">
+                      {flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
+                    </TableHead>
+                  ))}
+                </TableRow>
               ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
               ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+            </TableBody>
+          </Table>
+        </div>
+      </div>
     </>
   );
 }

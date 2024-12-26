@@ -188,6 +188,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         phone: userData.phone,
         password: userData.password,
+
         phone_confirm: true,
         user_metadata: {
           full_name: userData.full_name,
@@ -207,7 +208,8 @@ export const useAuthStore = create<AuthState>((set) => ({
           full_name: userData.full_name,
           phone: userData.phone,
           avatar_url: '',
-          role: userData.role
+          role: userData.role,
+          paid_by: 'Hotově', // Add this default value
         }, {
           onConflict: 'id'
         });
@@ -230,7 +232,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       // Create user with admin API
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: userData.email,
-        password: userData.password,
+        password: "Aplica1993",
         email_confirm: true,
         user_metadata: {
           full_name: userData.full_name,
@@ -250,7 +252,8 @@ export const useAuthStore = create<AuthState>((set) => ({
           full_name: userData.full_name,
           email: userData.email,
           avatar_url: '',
-          role: userData.role
+          role: userData.role,
+          paid_by: 'Hotově', // Add this default value
         }, {
           onConflict: 'id'
         });

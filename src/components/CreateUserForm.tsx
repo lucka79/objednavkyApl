@@ -21,6 +21,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+  InputOTPSeparator,
+} from "@/components/ui/input-otp";
+import { Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
 
 interface CreateUserFormProps {
   onSuccess: () => void;
@@ -47,13 +55,14 @@ const formSchema = z.object({
 export function CreateUserForm({ onSuccess }: CreateUserFormProps) {
   const createUser = useAuthStore((state) => state.createUser);
   const { toast } = useToast();
+  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       full_name: "",
       phone: "",
-      password: "",
+      password: "Aplica1993",
       role: undefined,
     },
   });
@@ -104,7 +113,25 @@ export function CreateUserForm({ onSuccess }: CreateUserFormProps) {
             <FormItem>
               <FormLabel>Phone</FormLabel>
               <FormControl>
-                <Input type="tel" {...field} autoComplete="off" />
+                <InputOTP
+                  maxLength={9}
+                  value={field.value}
+                  onChange={field.onChange}
+                >
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSeparator>-</InputOTPSeparator>
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                    <InputOTPSeparator>-</InputOTPSeparator>
+                    <InputOTPSlot index={6} />
+                    <InputOTPSlot index={7} />
+                    <InputOTPSlot index={8} />
+                  </InputOTPGroup>
+                </InputOTP>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -118,7 +145,26 @@ export function CreateUserForm({ onSuccess }: CreateUserFormProps) {
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input type="password" {...field} autoComplete="new-password" />
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    {...field}
+                    autoComplete="new-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
               </FormControl>
               <FormMessage />
             </FormItem>
