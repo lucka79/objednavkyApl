@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { fetchActiveProducts } from "@/hooks/useProducts";
 
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { fetchCategories } from "@/hooks/useCategories";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -92,26 +92,20 @@ export const AddFavoriteProduct: React.FC<AddFavoriteProductProps> = ({
               <Card
                 key={product.id}
                 onClick={() => handleAddProduct(product)}
-                className="text-center h-32 flex flex-col"
+                className="text-center h-32 flex flex-col justify-between relative"
               >
-                <div className="flex-1">
-                  <CardHeader className="h-full px-1">
-                    <CardTitle className="text-sm line-clamp-2 mx-1 hover:line-clamp-3">
-                      {product.name}
-                    </CardTitle>
-                  </CardHeader>
-                </div>
-                <div className="flex-1 flex flex-col justify-between">
-                  {/* <CardContent className="pb-0">
-                    {user?.role === "admin" && (
-                      <Button
-                        variant="outline"
-                        onClick={() => handleAddProduct(product)}
-                      >
-                        <ShoppingCart size={16} />
-                      </Button>
-                    )}
-                  </CardContent> */}
+                <CardHeader className="px-1">
+                  <CardTitle className="text-sm mx-1 hover:line-clamp-none line-clamp-2 hover:absolute hover:z-10 hover:bg-white hover:w-full hover:left-0">
+                    {product.name}
+                  </CardTitle>
+                </CardHeader>
+                <div className="bg-white/80 backdrop-blur-sm">
+                  <CardContent className="pb-0 text-sm font-semibold">
+                    {product.priceBuyer.toFixed(2)} Kč
+                  </CardContent>
+                  <CardContent className="pb-0 text-sm italic">
+                    {product.priceMobil.toFixed(2)} Kč
+                  </CardContent>
                 </div>
               </Card>
             ))
