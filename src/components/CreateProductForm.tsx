@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from "./ui/select";
 import { fetchCategories } from "@/hooks/useCategories";
-import { useNavigate } from "@tanstack/react-router";
+// import { useNavigate } from "@tanstack/react-router";
 import {
   Card,
   CardContent,
@@ -34,7 +34,7 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-import { X } from "lucide-react";
+
 import { supabase } from "@/lib/supabase"; // Adjust the import path as needed
 // import { Progress } from "@/components/ui/progress";
 import imageCompression from "browser-image-compression";
@@ -55,7 +55,7 @@ type ProductFormValues = z.infer<typeof productSchema>;
 export function CreateProductForm() {
   const queryClient = useQueryClient();
   // const { productId } = useParams({ from: "/admin/products/$productId" });
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const { data: categories, isLoading: categoriesLoading } = fetchCategories();
   // const { data: product, isLoading: productLoading } = fetchProductById(id);
   const onClose = () => {
@@ -80,7 +80,7 @@ export function CreateProductForm() {
     mutationFn: insertProduct,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
-      navigate({ to: "/admin/products" });
+      // navigate({ to: "/admin/products" });
       toast({
         title: "Výrobek vytvořen",
         description: "Výrobek byl úspěšně vytvořen.",
@@ -140,7 +140,7 @@ export function CreateProductForm() {
 
   return (
     <>
-      <Card className="relative w-[480px] mx-auto justify-center">
+      <Card className="relative w-[480px] mx-auto justify-center border-none">
         <CardHeader>
           <CardTitle>Nový výrobek</CardTitle>
           <Button
@@ -148,14 +148,12 @@ export function CreateProductForm() {
             size="icon"
             className="absolute top-2 right-2"
             onClick={onClose}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          ></Button>
         </CardHeader>
         {/* <CardContent> */}
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-2">
-            <CardContent className="grid grid-cols-2 gap-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-1">
+            <CardContent className="grid grid-cols-2 gap-2 py-2">
               <FormField
                 control={form.control}
                 name="name"
@@ -206,7 +204,7 @@ export function CreateProductForm() {
                 )}
               />
             </CardContent>
-            <CardContent className="grid grid-cols-1 gap-4">
+            <CardContent className="grid grid-cols-1 gap-2 py-2">
               <FormField
                 control={form.control}
                 name="description"
@@ -226,7 +224,7 @@ export function CreateProductForm() {
                 )}
               />
             </CardContent>
-            <CardContent className="grid grid-cols-2 gap-4">
+            <CardContent className="grid grid-cols-2 gap-2 py-2">
               <FormField
                 control={form.control}
                 name="price"
@@ -295,8 +293,36 @@ export function CreateProductForm() {
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
+                name="vat"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>DPH</FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(parseInt(value))}
+                      defaultValue={field.value.toString()}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Vyberte DPH" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="0">0%</SelectItem>
+                        <SelectItem value="12">12%</SelectItem>
+
+                        <SelectItem value="21">21%</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>Sazba DPH v %.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </CardContent>
-            <CardContent>
+            <CardContent className="grid grid-cols-2 gap-2 py-2"></CardContent>
+            <CardContent className="py-2">
               <FormField
                 control={form.control}
                 name="image"

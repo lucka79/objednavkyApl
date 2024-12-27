@@ -15,11 +15,11 @@ export function ReceiptItems({ items }: ReceiptItemsProps) {
     0
   );
 
-  const nettoVatTotal = items.reduce(
-    (sum, item) =>
-      sum + (item.quantity * item.product.price * item.product.vat) / 100,
-    0
-  );
+  // const nettoVatTotal = items.reduce(
+  //   (sum, item) =>
+  //     sum + (item.quantity * item.product.price * item.product.vat) / 100,
+  //   0
+  // );
 
   //   const nettoPrice = (item: ReceiptItem) =>
   //     item.product.price * (1 - item.product.vat / 100);
@@ -35,14 +35,17 @@ export function ReceiptItems({ items }: ReceiptItemsProps) {
                   ? `${item.product.name.slice(0, 20)}...`
                   : item.product.name}
               </span>
-              <span className="text-sm text-muted-foreground print:print-items print:text-[9px]">
+              <span>
                 {/* {nettoPrice(item).toFixed(2)}
                 {" x "} {item.product.vat}%  */}
                 {item.price.toFixed(2)} Kč
               </span>
             </TableCell>
             {/* <TableCell className="text-left"></TableCell> */}
-            <TableCell className="text-right font-semibold print:text-[10px]">
+            <TableCell
+              colSpan={2}
+              className="text-center font-semibold print:text-[10px]"
+            >
               {item.quantity}
             </TableCell>
             <TableCell className="text-right font-semibold print:text-[9px]">
@@ -52,18 +55,43 @@ export function ReceiptItems({ items }: ReceiptItemsProps) {
         ))}
       </TableBody>
       <TableFooter>
-        <TableRow>
-          <TableCell colSpan={2} className="print:text-[10px]">
-            DPH {items[0].product.vat}%
-          </TableCell>
-          <TableCell
-            colSpan={2}
-            className="text-right print:print-name print:text-[10px]"
-          >
-            {nettoVatTotal.toFixed(2)} Kč
-          </TableCell>
-        </TableRow>
-        <TableRow>
+        {/* Group and display items by VAT rate */}
+        {Object.entries(
+          items.reduce(
+            (acc, item) => {
+              const vat = item.product.vat;
+              if (!acc[vat]) acc[vat] = 0;
+              acc[vat] += (item.quantity * item.price * vat) / 100;
+              return acc;
+            },
+            {} as Record<number, number>
+          )
+        )
+          .sort(([vatA], [vatB]) => Number(vatA) - Number(vatB))
+          .map(([vat, vatAmount]) => {
+            // Calculate base price for items with this VAT rate
+            const basePrice = items
+              .filter((item) => item.product.vat === Number(vat))
+              .reduce((sum, item) => sum + item.quantity * item.price, 0);
+
+            return (
+              <TableRow key={vat}>
+                <TableCell colSpan={2} className="print:text-[10px]">
+                  DPH {vat}%
+                </TableCell>
+                <TableCell
+                  // colSpan={1}
+                  className="text-right print:print-name print:text-[10px]"
+                >
+                  {vatAmount.toFixed(2)} Kč
+                </TableCell>
+                <TableCell className="text-right print:text-[10px]">
+                  {(basePrice - vatAmount).toFixed(2)} Kč
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        <TableRow className="border-t border-gray-200">
           <TableCell colSpan={2} className="print:text-[10px]">
             Celkem
           </TableCell>
