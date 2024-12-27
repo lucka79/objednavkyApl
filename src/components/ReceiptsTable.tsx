@@ -51,6 +51,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useReactToPrint } from "react-to-print";
 import { PrintSummaryTotalReceipts } from "./PrintSummary";
 import { PrintReceipt } from "./PrintReceipt";
+// import { useProductStore } from "@/providers/productStore";
+import { useReceiptStore } from "@/providers/receiptStore";
 
 //   const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
 
@@ -84,12 +86,15 @@ const countItemsByQuantity = (receipt: Receipt) => {
 export function ReceiptsTable({
   selectedReceiptId,
   initialProductId,
-  onSelectReceipt,
+  // onSelectReceipt,
 }: ReceiptsTableProps) {
   // 1. All useState hooks
   const [date, setDate] = useState<Date>();
   const [selectedProductId, setSelectedProductId] = useState(
     initialProductId || ""
+  );
+  const setSelectedReceiptId = useReceiptStore(
+    (state) => state.setSelectedReceiptId
   );
   const [globalFilter, setGlobalFilter] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilter>("today");
@@ -316,7 +321,7 @@ export function ReceiptsTable({
 
   const handleRowClick = (id: number) => {
     console.log("Row clicked, id:", id);
-    onSelectReceipt?.(id);
+    setSelectedReceiptId(id);
   };
 
   return (

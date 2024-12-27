@@ -7,7 +7,6 @@ import { StoreCategory } from "@/components/StoreCategory";
 import CartStore from "@/components/CartStore";
 import { ReceiptsTable } from "@/components/ReceiptsTable";
 import { ReceiptDetailsCard } from "@/components/ReceiptDetailsCard";
-import { useReceiptStore } from "@/providers/receiptStore";
 
 export const Route = createFileRoute("/store/")({
   component: StoreDashboard,
@@ -19,7 +18,6 @@ function StoreDashboard() {
   );
 
   const user = useAuthStore((state) => state.user);
-  const selectedReceiptId = useReceiptStore((state) => state.selectedReceiptId);
 
   if (user?.role !== "admin" && user?.role !== "store") {
     return <div>Access denied. Admin and store only.</div>;
@@ -49,14 +47,7 @@ function StoreDashboard() {
             {/* {activeView === "table" ? <ProductsTable /> : <ProductCategory />} */}
 
             {activeView === "createReceipt" && <StoreCategory />}
-            {activeView === "receipts" && (
-              <ReceiptsTable
-                selectedReceiptId={selectedReceiptId ?? undefined}
-                onSelectReceipt={(id) =>
-                  useReceiptStore.getState().setSelectedReceiptId(id)
-                }
-              />
-            )}
+            {activeView === "receipts" && <ReceiptsTable />}
           </div>
         </div>
         <div className="h-full overflow-y-auto overflow-x-hidden">

@@ -7,8 +7,8 @@ import { useAuthStore } from '@/lib/supabase';
 
 
 type ReceiptStore = {
-  selectedReceiptId?: number | null;
-  setSelectedReceiptId: (id: number) => void;
+  selectedReceiptId: number | null;
+  setSelectedReceiptId: (id: number | null) => void;
   items: CartItem[];
   addItem: (product: Product) => void;
   // removeItem: (productId: number) => void;

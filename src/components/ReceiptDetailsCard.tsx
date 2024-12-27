@@ -33,7 +33,17 @@ export function ReceiptDetailsCard() {
     error,
     // @ts-ignore
     isLoading,
-  } = useFetchReceiptById(selectedReceiptId ?? null);
+  } = useFetchReceiptById(selectedReceiptId);
+
+  if (!selectedReceiptId) {
+    return null;
+  }
+
+  // const updateStatus = (status: string) => {
+  //   if (!selectedReceiptId) return;
+  //   updateReceipt({ id: selectedReceiptId, updatedFields: { status } });
+  // };
+
   const handlePrint = useReactToPrint({
     // @ts-ignore
     content: () => printRef.current,
@@ -75,12 +85,9 @@ export function ReceiptDetailsCard() {
     `,
   });
 
-  if (!selectedReceiptId) {
-    return null;
-  }
-
   if (isLoading) return <div>Loading receipt details...</div>;
   if (error) return <div>Error loading receipt details</div>;
+  if (!receipts) return null;
 
   return (
     <div className="print:!m-0" ref={printRef}>

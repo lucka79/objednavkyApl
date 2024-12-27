@@ -20,8 +20,6 @@ import {
 } from "@/components/ui/table";
 import { useState } from "react";
 
-import { Card } from "./ui/card";
-
 import { fetchAllProducts, useUpdateProduct } from "@/hooks/useProducts";
 import { Product } from "../../types";
 import { useProductStore } from "@/providers/productStore";
