@@ -161,13 +161,22 @@ export default function UpdateReturnCart({
               className="flex items-center justify-between pt-2 mb-2"
             >
               <span className="text-sm flex-1">{item.product?.name}</span>
+              <span className="text-sm w-20 text-right mr-4">
+                {(selectedUserRole === "store"
+                  ? item.price || 0
+                  : item.product?.priceMobil || 0
+                ).toFixed(2)}{" "}
+                Kč
+              </span>
               <div className="flex items-center">
-                <MinusSquare
-                  className="h-5 w-5 cursor-pointer text-gray-500 hover:text-gray-700"
-                  onClick={() =>
-                    handleQuantityChange(item.id, (item.quantity || 0) - 1)
-                  }
-                />
+                {(item.quantity || 0) > 0 && (
+                  <MinusSquare
+                    className="h-5 w-5 cursor-pointer text-gray-500 hover:text-gray-700"
+                    onClick={() =>
+                      handleQuantityChange(item.id, (item.quantity || 0) - 1)
+                    }
+                  />
+                )}
                 <Input
                   type="number"
                   value={item.quantity || 0}
@@ -183,13 +192,7 @@ export default function UpdateReturnCart({
                   }
                 />
               </div>
-              <span className="text-sm w-20 text-right ml-4">
-                {(selectedUserRole === "store"
-                  ? item.price || 0
-                  : item.product?.priceMobil || 0
-                ).toFixed(2)}{" "}
-                Kč
-              </span>
+
               <span className="text-sm w-24 text-right font-medium">
                 {(
                   (selectedUserRole === "store"

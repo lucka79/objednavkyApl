@@ -336,22 +336,23 @@ export default function UpdateCart({
                 {item.price.toFixed(2)} Kč
               </span>
               <div className="flex items-center">
-                <SquareMinus
-                  onClick={() =>
-                    !item.checked &&
-                    item.quantity > 0 &&
-                    updateOrderQuantity(
-                      item.id,
-                      item.product.id,
-                      item.quantity - 1
-                    )
-                  }
-                  className={`cursor-pointer ${
-                    item.checked || item.quantity === 0
-                      ? "text-gray-200 cursor-not-allowed"
-                      : "text-stone-300 hover:text-stone-400"
-                  }`}
-                />
+                {(item.quantity || 0) > 0 && (
+                  <SquareMinus
+                    onClick={() =>
+                      !item.checked &&
+                      updateOrderQuantity(
+                        item.id,
+                        item.product.id,
+                        item.quantity - 1
+                      )
+                    }
+                    className={`cursor-pointer ${
+                      item.checked
+                        ? "text-gray-200 cursor-not-allowed"
+                        : "text-stone-300 hover:text-stone-400"
+                    }`}
+                  />
+                )}
                 <Input
                   type="number"
                   min="0"

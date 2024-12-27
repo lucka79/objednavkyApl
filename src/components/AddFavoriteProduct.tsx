@@ -75,9 +75,9 @@ export const AddFavoriteProduct: React.FC<AddFavoriteProductProps> = ({
   if (error) return <div>Error loading products</div>;
 
   return (
-    <Card className="p-4 print:hidden">
+    <Card className="p-4 print:hidden cursor-pointer">
       <div className="flex gap-4">
-        <div className="w-48">
+        <div className="w-36">
           <CategoryBadgesVertical
             categories={categories}
             selectedCategory={selectedCategory}

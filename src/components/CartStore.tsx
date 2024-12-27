@@ -124,54 +124,53 @@ export default function CartStore() {
           {/* Display the formatted date */}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-2">
+      <CardContent className="flex flex-col gap-1">
         {items.length === 0 ? (
           <p>Není vložený výrobek.</p>
         ) : (
           items.map((item) => (
-            <div
-              key={item.product.id}
-              className="flex items-center justify-between mb-2"
-            >
-              <span className="text-sm line-clamp-1 hover:line-clamp-2">
-                {item.product.name}
-              </span>
-              <span className="text-sm mx-1">
-                {item.product.price.toFixed(2)}
-              </span>
-              <div className="flex items-center">
-                <SquareMinus
-                  onClick={() =>
-                    updateQuantity(
-                      item.product.id,
-                      Math.max(0, item.quantity - 1)
-                    )
-                  }
-                  className={`cursor-pointer ${
-                    item.quantity === 0
-                      ? "text-stone-200 cursor-not-allowed"
-                      : "text-stone-300 hover:text-stone-400"
-                  }`}
-                />
-                <Input
-                  type="number"
-                  min="0"
-                  value={item.quantity}
-                  onChange={(e) => {
-                    const value = Math.max(0, parseInt(e.target.value) || 0);
-                    updateQuantity(item.product.id, value);
-                  }}
-                  className="w-16 mx-2 text-center"
-                />
-                <SquarePlus
-                  onClick={() =>
-                    updateQuantity(item.product.id, item.quantity + 1)
-                  }
-                  className="text-stone-300 cursor-pointer hover:text-stone-400"
-                />
-                <Label className="w-16 mx-2 justify-end">
-                  {(item.product.price * item.quantity).toFixed(2)} Kč
-                </Label>
+            <div key={item.product.id} className="flex flex-col gap-0.5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm line-clamp-1 hover:line-clamp-2">
+                  {item.product.name}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">
+                  {item.product.price.toFixed(2)} Kč
+                </span>
+                <div className="flex items-center">
+                  {item.quantity > 0 && (
+                    <SquareMinus
+                      onClick={() =>
+                        updateQuantity(
+                          item.product.id,
+                          Math.max(0, item.quantity - 1)
+                        )
+                      }
+                      className="text-stone-300 cursor-pointer hover:text-stone-400"
+                    />
+                  )}
+                  <Input
+                    type="number"
+                    min="0"
+                    value={item.quantity}
+                    onChange={(e) => {
+                      const value = Math.max(0, parseInt(e.target.value) || 0);
+                      updateQuantity(item.product.id, value);
+                    }}
+                    className="w-16 mx-2 text-center"
+                  />
+                  <SquarePlus
+                    onClick={() =>
+                      updateQuantity(item.product.id, item.quantity + 1)
+                    }
+                    className="text-stone-300 cursor-pointer hover:text-stone-400"
+                  />
+                  <Label className="w-16 mx-2 justify-end">
+                    {(item.product.price * item.quantity).toFixed(2)} Kč
+                  </Label>
+                </div>
               </div>
             </div>
           ))
