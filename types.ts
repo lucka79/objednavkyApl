@@ -33,6 +33,8 @@ export type Product = {
   export type Category = {
     id: number;
     name: string;
+    store: boolean;
+    buyer: boolean;
   };
 
   export type CartItem = {

@@ -210,6 +210,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           avatar_url: '',
           role: userData.role,
           paid_by: 'Hotově', // Add this default value
+          address: userData.address, // Add this line
         }, {
           onConflict: 'id'
         });
@@ -232,7 +233,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       // Create user with admin API
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: userData.email,
-        password: "Aplica1993",
+        password: userData.password,
         email_confirm: true,
         user_metadata: {
           full_name: userData.full_name,

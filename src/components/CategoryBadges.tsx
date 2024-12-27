@@ -1,5 +1,4 @@
-import { Badge } from "./ui/badge";
-import { ScrollArea, ScrollBar } from "./ui/scroll-area";
+import { Button } from "./ui/button";
 import { Category } from "types";
 
 interface CategoryBadgesProps {
@@ -12,27 +11,35 @@ export const CategoryBadges = ({
   categories,
   selectedCategory,
   onSelectCategory,
-}: CategoryBadgesProps) => (
-  <ScrollArea className="w-full whitespace-nowrap rounded-md border">
-    <div className="flex w-max space-x-4 p-4">
-      <Badge
-        variant={selectedCategory === null ? "default" : "outline"}
-        className="cursor-pointer"
-        onClick={() => onSelectCategory(null)}
-      >
-        Vše
-      </Badge>
-      {categories.map((category) => (
-        <Badge
-          key={category.id}
-          variant={selectedCategory === category.id ? "default" : "outline"}
-          className="cursor-pointer"
-          onClick={() => onSelectCategory(category.id)}
-        >
-          {category.name}
-        </Badge>
-      ))}
+}: CategoryBadgesProps) => {
+  const storeCategories = categories.filter((category) => category.store);
+  const itemsPerRow = 4;
+  const row1 = [null, ...storeCategories.slice(0, itemsPerRow - 1)];
+  const row2 = storeCategories.slice(itemsPerRow - 1, itemsPerRow * 2 - 1);
+  const row3 = storeCategories.slice(itemsPerRow * 2 - 1);
+
+  return (
+    <div className="w-full rounded-md border p-2">
+      <div className="flex flex-col gap-2">
+        {[row1, row2, row3].map((row, rowIndex) => (
+          <div key={rowIndex} className="flex gap-4">
+            {row.map((category) => (
+              <Button
+                key={category?.id ?? "all"}
+                variant="outline"
+                className={`w-32 hover:border-orange-400 ${
+                  selectedCategory === (category?.id ?? null)
+                    ? "bg-orange-400"
+                    : ""
+                }`}
+                onClick={() => onSelectCategory(category?.id ?? null)}
+              >
+                {category?.name ?? "Vše"}
+              </Button>
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
-    <ScrollBar orientation="horizontal" />
-  </ScrollArea>
-);
+  );
+};

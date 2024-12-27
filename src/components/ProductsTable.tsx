@@ -25,7 +25,7 @@ import { Card } from "./ui/card";
 import { fetchAllProducts, useUpdateProduct } from "@/hooks/useProducts";
 import { Product } from "../../types";
 import { useProductStore } from "@/providers/productStore";
-import { useNavigate } from "@tanstack/react-router";
+// import { useNavigate } from "@tanstack/react-router";
 import { fetchCategories } from "@/hooks/useCategories";
 import {
   Select,
@@ -37,6 +37,8 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { CreateProductForm } from "./CreateProductForm";
 
 type Row = {
   original: Product;
@@ -174,12 +176,37 @@ export function ProductsTable() {
       {
         accessorKey: "category_id",
         header: "Category",
-        cell: ({ row }: { row: Row }) => {
-          const category = categories?.find(
-            (c) => c.id === row.original.category_id
-          );
-          return category?.name || "N/A";
-        },
+        cell: ({ row }: { row: Row }) => (
+          <Select
+            value={(row.original.category_id ?? 0).toString()}
+            onValueChange={(newValue: string) => {
+              updateProduct({
+                id: row.original.id,
+                category_id: parseInt(newValue),
+              }).catch(() => {
+                toast({
+                  title: "Error",
+                  description: "Failed to update category",
+                  variant: "destructive",
+                });
+              });
+            }}
+          >
+            <SelectTrigger className="w-[130px]">
+              <SelectValue>
+                {categories?.find((c) => c.id === row.original.category_id)
+                  ?.name || "N/A"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {categories?.map((category) => (
+                <SelectItem key={category.id} value={category.id.toString()}>
+                  {category.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ),
         sortingFn: (rowA: Row, rowB: Row) => {
           const catA =
             categories?.find((c) => c.id === rowA.original.category_id)?.name ||
@@ -235,14 +262,15 @@ export function ProductsTable() {
     (state) => state.setSelectedProductId
   );
   //   const category = categories?.find((c) => c.id === products.category_id);
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [priceFilter, setPriceFilter] = useState<string>("all");
   // const queryClient = useQueryClient();
 
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+
   const handleCreateProduct = () => {
-    setSelectedProductId(null);
-    navigate({ to: "/admin/create" });
+    setShowCreateDialog(true);
   };
 
   //   const openOrderDetails = (orderId: number) => {
@@ -307,11 +335,6 @@ export function ProductsTable() {
                 </TabsList>
               </Tabs>
             </div>
-            <div>
-              <Button variant="outline" onClick={handleCreateProduct}>
-                Create Product
-              </Button>
-            </div>
           </div>
           <div className="flex justify-between items-center">
             <Input
@@ -321,15 +344,21 @@ export function ProductsTable() {
               className="max-w-sm"
             />
 
-            <Select value={priceFilter} onValueChange={setPriceFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by price" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Prices</SelectItem>
-                <SelectItem value="mobile">Mobile Price {">"} 0</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex gap-4 items-center">
+              <Select value={priceFilter} onValueChange={setPriceFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter by price" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Prices</SelectItem>
+                  <SelectItem value="mobile">Mobile Price {">"} 0</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button variant="outline" onClick={handleCreateProduct}>
+                Create Product
+              </Button>
+            </div>
           </div>
           <Table>
             <TableHeader>
@@ -418,6 +447,12 @@ export function ProductsTable() {
           </div>
         </div>
       </Card>
+
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="p-0 border-none">
+          <CreateProductForm />
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

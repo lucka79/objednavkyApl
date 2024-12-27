@@ -107,11 +107,13 @@ export const updateProfile = () => {
   return useMutation({
     mutationFn: async ({
       id,
+      full_name,
       address,
       ico,
       mo_partners,
     }: {
       id: string;
+      full_name?: string;
       address?: string;
       ico?: string;
       mo_partners?: string;
@@ -119,6 +121,7 @@ export const updateProfile = () => {
       const { error } = await supabase
         .from("profiles")
         .update({
+          ...(full_name && { full_name }),
           ...(address && { address }),
           ...(ico && { ico }),
           ...(mo_partners && { mo_partners }),

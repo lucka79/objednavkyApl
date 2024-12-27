@@ -7,6 +7,7 @@ import { StoreCategory } from "@/components/StoreCategory";
 import CartStore from "@/components/CartStore";
 import { ReceiptsTable } from "@/components/ReceiptsTable";
 import { ReceiptDetailsCard } from "@/components/ReceiptDetailsCard";
+import { useReceiptStore } from "@/providers/receiptStore";
 
 export const Route = createFileRoute("/store/")({
   component: StoreDashboard,
@@ -18,6 +19,7 @@ function StoreDashboard() {
   );
 
   const user = useAuthStore((state) => state.user);
+  const selectedReceiptId = useReceiptStore((state) => state.selectedReceiptId);
 
   if (user?.role !== "admin" && user?.role !== "store") {
     return <div>Access denied. Admin and store only.</div>;
@@ -48,8 +50,12 @@ function StoreDashboard() {
 
             {activeView === "createReceipt" && <StoreCategory />}
             {activeView === "receipts" && (
-              // @ts-ignore
-              <ReceiptsTable selectedReceiptId={null} />
+              <ReceiptsTable
+                selectedReceiptId={selectedReceiptId ?? undefined}
+                onSelectReceipt={(id) =>
+                  useReceiptStore.getState().setSelectedReceiptId(id)
+                }
+              />
             )}
           </div>
         </div>

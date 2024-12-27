@@ -69,7 +69,33 @@ export function AdminTable() {
   const columns = [
     columnHelper.accessor("full_name", {
       header: "Name",
-      cell: (info) => info.getValue(),
+      cell: ({ row, getValue }) => {
+        const [isEditing, setIsEditing] = useState(false);
+        const [value, setValue] = useState(getValue());
+
+        const onBlur = () => {
+          setIsEditing(false);
+          if (value !== getValue()) {
+            updateProfileMutation.mutate({
+              id: row.original.id,
+              full_name: value,
+            });
+          }
+        };
+
+        return isEditing ? (
+          <Input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onBlur={onBlur}
+            autoFocus
+          />
+        ) : (
+          <div onDoubleClick={() => setIsEditing(true)}>
+            {getValue() || "—"}
+          </div>
+        );
+      },
     }),
     columnHelper.accessor("ico", {
       header: "IČO",

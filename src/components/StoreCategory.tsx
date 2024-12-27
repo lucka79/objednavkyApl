@@ -4,7 +4,7 @@ import { fetchStoreProducts } from "@/hooks/useProducts";
 import { useReceiptStore } from "@/providers/receiptStore";
 
 import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea, ScrollBar } from "./ui/scroll-area";
+// import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 import { Badge } from "./ui/badge";
 import { Category } from "types";
 import { Skeleton } from "./ui/skeleton";
@@ -13,6 +13,7 @@ import { fetchCategories } from "@/hooks/useCategories";
 import { useStoredItems } from "@/hooks/useStoredItems";
 import { fetchAllOrders } from "@/hooks/useOrders";
 import { Label } from "./ui/label";
+import { Button } from "./ui/button";
 
 // Category badges component
 const CategoryBadges = ({
@@ -23,30 +24,59 @@ const CategoryBadges = ({
   categories: Category[];
   selectedCategory: number | null;
   onSelectCategory: (id: number | null) => void;
-}) => (
-  <ScrollArea className="w-full whitespace-nowrap rounded-md border">
-    <div className="flex w-max space-x-4 p-4">
-      <Badge
-        variant={selectedCategory === null ? "default" : "outline"}
-        className="cursor-pointer"
-        onClick={() => onSelectCategory(null)}
-      >
-        Vše
-      </Badge>
-      {categories.map((category) => (
-        <Badge
-          key={category.id}
-          variant={selectedCategory === category.id ? "default" : "outline"}
-          className="cursor-pointer"
-          onClick={() => onSelectCategory(category.id)}
-        >
-          {category.name}
-        </Badge>
-      ))}
+}) => {
+  const storeCategories = categories.filter((category) => category.store);
+  const halfLength = Math.ceil((storeCategories.length + 1) / 2); // +1 for "Vše" badge
+  const firstRow = [null, ...storeCategories.slice(0, halfLength - 1)];
+  const secondRow = storeCategories.slice(halfLength - 1);
+
+  return (
+    <div className="w-full rounded-md border p-2">
+      <div className="flex flex-col gap-2">
+        <div className="flex gap-4">
+          {firstRow.map((category) => (
+            <Button
+              key={category?.id ?? "all"}
+              variant={
+                selectedCategory === (category?.id ?? null)
+                  ? "outline"
+                  : "outline"
+              }
+              className={`w-32 hover:border-orange-400 ${
+                selectedCategory === (category?.id ?? null)
+                  ? "bg-orange-400"
+                  : ""
+              }`}
+              onClick={() => onSelectCategory(category?.id ?? null)}
+            >
+              {category?.name ?? "Vše"}
+            </Button>
+          ))}
+        </div>
+        <div className="flex gap-4">
+          {secondRow.map((category) => (
+            <Button
+              key={category.id}
+              variant={
+                selectedCategory === (category?.id ?? null)
+                  ? "outline"
+                  : "outline"
+              }
+              className={`w-32 hover:border-orange-400 ${
+                selectedCategory === (category?.id ?? null)
+                  ? "bg-orange-400 text-white"
+                  : ""
+              }`}
+              onClick={() => onSelectCategory(category.id)}
+            >
+              {category.name}
+            </Button>
+          ))}
+        </div>
+      </div>
     </div>
-    <ScrollBar orientation="horizontal" />
-  </ScrollArea>
-);
+  );
+};
 export const StoreCategory: React.FC = () => {
   const user = useAuthStore((state) => state.user);
   const { data: products, isLoading, error } = fetchStoreProducts();

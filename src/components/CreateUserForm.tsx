@@ -34,14 +34,7 @@ interface CreateUserFormProps {
   onSuccess: () => void;
 }
 
-const roles = [
-  "buyer",
-  "driver",
-  "expedition",
-  "store",
-  "mobil",
-  "admin",
-] as const;
+const roles = ["buyer", "driver", "expedition", "store", "mobil"] as const;
 
 const formSchema = z.object({
   full_name: z.string().min(1, "Full name is required"),
@@ -50,6 +43,7 @@ const formSchema = z.object({
   role: z.enum(roles, {
     required_error: "Please select a role",
   }),
+  address: z.string().optional(),
 });
 
 export function CreateUserForm({ onSuccess }: CreateUserFormProps) {
@@ -64,6 +58,7 @@ export function CreateUserForm({ onSuccess }: CreateUserFormProps) {
       phone: "",
       password: "Aplica1993",
       role: undefined,
+      address: "",
     },
   });
 
@@ -191,6 +186,20 @@ export function CreateUserForm({ onSuccess }: CreateUserFormProps) {
                   ))}
                 </SelectContent>
               </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="address"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Address (Optional)</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Enter address..." />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}

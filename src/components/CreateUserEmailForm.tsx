@@ -26,14 +26,7 @@ interface CreateUserEmailFormProps {
   onSuccess: () => void;
 }
 
-const roles = [
-  "buyer",
-  "driver",
-  "expedition",
-  "store",
-  "mobil",
-  "admin",
-] as const;
+const roles = ["buyer", "driver", "expedition", "store", "mobil"] as const;
 
 const formSchema = z.object({
   full_name: z.string().min(1, "Full name is required"),
@@ -54,7 +47,7 @@ export function CreateUserEmailForm({ onSuccess }: CreateUserEmailFormProps) {
     defaultValues: {
       full_name: "",
       email: "",
-      password: "",
+      password: "Aplica1993",
       role: undefined,
       phone: "",
     },

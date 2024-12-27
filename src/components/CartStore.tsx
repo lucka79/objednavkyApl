@@ -142,15 +142,23 @@ export default function CartStore() {
               <div className="flex items-center">
                 <SquareMinus
                   onClick={() =>
-                    updateQuantity(item.product.id, item.quantity - 1)
+                    updateQuantity(
+                      item.product.id,
+                      Math.max(0, item.quantity - 1)
+                    )
                   }
-                  className="text-stone-300 cursor-pointer hover:text-stone-400"
+                  className={`cursor-pointer ${
+                    item.quantity === 0
+                      ? "text-stone-200 cursor-not-allowed"
+                      : "text-stone-300 hover:text-stone-400"
+                  }`}
                 />
                 <Input
                   type="number"
+                  min="0"
                   value={item.quantity}
                   onChange={(e) => {
-                    const value = parseInt(e.target.value) || 0;
+                    const value = Math.max(0, parseInt(e.target.value) || 0);
                     updateQuantity(item.product.id, value);
                   }}
                   className="w-16 mx-2 text-center"

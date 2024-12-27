@@ -38,7 +38,7 @@ const productSchema = z.object({
   name: z.string().min(3, "Product name is required"),
   description: z.string().min(0, "Product description is required"),
   price: z.number().min(0.01, "Cena musí být větší než 0"),
-  priceBuyer: z.number().min(0.01, "Cena musí být větší než 0"),
+  priceBuyer: z.number().min(0, "Cena musí být větší než 0"),
   priceMobil: z.number().min(0, "Mobilní cena musí být nezáporná"),
   vat: z.number().min(0, "DPH musí být nezáporná"),
   category_id: z.number().min(1, "Kategorie musí být vybrána"),

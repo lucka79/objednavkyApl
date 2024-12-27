@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchCategories } from "@/hooks/useCategories";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { CategoryBadges } from "./CategoryBadges";
+import { CategoryBadgesVertical } from "./CategoryBadgesVertical";
 import { useToast } from "@/hooks/use-toast";
 
 interface AddFavoriteProductProps {
@@ -76,45 +76,47 @@ export const AddFavoriteProduct: React.FC<AddFavoriteProductProps> = ({
 
   return (
     <Card className="p-4 print:hidden">
-      <div className="container mx-auto p-2">
-        <CategoryBadges
-          categories={categories}
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
-        />
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 p-2">
-        {filteredProducts.length === 0 ? (
-          <div>No products found</div>
-        ) : (
-          filteredProducts.map((product) => (
-            <Card
-              key={product.id}
-              onClick={() => handleAddProduct(product)}
-              className="text-center h-32 flex flex-col"
-            >
-              <div className="flex-1">
-                <CardHeader className="h-full px-1">
-                  <CardTitle className="text-sm line-clamp-2 mx-1 hover:line-clamp-3">
-                    {product.name}
-                  </CardTitle>
-                </CardHeader>
-              </div>
-              <div className="flex-1 flex flex-col justify-between">
-                {/* <CardContent className="pb-0">
-                  {user?.role === "admin" && (
-                    <Button
-                      variant="outline"
-                      onClick={() => handleAddProduct(product)}
-                    >
-                      <ShoppingCart size={16} />
-                    </Button>
-                  )}
-                </CardContent> */}
-              </div>
-            </Card>
-          ))
-        )}
+      <div className="flex gap-4">
+        <div className="w-48">
+          <CategoryBadgesVertical
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+          />
+        </div>
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
+          {filteredProducts.length === 0 ? (
+            <div>No products found</div>
+          ) : (
+            filteredProducts.map((product) => (
+              <Card
+                key={product.id}
+                onClick={() => handleAddProduct(product)}
+                className="text-center h-32 flex flex-col"
+              >
+                <div className="flex-1">
+                  <CardHeader className="h-full px-1">
+                    <CardTitle className="text-sm line-clamp-2 mx-1 hover:line-clamp-3">
+                      {product.name}
+                    </CardTitle>
+                  </CardHeader>
+                </div>
+                <div className="flex-1 flex flex-col justify-between">
+                  {/* <CardContent className="pb-0">
+                    {user?.role === "admin" && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleAddProduct(product)}
+                      >
+                        <ShoppingCart size={16} />
+                      </Button>
+                    )}
+                  </CardContent> */}
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
       </div>
     </Card>
   );

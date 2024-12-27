@@ -43,7 +43,7 @@ const productSchema = z.object({
   name: z.string().min(3, "Product name is required"),
   description: z.string().min(0, "Popis je povinný"),
   price: z.number().min(0.01, "Cena musí být větší než 0"),
-  priceBuyer: z.number().min(0.01, "Cena musí být větší než 0"),
+  priceBuyer: z.number().min(0, "Cena musí být větší než 0").optional(),
   priceMobil: z.number().min(0, "Mobilní cena musí být nezáporná"),
   vat: z.number().min(0, "DPH musí být nezáporná"),
   category_id: z.number().min(1, "Kategorie musí být vybrána"),
@@ -59,7 +59,7 @@ export function CreateProductForm() {
   const { data: categories, isLoading: categoriesLoading } = fetchCategories();
   // const { data: product, isLoading: productLoading } = fetchProductById(id);
   const onClose = () => {
-    navigate({ to: "/admin/products" });
+    form.reset();
   };
 
   const form = useForm<ProductFormValues>({
