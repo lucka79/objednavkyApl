@@ -24,7 +24,7 @@ export function PrintReceipt({ receipt, userName }: PrintReceiptProps) {
   );
 
   return (
-    <div className="p-4 w-[58mm] text-sm">
+    <div className="p-4 w-full text-sm">
       <div className="text-center mb-4">
         <h2 className="font-semibold">{userName}</h2>
         <h2 className="font-semibold">Doklad #{receipt.receipt_no}</h2>
@@ -34,17 +34,17 @@ export function PrintReceipt({ receipt, userName }: PrintReceiptProps) {
       <div className="border-t border-b py-2 my-2">
         {receipt.receipt_items?.map((item: ReceiptItem) => (
           <div key={item.id} className="flex justify-between">
-            <div>
-              <div>
-                {item.product.name.length > 15
-                  ? `${item.product.name.slice(0, 15)}...`
-                  : item.product.name}
-              </div>
-              <div className="text-xs">
-                {item.quantity}x @ {item.price.toFixed(2)}
+            <div className="w-full">
+              <div>{item.product.name}</div>
+              <div className="flex flex-row justify-between text-sm">
+                <span>
+                  {item.quantity}x @ {item.price.toFixed(2)}
+                </span>
+                <span className="font-semibold">
+                  {(item.quantity * item.price).toFixed(2)} Kč
+                </span>
               </div>
             </div>
-            <div>{(item.quantity * item.price).toFixed(2)} Kč</div>
           </div>
         ))}
       </div>

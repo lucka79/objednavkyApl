@@ -120,7 +120,7 @@ export function ReceiptsTable({
     removeAfterPrint: true,
     pageStyle: `
       @page {
-        size: 58mm 297mm;
+        size: 80mm 297mm;
         margin: 00mm;
       }
       @media print {
@@ -143,7 +143,7 @@ export function ReceiptsTable({
     },
     pageStyle: `
       @page {
-        size: 58mm 297mm;
+        size: 80mm 297mm;
         margin: 0mm;
       }
     `,
@@ -257,7 +257,10 @@ export function ReceiptsTable({
       header: () => <div className="w-18 text-left">Datum</div>,
       cell: ({ row }) => (
         <div className="w-18 text-left">
-          {new Date(row.original.date).toLocaleDateString()}
+          {new Date(row.original.date).toLocaleString("cs-CZ", {
+            dateStyle: "short",
+            timeStyle: "short",
+          })}
         </div>
       ),
     },

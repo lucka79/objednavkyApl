@@ -27,38 +27,22 @@ import { ReceiptItems } from "./ReceiptItems";
 // }
 
 export function ReceiptDetailsDialog() {
-  const user = useAuthStore((state) => state.user);
   const { selectedReceiptId, setSelectedReceiptId } = useReceiptStore();
-
-  const {
-    data: receipts,
-    error,
-    // @ts-ignore
-    isLoading,
-    // refetch,
-  } = useFetchReceiptById(selectedReceiptId ?? null);
-
-  if (!selectedReceiptId) {
-    return null;
-  }
-
-  //
-
-  if (isLoading) return <div>Loading receipt details...</div>;
-  if (error) return <div>Error loading receipt details</div>;
+  const user = useAuthStore((state) => state.user);
+  const { data: receipts, error } = useFetchReceiptById(selectedReceiptId);
 
   return (
-    <Dialog
-      open={!!selectedReceiptId}
-      // @ts-ignore
-      onOpenChange={(open) => !open && setSelectedReceiptId(null)}
-    >
+    <Dialog open onOpenChange={(open) => !open && setSelectedReceiptId(null)}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible print:transform-none">
         <DialogHeader>
           <DialogTitle>Detail účtenky</DialogTitle>
           <DialogDescription>Detail účtenky s položkami</DialogDescription>
         </DialogHeader>
+
         <div className="print:!m-0">
+          {/* {isLoading && <div>Loading receipt details...</div>} */}
+          {error && <div>Error loading receipt details</div>}
+
           {receipts?.map((receipt: Receipt) => (
             <Card key={receipt.id}>
               <CardHeader>
@@ -78,7 +62,7 @@ export function ReceiptDetailsDialog() {
               <CardContent>
                 <ReceiptItems items={receipt.receipt_items} />
               </CardContent>
-              <CardFooter className="flex flex-col gap-2 print:hidden"></CardFooter>
+              <CardFooter className="flex flex-col gap-2 print:hidden" />
             </Card>
           ))}
         </div>

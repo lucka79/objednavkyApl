@@ -15,29 +15,18 @@ export function ReceiptItems({ items }: ReceiptItemsProps) {
     0
   );
 
-  // const nettoVatTotal = items.reduce(
-  //   (sum, item) =>
-  //     sum + (item.quantity * item.product.price * item.product.vat) / 100,
-  //   0
-  // );
-
-  //   const nettoPrice = (item: ReceiptItem) =>
-  //     item.product.price * (1 - item.product.vat / 100);
-
   return (
-    <Table>
+    <Table className="print:!m-0">
       <TableBody>
         {items.map((item) => (
           <TableRow key={item.id}>
             <TableCell className="flex flex-col gap-1 ">
-              <span className="print:text-[9px]">
+              <span className="print:text-[12px]">
                 {item.product.name.length > 20
                   ? `${item.product.name.slice(0, 20)}...`
                   : item.product.name}
               </span>
-              <span>
-                {/* {nettoPrice(item).toFixed(2)}
-                {" x "} {item.product.vat}%  */}
+              <span className="print:text-[9px]">
                 {item.price.toFixed(2)} Kč
               </span>
             </TableCell>
