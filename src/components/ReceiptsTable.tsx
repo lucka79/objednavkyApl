@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import {
@@ -50,7 +50,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 // import { useReceiptStore } from "@/providers/receiptStore";
 import { useReactToPrint } from "react-to-print";
 import { PrintSummaryTotalReceipts } from "./PrintSummary";
-import { PrintReceipt } from "./PrintReceipt";
+// import { PrintReceipt } from "./PrintReceipt";
 // import { useProductStore } from "@/providers/productStore";
 import { useReceiptStore } from "@/providers/receiptStore";
 
@@ -98,12 +98,12 @@ export function ReceiptsTable({
   );
   const [globalFilter, setGlobalFilter] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilter>("today");
-  const [selectedReceiptForPrint, setSelectedReceiptForPrint] =
-    useState<Receipt | null>(null);
+  // const [selectedReceiptForPrint, setSelectedReceiptForPrint] =
+  //   useState<Receipt | null>(null);
 
   // 2. All refs
   const printRef = useRef<HTMLDivElement>(null);
-  const printReceiptRef = useRef<HTMLDivElement>(null);
+  // const printReceiptRef = useRef<HTMLDivElement>(null);
 
   // 3. All store hooks
   const user = useAuthStore((state) => state.user);
@@ -131,23 +131,23 @@ export function ReceiptsTable({
     `,
   });
 
-  const handlePrintReceiptRef = useReactToPrint({
-    // @ts-ignore
-    content: () => printReceiptRef.current,
-    contentRef: printReceiptRef,
-    documentTitle: "Doklad",
-    removeAfterPrint: true,
-    onBeforePrint: async () => {
-      console.log("Before printing, receipt:", selectedReceiptForPrint);
-      return Promise.resolve();
-    },
-    pageStyle: `
-      @page {
-        size: 80mm 297mm;
-        margin: 0mm;
-      }
-    `,
-  });
+  // const handlePrintReceiptRef = useReactToPrint({
+  //   // @ts-ignore
+  //   content: () => printReceiptRef.current,
+  //   contentRef: printReceiptRef,
+  //   documentTitle: "Doklad",
+  //   removeAfterPrint: true,
+  //   onBeforePrint: async () => {
+  //     console.log("Before printing, receipt:", selectedReceiptForPrint);
+  //     return Promise.resolve();
+  //   },
+  //   pageStyle: `
+  //     @page {
+  //       size: 80mm 297mm;
+  //       margin: 0mm;
+  //     }
+  //   `,
+  // });
 
   // 5. All queries
   const {
@@ -158,13 +158,13 @@ export function ReceiptsTable({
   const { data: products } = fetchActiveProducts();
 
   // 6. All callbacks
-  const handlePrintReceipt = useCallback(
-    (receipt: Receipt) => {
-      setSelectedReceiptForPrint(receipt);
-      handlePrintReceiptRef();
-    },
-    [handlePrintReceiptRef]
-  );
+  // const handlePrintReceipt = useCallback(
+  //   (receipt: Receipt) => {
+  //     setSelectedReceiptForPrint(receipt);
+  //     handlePrintReceiptRef();
+  //   },
+  //   [handlePrintReceiptRef]
+  // );
 
   const isDateInRange = (receiptDate: Date, filter: DateFilter) => {
     const date = new Date(receiptDate);
@@ -303,23 +303,23 @@ export function ReceiptsTable({
         </div>
       ),
     },
-    {
-      id: "actions",
-      header: "",
-      cell: ({ row }) => (
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation();
-            console.log("Print button clicked for receipt:", row.original);
-            handlePrintReceipt(row.original);
-          }}
-        >
-          <PrinterIcon className="h-4 w-4" />
-        </Button>
-      ),
-    },
+    // {
+    //   id: "actions",
+    //   header: "",
+    //   cell: ({ row }) => (
+    //     <Button
+    //       variant="outline"
+    //       size="icon"
+    //       onClick={(e) => {
+    //         e.stopPropagation();
+    //         console.log("Print button clicked for receipt:", row.original);
+    //         handlePrintReceipt(row.original);
+    //       }}
+    //     >
+    //       <PrinterIcon className="h-4 w-4" />
+    //     </Button>
+    //   ),
+    // },
   ];
 
   const handleRowClick = (id: number) => {
@@ -486,14 +486,14 @@ export function ReceiptsTable({
             userName={user?.full_name ?? ""}
           />
         </div>
-        {selectedReceiptForPrint && (
+        {/* {selectedReceiptForPrint && (
           <div ref={printReceiptRef}>
             <PrintReceipt
               receipt={selectedReceiptForPrint}
               userName={user?.full_name ?? ""}
             />
           </div>
-        )}
+        )} */}
       </div>
     </>
   );

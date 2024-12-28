@@ -72,30 +72,33 @@ export function ReceiptDetailsCard() {
               <div className="w-[200px]">{user?.full_name}</div>
               <Badge variant="outline">{receipt.paid_by}</Badge>
             </CardTitle>
+
             <CardDescription className="flex flex-col gap-2">
               <div className="flex justify-between items-center">
                 <span>Receipt #{receipt.receipt_no}</span>
                 <span className="text-muted-foreground font-semibold">
-                  {new Date(receipt.date).toLocaleDateString()}
+                  {new Date(receipt.date).toLocaleString("cs-CZ", {
+                    dateStyle: "short",
+                    timeStyle: "short",
+                  })}
                 </span>
               </div>
+            </CardDescription>
+            <CardDescription>
+              <Button
+                className="w-1/2"
+                variant="outline"
+                size="icon"
+                onClick={() => handlePrint()}
+              >
+                <PrinterIcon className="h-4 w-4" />
+              </Button>
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ReceiptItems items={receipt.receipt_items} />
           </CardContent>
-          <CardFooter className="flex justify-end gap-2 print:hidden">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => window.print()}
-            >
-              <PrinterIcon className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={() => handlePrint()}>
-              <PrinterIcon className="h-4 w-4" />
-            </Button>
-          </CardFooter>
+          <CardFooter className="flex justify-end gap-2 print:hidden"></CardFooter>
         </Card>
       ))}
 

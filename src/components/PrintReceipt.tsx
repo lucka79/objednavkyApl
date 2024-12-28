@@ -1,5 +1,6 @@
 import { Receipt, ReceiptItem } from "types";
 import { format } from "date-fns";
+import { cs } from "date-fns/locale";
 
 interface PrintReceiptProps {
   receipt: Receipt;
@@ -27,8 +28,8 @@ export function PrintReceipt({ receipt, userName }: PrintReceiptProps) {
     <div className="p-4 w-full text-sm">
       <div className="text-center mb-4">
         <h2 className="font-semibold">{userName}</h2>
-        <h2 className="font-semibold">Doklad #{receipt.receipt_no}</h2>
-        <p>{format(new Date(receipt.date), "PPP")}</p>
+        <h2 className="text-xs">Doklad #{receipt.receipt_no}</h2>
+        <p>{format(new Date(receipt.date), "PPP HH:mm", { locale: cs })}</p>
       </div>
 
       <div className="border-t border-b py-2 my-2">
@@ -49,7 +50,9 @@ export function PrintReceipt({ receipt, userName }: PrintReceiptProps) {
         ))}
       </div>
 
-      <div className="flex flex-col gap-1 mt-4">
+      <div className="border-b my-2"></div>
+
+      <div className="flex flex-col gap-1">
         {Object.entries(vatTotals).map(([rate, amounts]) => (
           <div key={rate}>
             <div className="flex justify-between">
@@ -62,9 +65,20 @@ export function PrintReceipt({ receipt, userName }: PrintReceiptProps) {
             </div>
           </div>
         ))}
+
+        <div className="border-b my-2"></div>
+
         <div className="flex justify-between font-bold">
           <span>Celkem:</span>
           <span>{receipt.total.toFixed(2)} Kč</span>
+        </div>
+
+        <div className="flex justify-center py-4">
+          <span>Děkujeme Vám za nákup!</span>
+        </div>
+
+        <div className="flex justify-center">
+          <span>APLICA s.r.o., DIČ: CZ00555801</span>
         </div>
       </div>
     </div>
