@@ -143,12 +143,6 @@ export function CreateProductForm() {
       <Card className="relative w-[480px] mx-auto justify-center border-none">
         <CardHeader>
           <CardTitle>Nový výrobek</CardTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-2 right-2"
-            onClick={onClose}
-          ></Button>
         </CardHeader>
         {/* <CardContent> */}
         <Form {...form}>

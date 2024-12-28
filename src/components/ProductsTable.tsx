@@ -32,11 +32,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CreateProductForm } from "./CreateProductForm";
+
+import { Card } from "./ui/card";
+import { CirclePlus } from "lucide-react";
 
 type Row = {
   original: Product;
@@ -310,134 +313,186 @@ export function ProductsTable() {
     onSortingChange: setSorting,
   });
 
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+
+  const onSelectCategory = (categoryId: number | null) => {
+    setSelectedCategory(categoryId);
+    setCategoryFilter(categoryId ? categoryId.toString() : "all");
+  };
+
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders</div>;
 
   return (
     <>
-      <div className="flex justify-between items-center">
-        <div>
-          <Tabs value={categoryFilter} onValueChange={setCategoryFilter}>
-            <TabsList>
-              <TabsTrigger value="all">All</TabsTrigger>
-              {categories?.map((category) => (
-                <TabsTrigger key={category.id} value={category.id.toString()}>
-                  {category.name}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-        </div>
-      </div>
-      <div className="flex justify-between items-center">
-        <Input
-          placeholder="Search product..."
-          value={globalFilter}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          className="max-w-sm"
-        />
-
-        <div className="flex gap-4 items-center">
-          <Select value={priceFilter} onValueChange={setPriceFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by price" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Prices</SelectItem>
-              <SelectItem value="mobile">Mobile Price {">"} 0</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button variant="outline" onClick={handleCreateProduct}>
-            Create Product
-          </Button>
-        </div>
-      </div>
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <TableHead
-                  key={header.id}
-                  onClick={header.column.getToggleSortingHandler()}
-                  className={
-                    header.column.getCanSort()
-                      ? "cursor-pointer select-none"
-                      : ""
-                  }
-                >
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
-                  {{
-                    asc: " 🔼",
-                    desc: " 🔽",
-                  }[header.column.getIsSorted() as string] ?? null}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows?.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                onClick={() => setSelectedProductId(row.original.id)}
-                className="cursor-pointer hover:bg-muted/50"
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
+      <Card className="p-4">
+        <div className="mx-auto p-2">
+          <div className="w-full rounded-md border p-2">
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-4">
+                {[
+                  null,
+                  ...(categories ?? []).slice(
+                    0,
+                    Math.ceil((categories?.length ?? 0) / 2)
+                  ),
+                ].map((category) => (
+                  <Button
+                    key={category?.id ?? "all"}
+                    variant="outline"
+                    className={`w-32 hover:border-orange-500 ${
+                      selectedCategory === (category?.id ?? null)
+                        ? "bg-orange-500 text-white"
+                        : ""
+                    }`}
+                    onClick={() => onSelectCategory(category?.id ?? null)}
+                  >
+                    {category?.name ?? "Vše"}
+                  </Button>
                 ))}
-                <div className="flex mt-2 self-center gap-2">
-                  {/* <Badge variant="outline">{row.original.status}</Badge> */}
-                  {/* <FileSearch2
+              </div>
+              <div className="flex gap-4">
+                {(categories ?? [])
+                  .slice(Math.ceil((categories?.length ?? 0) / 2))
+                  .map((category) => (
+                    <Button
+                      key={category.id}
+                      variant="outline"
+                      className={`w-32 hover:border-orange-500 ${
+                        parseInt(categoryFilter) === category.id
+                          ? "bg-orange-500 text-white"
+                          : ""
+                      }`}
+                      onClick={() => setCategoryFilter(category.id.toString())}
+                    >
+                      {category.name}
+                    </Button>
+                  ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center">
+          <Input
+            placeholder="Search product..."
+            value={globalFilter}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            className="max-w-sm"
+          />
+
+          <div className="flex gap-4 items-center">
+            <Select value={priceFilter} onValueChange={setPriceFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by price" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Prices</SelectItem>
+                <SelectItem value="mobile">Mobile Price {">"} 0</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button
+              className="bg-orange-500 text-white"
+              variant="outline"
+              onClick={handleCreateProduct}
+            >
+              <CirclePlus className="h-4 w-4 mr-2" /> Nový výrobek
+            </Button>
+          </div>
+        </div>
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead
+                    key={header.id}
+                    onClick={header.column.getToggleSortingHandler()}
+                    className={
+                      header.column.getCanSort()
+                        ? "cursor-pointer select-none"
+                        : ""
+                    }
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                    {{
+                      asc: " 🔼",
+                      desc: " 🔽",
+                    }[header.column.getIsSorted() as string] ?? null}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  onClick={() => setSelectedProductId(row.original.id)}
+                  className="cursor-pointer hover:bg-muted/50"
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                  <div className="flex mt-2 self-center gap-2">
+                    {/* <Badge variant="outline">{row.original.status}</Badge> */}
+                    {/* <FileSearch2
                         className="cursor-pointer hover:bg-muted/50"
                         size={20}
                         onClick={() => setSelectedOrderId(row.original.id)}
                       /> */}
-                </div>
+                  </div>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  No results.
+                </TableCell>
               </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
-                No results.
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Next
-        </Button>
-      </div>
+            )}
+          </TableBody>
+        </Table>
+        <div className="flex items-center justify-end space-x-2 py-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            Next
+          </Button>
+        </div>
 
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="p-0 border-none">
-          <CreateProductForm />
-        </DialogContent>
-      </Dialog>
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogContent className="p-0 border-none">
+            <CreateProductForm />
+          </DialogContent>
+        </Dialog>
+      </Card>
     </>
   );
 }

@@ -33,11 +33,7 @@ export function ReceiptDetailsCard() {
     error,
     // @ts-ignore
     isLoading,
-  } = useFetchReceiptById(selectedReceiptId);
-
-  if (!selectedReceiptId) {
-    return null;
-  }
+  } = useFetchReceiptById(selectedReceiptId!);
 
   // const updateStatus = (status: string) => {
   //   if (!selectedReceiptId) return;
@@ -84,6 +80,10 @@ export function ReceiptDetailsCard() {
       }
     `,
   });
+
+  if (!selectedReceiptId) {
+    return null;
+  }
 
   if (isLoading) return <div>Loading receipt details...</div>;
   if (error) return <div>Error loading receipt details</div>;
