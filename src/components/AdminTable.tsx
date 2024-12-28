@@ -349,7 +349,7 @@ export function AdminTable() {
   const [activeFilter, setActiveFilter] = useState("all");
 
   const filteredUsers = useMemo(() => {
-    return (users ?? []).filter((user) => {
+    return (users ?? []).filter((user: any) => {
       const searchLower = searchQuery.toLowerCase();
       const matchesSearch =
         user.full_name?.toLowerCase().includes(searchLower) ||

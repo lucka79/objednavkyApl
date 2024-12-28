@@ -70,7 +70,7 @@ const HistoryDialog = ({ itemId }: { itemId: number }) => {
 
   return (
     <div className="flex flex-col max-h-[400px] overflow-y-auto w-[400px]">
-      {historyData.map((entry) => (
+      {historyData.map((entry: any) => (
         <div
           key={entry.id}
           className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-2"

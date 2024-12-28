@@ -6,7 +6,7 @@ import { useReceiptStore } from "@/providers/receiptStore";
 import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 // import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 import { Badge } from "./ui/badge";
-import { Category } from "types";
+import { Category, Product } from "types";
 import { Skeleton } from "./ui/skeleton";
 import { useAuthStore } from "@/lib/supabase";
 import { fetchCategories } from "@/hooks/useCategories";
@@ -96,12 +96,12 @@ export const StoreCategory: React.FC = () => {
     today.setHours(0, 0, 0, 0);
 
     return orders
-      .filter((order) => {
+      .filter((order: any) => {
         const orderDate = new Date(order.date);
         orderDate.setHours(0, 0, 0, 0);
         return orderDate > today && order.user_id === user.id;
       })
-      .reduce((sum, order) => {
+      .reduce((sum: number, order: any) => {
         const orderItem = order.order_items.find(
           (item: { product_id: number }) => item.product_id === productId
         );
@@ -130,7 +130,9 @@ export const StoreCategory: React.FC = () => {
   }
 
   const filteredProducts = selectedCategory
-    ? products.filter((product) => product.category_id === selectedCategory)
+    ? products.filter(
+        (product: Product) => product.category_id === selectedCategory
+      )
     : products;
 
   // Use filteredProducts instead of products when rendering
@@ -144,9 +146,9 @@ export const StoreCategory: React.FC = () => {
         />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 p-2">
-        {filteredProducts?.map((product) => {
+        {filteredProducts?.map((product: Product) => {
           const storedQuantity =
-            storedItems?.find((item) => item.product_id === product.id)
+            storedItems?.find((item: any) => item.product_id === product.id)
               ?.quantity || 0;
           const futureQuantity = getFutureQuantity(product.id);
 

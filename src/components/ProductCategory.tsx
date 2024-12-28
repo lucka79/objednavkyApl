@@ -68,6 +68,14 @@ const CategoryBadges = ({
   );
 };
 
+interface Product {
+  id: number;
+  name: string;
+  category_id: number;
+  priceBuyer: number;
+  priceMobil: number;
+}
+
 export const ProductCategory: React.FC = () => {
   const { data: products, isLoading, error } = fetchActiveProducts();
   const { data: categories, isLoading: categoriesLoading } = fetchCategories();
@@ -98,7 +106,9 @@ export const ProductCategory: React.FC = () => {
   }
 
   const filteredProducts = selectedCategory
-    ? products.filter((product) => product.category_id === selectedCategory)
+    ? products.filter(
+        (product: Product) => product.category_id === selectedCategory
+      )
     : products;
 
   // Use filteredProducts instead of products when rendering
@@ -112,10 +122,10 @@ export const ProductCategory: React.FC = () => {
         />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 p-2">
-        {filteredProducts?.map((product) => (
+        {filteredProducts?.map((product: Product) => (
           <Card
             key={product.id}
-            onClick={() => addItem(product)}
+            onClick={() => addItem(product as any)}
             className="text-center h-36 flex flex-col cursor-pointer"
           >
             {/* First half - Product Name */}

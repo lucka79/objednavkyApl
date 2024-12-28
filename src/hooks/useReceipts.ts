@@ -52,7 +52,7 @@ export const fetchAllReceipts = () => {
   // order by id
 export const useFetchReceiptById = (receiptId: number | null) => {
   if (!receiptId) {
-    return { data: null, error: null };
+    return { data: null, error: null, isLoading: false };
   }
 
   return useQuery({

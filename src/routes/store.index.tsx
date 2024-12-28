@@ -6,8 +6,8 @@ import { ShoppingCartIcon, FileSliders } from "lucide-react";
 import { StoreCategory } from "@/components/StoreCategory";
 import CartStore from "@/components/CartStore";
 import { ReceiptsTable } from "@/components/ReceiptsTable";
-// import { ReceiptDetailsCard } from "@/components/ReceiptDetailsCard";
-import { ReceiptDetailsDialog } from "@/components/ReceiptDetailsDialog";
+
+// import { ReceiptDetailsDialog } from "@/components/ReceiptDetailsDialog";
 import { useReceiptStore } from "@/providers/receiptStore";
 import { ReceiptDetailsCard } from "@/components/ReceiptDetailsCard";
 

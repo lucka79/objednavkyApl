@@ -67,7 +67,7 @@ export const AddFavoriteProduct: React.FC<AddFavoriteProductProps> = ({
   };
 
   const filteredProducts =
-    products?.filter((product) =>
+    products?.filter((product: any) =>
       selectedCategory ? product.category_id === selectedCategory : true
     ) ?? [];
 
@@ -88,7 +88,7 @@ export const AddFavoriteProduct: React.FC<AddFavoriteProductProps> = ({
           {filteredProducts.length === 0 ? (
             <div>No products found</div>
           ) : (
-            filteredProducts.map((product) => (
+            filteredProducts.map((product: any) => (
               <Card
                 key={product.id}
                 onClick={() => handleAddProduct(product)}

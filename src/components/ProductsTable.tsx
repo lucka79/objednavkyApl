@@ -195,12 +195,14 @@ export function ProductsTable() {
           >
             <SelectTrigger className="w-[130px]">
               <SelectValue>
-                {categories?.find((c) => c.id === row.original.category_id)
-                  ?.name || "N/A"}
+                {categories?.find(
+                  (c: { id: number; name: string }) =>
+                    c.id === row.original.category_id
+                )?.name || "N/A"}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {categories?.map((category) => (
+              {categories?.map((category: { id: number; name: string }) => (
                 <SelectItem key={category.id} value={category.id.toString()}>
                   {category.name}
                 </SelectItem>
@@ -210,11 +212,15 @@ export function ProductsTable() {
         ),
         sortingFn: (rowA: Row, rowB: Row) => {
           const catA =
-            categories?.find((c) => c.id === rowA.original.category_id)?.name ||
-            "";
+            categories?.find(
+              (c: { id: number; name: string }) =>
+                c.id === rowA.original.category_id
+            )?.name || "";
           const catB =
-            categories?.find((c) => c.id === rowB.original.category_id)?.name ||
-            "";
+            categories?.find(
+              (c: { id: number; name: string }) =>
+                c.id === rowB.original.category_id
+            )?.name || "";
           return catA.localeCompare(catB);
         },
       },
@@ -281,11 +287,11 @@ export function ProductsTable() {
   const filteredProducts = React.useMemo(() => {
     return (
       products?.filter(
-        (product) =>
+        (product: Product) =>
           (priceFilter === "all" ||
             (priceFilter === "mobile" && product.priceMobil > 0)) &&
           (categoryFilter === "all" ||
-            product.category_id.toString() === categoryFilter) &&
+            (product.category_id ?? 0).toString() === categoryFilter) &&
           Object.values(product).some(
             (value) =>
               value &&
@@ -354,7 +360,7 @@ export function ProductsTable() {
               <div className="flex gap-4">
                 {(categories ?? [])
                   .slice(Math.ceil((categories?.length ?? 0) / 2))
-                  .map((category) => (
+                  .map((category: { id: number; name: string }) => (
                     <Button
                       key={category.id}
                       variant="outline"

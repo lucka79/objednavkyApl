@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/popover";
 import { CalendarIcon, PrinterIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Receipt, ReceiptItem } from "types";
+import { Product, Receipt, ReceiptItem } from "types";
 import { fetchActiveProducts } from "@/hooks/useProducts";
 import { fetchReceiptsBySellerId } from "@/hooks/useReceipts";
 import { Input } from "./ui/input";
@@ -352,7 +352,7 @@ export function ReceiptsTable({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Products</SelectItem>
-                  {products?.map((product) => (
+                  {products?.map((product: Product) => (
                     <SelectItem key={product.id} value={product.id.toString()}>
                       <div className="flex justify-between items-center w-full">
                         <span className="mr-2">{product.name}</span>

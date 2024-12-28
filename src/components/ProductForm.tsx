@@ -256,14 +256,16 @@ export function ProductForm({ onClose }: ProductFormProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {categories?.map((category) => (
-                          <SelectItem
-                            key={category.id}
-                            value={category.id.toString()}
-                          >
-                            {category.name}
-                          </SelectItem>
-                        ))}
+                        {categories?.map(
+                          (category: { id: number; name: string }) => (
+                            <SelectItem
+                              key={category.id}
+                              value={category.id.toString()}
+                            >
+                              {category.name}
+                            </SelectItem>
+                          )
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
