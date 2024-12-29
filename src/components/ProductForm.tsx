@@ -37,7 +37,7 @@ import imageCompression from "browser-image-compression";
 const productSchema = z.object({
   name: z.string().min(3, "Product name is required"),
   description: z.string().min(0, "Product description is required"),
-  price: z.number().min(0.01, "Cena musí být větší než 0"),
+  price: z.number().min(0, "Cena musí být větší než 0"),
   priceBuyer: z.number().min(0, "Cena musí být větší než 0"),
   priceMobil: z.number().min(0, "Mobilní cena musí být nezáporná"),
   vat: z.number().min(0, "DPH musí být nezáporná"),
@@ -290,74 +290,111 @@ export function ProductForm({ onClose }: ProductFormProps) {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Prodejní cena</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.5"
-                        placeholder="Enter product price"
-                        {...field}
-                        onChange={(e) =>
-                          field.onChange(parseFloat(e.target.value))
+              <div className="flex gap-4">
+                <FormField
+                  control={form.control}
+                  name="price"
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormLabel>Prodejní cena</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.5"
+                          placeholder="Enter product price"
+                          {...field}
+                          onChange={(e) =>
+                            field.onChange(parseFloat(e.target.value))
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Cena výrobku v Kč s DPH.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="priceBuyer"
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormLabel>Nákupní cena</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          placeholder="Enter product price"
+                          {...field}
+                          onChange={(e) =>
+                            field.onChange(parseFloat(e.target.value))
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Cena výrobku v Kč bez DPH.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="flex gap-4">
+                <FormField
+                  control={form.control}
+                  name="priceMobil"
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormLabel>Mobilní cena</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="Mobilní cena..."
+                          {...field}
+                          onChange={(e) =>
+                            field.onChange(parseFloat(e.target.value))
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Cena výrobku v Kč s DPH.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="vat"
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormLabel>DPH</FormLabel>
+                      <Select
+                        onValueChange={(value) =>
+                          field.onChange(parseInt(value))
                         }
-                      />
-                    </FormControl>
-                    <FormDescription>Cena výrobku v Kč s DPH.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="priceBuyer"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nákupní cena</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.1"
-                        placeholder="Enter product price"
-                        {...field}
-                        onChange={(e) =>
-                          field.onChange(parseFloat(e.target.value))
-                        }
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Cena výrobku v Kč bez DPH.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="priceMobil"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Mobilní cena</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="Mobilní cena..."
-                        {...field}
-                        onChange={(e) =>
-                          field.onChange(parseFloat(e.target.value))
-                        }
-                      />
-                    </FormControl>
-                    <FormDescription>Cena výrobku v Kč s DPH.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                        value={field.value.toString()}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Vyberte DPH" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="0">0%</SelectItem>
+                          <SelectItem value="12">12%</SelectItem>
+                          <SelectItem value="15">15%</SelectItem>
+                          <SelectItem value="21">21%</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>Sazba DPH v procentech</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               <FormField
                 control={form.control}
                 name="image"

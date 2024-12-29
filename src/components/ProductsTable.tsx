@@ -20,7 +20,11 @@ import {
 } from "@/components/ui/table";
 import { useState } from "react";
 
-import { fetchAllProducts, useUpdateProduct } from "@/hooks/useProducts";
+import {
+  deleteProduct,
+  fetchAllProducts,
+  useUpdateProduct,
+} from "@/hooks/useProducts";
 import { Product } from "../../types";
 import { useProductStore } from "@/providers/productStore";
 // import { useNavigate } from "@tanstack/react-router";
@@ -39,7 +43,18 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CreateProductForm } from "./CreateProductForm";
 
 import { Card } from "./ui/card";
-import { CirclePlus } from "lucide-react";
+import { CirclePlus, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type Row = {
   original: Product;
@@ -225,6 +240,13 @@ export function ProductsTable() {
         },
       },
       {
+        accessorKey: "vat",
+        header: () => <div className="text-right">DPH</div>,
+        cell: ({ row }: { row: Row }) => (
+          <div className="text-right">{row.original.vat}%</div>
+        ),
+      },
+      {
         accessorKey: "active",
         header: "Active",
         cell: ({ row }: { row: Row }) => {
@@ -256,6 +278,67 @@ export function ProductsTable() {
                 }
                 className="mr-2 border-blue-500 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 data-[state=checked]:text-white"
               />
+            </div>
+          );
+        },
+      },
+      {
+        id: "actions",
+        cell: ({ row }: { row: Row }) => {
+          const product = row.original;
+
+          const handleDelete = async () => {
+            try {
+              await deleteProduct(product.id);
+              toast({
+                title: "Success",
+                description: "Product deleted successfully",
+              });
+            } catch (error) {
+              console.error("Failed to delete product:", error);
+              toast({
+                title: "Error",
+                description: "Failed to delete product",
+                variant: "destructive",
+              });
+            }
+          };
+
+          return (
+            <div
+              className="flex justify-end"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Opravdu smazat tento výrobek?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Tato akce je nevratná. Výrobek bude trvale odstraněn.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Zrušit</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      Smazat
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           );
         },
@@ -340,7 +423,7 @@ export function ProductsTable() {
                   null,
                   ...(categories ?? []).slice(
                     0,
-                    Math.ceil((categories?.length ?? 0) / 2)
+                    Math.ceil((categories?.length ?? 0) / 3)
                   ),
                 ].map((category) => (
                   <Button
@@ -359,8 +442,29 @@ export function ProductsTable() {
               </div>
               <div className="flex gap-4">
                 {(categories ?? [])
-                  .slice(Math.ceil((categories?.length ?? 0) / 2))
-                  .map((category: { id: number; name: string }) => (
+                  .slice(
+                    Math.ceil((categories?.length ?? 0) / 3),
+                    Math.ceil(((categories?.length ?? 0) * 2) / 3)
+                  )
+                  .map((category) => (
+                    <Button
+                      key={category.id}
+                      variant="outline"
+                      className={`w-32 hover:border-orange-500 ${
+                        parseInt(categoryFilter) === category.id
+                          ? "bg-orange-500 text-white"
+                          : ""
+                      }`}
+                      onClick={() => setCategoryFilter(category.id.toString())}
+                    >
+                      {category.name}
+                    </Button>
+                  ))}
+              </div>
+              <div className="flex gap-4">
+                {(categories ?? [])
+                  .slice(Math.ceil(((categories?.length ?? 0) * 2) / 3))
+                  .map((category) => (
                     <Button
                       key={category.id}
                       variant="outline"

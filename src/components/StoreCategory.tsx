@@ -26,9 +26,11 @@ const CategoryBadges = ({
   onSelectCategory: (id: number | null) => void;
 }) => {
   const storeCategories = categories.filter((category) => category.store);
-  const halfLength = Math.ceil((storeCategories.length + 1) / 2); // +1 for "Vše" badge
-  const firstRow = [null, ...storeCategories.slice(0, halfLength - 1)];
-  const secondRow = storeCategories.slice(halfLength - 1);
+  const itemsPerRow = Math.ceil((storeCategories.length + 1) / 3); // +1 for "Vše" badge
+
+  const firstRow = [null, ...storeCategories.slice(0, itemsPerRow - 1)];
+  const secondRow = storeCategories.slice(itemsPerRow - 1, itemsPerRow * 2 - 1);
+  const thirdRow = storeCategories.slice(itemsPerRow * 2 - 1);
 
   return (
     <div className="w-full rounded-md border p-2">
@@ -37,11 +39,7 @@ const CategoryBadges = ({
           {firstRow.map((category) => (
             <Button
               key={category?.id ?? "all"}
-              variant={
-                selectedCategory === (category?.id ?? null)
-                  ? "outline"
-                  : "outline"
-              }
+              variant="outline"
               className={`w-32 hover:border-orange-400 ${
                 selectedCategory === (category?.id ?? null)
                   ? "bg-orange-400"
@@ -57,13 +55,25 @@ const CategoryBadges = ({
           {secondRow.map((category) => (
             <Button
               key={category.id}
-              variant={
-                selectedCategory === (category?.id ?? null)
-                  ? "outline"
-                  : "outline"
-              }
+              variant="outline"
               className={`w-32 hover:border-orange-400 ${
-                selectedCategory === (category?.id ?? null)
+                selectedCategory === category.id
+                  ? "bg-orange-400 text-white"
+                  : ""
+              }`}
+              onClick={() => onSelectCategory(category.id)}
+            >
+              {category.name}
+            </Button>
+          ))}
+        </div>
+        <div className="flex gap-4">
+          {thirdRow.map((category) => (
+            <Button
+              key={category.id}
+              variant="outline"
+              className={`w-32 hover:border-orange-400 ${
+                selectedCategory === category.id
                   ? "bg-orange-400 text-white"
                   : ""
               }`}

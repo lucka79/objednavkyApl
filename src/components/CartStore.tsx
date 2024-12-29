@@ -19,6 +19,7 @@ import {
   useInsertReceiptItems,
   useUpdateStoredItems,
 } from "@/hooks/useReceipts";
+import { useState } from "react";
 
 export default function CartStore() {
   const { toast } = useToast();
@@ -34,6 +35,8 @@ export default function CartStore() {
 
     checkout,
   } = useReceiptStore();
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const date = new Date();
   date.setHours(date.getHours() + 1); // Add 1 hour to the current date
@@ -63,6 +66,7 @@ export default function CartStore() {
     }
 
     try {
+      setIsSubmitting(true);
       const orderTotal = calculateTotal();
       console.log(
         "Položky na účtence:",
@@ -99,6 +103,8 @@ export default function CartStore() {
         description: "Při vytvoření účtenky nastala chyba.",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -178,10 +184,11 @@ export default function CartStore() {
         <Button
           onClick={handleSubmit}
           variant="outline"
+          disabled={isSubmitting}
           className="flex flex-row font-bold text-slate-600 w-full mb-auto"
         >
           <Coins className="flex flex-row font-bold text-slate-600 w-1/12 mb-auto" />
-          {calculateTotal().toFixed(2)}
+          {isSubmitting ? "Zpracování..." : calculateTotal().toFixed(2)}
         </Button>
       </CardContent>
       {/* <CardFooter className="flex flex-row">

@@ -42,7 +42,7 @@ import imageCompression from "browser-image-compression";
 const productSchema = z.object({
   name: z.string().min(3, "Product name is required"),
   description: z.string().min(0, "Popis je povinný"),
-  price: z.number().min(0.01, "Cena musí být větší než 0"),
+  price: z.number().min(0, "Cena musí být nezáporná"),
   priceBuyer: z.number().min(0, "Cena musí být větší než 0").optional(),
   priceMobil: z.number().min(0, "Mobilní cena musí být nezáporná"),
   vat: z.number().min(0, "DPH musí být nezáporná"),
@@ -80,12 +80,19 @@ export function CreateProductForm() {
     mutationFn: insertProduct,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
-      // navigate({ to: "/admin/products" });
       toast({
         title: "Výrobek vytvořen",
         description: "Výrobek byl úspěšně vytvořen.",
       });
-      form.reset();
+      form.reset({
+        name: "",
+        description: "",
+        price: 0,
+        priceBuyer: 0,
+        priceMobil: 0,
+        vat: 12,
+        category_id: 1,
+      });
       onClose();
     },
     onError: (error) => {

@@ -168,3 +168,12 @@ export const useProducts = () => {
     },
   });
 };
+
+export const deleteProduct = async (productId: number) => {
+  const { error } = await supabase
+    .from('products')
+    .delete()
+    .eq('id', productId);
+  
+  if (error) throw error;
+};

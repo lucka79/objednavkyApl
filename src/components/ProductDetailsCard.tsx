@@ -73,13 +73,21 @@ export function ProductDetailsCard() {
             </span>
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex justify-between">
-          <span className="text-sm font-semibold">
-            Prodejní cena: {product.price.toFixed(2)} Kč
-          </span>
-          <span className="text-sm font-semibold">
-            Mobilní cena: {product.priceMobil.toFixed(2)} Kč
-          </span>
+        <CardContent className="flex flex-col gap-2">
+          <div className="flex justify-between">
+            <span className="text-sm">
+              Prodejní cena: {product.price.toFixed(2)} Kč
+            </span>
+            <span className="text-sm">
+              Mobilní cena: {product.priceMobil.toFixed(2)} Kč
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-sm">
+              Nákupní cena: {product.priceBuyer.toFixed(2)} Kč
+            </span>
+            <span className="text-sm">DPH: {product.vat}%</span>
+          </div>
           {/* <OrderItems items={order.order_items} /> budou zde suroviny */}
         </CardContent>
         <CardFooter>
