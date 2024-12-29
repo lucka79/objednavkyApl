@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Coins, SquareMinus, SquarePlus } from "lucide-react";
+import { Coins, SquareMinus, SquarePlus, Lock, Unlock } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -21,6 +21,7 @@ interface FavoriteItem {
   };
   quantity: number;
   price?: number;
+  isManualPrice?: boolean;
 }
 
 interface FavoriteCartProps {
@@ -42,6 +43,8 @@ export default function FavoriteCart({
   const updateFavoriteItem = useUpdateFavoriteItem();
   const deleteFavoriteItem = useDeleteFavoriteItem();
 
+  const [editingPriceId, setEditingPriceId] = useState<number | null>(null);
+
   useEffect(() => {
     if (!items) return;
     const sortedItems = items.sort((a, b) =>
@@ -51,6 +54,9 @@ export default function FavoriteCart({
   }, [items]);
 
   const getItemPrice = (item: FavoriteItem) => {
+    if (item.price && item.price > 0) {
+      return item.price;
+    }
     return userRole === "mobil"
       ? item.product.priceMobil
       : userRole === "store"
@@ -109,6 +115,32 @@ export default function FavoriteCart({
     }
   };
 
+  const updateFavoritePrice = async (itemId: number, newPrice: number) => {
+    try {
+      await updateFavoriteItem.mutateAsync({
+        itemId,
+        newPrice,
+        isManualPrice: true,
+      });
+
+      // Update local state
+      const updatedItems = favoriteItems.map((item) =>
+        item.id === itemId
+          ? { ...item, price: newPrice, isManualPrice: true }
+          : item
+      );
+      setFavoriteItems(updatedItems);
+      await onUpdate();
+    } catch (error) {
+      console.error("Failed to update price:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update price",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Card>
       <CardContent>
@@ -123,37 +155,73 @@ export default function FavoriteCart({
               <span className="text-sm flex-1 text-left mr-4">
                 {item.product.name}
               </span>
-              <span className="text-sm flex-1 mr-2 text-end">
-                {getItemPrice(item).toFixed(2)} Kč
-              </span>
-              <div className="flex items-center">
-                <SquareMinus
-                  onClick={() =>
-                    updateFavoriteQuantity(item.id, item.quantity - 1)
-                  }
-                  className="cursor-pointer text-stone-300 hover:text-stone-400"
-                />
-                <Input
-                  type="number"
-                  min="0"
-                  value={item.quantity}
-                  onChange={(e) =>
-                    updateFavoriteQuantity(
-                      item.id,
-                      parseInt(e.target.value) || 0
-                    )
-                  }
-                  className="w-20 mx-1 text-center"
-                />
-                <SquarePlus
-                  onClick={() =>
-                    updateFavoriteQuantity(item.id, item.quantity + 1)
-                  }
-                  className="cursor-pointer text-stone-300 hover:text-stone-400"
-                />
-                <Label className="w-16 mx-2 text-end">
-                  {(getItemPrice(item) * (item.quantity || 0)).toFixed(2)} Kč
-                </Label>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  {editingPriceId === item.id ? (
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={item.price || getItemPrice(item)}
+                      onChange={(e) =>
+                        updateFavoritePrice(
+                          item.id,
+                          parseFloat(e.target.value) || 0
+                        )
+                      }
+                      onBlur={() => setEditingPriceId(null)}
+                      className="w-24 text-right"
+                      autoFocus
+                    />
+                  ) : (
+                    <span className="w-24 text-right">
+                      {getItemPrice(item).toFixed(2)} Kč
+                    </span>
+                  )}
+                  <button
+                    onClick={() =>
+                      setEditingPriceId(
+                        editingPriceId === item.id ? null : item.id
+                      )
+                    }
+                    className="hover:text-orange-500"
+                  >
+                    {item.price && item.price > 0 ? (
+                      <Lock className="h-4 w-4 text-orange-500" />
+                    ) : (
+                      <Unlock className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                <div className="flex items-center">
+                  <SquareMinus
+                    onClick={() =>
+                      updateFavoriteQuantity(item.id, item.quantity - 1)
+                    }
+                    className="cursor-pointer text-stone-300 hover:text-stone-400"
+                  />
+                  <Input
+                    type="number"
+                    min="0"
+                    value={item.quantity}
+                    onChange={(e) =>
+                      updateFavoriteQuantity(
+                        item.id,
+                        parseInt(e.target.value) || 0
+                      )
+                    }
+                    className="w-20 mx-1 text-center"
+                  />
+                  <SquarePlus
+                    onClick={() =>
+                      updateFavoriteQuantity(item.id, item.quantity + 1)
+                    }
+                    className="cursor-pointer text-stone-300 hover:text-stone-400"
+                  />
+                  <Label className="w-16 mx-2 text-end">
+                    {(getItemPrice(item) * (item.quantity || 0)).toFixed(2)} Kč
+                  </Label>
+                </div>
               </div>
             </div>
           ))

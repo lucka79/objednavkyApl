@@ -5,7 +5,7 @@ import {
   flexRender,
 } from "@tanstack/react-table";
 // import { fetchAllOrders } from "@/hooks/useOrders";
-import { FavoriteItem, FavoriteOrder } from "../../types";
+import { FavoriteOrder } from "../../types";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -65,6 +65,18 @@ import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
 
 const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
+
+interface FavoriteItem {
+  product_id: number;
+  quantity: number;
+  price?: number;
+  product: {
+    id: number;
+    price: number;
+    priceMobil: number;
+    priceBuyer: number;
+  };
+}
 
 const columns: ColumnDef<FavoriteOrder>[] = [
   {
@@ -265,15 +277,20 @@ export function FavoriteOrdersTable({
         const userId = favoriteOrder.user_id;
         const paidBy = favoriteOrder.user?.paid_by;
 
-        // Calculate total using the appropriate price based on user role
+        // Calculate total using manual prices when available
         const total = favoriteOrder.favorite_items.reduce(
           (sum: number, item: FavoriteItem) => {
+            // First check for manual price
+            if (item.price && item.price > 0) {
+              return sum + item.quantity * item.price;
+            }
+            // Otherwise use role-based pricing
             const price =
               userRole === "mobil"
-                ? item.product?.priceMobil || 0
+                ? item.product.priceMobil
                 : userRole === "store"
-                  ? item.product?.priceBuyer || 0
-                  : item.product?.price || 0;
+                  ? item.product.priceBuyer
+                  : item.product.price;
             return sum + item.quantity * price;
           },
           0
@@ -295,18 +312,20 @@ export function FavoriteOrdersTable({
           paid_by: paidBy,
         });
 
-        // Map favorite items to order items with role-based pricing
+        // Map items using manual prices when available
         const orderItems = favoriteOrder.favorite_items.map(
           (item: FavoriteItem) => ({
             order_id: newOrder.id,
             product_id: item.product_id,
             quantity: item.quantity,
             price:
-              userRole === "mobil"
-                ? item.product.priceMobil
-                : userRole === "store"
-                  ? item.product.priceBuyer
-                  : item.product.price,
+              item.price && item.price > 0
+                ? item.price
+                : userRole === "mobil"
+                  ? item.product.priceMobil
+                  : userRole === "store"
+                    ? item.product.priceBuyer
+                    : item.product.price,
           })
         );
 

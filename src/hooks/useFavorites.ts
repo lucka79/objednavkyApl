@@ -77,21 +77,29 @@ export const useFavoriteItems = () => {
   });
 };
 
-export const useUpdateFavoriteItem = () => {
-  const queryClient = useQueryClient();
+interface UpdateFavoriteItemParams {
+  itemId: number;
+  newQuantity?: number;
+  newPrice?: number;
+  isManualPrice?: boolean;
+}
 
+export const useUpdateFavoriteItem = () => {
   return useMutation({
-    mutationFn: async ({ itemId, newQuantity }: { itemId: number; newQuantity: number }) => {
-      const { error } = await supabase
+    mutationFn: async (params: UpdateFavoriteItemParams) => {
+      const { data, error } = await supabase
         .from('favorite_items')
-        .update({ quantity: newQuantity })
-        .eq('id', itemId);
+        .update({
+          quantity: params.newQuantity,
+          price: params.newPrice,
+          is_manual_price: params.isManualPrice
+        })
+        .eq('id', params.itemId)
+        .select()
+        .single();
 
       if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['favoriteItems'] });
-      queryClient.invalidateQueries({ queryKey: ['favoriteOrders'] });
+      return data;
     },
   });
 };
