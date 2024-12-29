@@ -45,6 +45,7 @@ const productSchema = z.object({
   image: z.union([z.instanceof(File), z.string()]).optional(),
   active: z.boolean().default(true),
   store: z.boolean().default(false),
+  buyer: z.boolean().default(false),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;

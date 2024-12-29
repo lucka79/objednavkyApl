@@ -2,18 +2,10 @@
 import React, { useState } from "react";
 import { fetchActiveProducts } from "@/hooks/useProducts";
 import { useCartStore } from "@/providers/cartStore";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { ShoppingCart } from "lucide-react";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Skeleton } from "./ui/skeleton";
-import { useAuthStore } from "@/lib/supabase";
 import { fetchCategories } from "@/hooks/useCategories";
 
 import { useUpdateOrderItems } from "@/hooks/useOrders";
@@ -21,7 +13,7 @@ import { useOrderStore } from "@/providers/orderStore";
 
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { CategoryBadges } from "./CategoryBadges";
+import { CategoryBadgesVertical } from "./CategoryBadgesVertical";
 import { useToast } from "@/hooks/use-toast";
 
 interface AddProductProps {
@@ -37,7 +29,6 @@ export const AddProduct: React.FC<AddProductProps> = ({
   const { data: categories, isLoading: categoriesLoading } = fetchCategories();
 
   const addItem = useCartStore((state) => state.addItem);
-  const user = useAuthStore((state) => state.user);
 
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   // @ts-ignore
@@ -158,56 +149,42 @@ export const AddProduct: React.FC<AddProductProps> = ({
 
   // Use filteredProducts instead of products when rendering
   return (
-    <Card className="p-4 print:hidden">
-      <div className="container mx-auto p-2">
-        <CategoryBadges
-          categories={categories}
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
-        />
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 p-2">
-        {filteredProducts?.map((product) => (
-          <Card key={product.id} className="text-center h-48 flex flex-col">
-            {/* First half - Product Name */}
-            <div className="flex-1">
-              <CardHeader className="h-full px-1">
-                <CardTitle className="text-sm line-clamp-2 mx-1 hover:line-clamp-3">
-                  {product.name}
-                </CardTitle>
-              </CardHeader>
-            </div>
-
-            {/* Second half - Prices and Button */}
-            <div className="flex-1 flex flex-col justify-between">
-              <CardContent className="pb-0">
-                {user?.role === "user" && (
-                  <span>{product.price.toFixed(2)} Kč</span>
-                )}
-                {user?.role === "store" && (
-                  <span>{product.priceBuyer.toFixed(2)} Kč</span>
-                )}
-                {user?.role === "admin" && (
-                  <div className="flex flex-col gap-1 text-sm">
-                    <span>{product.price.toFixed(2)} Kč</span>
-                    <span className="italic font-semibold">
-                      {product.priceBuyer.toFixed(2)}{" "}
-                      {product.priceMobil.toFixed(2)} Kč
-                    </span>
-                  </div>
-                )}
-              </CardContent>
-              <CardFooter className="justify-center pt-0">
-                <Button
-                  variant="outline"
-                  onClick={() => handleAddProduct(product)}
-                >
-                  <ShoppingCart size={16} />
-                </Button>
-              </CardFooter>
-            </div>
-          </Card>
-        ))}
+    <Card className="p-4 print:hidden cursor-pointer">
+      <div className="flex gap-4">
+        <div className="w-36">
+          <CategoryBadgesVertical
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+          />
+        </div>
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
+          {filteredProducts.length === 0 ? (
+            <div>No products found</div>
+          ) : (
+            filteredProducts.map((product: any) => (
+              <Card
+                key={product.id}
+                onClick={() => handleAddProduct(product)}
+                className="text-center h-32 flex flex-col justify-between relative"
+              >
+                <CardHeader className="px-1">
+                  <CardTitle className="text-sm mx-1 hover:line-clamp-none line-clamp-2 hover:absolute hover:z-10 hover:bg-white hover:w-full hover:left-0">
+                    {product.name}
+                  </CardTitle>
+                </CardHeader>
+                <div className="bg-white/80 backdrop-blur-sm">
+                  <CardContent className="pb-0 text-sm font-semibold">
+                    {product.priceBuyer.toFixed(2)} Kč
+                  </CardContent>
+                  <CardContent className="pb-0 text-sm italic">
+                    {product.priceMobil.toFixed(2)} Kč
+                  </CardContent>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
       </div>
     </Card>
   );

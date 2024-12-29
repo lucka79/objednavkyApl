@@ -35,7 +35,7 @@ import { FavoriteDetailsDialog } from "./FavoriteDetailsDialog";
 import { useInsertOrder, useInsertOrderItems } from "@/hooks/useOrders";
 import { format } from "date-fns";
 
-import { CirclePlus, Trash2 } from "lucide-react";
+import { CirclePlus, Trash2, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -103,10 +103,23 @@ const columns: ColumnDef<FavoriteOrder>[] = [
     header: () => <div className="text-right">Status</div>,
     cell: ({ row }) => {
       const itemCount = row.original.favorite_items?.length || 0;
+      const manualPriceCount =
+        row.original.favorite_items?.filter(
+          (item: FavoriteItem) => item.price && item.price > 0
+        ).length || 0;
+
       return (
         <div className="text-right flex justify-end gap-2 items-center">
-          <Badge variant="secondary">{itemCount} items</Badge>
+          {manualPriceCount > 0 && (
+            <Badge
+              variant="outline"
+              className="border-orange-500 text-orange-500"
+            >
+              {manualPriceCount} <Lock className="h-3 w-3 ml-1 inline" />
+            </Badge>
+          )}
           <Badge variant="outline">{row.original.status}</Badge>
+          <Badge variant="secondary">{itemCount} items</Badge>
         </div>
       );
     },

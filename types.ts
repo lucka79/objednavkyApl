@@ -28,6 +28,7 @@ export type Product = {
   vat: number;
   active: boolean;
   store: boolean;
+  buyer: boolean;
 }
 
   export type Category = {

@@ -14,6 +14,7 @@ type ProductFormValues = {
   image: File | null;
   active: boolean;
   store: boolean;
+  buyer: boolean;
   // imageUrl: string | null;
 };
 
@@ -42,6 +43,7 @@ export const fetchActiveProducts = () => {
         .from("products")
         .select("*")
         .eq("active", true)
+        .eq("buyer", true)
         .order("name", { ascending: true });
       if (error) {
         throw new Error(error.message);
@@ -50,6 +52,7 @@ export const fetchActiveProducts = () => {
     },
   });
 };
+
 
 
 export const fetchStoreProducts = () => {

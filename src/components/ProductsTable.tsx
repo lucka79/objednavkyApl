@@ -3,7 +3,6 @@ import {
   useReactTable,
   getCoreRowModel,
   getFilteredRowModel,
-  getPaginationRowModel,
   flexRender,
   getSortedRowModel,
   SortingState,
@@ -140,6 +139,21 @@ export function ProductsTable() {
     }
   };
 
+  const handleBuyerChange = async (itemId: number, checked: boolean) => {
+    try {
+      await updateProduct({
+        id: itemId,
+        buyer: checked,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update store status",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleStoreChange = async (itemId: number, checked: boolean) => {
     try {
       await updateProduct({
@@ -259,6 +273,24 @@ export function ProductsTable() {
                   handleActiveChange(row.original.id, checked as boolean)
                 }
                 className="mr-2 border-amber-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500 data-[state=checked]:text-white"
+              />
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "buyer",
+        header: "Odběr",
+        cell: ({ row }: { row: Row }) => {
+          const isBuyer = row.original.buyer;
+          return (
+            <div className="flex items-center justify-center">
+              <Checkbox
+                checked={isBuyer}
+                onCheckedChange={(checked) =>
+                  handleBuyerChange(row.original.id, checked as boolean)
+                }
+                className="mr-2 border-amber-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 data-[state=checked]:text-white"
               />
             </div>
           );
@@ -392,7 +424,6 @@ export function ProductsTable() {
     columns: columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     state: {
       globalFilter,
@@ -578,24 +609,6 @@ export function ProductsTable() {
             )}
           </TableBody>
         </Table>
-        <div className="flex items-center justify-end space-x-2 py-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            Next
-          </Button>
-        </div>
 
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogContent className="p-0 border-none">

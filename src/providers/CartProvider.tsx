@@ -46,6 +46,7 @@ const CartProvider = ({ children }: PropsWithChildren) => {
       product: {
         ...product,
         vat: 12,
+        buyer: false,
       },
       product_id: product.id,
       quantity: 1,
