@@ -74,21 +74,19 @@ export const fetchStoreProducts = () => {
 };
 
 // get product by id
-export const fetchProductById = (productId: number) => {
+export const fetchProductById = (id: number | null, options?: { enabled?: boolean }) => {
   return useQuery({
-    queryKey: ["product", productId],
+    queryKey: ['product', id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .eq("id", productId)
+        .from('products')
+        .select('*')
+        .eq('id', id)
         .single();
-
-      if (error) {
-        throw new Error(error.message);
-      }
+      if (error) throw error;
       return data;
     },
+    enabled: options?.enabled
   });
 };
 

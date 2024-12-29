@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -42,7 +42,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CreateProductForm } from "./CreateProductForm";
 
 import { Card } from "./ui/card";
-import { CirclePlus, Trash2 } from "lucide-react";
+import { CirclePlus, Trash2, Search, FilePenLine } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,6 +54,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { ProductDetailsDialog } from "./ProductDetailsDialog";
+import { ProductForm } from "./ProductForm";
 
 type Row = {
   original: Product;
@@ -62,14 +64,12 @@ type Row = {
 const PriceCell = ({
   row,
   priceKey,
-  // header,
 }: {
   row: Row;
   priceKey: "price" | "priceMobil" | "priceBuyer";
-  header: string;
 }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [price, setPrice] = useState(row.original[priceKey]);
+  const [price, setPrice] = useState<number>(row.original[priceKey]);
   const { mutateAsync: updateProduct } = useUpdateProduct();
 
   const handlePriceChange = async (newPrice: number) => {
@@ -88,6 +88,11 @@ const PriceCell = ({
       });
     }
   };
+
+  // Reset price when row data changes
+  useEffect(() => {
+    setPrice(row.original[priceKey]);
+  }, [row.original[priceKey]]);
 
   return isEditing ? (
     <Input
@@ -174,8 +179,8 @@ export function ProductsTable() {
   const columns = useMemo(
     () => [
       {
-        accessorKey: "id",
-        header: "ID",
+        accessorKey: "code",
+        header: "Kód",
       },
       {
         accessorKey: "name",
@@ -185,21 +190,21 @@ export function ProductsTable() {
         accessorKey: "priceBuyer",
         header: () => <div className="text-right">NákupBez</div>,
         cell: ({ row }: { row: Row }) => (
-          <PriceCell row={row} priceKey="priceBuyer" header="NákupBez" />
+          <PriceCell row={row} priceKey="priceBuyer" />
         ),
       },
       {
         accessorKey: "priceMobil",
         header: () => <div className="text-right">Mobil</div>,
         cell: ({ row }: { row: Row }) => (
-          <PriceCell row={row} priceKey="priceMobil" header="Mobil" />
+          <PriceCell row={row} priceKey="priceMobil" />
         ),
       },
       {
         accessorKey: "price",
         header: () => <div className="text-right">Prodej</div>,
         cell: ({ row }: { row: Row }) => (
-          <PriceCell row={row} priceKey="price" header="Prodej" />
+          <PriceCell row={row} priceKey="price" />
         ),
       },
 
@@ -319,28 +324,32 @@ export function ProductsTable() {
         cell: ({ row }: { row: Row }) => {
           const product = row.original;
 
-          const handleDelete = async () => {
-            try {
-              await deleteProduct(product.id);
-              toast({
-                title: "Success",
-                description: "Product deleted successfully",
-              });
-            } catch (error) {
-              console.error("Failed to delete product:", error);
-              toast({
-                title: "Error",
-                description: "Failed to delete product",
-                variant: "destructive",
-              });
-            }
-          };
-
           return (
             <div
-              className="flex justify-end"
+              className="flex justify-end gap-2"
               onClick={(e) => e.stopPropagation()}
             >
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-blue-500"
+                onClick={() => setSelectedProductId(product.id)}
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-orange-500"
+                onClick={() => {
+                  setEditProductId(product.id);
+                  setShowEditDialog(true);
+                }}
+              >
+                <FilePenLine className="h-4 w-4" />
+              </Button>
+
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
@@ -363,7 +372,22 @@ export function ProductsTable() {
                   <AlertDialogFooter>
                     <AlertDialogCancel>Zrušit</AlertDialogCancel>
                     <AlertDialogAction
-                      onClick={handleDelete}
+                      onClick={async () => {
+                        try {
+                          await deleteProduct(product.id);
+                          toast({
+                            title: "Success",
+                            description: "Product deleted successfully",
+                          });
+                        } catch (error) {
+                          console.error("Failed to delete product:", error);
+                          toast({
+                            title: "Error",
+                            description: "Failed to delete product",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
                       className="bg-red-600 hover:bg-red-700"
                     >
                       Smazat
@@ -390,6 +414,10 @@ export function ProductsTable() {
   // const queryClient = useQueryClient();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editProductId, setEditProductId] = useState<number | undefined>(
+    undefined
+  );
 
   const handleCreateProduct = () => {
     setShowCreateDialog(true);
@@ -574,11 +602,7 @@ export function ProductsTable() {
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  onClick={() => setSelectedProductId(row.original.id)}
-                  className="cursor-pointer hover:bg-muted/50"
-                >
+                <TableRow key={row.id} className="hover:bg-muted/50">
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(
@@ -587,14 +611,6 @@ export function ProductsTable() {
                       )}
                     </TableCell>
                   ))}
-                  <div className="flex mt-2 self-center gap-2">
-                    {/* <Badge variant="outline">{row.original.status}</Badge> */}
-                    {/* <FileSearch2
-                        className="cursor-pointer hover:bg-muted/50"
-                        size={20}
-                        onClick={() => setSelectedOrderId(row.original.id)}
-                      /> */}
-                  </div>
                 </TableRow>
               ))
             ) : (
@@ -615,7 +631,21 @@ export function ProductsTable() {
             <CreateProductForm />
           </DialogContent>
         </Dialog>
+
+        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+          <DialogContent className="p-0">
+            <ProductForm
+              productId={editProductId}
+              onClose={() => {
+                setShowEditDialog(false);
+                setSelectedProductId(null);
+                setEditProductId(undefined);
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       </Card>
+      <ProductDetailsDialog />
     </>
   );
 }

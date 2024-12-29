@@ -61,18 +61,18 @@ export function Navbar() {
                     <Link to="/admin" className="hover:text-gray-300">
                       Admin
                     </Link>
-                    <Link to="/admin/orders" className="hover:text-gray-300">
+                    {/* <Link to="/admin/orders" className="hover:text-gray-300">
                       Objednávky
-                    </Link>
+                    </Link> */}
                     <Link to="/admin/create" className="hover:text-gray-300">
-                      Výrobky +
+                      Výrobky
                     </Link>
                     <Link to="/admin/products" className="hover:text-gray-300">
-                      Přehled výrobků
+                      Objednávky
                     </Link>
-                    <Link to="/cart" className="hover:text-gray-300">
+                    {/* <Link to="/cart" className="hover:text-gray-300">
                       <ShoppingCart />
-                    </Link>
+                    </Link> */}
                   </>
                 )}
                 {user.role === "driver" && (

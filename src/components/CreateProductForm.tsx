@@ -48,6 +48,7 @@ const productSchema = z.object({
   vat: z.number().min(0, "DPH musí být nezáporná"),
   category_id: z.number().min(1, "Kategorie musí být vybrána"),
   image: z.union([z.instanceof(File), z.string()]).optional(),
+  code: z.string().optional(),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -72,6 +73,7 @@ export function CreateProductForm() {
       priceMobil: 0,
       vat: 12,
       category_id: 1,
+      code: "",
       // image: "",
     },
   });
@@ -92,6 +94,7 @@ export function CreateProductForm() {
         priceMobil: 0,
         vat: 12,
         category_id: 1,
+        code: "",
       });
       onClose();
     },
@@ -154,7 +157,7 @@ export function CreateProductForm() {
         {/* <CardContent> */}
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-1">
-            <CardContent className="grid grid-cols-2 gap-2 py-2">
+            <CardContent className="grid grid-cols-1 gap-2 py-2">
               <FormField
                 control={form.control}
                 name="name"
@@ -171,6 +174,8 @@ export function CreateProductForm() {
                   </FormItem>
                 )}
               />
+            </CardContent>
+            <CardContent className="grid grid-cols-2 gap-2 py-1">
               <FormField
                 control={form.control}
                 name="category_id"
@@ -199,9 +204,23 @@ export function CreateProductForm() {
                         )}
                       </SelectContent>
                     </Select>
-                    <FormDescription>
+                    {/* <FormDescription>
                       Vyberte kategorii výrobku.
-                    </FormDescription>
+                    </FormDescription> */}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="code"
+                render={({ field }) => (
+                  <FormItem>
+                    {/* <FormLabel>Name</FormLabel> */}
+                    <FormControl>
+                      <Input placeholder="Kód výrobku" {...field} />
+                    </FormControl>
+                    {/* <FormDescription>Kód výrobku</FormDescription> */}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -213,7 +232,7 @@ export function CreateProductForm() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
+                    {/* <FormLabel>Description</FormLabel> */}
                     <FormControl>
                       <Textarea
                         placeholder="Krátký popis ..."
@@ -221,7 +240,7 @@ export function CreateProductForm() {
                         {...field}
                       />
                     </FormControl>
-                    <FormDescription>Krátký popis výrobku.</FormDescription>
+                    {/* <FormDescription>Krátký popis výrobku.</FormDescription> */}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -324,14 +343,14 @@ export function CreateProductForm() {
                 )}
               />
             </CardContent>
-            <CardContent className="grid grid-cols-2 gap-2 py-2"></CardContent>
+            <CardContent className="grid grid-cols-2 gap-2 py-1"></CardContent>
             <CardContent className="py-2">
               <FormField
                 control={form.control}
                 name="image"
                 render={({ field: { onChange, value, ...field } }) => (
                   <FormItem>
-                    <FormLabel>Obrázek</FormLabel>
+                    {/* <FormLabel>Obrázek</FormLabel> */}
                     <FormControl>
                       <Input
                         type="file"
@@ -355,7 +374,7 @@ export function CreateProductForm() {
                 variant="outline"
                 type="submit"
                 disabled={insertProductMutation.isPending}
-                className="w-full"
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white"
               >
                 {insertProductMutation.isPending
                   ? "Vkládám..."

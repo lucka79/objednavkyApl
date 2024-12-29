@@ -16,7 +16,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { fetchProductById, insertProduct } from "@/hooks/useProducts";
+import { fetchProductById } from "@/hooks/useProducts";
 import { Textarea } from "./ui/textarea";
 import {
   Select,
@@ -27,12 +27,19 @@ import {
 } from "./ui/select";
 import { fetchCategories } from "@/hooks/useCategories";
 import { useNavigate } from "@tanstack/react-router";
-import { useProductStore } from "@/providers/productStore";
+
 import { useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { X } from "lucide-react";
+
 import { supabase } from "@/lib/supabase";
 import imageCompression from "browser-image-compression";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Card, CardContent, CardFooter } from "./ui/card";
+import { Loader2 } from "lucide-react";
 
 const productSchema = z.object({
   name: z.string().min(3, "Product name is required"),
@@ -44,8 +51,12 @@ const productSchema = z.object({
   category_id: z.number().min(1, "Kategorie musí být vybrána"),
   image: z.union([z.instanceof(File), z.string()]).optional(),
   active: z.boolean().default(true),
-  store: z.boolean().default(false),
-  buyer: z.boolean().default(false),
+  // store: z.boolean().default(false),
+  // buyer: z.boolean().default(false),
+  code: z
+    .string()
+    .nullable()
+    .transform((val) => val || ""), // Transform null to empty string
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -56,6 +67,7 @@ type ProductUpdateValues = Omit<ProductFormValues, "image"> & {
 
 interface ProductFormProps {
   onClose: () => void;
+  productId?: number;
 }
 
 const updateProduct = async (data: ProductUpdateValues) => {
@@ -75,13 +87,20 @@ const updateProduct = async (data: ProductUpdateValues) => {
   return updatedProduct;
 };
 
-export function ProductForm({ onClose }: ProductFormProps) {
+export function ProductForm({ onClose, productId }: ProductFormProps) {
+  if (!productId) {
+    console.error("ProductForm requires a productId");
+    return null;
+  }
+
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { selectedProductId } = useProductStore();
   const { data: categories, isLoading: categoriesLoading } = fetchCategories();
   const { data: product, isLoading: productLoading } = fetchProductById(
-    selectedProductId ?? 0
+    productId,
+    {
+      enabled: true, // Always fetch since we know productId exists
+    }
   );
 
   const form = useForm<ProductFormValues>({
@@ -95,7 +114,8 @@ export function ProductForm({ onClose }: ProductFormProps) {
       vat: 12,
       category_id: 1,
       active: true,
-      store: false,
+
+      code: "",
     },
   });
 
@@ -110,41 +130,34 @@ export function ProductForm({ onClose }: ProductFormProps) {
         vat: product.vat,
         category_id: product.category_id,
         active: product.active,
-        store: product.store,
+
+        code: product.code,
       });
     }
   }, [product, form]);
 
   const productMutation = useMutation({
-    mutationFn: (data: ProductFormValues | ProductUpdateValues) =>
-      selectedProductId
-        ? updateProduct(data as ProductUpdateValues)
-        : insertProduct(data as ProductFormValues),
+    mutationFn: (data: ProductUpdateValues) =>
+      updateProduct(data as ProductUpdateValues),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({
-        queryKey: ["product", selectedProductId],
+        queryKey: ["product", productId],
       });
-      navigate({ to: "/admin/products" });
+      navigate({ to: "/admin/create" });
       toast({
-        title: selectedProductId ? "Výrobek aktualizován" : "Výrobek vytvořen",
-        description: selectedProductId
-          ? "Výrobek byl úspěšně aktualizován."
-          : "Výrobek byl úspěšně vytvořen.",
+        title: "Výrobek aktualizován",
+        description: "Výrobek byl úspěšně aktualizován.",
       });
-      form.reset();
       onClose();
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: `Při ${selectedProductId ? "aktualizaci" : "vytváření"} výrobku nastala chyba. Zkuste to znovu.`,
+        description: `Při aktualizaci výrobku nastala chyba. Zkuste to znovu.`,
         variant: "destructive",
       });
-      console.error(
-        `Chyba při ${selectedProductId ? "aktualizaci" : "vytváření"} výrobku:`,
-        error
-      );
+      console.error(`Chyba při aktualizaci výrobku:`, error);
     },
   });
 
@@ -170,16 +183,14 @@ export function ProductForm({ onClose }: ProductFormProps) {
 
         if (uploadError) throw uploadError;
         if (dataImage) {
-          productMutation.mutate(
-            selectedProductId
-              ? { ...data, id: selectedProductId, image: dataImage.path }
-              : { ...data, image: dataImage.path }
-          );
+          productMutation.mutate({
+            ...data,
+            id: productId,
+            image: dataImage.path,
+          });
         }
       } else {
-        productMutation.mutate(
-          selectedProductId ? { ...data, id: selectedProductId } : data
-        );
+        productMutation.mutate({ ...data, id: productId });
       }
     } catch (error) {
       console.error("Error uploading image:", error);
@@ -191,112 +202,123 @@ export function ProductForm({ onClose }: ProductFormProps) {
     }
   };
 
-  if (categoriesLoading || productLoading) return <div>Načítání...</div>;
+  if (categoriesLoading || productLoading)
+    return (
+      <div>
+        <Loader2 />
+      </div>
+    );
 
   return (
-    <>
-      <Card className="relative">
-        <CardHeader>
-          <CardTitle>Aktualizace výrobku</CardTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-2 right-2"
-            onClick={onClose}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </CardHeader>
-        <CardContent className="flex justify-center">
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>
+            {productId ? "Upravit výrobek" : "Nový výrobek"}
+          </DialogTitle>
+        </DialogHeader>
+
+        <Card className="relative w-[480px] mx-auto justify-center border-none">
+          {/* <CardContent> */}
           <Form {...form}>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                console.log("Form submission triggered");
-                console.log("Form values:", form.getValues());
-                console.log("Form errors:", form.formState.errors);
-
-                const isValid = await form.trigger();
-                console.log("Form is valid:", isValid);
-
-                if (isValid) {
-                  form.handleSubmit(onSubmit)(e);
-                }
-              }}
-              className="w-2/3 space-y-2"
-            >
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Název výrobku" {...field} />
-                    </FormControl>
-                    {/* <FormDescription>
-                      This is your public display name.
-                    </FormDescription> */}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="category_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Kategorie výrobku</FormLabel>
-                    <Select
-                      onValueChange={(value) => field.onChange(parseInt(value))}
-                      value={field.value.toString()}
-                    >
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-1">
+              <CardContent className="grid grid-cols-1 gap-2 py-2">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      {/* <FormLabel>Name</FormLabel> */}
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Vyberte kategorii" />
-                        </SelectTrigger>
+                        <Input placeholder="Název výrobku" {...field} />
                       </FormControl>
-                      <SelectContent>
-                        {categories?.map(
-                          (category: { id: number; name: string }) => (
-                            <SelectItem
-                              key={category.id}
-                              value={category.id.toString()}
-                            >
-                              {category.name}
-                            </SelectItem>
-                          )
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Krátký popis ..."
-                        className="resize-none"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>Krátký popis výrobku.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="flex gap-4">
+                      <FormDescription>
+                        Název výrobku i hmotnost v g!!
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+              <CardContent className="grid grid-cols-2 gap-2 py-1">
+                <FormField
+                  control={form.control}
+                  name="category_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      {/* <FormLabel>Kategorie výrobku</FormLabel> */}
+                      <Select
+                        onValueChange={(value) =>
+                          field.onChange(parseInt(value))
+                        }
+                        defaultValue={field.value.toString()}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Vyberte kategorii" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {categories?.map(
+                            (category: { id: number; name: string }) => (
+                              <SelectItem
+                                key={category.id}
+                                value={category.id.toString()}
+                              >
+                                {category.name}
+                              </SelectItem>
+                            )
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {/* <FormDescription>
+                      Vyberte kategorii výrobku.
+                    </FormDescription> */}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="code"
+                  render={({ field }) => (
+                    <FormItem>
+                      {/* <FormLabel>Name</FormLabel> */}
+                      <FormControl>
+                        <Input placeholder="Kód výrobku" {...field} />
+                      </FormControl>
+                      {/* <FormDescription>Kód výrobku</FormDescription> */}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+              <CardContent className="grid grid-cols-1 gap-2 py-2">
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      {/* <FormLabel>Description</FormLabel> */}
+                      <FormControl>
+                        <Textarea
+                          placeholder="Krátký popis ..."
+                          className="resize-none"
+                          {...field}
+                        />
+                      </FormControl>
+                      {/* <FormDescription>Krátký popis výrobku.</FormDescription> */}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+              <CardContent className="grid grid-cols-2 gap-2 py-2">
                 <FormField
                   control={form.control}
                   name="price"
                   render={({ field }) => (
-                    <FormItem className="flex-1">
+                    <FormItem>
                       <FormLabel>Prodejní cena</FormLabel>
                       <FormControl>
                         <Input
@@ -320,7 +342,7 @@ export function ProductForm({ onClose }: ProductFormProps) {
                   control={form.control}
                   name="priceBuyer"
                   render={({ field }) => (
-                    <FormItem className="flex-1">
+                    <FormItem>
                       <FormLabel>Nákupní cena</FormLabel>
                       <FormControl>
                         <Input
@@ -340,19 +362,17 @@ export function ProductForm({ onClose }: ProductFormProps) {
                     </FormItem>
                   )}
                 />
-              </div>
-              <div className="flex gap-4">
                 <FormField
                   control={form.control}
                   name="priceMobil"
                   render={({ field }) => (
-                    <FormItem className="flex-1">
+                    <FormItem>
                       <FormLabel>Mobilní cena</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
                           step="0.01"
-                          placeholder="Mobilní cena..."
+                          placeholder="Enter product price"
                           {...field}
                           onChange={(e) =>
                             field.onChange(parseFloat(e.target.value))
@@ -370,13 +390,13 @@ export function ProductForm({ onClose }: ProductFormProps) {
                   control={form.control}
                   name="vat"
                   render={({ field }) => (
-                    <FormItem className="flex-1">
+                    <FormItem>
                       <FormLabel>DPH</FormLabel>
                       <Select
                         onValueChange={(value) =>
                           field.onChange(parseInt(value))
                         }
-                        value={field.value.toString()}
+                        defaultValue={field.value.toString()}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -386,52 +406,56 @@ export function ProductForm({ onClose }: ProductFormProps) {
                         <SelectContent>
                           <SelectItem value="0">0%</SelectItem>
                           <SelectItem value="12">12%</SelectItem>
-                          <SelectItem value="15">15%</SelectItem>
+
                           <SelectItem value="21">21%</SelectItem>
                         </SelectContent>
                       </Select>
-                      <FormDescription>Sazba DPH v procentech</FormDescription>
+                      <FormDescription>Sazba DPH v %.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              </div>
-              <FormField
-                control={form.control}
-                name="image"
-                render={({ field: { onChange, value, ...field } }) => (
-                  <FormItem>
-                    <FormLabel>Obrázek</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) onChange(file);
-                        }}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>Nahrát obrázek výrobku.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button
-                variant="outline"
-                type="submit"
-                disabled={productMutation.isPending}
-                className="w-full"
-              >
-                {productMutation.isPending
-                  ? "Aktualizuji..."
-                  : "Aktualizovat výrobek"}
-              </Button>
+              </CardContent>
+              <CardContent className="grid grid-cols-2 gap-2 py-1"></CardContent>
+              <CardContent className="py-2">
+                <FormField
+                  control={form.control}
+                  name="image"
+                  render={({ field: { onChange, value, ...field } }) => (
+                    <FormItem>
+                      {/* <FormLabel>Obrázek</FormLabel> */}
+                      <FormControl>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) onChange(file);
+                          }}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>Nahrát obrázek výrobku.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+
+              <CardFooter>
+                <Button
+                  variant="outline"
+                  type="submit"
+                  disabled={productMutation.isPending}
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                >
+                  {productMutation.isPending ? "Vkládám..." : "Vložit výrobek"}
+                </Button>
+              </CardFooter>
             </form>
           </Form>
-        </CardContent>
-      </Card>
-    </>
+        </Card>
+      </DialogContent>
+    </Dialog>
   );
 }
