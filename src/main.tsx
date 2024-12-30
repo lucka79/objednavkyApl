@@ -1,18 +1,20 @@
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
-
-// Import the generated route tree
 import { routeTree } from "./routeTree.gen";
 import QueryProvider from "./providers/QueryProvider";
 import { Toaster } from "./components/ui/toaster";
+import { useAuthStore } from "./lib/supabase";
+
+// Initialize auth when app starts
+useAuthStore.getState().initializeAuth();
 
 // Create a new router instance
 const router = createRouter({
   routeTree,
   defaultPreload: "intent",
   context: {
-    auth: undefined!, // This will be set after we wrap the app in an AuthProvider
+    auth: undefined!,
   },
 });
 

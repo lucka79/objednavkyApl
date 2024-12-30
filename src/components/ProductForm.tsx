@@ -27,7 +27,7 @@ import {
 } from "./ui/select";
 import { fetchCategories } from "@/hooks/useCategories";
 import { useNavigate } from "@tanstack/react-router";
-
+import { defaultProductImage } from "@/constants/Images";
 import { useEffect } from "react";
 
 import { supabase } from "@/lib/supabase";
@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardFooter } from "./ui/card";
 import { Loader2 } from "lucide-react";
+import RemoteImage from "./RemoteImage";
 
 const productSchema = z.object({
   name: z.string().min(3, "Product name is required"),
@@ -211,7 +212,8 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl" autoFocus={false}>
+        <div tabIndex={-1} />
         <DialogHeader>
           <DialogTitle>
             {productId ? "Upravit výrobek" : "Nový výrobek"}
@@ -222,6 +224,34 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
           {/* <CardContent> */}
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-1">
+              <CardContent className="grid grid-cols-2 gap-2 py-2">
+                <FormField
+                  control={form.control}
+                  name="image"
+                  render={({ field: { onChange, value, ...field } }) => (
+                    <FormItem>
+                      {/* <FormLabel>Obrázek</FormLabel> */}
+                      <FormControl>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) onChange(file);
+                          }}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>Nahrát obrázek výrobku.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <RemoteImage
+                  path={product?.image}
+                  fallback={defaultProductImage}
+                />
+              </CardContent>
               <CardContent className="grid grid-cols-1 gap-2 py-2">
                 <FormField
                   control={form.control}
@@ -417,30 +447,6 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
                 />
               </CardContent>
               <CardContent className="grid grid-cols-2 gap-2 py-1"></CardContent>
-              <CardContent className="py-2">
-                <FormField
-                  control={form.control}
-                  name="image"
-                  render={({ field: { onChange, value, ...field } }) => (
-                    <FormItem>
-                      {/* <FormLabel>Obrázek</FormLabel> */}
-                      <FormControl>
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) onChange(file);
-                          }}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>Nahrát obrázek výrobku.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
 
               <CardFooter>
                 <Button

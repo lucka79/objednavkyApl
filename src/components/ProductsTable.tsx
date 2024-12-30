@@ -42,7 +42,14 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CreateProductForm } from "./CreateProductForm";
 
 import { Card } from "./ui/card";
-import { CirclePlus, Trash2, Search, FilePenLine } from "lucide-react";
+import {
+  CirclePlus,
+  Trash2,
+  Search,
+  FilePenLine,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -468,6 +475,9 @@ export function ProductsTable() {
     setCategoryFilter(categoryId ? categoryId.toString() : "all");
   };
 
+  // Add state for categories visibility
+  const [showAllCategories, setShowAllCategories] = useState(false);
+
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders</div>;
 
@@ -477,67 +487,53 @@ export function ProductsTable() {
         <div className="mx-auto p-2">
           <div className="w-full rounded-md border p-2">
             <div className="flex flex-col gap-2">
-              <div className="flex gap-4">
-                {[
-                  null,
-                  ...(categories ?? []).slice(
-                    0,
-                    Math.ceil((categories?.length ?? 0) / 3)
-                  ),
-                ].map((category) => (
-                  <Button
-                    key={category?.id ?? "all"}
-                    variant="outline"
-                    className={`w-32 hover:border-orange-500 ${
-                      selectedCategory === (category?.id ?? null)
-                        ? "bg-orange-500 text-white"
-                        : ""
-                    }`}
-                    onClick={() => onSelectCategory(category?.id ?? null)}
-                  >
-                    {category?.name ?? "Vše"}
-                  </Button>
-                ))}
-              </div>
-              <div className="flex gap-4">
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  className={`w-32 hover:border-orange-500 ${
+                    selectedCategory === null ? "bg-orange-500 text-white" : ""
+                  }`}
+                  onClick={() => onSelectCategory(null)}
+                >
+                  Vše
+                </Button>
                 {(categories ?? [])
                   .slice(
-                    Math.ceil((categories?.length ?? 0) / 3),
-                    Math.ceil(((categories?.length ?? 0) * 2) / 3)
+                    0,
+                    showAllCategories
+                      ? undefined
+                      : Math.ceil((categories?.length ?? 0) / 2) * 2
                   )
                   .map((category) => (
                     <Button
                       key={category.id}
                       variant="outline"
                       className={`w-32 hover:border-orange-500 ${
-                        parseInt(categoryFilter) === category.id
+                        selectedCategory === category.id
                           ? "bg-orange-500 text-white"
                           : ""
                       }`}
-                      onClick={() => setCategoryFilter(category.id.toString())}
+                      onClick={() => onSelectCategory(category.id)}
                     >
                       {category.name}
                     </Button>
                   ))}
               </div>
-              <div className="flex gap-4">
-                {(categories ?? [])
-                  .slice(Math.ceil(((categories?.length ?? 0) * 2) / 3))
-                  .map((category) => (
-                    <Button
-                      key={category.id}
-                      variant="outline"
-                      className={`w-32 hover:border-orange-500 ${
-                        parseInt(categoryFilter) === category.id
-                          ? "bg-orange-500 text-white"
-                          : ""
-                      }`}
-                      onClick={() => setCategoryFilter(category.id.toString())}
-                    >
-                      {category.name}
-                    </Button>
-                  ))}
-              </div>
+
+              {(categories?.length ?? 0) >
+                Math.ceil((categories?.length ?? 0) / 2) * 2 && (
+                <Button
+                  variant="ghost"
+                  className="w-full h-6"
+                  onClick={() => setShowAllCategories(!showAllCategories)}
+                >
+                  {showAllCategories ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </div>

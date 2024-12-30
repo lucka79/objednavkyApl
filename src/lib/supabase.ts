@@ -6,7 +6,17 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_KEY  // Add this
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(
+  supabaseUrl,
+  supabaseAnonKey,
+  {
+    auth: {
+      persistSession: true,
+      storageKey: 'auth-storage',
+      storage: window.localStorage
+    }
+  }
+)
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
 type UserRole = 'admin' | 'expedition' | 'driver' | 'user' | 'mobil' | 'store' |'buyer'
@@ -38,6 +48,7 @@ interface AuthState {
   fetchProfile: () => Promise<void>
   createUser: (userData: UserData) => Promise<{ user: any, session: any }>
   createUserEmail: (userData: UserData) => Promise<{ user: any, session: any }>
+  initializeAuth: () => Promise<void>
 }
 
 // Create a singleton query client instance
@@ -270,7 +281,33 @@ export const useAuthStore = create<AuthState>((set) => ({
       throw error;
     }
   },
+  initializeAuth: async () => {
+    try {
+      // Get current session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        // Fetch user profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profile) {
+          set({ user: profile });
+        }
+      }
+    } catch (error) {
+      console.error('Error initializing auth:', error);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
 }))
+
+// Call initializeAuth when the app starts
+useAuthStore.getState().initializeAuth();
 
 
 
