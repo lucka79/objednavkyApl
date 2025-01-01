@@ -163,7 +163,7 @@ export function OrderDetailsDialog() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {user?.role === "admin" ? (
+                {user?.role === "admin" || user?.role === "expedition" ? (
                   <UpdateCart
                     items={order.order_items}
                     orderId={order.id}
@@ -175,7 +175,7 @@ export function OrderDetailsDialog() {
                 )}
               </CardContent>
               <CardContent>
-                {user?.role === "admin" && (
+                {(user?.role === "admin" || user?.role === "expedition") && (
                   <Card>
                     {/* <CardHeader>
                       <CardTitle>Vratné obaly</CardTitle>
@@ -200,7 +200,7 @@ export function OrderDetailsDialog() {
                         </CardDescription>
                         <div className="flex flex-col gap-2">
                           <div className="flex items-center gap-2">
-                            {!isLocked && (
+                            {order.crateSmall > 0 && (
                               <SquareMinus
                                 size={24}
                                 onClick={() =>
@@ -241,7 +241,7 @@ export function OrderDetailsDialog() {
                             <Container size={20} className="text-yellow-600" />
                           </div>
                           <div className="flex items-center gap-2">
-                            {!isLocked && (
+                            {order.crateBig > 0 && (
                               <SquareMinus
                                 size={24}
                                 onClick={() =>
@@ -290,16 +290,18 @@ export function OrderDetailsDialog() {
                         <div className="flex flex-col gap-2">
                           {" "}
                           <div className="flex items-center gap-2">
-                            <SquareMinus
-                              size={24}
-                              onClick={() =>
-                                updateCrates(
-                                  "crateSmallReceived",
-                                  (order.crateSmallReceived || 0) - 1
-                                )
-                              }
-                              className="cursor-pointer text-stone-300 hover:text-green-800"
-                            />
+                            {order.crateSmallReceived > 0 && (
+                              <SquareMinus
+                                size={24}
+                                onClick={() =>
+                                  updateCrates(
+                                    "crateSmallReceived",
+                                    (order.crateSmallReceived || 0) - 1
+                                  )
+                                }
+                                className="cursor-pointer text-stone-300 hover:text-green-800"
+                              />
+                            )}
                             <input
                               type="number"
                               min="0"
@@ -325,16 +327,18 @@ export function OrderDetailsDialog() {
                             <Container size={20} className="text-yellow-600" />
                           </div>
                           <div className="flex items-center gap-2">
-                            <SquareMinus
-                              size={24}
-                              onClick={() =>
-                                updateCrates(
-                                  "crateBigReceived",
-                                  (order.crateBigReceived || 0) - 1
-                                )
-                              }
-                              className="cursor-pointer text-stone-300 hover:text-green-800"
-                            />
+                            {order.crateBigReceived > 0 && (
+                              <SquareMinus
+                                size={24}
+                                onClick={() =>
+                                  updateCrates(
+                                    "crateBigReceived",
+                                    (order.crateBigReceived || 0) - 1
+                                  )
+                                }
+                                className="cursor-pointer text-stone-300 hover:text-green-800"
+                              />
+                            )}
                             <input
                               type="number"
                               min="0"

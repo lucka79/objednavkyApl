@@ -201,10 +201,10 @@ export const ProductCategory: React.FC = () => {
               {/* <CardContent className="pb-0 text-xs font-semibold"></CardContent> */}
               <CardFooter className="flex justify-end pb-2">
                 <Badge variant="outline" className="text-xs">
-                  {user?.role === "admin" && (
-                    <div className="flex flex-col gap-1 text-sm">
+                  {(user?.role === "admin" || user?.role === "expedition") && (
+                    <div className="flex flex-col gap-1 text-sm text-green-800">
                       <span>{product.priceBuyer.toFixed(2)} Kč</span>
-                      <span className="italic font-semibold">
+                      <span className="italic font-semibold text-orange-600">
                         {product.priceMobil.toFixed(2)} Kč
                       </span>
                     </div>

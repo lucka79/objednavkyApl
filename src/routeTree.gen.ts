@@ -19,6 +19,7 @@ import { Route as LayoutImport } from './routes/_layout'
 import { Route as IndexImport } from './routes/index'
 import { Route as UserIndexImport } from './routes/user.index'
 import { Route as StoreIndexImport } from './routes/store.index'
+import { Route as ExpeditionIndexImport } from './routes/expedition.index'
 import { Route as AdminIndexImport } from './routes/admin.index'
 import { Route as UserProductsImport } from './routes/user.products'
 import { Route as UserOrdersImport } from './routes/user.orders'
@@ -67,6 +68,11 @@ const UserIndexRoute = UserIndexImport.update({
 
 const StoreIndexRoute = StoreIndexImport.update({
   path: '/store/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const ExpeditionIndexRoute = ExpeditionIndexImport.update({
+  path: '/expedition/',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -205,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexImport
       parentRoute: typeof rootRoute
     }
+    '/expedition/': {
+      id: '/expedition/'
+      path: '/expedition'
+      fullPath: '/expedition'
+      preLoaderRoute: typeof ExpeditionIndexImport
+      parentRoute: typeof rootRoute
+    }
     '/store/': {
       id: '/store/'
       path: '/store'
@@ -257,6 +270,7 @@ export interface FileRoutesByFullPath {
   '/user/orders': typeof UserOrdersRoute
   '/user/products': typeof UserProductsRoute
   '/admin': typeof AdminIndexRoute
+  '/expedition': typeof ExpeditionIndexRoute
   '/store': typeof StoreIndexRoute
   '/user': typeof UserIndexRoute
   '/admin/products/$productId': typeof AdminProductsProductIdRoute
@@ -276,6 +290,7 @@ export interface FileRoutesByTo {
   '/user/orders': typeof UserOrdersRoute
   '/user/products': typeof UserProductsRoute
   '/admin': typeof AdminIndexRoute
+  '/expedition': typeof ExpeditionIndexRoute
   '/store': typeof StoreIndexRoute
   '/user': typeof UserIndexRoute
   '/admin/products/$productId': typeof AdminProductsProductIdRoute
@@ -296,6 +311,7 @@ export interface FileRoutesById {
   '/user/orders': typeof UserOrdersRoute
   '/user/products': typeof UserProductsRoute
   '/admin/': typeof AdminIndexRoute
+  '/expedition/': typeof ExpeditionIndexRoute
   '/store/': typeof StoreIndexRoute
   '/user/': typeof UserIndexRoute
   '/admin/products/$productId': typeof AdminProductsProductIdRoute
@@ -317,6 +333,7 @@ export interface FileRouteTypes {
     | '/user/orders'
     | '/user/products'
     | '/admin'
+    | '/expedition'
     | '/store'
     | '/user'
     | '/admin/products/$productId'
@@ -335,6 +352,7 @@ export interface FileRouteTypes {
     | '/user/orders'
     | '/user/products'
     | '/admin'
+    | '/expedition'
     | '/store'
     | '/user'
     | '/admin/products/$productId'
@@ -353,6 +371,7 @@ export interface FileRouteTypes {
     | '/user/orders'
     | '/user/products'
     | '/admin/'
+    | '/expedition/'
     | '/store/'
     | '/user/'
     | '/admin/products/$productId'
@@ -373,6 +392,7 @@ export interface RootRouteChildren {
   UserOrdersRoute: typeof UserOrdersRoute
   UserProductsRoute: typeof UserProductsRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  ExpeditionIndexRoute: typeof ExpeditionIndexRoute
   StoreIndexRoute: typeof StoreIndexRoute
   UserIndexRoute: typeof UserIndexRoute
 }
@@ -391,6 +411,7 @@ const rootRouteChildren: RootRouteChildren = {
   UserOrdersRoute: UserOrdersRoute,
   UserProductsRoute: UserProductsRoute,
   AdminIndexRoute: AdminIndexRoute,
+  ExpeditionIndexRoute: ExpeditionIndexRoute,
   StoreIndexRoute: StoreIndexRoute,
   UserIndexRoute: UserIndexRoute,
 }
@@ -420,6 +441,7 @@ export const routeTree = rootRoute
         "/user/orders",
         "/user/products",
         "/admin/",
+        "/expedition/",
         "/store/",
         "/user/"
       ]
@@ -465,6 +487,9 @@ export const routeTree = rootRoute
     },
     "/admin/": {
       "filePath": "admin.index.tsx"
+    },
+    "/expedition/": {
+      "filePath": "expedition.index.tsx"
     },
     "/store/": {
       "filePath": "store.index.tsx"

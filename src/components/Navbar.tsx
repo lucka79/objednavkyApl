@@ -42,6 +42,18 @@ export function Navbar() {
                     </Link> */}
                   </>
                 )}
+                {user.role === "expedition" && (
+                  <>
+                    <Link to="/expedition" className="hover:text-gray-300">
+                      Expedice
+                    </Link>
+
+                    {/* <Link to="/cart" className="hover:text-gray-300">
+                      <ShoppingCart />
+                    </Link> */}
+                  </>
+                )}
+
                 {user.role === "user" && (
                   <>
                     <Link to="/user/products" className="hover:text-gray-300">
@@ -75,11 +87,7 @@ export function Navbar() {
                     </Link> */}
                   </>
                 )}
-                {user.role === "driver" && (
-                  <Link to="/driver" className="hover:text-gray-300">
-                    Driver
-                  </Link>
-                )}
+
                 <Button variant="secondary" onClick={handleSignOut}>
                   <Link to="/" className="hover:text-gray-300">
                     Sign out

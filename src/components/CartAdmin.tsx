@@ -71,7 +71,7 @@ export default function CartAdmin() {
   }, [subsrciberUsers, searchQuery]);
 
   useEffect(() => {
-    if (user && user.role !== "admin") {
+    if (user && user.role !== "admin" && user?.role !== "expedition") {
       setSelectedUserId(user.id);
     }
   }, [user]);
@@ -102,7 +102,7 @@ export default function CartAdmin() {
       <CardHeader>
         <div className="flex flex-col gap-2">
           <CardTitle className="flex flex-row justify-between gap-2">
-            {user?.role === "admin" ? (
+            {user?.role === "admin" || user?.role === "expedition" ? (
               <Select onValueChange={setSelectedUserId} value={selectedUserId}>
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Vyberte uživatele" />

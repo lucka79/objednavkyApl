@@ -76,6 +76,9 @@ function Login() {
         case "driver":
           navigate({ to: "/driver" });
           break;
+        case "expedition":
+          navigate({ to: "/expedition" });
+          break;
         case "mobil":
           navigate({ to: "/user/products" });
           break;

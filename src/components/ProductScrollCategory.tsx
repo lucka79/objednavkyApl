@@ -7,11 +7,12 @@ import {
 } from "./ui/card";
 import { Skeleton } from "./ui/skeleton";
 import { Badge } from "./ui/badge";
-import { ScrollArea, ScrollBar } from "./ui/scroll-area";
+
 import { useState } from "react";
 import { Category, Product } from "types";
 import { fetchActiveProducts } from "@/hooks/useProducts";
 import { fetchCategories } from "@/hooks/useCategories";
+import { Button } from "./ui/button";
 
 // Category badges component
 const CategoryBadges = ({
@@ -22,30 +23,53 @@ const CategoryBadges = ({
   categories: Category[];
   selectedCategory: number | null;
   onSelectCategory: (id: number | null) => void;
-}) => (
-  <ScrollArea className="w-full whitespace-nowrap rounded-md border">
-    <div className="flex w-max space-x-4 p-4">
-      <Badge
-        variant={selectedCategory === null ? "default" : "outline"}
-        className="cursor-pointer"
-        onClick={() => onSelectCategory(null)}
-      >
-        Vše
-      </Badge>
-      {categories.map((category) => (
-        <Badge
-          key={category.id}
-          variant={selectedCategory === category.id ? "default" : "outline"}
-          className="cursor-pointer"
-          onClick={() => onSelectCategory(category.id)}
-        >
-          {category.name}
-        </Badge>
-      ))}
+}) => {
+  // Filter categories where buyer is true
+  const buyerCategories = categories.filter((category) => category.buyer);
+
+  const itemsPerRow = Math.ceil((buyerCategories.length + 1) / 2); // +1 for "Vše" badge
+  const firstRow = [null, ...buyerCategories.slice(0, itemsPerRow - 1)];
+  const secondRow = buyerCategories.slice(itemsPerRow - 1);
+
+  return (
+    <div className="w-full rounded-md border p-2">
+      <div className="flex flex-col gap-2">
+        <div className="flex gap-4">
+          {firstRow.map((category) => (
+            <Button
+              key={category?.id ?? "all"}
+              variant="outline"
+              className={`w-32 hover:border-orange-400 ${
+                selectedCategory === (category?.id ?? null)
+                  ? "bg-orange-400 text-white"
+                  : ""
+              }`}
+              onClick={() => onSelectCategory(category?.id ?? null)}
+            >
+              {category?.name ?? "Vše"}
+            </Button>
+          ))}
+        </div>
+        <div className="flex gap-4">
+          {secondRow.map((category) => (
+            <Button
+              key={category.id}
+              variant="outline"
+              className={`w-32 hover:border-orange-400 ${
+                selectedCategory === category.id
+                  ? "bg-orange-400 text-white"
+                  : ""
+              }`}
+              onClick={() => onSelectCategory(category.id)}
+            >
+              {category.name}
+            </Button>
+          ))}
+        </div>
+      </div>
     </div>
-    <ScrollBar orientation="horizontal" />
-  </ScrollArea>
-);
+  );
+};
 
 // Product grid component
 const ProductGrid = ({
@@ -106,8 +130,10 @@ export default function ProductScrollCategory() {
   }
 
   const filteredProducts = selectedCategory
-    ? products.filter((product) => product.category_id === selectedCategory)
-    : products;
+    ? products
+        .filter((product) => product.store)
+        .filter((product) => product.category_id === selectedCategory)
+    : products.filter((product) => product.store);
 
   return (
     <div className="container mx-auto p-4">
