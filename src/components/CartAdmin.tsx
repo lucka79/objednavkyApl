@@ -65,8 +65,10 @@ export default function CartAdmin() {
     if (!subsrciberUsers) return [];
     if (!searchQuery) return subsrciberUsers;
 
-    return subsrciberUsers.filter((user) =>
-      user.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
+    return subsrciberUsers.filter(
+      (user) =>
+        user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.phone?.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [subsrciberUsers, searchQuery]);
 
@@ -124,6 +126,8 @@ export default function CartAdmin() {
                     filteredUsers.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.full_name || "Unnamed User"}
+                        {", "}
+                        {user.phone}
                       </SelectItem>
                     ))
                   ) : (
@@ -183,16 +187,14 @@ export default function CartAdmin() {
             </Popover>{" "}
             <Select
               value={paid_by}
-              onValueChange={(value: "Hotově" | "Kartou" | "Příkazem") =>
-                setPaidBy(value)
-              }
+              onValueChange={(value: "Hotově" | "Příkazem") => setPaidBy(value)}
             >
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Způsob platby" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Hotově">Hotově</SelectItem>
-                <SelectItem value="Kartou">Kartou</SelectItem>
+
                 <SelectItem value="Příkazem">Příkazem</SelectItem>
               </SelectContent>
             </Select>

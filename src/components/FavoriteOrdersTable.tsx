@@ -64,7 +64,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
 
-const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
+const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne", "X"] as const;
 
 interface FavoriteItem {
   product_id: number;
@@ -394,7 +394,7 @@ export function FavoriteOrdersTable({
               )}
             </div>
             <Tabs defaultValue="all" onValueChange={setSelectedDay}>
-              <TabsList className="grid grid-cols-8">
+              <TabsList className="grid grid-cols-9">
                 <TabsTrigger value="all">All</TabsTrigger>
                 {DAYS.map((day) => (
                   <TabsTrigger key={day} value={day}>

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 interface SubscriberUser {
   id: string;
   full_name: string;
+  phone: string;
 }
 
 
@@ -44,7 +45,7 @@ export const useSubsrciberUsers = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name")
+        .select("id, full_name, phone, crateBig, crateSmall")
         .in("role", ["buyer", "mobil", "store"])
         .eq("active", true)
         .order("full_name", { ascending: true })
@@ -111,12 +112,14 @@ export const updateProfile = () => {
       address,
       ico,
       mo_partners,
+
     }: {
       id: string;
       full_name?: string;
       address?: string;
       ico?: string;
       mo_partners?: string;
+
     }) => {
       const { error } = await supabase
         .from("profiles")
@@ -125,6 +128,7 @@ export const updateProfile = () => {
           ...(address && { address }),
           ...(ico && { ico }),
           ...(mo_partners && { mo_partners }),
+
         })
         .eq("id", id);
       if (error) throw error;
@@ -142,6 +146,38 @@ export const updateRole = () => {
       const { error } = await supabase
         .from("profiles")
         .update({ role })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+};
+
+export const updateCrateBig = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, crateBig }: { id: string; crateBig: number }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ crateBig })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+};
+
+export const updateCrateSmall = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, crateSmall }: { id: string; crateSmall: number }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ crateSmall })
         .eq("id", id);
       if (error) throw error;
     },

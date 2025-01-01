@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 
-const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
+const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne", "X"] as const;
 type Day = (typeof DAYS)[number];
 
 export function AddFavoriteOrderDialog() {
