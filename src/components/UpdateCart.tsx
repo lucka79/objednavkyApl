@@ -33,6 +33,7 @@ interface OrderItem {
     name: string;
     price: number;
     priceMobil: number;
+    priceBuyer: number;
   };
   quantity: number;
   price: number;

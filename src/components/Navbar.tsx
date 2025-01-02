@@ -71,7 +71,7 @@ export function Navbar() {
                 {user.role === "admin" && (
                   <>
                     <Link to="/admin" className="hover:text-gray-300">
-                      Admin
+                      Adresář
                     </Link>
                     {/* <Link to="/admin/orders" className="hover:text-gray-300">
                       Objednávky

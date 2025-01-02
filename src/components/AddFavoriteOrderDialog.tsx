@@ -150,6 +150,7 @@ export function AddFavoriteOrderDialog() {
                         setSelectedDays(selectedDays.filter((d) => d !== day));
                       }
                     }}
+                    className="border-orange-600 data-[state=checked]:bg-orange-600 data-[state=checked]:text-white"
                   />
                   <label
                     htmlFor={`day-${day}`}
@@ -166,7 +167,7 @@ export function AddFavoriteOrderDialog() {
         <Button
           variant="outline"
           onClick={handleSubmit}
-          className="w-full border-orange-800"
+          className="w-full bg-orange-600 text-white hover:bg-orange-700 hover:text-white"
         >
           Vytvořit stálou objednávku
         </Button>

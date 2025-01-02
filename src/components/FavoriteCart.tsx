@@ -2,7 +2,14 @@ import { useState, useMemo, useEffect } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Coins, SquareMinus, SquarePlus, Lock, Unlock } from "lucide-react";
+import {
+  Coins,
+  SquareMinus,
+  SquarePlus,
+  Lock,
+  Unlock,
+  Trash2,
+} from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -59,7 +66,7 @@ export default function FavoriteCart({
     }
     return userRole === "mobil"
       ? item.product.priceMobil
-      : userRole === "store"
+      : userRole === "store" || userRole === "buyer"
         ? item.product.priceBuyer
         : item.product.price;
   };
@@ -82,27 +89,17 @@ export default function FavoriteCart({
     if (newQuantity < 0) return;
 
     try {
-      if (newQuantity === 0) {
-        // Delete the item
-        await deleteFavoriteItem.mutateAsync(itemId);
+      // Update quantity
+      await updateFavoriteItem.mutateAsync({
+        itemId,
+        newQuantity,
+      });
 
-        // Update local state
-        setFavoriteItems(favoriteItems.filter((item) => item.id !== itemId));
-
-        toast({
-          title: "Item removed",
-          description: "Item has been removed from your favorite list",
-        });
-      } else {
-        // Update quantity
-        await updateFavoriteItem.mutateAsync({ itemId, newQuantity });
-
-        // Update local state
-        const updatedItems = favoriteItems.map((item) =>
-          item.id === itemId ? { ...item, quantity: newQuantity } : item
-        );
-        setFavoriteItems(updatedItems);
-      }
+      // Update local state
+      const updatedItems = favoriteItems.map((item) =>
+        item.id === itemId ? { ...item, quantity: newQuantity } : item
+      );
+      setFavoriteItems(updatedItems);
 
       await onUpdate();
     } catch (error) {
@@ -194,12 +191,14 @@ export default function FavoriteCart({
                   </button>
                 </div>
                 <div className="flex items-center">
-                  <SquareMinus
-                    onClick={() =>
-                      updateFavoriteQuantity(item.id, item.quantity - 1)
-                    }
-                    className="cursor-pointer text-stone-300 hover:text-stone-400"
-                  />
+                  {item.quantity > 0 && (
+                    <SquareMinus
+                      onClick={() =>
+                        updateFavoriteQuantity(item.id, item.quantity - 1)
+                      }
+                      className="cursor-pointer text-stone-300 hover:text-stone-400"
+                    />
+                  )}
                   <Input
                     type="number"
                     min="0"
@@ -210,7 +209,7 @@ export default function FavoriteCart({
                         parseInt(e.target.value) || 0
                       )
                     }
-                    className="w-20 mx-1 text-center"
+                    className={`w-16 ${item.quantity > 0 ? "mx-2" : "ml-6"} text-center`}
                   />
                   <SquarePlus
                     onClick={() =>
@@ -221,6 +220,10 @@ export default function FavoriteCart({
                   <Label className="w-16 mx-2 text-end">
                     {(getItemPrice(item) * (item.quantity || 0)).toFixed(2)} Kč
                   </Label>
+                  <Trash2
+                    onClick={() => deleteFavoriteItem.mutateAsync(item.id)}
+                    className="h-4 w-4 cursor-pointer text-stone-300 hover:text-red-500 ml-2"
+                  />
                 </div>
               </div>
             </div>

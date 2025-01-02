@@ -34,7 +34,7 @@ interface FavoriteDetailsDialogProps {
   onClose: () => void;
 }
 
-const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"] as const;
+const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne", "X"] as const;
 
 export function FavoriteDetailsDialog({
   favoriteOrderId,
@@ -99,11 +99,17 @@ export function FavoriteDetailsDialog({
                 <CardTitle className="flex justify-between">
                   {currentFavorite.user?.full_name}
                   <div className="flex gap-1">
-                    {selectedDays.map((day) => (
-                      <Badge key={day} variant="outline">
-                        {day}
-                      </Badge>
-                    ))}
+                    {selectedDays
+                      .sort(
+                        (a, b) =>
+                          DAYS.indexOf(a as (typeof DAYS)[number]) -
+                          DAYS.indexOf(b as (typeof DAYS)[number])
+                      )
+                      .map((day) => (
+                        <Badge key={day} variant="outline">
+                          {day}
+                        </Badge>
+                      ))}
                   </div>
                 </CardTitle>
                 <CardDescription className="flex flex-col gap-2">

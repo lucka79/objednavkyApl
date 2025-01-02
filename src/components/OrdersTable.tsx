@@ -985,7 +985,7 @@ export function OrdersTable({
         </div>
 
         <Tabs
-          defaultValue="today"
+          defaultValue="tomorrow"
           className="w-full"
           onValueChange={(value) => {
             setDate(undefined);
@@ -994,11 +994,11 @@ export function OrdersTable({
         >
           <TabsList className="print:hidden">
             {[
-              { value: "today", label: "Today" },
-              { value: "tomorrow", label: "Tomorrow" },
-              { value: "week", label: "This Week" },
-              { value: "month", label: "This Month" },
-              { value: "lastMonth", label: "Last Month" },
+              { value: "tomorrow", label: "Zítra" },
+              { value: "today", label: "Dnes" },
+              { value: "week", label: "Tento týden" },
+              { value: "month", label: "Tento měsíc" },
+              { value: "lastMonth", label: "Minulý měsíc" },
             ].map((tab) => (
               <TabsTrigger key={tab.value} value={tab.value}>
                 {tab.label}{" "}

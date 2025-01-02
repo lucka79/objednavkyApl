@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -63,6 +63,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne", "X"] as const;
 
@@ -97,6 +98,10 @@ const columns: ColumnDef<FavoriteOrder>[] = [
   {
     accessorKey: "user.full_name",
     header: "Odběratel",
+  },
+  {
+    accessorKey: "user.role",
+    header: "Typ",
   },
   {
     accessorKey: "status",
@@ -191,6 +196,120 @@ interface FavoriteOrdersTableProps {
   selectedProductId: string | null;
 }
 
+// Create a type for the table content props
+interface TableContentProps {
+  data: FavoriteOrder[];
+  columns: ColumnDef<FavoriteOrder>[];
+  setSelectedOrderId: (id: number) => void;
+  selectedOrders: Set<number>;
+  setSelectedOrders: (orders: Set<number>) => void;
+}
+
+// Update the table content component
+function FavoriteOrderTableContent({
+  data,
+  columns,
+  setSelectedOrderId,
+  selectedOrders,
+  setSelectedOrders,
+}: TableContentProps) {
+  const tableColumns = useMemo(
+    () => [
+      {
+        id: "select",
+        header: () => (
+          <Checkbox
+            checked={
+              data.length > 0 &&
+              data.every((order) => selectedOrders.has(order.id))
+            }
+            onCheckedChange={(checked) => {
+              const newSelected = new Set(selectedOrders);
+              data.forEach((order) => {
+                if (checked) {
+                  newSelected.add(order.id);
+                } else {
+                  newSelected.delete(order.id);
+                }
+              });
+              setSelectedOrders(newSelected);
+            }}
+            className="border-orange-500 data-[state=checked]:bg-orange-500 data-[state=checked]:text-white"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={selectedOrders.has(row.original.id)}
+            onCheckedChange={(checked) => {
+              const newSelected = new Set(selectedOrders);
+              if (checked) {
+                newSelected.add(row.original.id);
+              } else {
+                newSelected.delete(row.original.id);
+              }
+              setSelectedOrders(newSelected);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="border-orange-500 data-[state=checked]:bg-orange-500 data-[state=checked]:text-white"
+          />
+        ),
+      },
+      ...columns,
+    ],
+    [columns, data, selectedOrders, setSelectedOrders]
+  );
+
+  const table = useReactTable({
+    data,
+    columns: tableColumns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  return (
+    <Table>
+      <TableHeader>
+        {table.getHeaderGroups().map((headerGroup) => (
+          <TableRow key={headerGroup.id}>
+            {headerGroup.headers.map((header) => (
+              <TableHead key={header.id}>
+                {header.isPlaceholder
+                  ? null
+                  : flexRender(
+                      header.column.columnDef.header,
+                      header.getContext()
+                    )}
+              </TableHead>
+            ))}
+          </TableRow>
+        ))}
+      </TableHeader>
+      <TableBody>
+        {table.getRowModel().rows?.length ? (
+          table.getRowModel().rows.map((row) => (
+            <TableRow
+              key={row.id}
+              onClick={() => setSelectedOrderId(row.original.id)}
+              className="cursor-pointer hover:bg-muted/50"
+            >
+              {row.getVisibleCells().map((cell) => (
+                <TableCell key={cell.id}>
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))
+        ) : (
+          <TableRow>
+            <TableCell colSpan={columns.length} className="h-24 text-center">
+              No results.
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
+  );
+}
+
 export function FavoriteOrdersTable({
   selectedProductId: initialProductId,
 }: FavoriteOrdersTableProps) {
@@ -207,6 +326,7 @@ export function FavoriteOrdersTable({
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [selectedDay, setSelectedDay] = useState<string>("all");
   const [userNameFilter, setUserNameFilter] = useState("");
+  const [selectedOrders, setSelectedOrders] = useState<Set<number>>(new Set());
 
   const { mutateAsync: insertOrder } = useInsertOrder();
   const { mutateAsync: insertOrderItems } = useInsertOrderItems();
@@ -252,7 +372,20 @@ export function FavoriteOrdersTable({
     }
 
     try {
-      for (const favoriteOrder of filteredOrders) {
+      const ordersToCreate = filteredOrders.filter((order) =>
+        selectedOrders.has(order.id)
+      );
+
+      if (ordersToCreate.length === 0) {
+        toast({
+          title: "Warning",
+          description: "No orders selected",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      for (const favoriteOrder of ordersToCreate) {
         // Check for existing order
         const { data: existingOrder, error: checkError } = await supabase
           .from("orders")
@@ -301,7 +434,7 @@ export function FavoriteOrdersTable({
             const price =
               userRole === "mobil"
                 ? item.product.priceMobil
-                : userRole === "store"
+                : userRole === "store" || userRole === "buyer"
                   ? item.product.priceBuyer
                   : item.product.price;
             return sum + item.quantity * price;
@@ -336,7 +469,7 @@ export function FavoriteOrdersTable({
                 ? item.price
                 : userRole === "mobil"
                   ? item.product.priceMobil
-                  : userRole === "store"
+                  : userRole === "store" || userRole === "buyer"
                     ? item.product.priceBuyer
                     : item.product.price,
           })
@@ -359,7 +492,7 @@ export function FavoriteOrdersTable({
 
       toast({
         title: "Success",
-        description: `Created ${filteredOrders.length} orders for ${format(date, "PP")}`,
+        description: `Created ${ordersToCreate.length} orders for ${format(date, "PP")}`,
         duration: 3000,
         style: { zIndex: 9999 },
       });
@@ -473,10 +606,12 @@ export function FavoriteOrdersTable({
                         const yesterday = new Date();
                         yesterday.setDate(yesterday.getDate() - 1);
 
-                        const nextMonth = new Date();
-                        nextMonth.setMonth(nextMonth.getMonth() + 1, 0);
+                        const twoMonthsFromNow = new Date();
+                        twoMonthsFromNow.setMonth(
+                          twoMonthsFromNow.getMonth() + 2
+                        );
 
-                        return date < yesterday || date > nextMonth;
+                        return date < yesterday || date > twoMonthsFromNow;
                       }}
                       initialFocus
                       className="rounded-md border"
@@ -489,12 +624,12 @@ export function FavoriteOrdersTable({
                 </Popover>
                 <Button
                   onClick={createOrdersFromFavorites}
-                  disabled={!date || filteredOrders.length === 0}
+                  disabled={!date || selectedOrders.size === 0}
                   className="gap-2 bg-orange-600 text-white"
                   variant="outline"
                 >
                   <CirclePlus className="h-4 w-4" />
-                  Create Orders ({filteredOrders.length})
+                  Create Orders ({selectedOrders.size})
                 </Button>
                 <Badge variant="secondary">
                   {date
@@ -509,6 +644,8 @@ export function FavoriteOrdersTable({
             data={filteredOrders}
             columns={columns}
             setSelectedOrderId={setSelectedOrderId}
+            selectedOrders={selectedOrders}
+            setSelectedOrders={setSelectedOrders}
           />
         </div>
       </Card>
@@ -518,66 +655,5 @@ export function FavoriteOrdersTable({
         onClose={() => setSelectedOrderId(null)}
       />
     </>
-  );
-}
-
-// Updated OrderTableContent component
-function FavoriteOrderTableContent({
-  data,
-  columns,
-  setSelectedOrderId,
-}: {
-  data: FavoriteOrder[];
-  columns: ColumnDef<FavoriteOrder>[];
-  setSelectedOrderId: (id: number) => void;
-}) {
-  const table = useReactTable({
-    data,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
-  return (
-    <Table>
-      <TableHeader>
-        {table.getHeaderGroups().map((headerGroup) => (
-          <TableRow key={headerGroup.id}>
-            {headerGroup.headers.map((header) => (
-              <TableHead key={header.id}>
-                {header.isPlaceholder
-                  ? null
-                  : flexRender(
-                      header.column.columnDef.header,
-                      header.getContext()
-                    )}
-              </TableHead>
-            ))}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody>
-        {table.getRowModel().rows?.length ? (
-          table.getRowModel().rows.map((row) => (
-            <TableRow
-              key={row.id}
-              onClick={() => setSelectedOrderId(row.original.id)}
-              className="cursor-pointer hover:bg-muted/50"
-            >
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))
-        ) : (
-          <TableRow>
-            <TableCell colSpan={columns.length} className="h-24 text-center">
-              No results.
-            </TableCell>
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
   );
 }

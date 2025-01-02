@@ -17,7 +17,7 @@ export const useFavoriteOrders = () => {
                   product:products(*)
               )
           `)
-          .order('user(full_name)', { ascending: false });
+          .order('user(full_name)', { ascending: true });
 
         console.log('Supabase response:', { data, error });
 
@@ -133,7 +133,7 @@ export const useUpdateFavoriteOrder = () => {
     }: { 
       id: number; 
       data: {
-        days?: ("Po" | "Út" | "St" | "Čt" | "Pá" | "So" | "Ne")[];
+        days?: ("Po" | "Út" | "St" | "Čt" | "Pá" | "So" | "Ne" | "X")[];
         status?: string;
         user_id?: string;
       }

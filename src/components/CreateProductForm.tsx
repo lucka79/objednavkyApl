@@ -278,7 +278,7 @@ export function CreateProductForm() {
                     <FormControl>
                       <Input
                         type="number"
-                        step="0.1"
+                        step="0.01"
                         placeholder="Enter product price"
                         {...field}
                         onChange={(e) =>
