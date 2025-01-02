@@ -73,14 +73,14 @@ export function Navbar() {
                     <Link to="/admin" className="hover:text-gray-300">
                       Adresář
                     </Link>
-                    {/* <Link to="/admin/orders" className="hover:text-gray-300">
+                    <Link to="/admin/orders" className="hover:text-gray-300">
                       Objednávky
-                    </Link> */}
+                    </Link>
                     <Link to="/admin/create" className="hover:text-gray-300">
                       Výrobky
                     </Link>
                     <Link to="/admin/products" className="hover:text-gray-300">
-                      Objednávky
+                      Objed/Výrobky
                     </Link>
                     {/* <Link to="/cart" className="hover:text-gray-300">
                       <ShoppingCart />

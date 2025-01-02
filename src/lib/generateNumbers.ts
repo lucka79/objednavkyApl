@@ -11,7 +11,7 @@ export async function generateReceiptNumber(sellerId: string): Promise<string> {
     .single()
 
   if (profileError || !profile?.shortcut) {
-    throw new Error('Failed to fetch seller profile')
+    throw new Error('Failed to fetch seller profile, chybí zkratka prodejce.')
   }
 
   // Fetch the latest receipt for this seller in the current year
