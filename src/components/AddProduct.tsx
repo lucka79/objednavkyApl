@@ -82,7 +82,9 @@ export const AddProduct: React.FC<AddProductProps> = ({
           orderData?.users?.role === "mobil"
             ? product.priceMobil
             : // @ts-ignore
-              orderData?.users?.role === "store"
+              orderData?.users?.role === "store" ||
+                // @ts-ignore
+                orderData?.users?.role === "buyer"
               ? product.priceBuyer
               : product.price;
 

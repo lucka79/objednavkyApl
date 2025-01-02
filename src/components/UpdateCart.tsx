@@ -2,13 +2,20 @@ import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Coins, SquareMinus, SquarePlus, Plus, History } from "lucide-react";
+import {
+  Coins,
+  SquareMinus,
+  SquarePlus,
+  Plus,
+  History,
+  Trash2,
+} from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
   useUpdateOrderItems,
   useUpdateOrder,
-  // useDeleteOrderItem,
+  useDeleteOrderItem,
   useOrderItemHistory,
   useUpdateStoredItems,
 } from "@/hooks/useOrders";
@@ -25,6 +32,7 @@ import { AddProduct } from "@/components/AddProduct";
 
 import { useOrderItemsHistory } from "@/hooks/useOrders";
 import { useAuthStore } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 interface OrderItem {
   id: number;
@@ -111,7 +119,7 @@ export default function UpdateCart({
   const { mutate: updateOrderItems } = useUpdateOrderItems();
   const { mutate: updateOrder } = useUpdateOrder();
   const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
-  // const { mutate: deleteOrderItem } = useDeleteOrderItem();
+  const { mutateAsync: deleteOrderItem } = useDeleteOrderItem();
   const { toast } = useToast();
   const user = useAuthStore((state) => state.user);
 
@@ -162,21 +170,29 @@ export default function UpdateCart({
 
   const total = useMemo(() => calculateTotal(), [orderItems]);
 
-  // const handleDeleteItem = async (itemId: number) => {
-  //   try {
-  //     await deleteOrderItem({ itemId, orderId });
-  //     await onUpdate();
-  //     setOrderItems((prevItems) =>
-  //       prevItems.filter((item) => item.id !== itemId)
-  //     );
-  //   } catch (error) {
-  //     toast({
-  //       title: "Error",
-  //       description: "Failed to delete item",
-  //       variant: "destructive",
-  //     });
-  //   }
-  // };
+  const handleDeleteItem = async (itemId: number) => {
+    try {
+      // First delete history records - corrected table name
+      await supabase
+        .from("order_items_history")
+        .delete()
+        .eq("order_item_id", itemId);
+
+      // Then delete the order item
+      await deleteOrderItem({ itemId, orderId });
+      await onUpdate();
+      setOrderItems((prevItems) =>
+        prevItems.filter((item) => item.id !== itemId)
+      );
+    } catch (error) {
+      console.error("Delete error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete item",
+        variant: "destructive",
+      });
+    }
+  };
 
   const updateOrderQuantity = async (
     itemId: number,
@@ -403,7 +419,6 @@ export default function UpdateCart({
                       onClick={() => setSelectedItemId(item.id)}
                     >
                       <History className="h-4 w-4" />
-                      {/* {item.id} */}
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
@@ -413,6 +428,12 @@ export default function UpdateCart({
                     <HistoryDialog itemId={item.id} />
                   </DialogContent>
                 </Dialog>
+                {user?.role === "admin" && (
+                  <Trash2
+                    onClick={() => handleDeleteItem(item.id)}
+                    className="h-4 w-4 cursor-pointer text-stone-300 hover:text-red-500 ml-2"
+                  />
+                )}
               </div>
             </div>
           ))

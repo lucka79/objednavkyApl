@@ -203,6 +203,8 @@ const columns: ColumnDef<Order>[] = [
     accessorKey: "status",
     header: () => <div className="text-right">Status</div>,
     cell: ({ row }) => {
+      const allCount = row.original.order_items?.length || 0;
+      row.original.order_items?.filter((item) => item.checked).length || 0;
       const checkedCount =
         row.original.order_items?.filter((item) => item.checked).length || 0;
       const uncheckedCount =
@@ -215,7 +217,7 @@ const columns: ColumnDef<Order>[] = [
         <div className="text-right flex justify-end gap-2 items-center">
           {checkedCount > 0 && (
             <Badge variant="outline" className="border-green-700 bg-green-400">
-              {checkedCount}
+              {checkedCount} / {allCount}
             </Badge>
           )}
           {uncheckedCount > 0 && (
