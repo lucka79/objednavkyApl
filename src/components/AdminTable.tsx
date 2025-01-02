@@ -54,56 +54,33 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
-// 1. Memoize cell components
-const CrateCell = memo(
-  ({
-    row,
-    getValue,
-    fieldName,
-    updateCrateBigMutation,
-    updateCrateSmallMutation,
-  }: any) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [value, setValue] = useState(getValue() ?? 0);
+// 1. Memoize cell components more efficiently
+const EditableCell = memo(({ row, getValue, fieldName }: any) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [value, setLocalValue] = useState(getValue());
+  const updateProfileMutation = updateProfile();
 
-    const onBlur = useCallback(() => {
-      setIsEditing(false);
-      const currentValue = getValue() ?? 0;
-      const newValue = value ?? 0;
+  const onBlur = useCallback(() => {
+    setIsEditing(false);
+    if (value !== getValue()) {
+      updateProfileMutation.mutate({
+        id: row.original.id,
+        [fieldName]: value,
+      });
+    }
+  }, [value, getValue, row.original.id, fieldName, updateProfileMutation]);
 
-      if (newValue !== currentValue) {
-        const mutation =
-          fieldName === "crateBig"
-            ? updateCrateBigMutation
-            : updateCrateSmallMutation;
-        mutation.mutate({
-          id: row.original.id,
-          [fieldName]: newValue,
-        });
-      }
-    }, [
-      value,
-      getValue,
-      row.original.id,
-      fieldName,
-      updateCrateBigMutation,
-      updateCrateSmallMutation,
-    ]);
-
-    return isEditing ? (
-      <Input
-        type="number"
-        min="0"
-        value={value}
-        onChange={(e) => setValue(Number(e.target.value))}
-        onBlur={onBlur}
-        autoFocus
-      />
-    ) : (
-      <div onDoubleClick={() => setIsEditing(true)}>{getValue() ?? 0}</div>
-    );
-  }
-);
+  return isEditing ? (
+    <Input
+      value={value}
+      onChange={(e) => setLocalValue(e.target.value)}
+      onBlur={onBlur}
+      autoFocus
+    />
+  ) : (
+    <div onDoubleClick={() => setIsEditing(true)}>{getValue() || "—"}</div>
+  );
+});
 
 // 2. Memoize filters
 interface FilterSectionProps {
@@ -186,6 +163,49 @@ const FilterSection = memo(
   )
 );
 
+const CrateCell = memo(
+  ({
+    row,
+    getValue,
+    fieldName,
+    updateCrateBigMutation,
+    updateCrateSmallMutation,
+  }: any) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [value, setValue] = useState(getValue());
+
+    const onBlur = () => {
+      setIsEditing(false);
+      if (value !== getValue()) {
+        if (fieldName === "crateBig") {
+          updateCrateBigMutation.mutate({
+            id: row.original.id,
+            crateBig: value || 0,
+          });
+        } else {
+          updateCrateSmallMutation.mutate({
+            id: row.original.id,
+            crateSmall: value || 0,
+          });
+        }
+      }
+    };
+
+    return isEditing ? (
+      <Input
+        type="number"
+        min="0"
+        value={value}
+        onChange={(e) => setValue(Number(e.target.value))}
+        onBlur={onBlur}
+        autoFocus
+      />
+    ) : (
+      <div onDoubleClick={() => setIsEditing(true)}>{getValue() ?? 0}</div>
+    );
+  }
+);
+
 export function AdminTable() {
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
@@ -207,90 +227,76 @@ export function AdminTable() {
   const [paidByFilter, setPaidByFilter] = useState("all");
   const [activeFilter, setActiveFilter] = useState("all");
 
-  // 4. Memoize filtered data
-  const filteredUsers = useMemo(() => {
-    return (users ?? []).filter((user: any) => {
-      const searchLower = searchQuery.toLowerCase();
-      const matchesSearch =
-        user.full_name?.toLowerCase().includes(searchLower) ||
-        user.ico?.toLowerCase().includes(searchLower) ||
-        user.email?.toLowerCase().includes(searchLower) ||
-        user.phone?.toLowerCase().includes(searchLower) ||
-        user.address?.toLowerCase().includes(searchLower);
+  // 3. Optimize filtering logic
+  const getFilteredUsers = useCallback(
+    (
+      users: any[],
+      filters: {
+        search: string;
+        role: string;
+        paidBy: string;
+        active: string;
+      }
+    ) => {
+      if (!users) return [];
 
-      const matchesRole = roleFilter === "all" || user.role === roleFilter;
-      const matchesPaidBy =
-        paidByFilter === "all" || user.paid_by === paidByFilter;
-      const matchesActive =
-        activeFilter === "all" ||
-        (activeFilter === "true" ? user.active : !user.active);
+      return users.filter((user: any) => {
+        if (filters.search) {
+          const searchTerm = filters.search.toLowerCase();
+          const matchesSearch = [
+            user.full_name,
+            user.ico,
+            user.email,
+            user.phone,
+            user.address,
+          ].some((field) => field?.toLowerCase().includes(searchTerm));
 
-      return matchesSearch && matchesRole && matchesPaidBy && matchesActive;
-    });
-  }, [users, searchQuery, roleFilter, paidByFilter, activeFilter]);
+          if (!matchesSearch) return false;
+        }
+
+        if (filters.role !== "all" && user.role !== filters.role) return false;
+        if (filters.paidBy !== "all" && user.paid_by !== filters.paidBy)
+          return false;
+        if (filters.active !== "all") {
+          const isActive = filters.active === "true";
+          if (user.active !== isActive) return false;
+        }
+
+        return true;
+      });
+    },
+    []
+  );
+
+  // 4. Use the optimized filtering
+  const filteredUsers = useMemo(
+    () =>
+      getFilteredUsers(users ?? [], {
+        search: searchQuery,
+        role: roleFilter,
+        paidBy: paidByFilter,
+        active: activeFilter,
+      }),
+    [
+      users,
+      searchQuery,
+      roleFilter,
+      paidByFilter,
+      activeFilter,
+      getFilteredUsers,
+    ]
+  );
 
   // 5. Memoize columns configuration
   const columns = useMemo(
     () => [
       columnHelper.accessor("full_name", {
         header: "Name",
-        cell: ({ row, getValue }) => {
-          const [isEditing, setIsEditing] = useState(false);
-          const [value, setValue] = useState(getValue());
-
-          const onBlur = () => {
-            setIsEditing(false);
-            if (value !== getValue()) {
-              updateProfileMutation.mutate({
-                id: row.original.id,
-                full_name: value,
-              });
-            }
-          };
-
-          return isEditing ? (
-            <Input
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onBlur={onBlur}
-              autoFocus
-            />
-          ) : (
-            <div onDoubleClick={() => setIsEditing(true)}>
-              {getValue() || "—"}
-            </div>
-          );
-        },
+        cell: (props) => <EditableCell {...props} fieldName="full_name" />,
       }),
       columnHelper.accessor("ico", {
         header: "IČO",
-        cell: ({ row, getValue }) => {
-          const [isEditing, setIsEditing] = useState(false);
-          const [value, setValue] = useState(getValue());
-
-          const onBlur = () => {
-            setIsEditing(false);
-            if (value !== getValue()) {
-              updateProfileMutation.mutate({
-                id: row.original.id,
-                ico: value,
-              });
-            }
-          };
-
-          return isEditing ? (
-            <Input
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onBlur={onBlur}
-              autoFocus
-            />
-          ) : (
-            <div onDoubleClick={() => setIsEditing(true)}>
-              {getValue() || "—"}
-            </div>
-          );
-        },
+        cell: (props) => <EditableCell {...props} fieldName="ico" />,
       }),
       columnHelper.accessor("email", {
         header: "Email",
@@ -302,33 +308,7 @@ export function AdminTable() {
       }),
       columnHelper.accessor("address", {
         header: "Address",
-        cell: ({ row, getValue }) => {
-          const [isEditing, setIsEditing] = useState(false);
-          const [value, setValue] = useState(getValue());
-
-          const onBlur = () => {
-            setIsEditing(false);
-            if (value !== getValue()) {
-              updateProfileMutation.mutate({
-                id: row.original.id,
-                address: value,
-              });
-            }
-          };
-
-          return isEditing ? (
-            <Input
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onBlur={onBlur}
-              autoFocus
-            />
-          ) : (
-            <div onDoubleClick={() => setIsEditing(true)}>
-              {getValue() || "—"}
-            </div>
-          );
-        },
+        cell: (props) => <EditableCell {...props} fieldName="address" />,
       }),
       columnHelper.accessor("crateBig", {
         header: "Crates Big",
@@ -556,11 +536,16 @@ export function AdminTable() {
     [columnHelper, updateProfileMutation]
   );
 
-  // 6. Memoize table instance
+  // 6. Memoize table instance with virtualization
   const table = useReactTable({
     data: filteredUsers,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    initialState: {
+      pagination: {
+        pageSize: 50, // Limit initial render size
+      },
+    },
   });
 
   if (user?.role !== "admin") {
@@ -581,13 +566,13 @@ export function AdminTable() {
       />
 
       <div className="border rounded-md">
-        <div className="max-h-[800px] overflow-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+        <div className="max-h-[800px] overflow-auto">
           <Table>
-            <TableHeader className="sticky top-0 bg-background z-10 border-b">
+            <TableHeader className="sticky top-0 bg-background z-10">
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} className="bg-background h-12">
+                    <TableHead key={header.id}>
                       {flexRender(
                         header.column.columnDef.header,
                         header.getContext()
@@ -598,18 +583,21 @@ export function AdminTable() {
               ))}
             </TableHeader>
             <TableBody>
-              {table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
+              {table
+                .getRowModel()
+                .rows.slice(0, 50)
+                .map((row) => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
             </TableBody>
           </Table>
         </div>

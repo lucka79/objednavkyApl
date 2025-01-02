@@ -346,7 +346,7 @@ export default function UpdateCart({
                   className="mr-2 border-amber-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500 data-[state=checked]:text-white print:hidden"
                 />
               )}
-              <span className="text-sm flex-1 text-left mr-4">
+              <span className="text-sm flex-1 text-left mr-2">
                 {item.product.name}
               </span>
               <span className="text-sm flex-1 mr-2 text-end">
@@ -382,8 +382,8 @@ export default function UpdateCart({
                       parseInt(e.target.value) || 0
                     )
                   }
-                  className={`w-16 mx-2 text-center ${
-                    item.quantity === 0 ? "text-gray-400" : ""
+                  className={`w-20 mx-2 text-center ${
+                    item.quantity === 0 ? "text-gray-600" : ""
                   }`}
                   disabled={item.checked}
                 />

@@ -87,29 +87,29 @@ export const useFetchOrderById = (orderId: number | null) => {
 };
 
 // all orders
-export const fetchAllOrders =  () => {
-return useQuery({
+export const fetchAllOrders = () => {
+  return useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
-        const { data, error } = await supabase
+      const { data, error } = await supabase
         .from('orders')
         .select(`
-        *,
-        user:profiles (id, full_name, role),
-        order_items (
-        *,
-        product:products (*)
-    )
-    `)
-//   .eq('user_id', userId)
-    .order('date', { ascending: false })
+          *,
+          user:profiles (id, full_name, role),
+          order_items (
+            *,
+            product:products (*)
+          )
+        `)
+        .order('user(full_name)', { ascending: true })
+        .order('date', { ascending: false })
+        .limit(100);
 
-if (error) throw error
-return data
-  }
-});
-  }
-  
+      if (error) throw error;
+      return data;
+    }
+  });
+};
 
 // export const updateOrderItem = async (orderItem: OrderItem): Promise<OrderItem> => {
 //   const { data, error } = await supabase

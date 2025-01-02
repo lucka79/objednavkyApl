@@ -65,11 +65,12 @@ export default function CartAdmin() {
     if (!subsrciberUsers) return [];
     if (!searchQuery) return subsrciberUsers;
 
-    return subsrciberUsers.filter(
-      (user) =>
-        user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.phone?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const searchTerm = searchQuery.toLowerCase();
+    return subsrciberUsers.filter((user) => {
+      return [user.full_name, user.phone].some((field) =>
+        field?.toLowerCase().includes(searchTerm)
+      );
+    });
   }, [subsrciberUsers, searchQuery]);
 
   useEffect(() => {

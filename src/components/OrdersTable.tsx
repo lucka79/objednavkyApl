@@ -60,6 +60,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const filterOrdersByDate = (
   orders: Order[],
@@ -119,6 +120,35 @@ const calculateCrateSums = (orders: Order[]) => {
 };
 
 const columns: ColumnDef<Order>[] = [
+  {
+    id: "select",
+    header: ({ table }) => (
+      <div className="flex items-center gap-2">
+        <Checkbox
+          checked={table.getIsAllPageRowsSelected()}
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+          className="border-orange-500 data-[state=checked]:bg-orange-500 data-[state=checked]:text-white"
+        />
+        {table.getFilteredSelectedRowModel().rows.length > 0 && (
+          <Badge variant="secondary">
+            {table.getFilteredSelectedRowModel().rows.length}
+          </Badge>
+        )}
+      </div>
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        checked={row.getIsSelected()}
+        onCheckedChange={(value) => row.toggleSelected(!!value)}
+        aria-label="Select row"
+        onClick={(e) => e.stopPropagation()}
+        className="border-orange-500 data-[state=checked]:bg-orange-500 data-[state=checked]:text-white"
+      />
+    ),
+    enableSorting: false,
+    enableHiding: false,
+  },
   {
     accessorKey: "date",
     header: () => <div className="w-18 text-left">Datum</div>,
@@ -227,7 +257,7 @@ const columns: ColumnDef<Order>[] = [
           )}
           {zeroQuantityCount > 0 && (
             <Badge variant="outline" className="border-red-700 bg-red-400">
-              {zeroQuantityCount}
+              {zeroQuantityCount} / {allCount}
               {/* <Flag size={14} /> */}
             </Badge>
           )}
@@ -1112,57 +1142,62 @@ function OrderTableContent({
   columns: ColumnDef<Order>[];
   setSelectedOrderId: (id: number) => void;
 }) {
+  const [rowSelection, setRowSelection] = useState({});
+
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    state: { globalFilter },
+    state: {
+      globalFilter,
+      rowSelection,
+    },
+    enableRowSelection: true,
+    onRowSelectionChange: setRowSelection,
   });
 
   return (
-    <>
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <TableHead key={header.id}>
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
-                </TableHead>
+    <Table>
+      <TableHeader>
+        {table.getHeaderGroups().map((headerGroup) => (
+          <TableRow key={headerGroup.id}>
+            {headerGroup.headers.map((header) => (
+              <TableHead key={header.id}>
+                {header.isPlaceholder
+                  ? null
+                  : flexRender(
+                      header.column.columnDef.header,
+                      header.getContext()
+                    )}
+              </TableHead>
+            ))}
+          </TableRow>
+        ))}
+      </TableHeader>
+      <TableBody>
+        {table.getRowModel().rows?.length ? (
+          table.getRowModel().rows.map((row) => (
+            <TableRow
+              key={row.id}
+              onClick={() => setSelectedOrderId(row.original.id)}
+              className="cursor-pointer hover:bg-muted/50"
+            >
+              {row.getVisibleCells().map((cell) => (
+                <TableCell key={cell.id}>
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
               ))}
             </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows?.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                onClick={() => setSelectedOrderId(row.original.id)}
-                className="cursor-pointer hover:bg-muted/50"
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
-                No results.
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </>
+          ))
+        ) : (
+          <TableRow>
+            <TableCell colSpan={columns.length} className="h-24 text-center">
+              No results.
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
   );
 }
