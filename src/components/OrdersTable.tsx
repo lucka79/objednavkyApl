@@ -61,6 +61,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useDriverUsers } from "@/hooks/useProfiles";
 
 const filterOrdersByDate = (
   orders: Order[],
@@ -195,6 +196,10 @@ const columns: ColumnDef<Order>[] = [
   {
     accessorKey: "paid_by",
     header: "Platba",
+  },
+  {
+    accessorKey: "driver.full_name",
+    header: "Řidič",
   },
   {
     accessorKey: "total",
@@ -544,6 +549,8 @@ export function OrdersTable({
   const [activeTab, setActiveTab] = useState("today");
   const [selectedPaidBy, setSelectedPaidBy] = useState<string>("all");
   const [selectedRole, setSelectedRole] = useState<string>("all");
+  const [selectedDriver, setSelectedDriver] = useState<string>("all");
+  const { data: driverUsers } = useDriverUsers();
 
   // Get unique paid_by values from orders
   const uniquePaidByValues = useMemo(() => {
@@ -589,8 +596,24 @@ export function OrdersTable({
       filtered = filtered.filter((order) => order.user?.role === selectedRole);
     }
 
+    // Add driver filtering
+    if (selectedDriver !== "all") {
+      filtered = filtered.filter((order) =>
+        selectedDriver === "none"
+          ? !order.driver_id
+          : order.driver_id === selectedDriver
+      );
+    }
+
     return filtered;
-  }, [orders, selectedProductId, date, selectedPaidBy, selectedRole]);
+  }, [
+    orders,
+    selectedProductId,
+    date,
+    selectedPaidBy,
+    selectedRole,
+    selectedDriver,
+  ]);
 
   const getDateFilteredOrders = (
     orders: Order[],
@@ -1009,6 +1032,21 @@ export function OrdersTable({
                 {uniqueRoles.map((role) => (
                   <SelectItem key={role} value={role}>
                     {role}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={selectedDriver} onValueChange={setSelectedDriver}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filtrovat řidiče..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Všichni řidiči</SelectItem>
+                <SelectItem value="none">Bez řidiče</SelectItem>
+                {driverUsers?.map((driver) => (
+                  <SelectItem key={driver.id} value={driver.id}>
+                    {driver.full_name}
                   </SelectItem>
                 ))}
               </SelectContent>

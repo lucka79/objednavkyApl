@@ -31,6 +31,14 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { useDriverUsers } from "@/hooks/useProfiles";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 // import React from "react";
 
 export function OrderDetailsDialog() {
@@ -39,6 +47,7 @@ export function OrderDetailsDialog() {
   const { mutate: updateOrder } = useUpdateOrder();
   const { mutate: updateProfile } = useUpdateProfile();
   const [isLocked, setIsLocked] = useState(false);
+  const { data: driverUsers } = useDriverUsers();
 
   const {
     data: orders,
@@ -46,6 +55,8 @@ export function OrderDetailsDialog() {
     isLoading,
     refetch,
   } = useFetchOrderById(selectedOrderId);
+
+  console.log("OrderDetailsDialog orders:", orders);
 
   if (!selectedOrderId) {
     return null;
@@ -158,7 +169,29 @@ export function OrderDetailsDialog() {
                     <span className="text-muted-foreground font-semibold">
                       {new Date(order.date).toLocaleDateString()}
                     </span>
-                    <span>Řidič:</span>
+                    <Select
+                      value={order.driver?.id || "none"}
+                      onValueChange={(value) =>
+                        updateOrder({
+                          id: order.id,
+                          updatedFields: {
+                            driver_id: value === "none" ? null : value,
+                          },
+                        })
+                      }
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Vyberte řidiče" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Bez řidiče</SelectItem>
+                        {driverUsers?.map((driver) => (
+                          <SelectItem key={driver.id} value={driver.id}>
+                            {driver.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </CardDescription>
               </CardHeader>

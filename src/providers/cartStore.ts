@@ -17,7 +17,8 @@ type CartStore = {
     selectedUserId: string,
     orderTotal: number,
     selectedUserRole: string,
-    paidBy: "Hotově" | "Kartou" | "Příkazem"
+    paidBy: "Hotově" | "Kartou" | "Příkazem",
+    driverId: string
   ) => Promise<void>;
 };
 
@@ -72,7 +73,8 @@ export const useCartStore = create<CartStore>((set, get) => ({
     selectedUserId: string,
     orderTotal: number,
     selectedUserRole: string,
-    paidBy: "Hotově" | "Kartou" | "Příkazem"
+    paidBy: "Hotově" | "Kartou" | "Příkazem",
+    driverId?: string
   ) => {
     try {
       const tzOffset = orderDate.getTimezoneOffset() * 60000;
@@ -83,6 +85,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
         total: orderTotal,  // Use the passed total
         user_id: selectedUserId,
         paid_by: paidBy,
+        driver_id: driverId
       });
       console.log('Order creation result:', orderResult);
 

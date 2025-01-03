@@ -32,6 +32,7 @@ import { useSubsrciberUsers } from "@/hooks/useProfiles";
 import { CartItem } from "types";
 import { useSelectedUser } from "@/hooks/useProfiles";
 import { useUpdateStoredItems } from "@/hooks/useOrders";
+import { useDriverUsers } from "@/hooks/useProfiles";
 // import { Command } from "cmdk";
 
 export default function CartAdmin() {
@@ -65,10 +66,12 @@ export default function CartAdmin() {
     if (!subsrciberUsers) return [];
     if (!searchQuery) return subsrciberUsers;
 
-    const searchTerm = searchQuery.toLowerCase();
+    const searchTerms = searchQuery.toLowerCase().split(" ");
     return subsrciberUsers.filter((user) => {
-      return [user.full_name, user.phone].some((field) =>
-        field?.toLowerCase().includes(searchTerm)
+      const searchableFields = [user.full_name, user.phone].filter(Boolean);
+
+      return searchTerms.every((term) =>
+        searchableFields.some((field) => field.toLowerCase().includes(term))
       );
     });
   }, [subsrciberUsers, searchQuery]);
@@ -100,25 +103,31 @@ export default function CartAdmin() {
     "Hotově"
   );
 
+  const [selectedDriverId, setSelectedDriverId] = useState<string>("");
+  const { data: driverUsers, isLoading: isLoadingDrivers } = useDriverUsers();
+
   return (
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-2">
           <CardTitle className="flex flex-row justify-between gap-2">
             {user?.role === "admin" || user?.role === "expedition" ? (
-              <Select onValueChange={setSelectedUserId} value={selectedUserId}>
+              <Select
+                onValueChange={setSelectedUserId}
+                value={selectedUserId}
+                onOpenChange={() => setSearchQuery("")}
+              >
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Vyberte uživatele" />
                 </SelectTrigger>
                 <SelectContent>
-                  <div className="px-2 py-2">
-                    <Input
-                      placeholder="Hledat uživatele..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="mb-2"
-                    />
-                  </div>
+                  <Input
+                    placeholder="Hledat uživatele..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="m-2"
+                    onKeyDown={(e) => e.stopPropagation()}
+                  />
                   {isLoadingUsers ? (
                     <div className="px-2 py-2 text-sm text-muted-foreground">
                       Načítání...
@@ -152,6 +161,32 @@ export default function CartAdmin() {
             </Button>
           </CardTitle>
           <CardTitle className="flex flex-row justify-between gap-2">
+            <Select
+              value={selectedDriverId}
+              onValueChange={setSelectedDriverId}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Vyberte řidiče" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Bez řidiče</SelectItem>
+                {isLoadingDrivers ? (
+                  <div className="px-2 py-2 text-sm text-muted-foreground">
+                    Načítání...
+                  </div>
+                ) : driverUsers?.length ? (
+                  driverUsers.map((driver) => (
+                    <SelectItem key={driver.id} value={driver.id}>
+                      {driver.full_name || "Unnamed Driver"}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <div className="px-2 py-2 text-sm text-muted-foreground">
+                    Žádní řidiči
+                  </div>
+                )}
+              </SelectContent>
+            </Select>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -292,7 +327,8 @@ export default function CartAdmin() {
                 selectedUserId,
                 orderTotal,
                 selectedUser?.role,
-                paid_by
+                paid_by,
+                selectedDriverId === "none" ? (null as any) : selectedDriverId
               );
               const newTomorrow = new Date();
               newTomorrow.setDate(newTomorrow.getDate() + 1);

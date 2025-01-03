@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase, useAuthStore } from '@/lib/supabase';
-import { InsertTables, Order, OrderItem, UpdateTables } from '../../types';
-import { useToast } from "@/hooks/use-toast";
+import { InsertTables, Order, OrderItem } from '../../types';
+// import { useToast } from "@/hooks/use-toast";
 
 export const useOrders = () => {
     return useQuery<Order[], Error>({
@@ -65,23 +65,28 @@ export const useFetchOrderById = (orderId: number | null) => {
   return useQuery({
     queryKey: ['order', orderId],
     queryFn: async () => {
-      // Don't fetch if orderId is null
-      // if (!orderId) return null;
-
+      if (!orderId) return null;
+      
       const { data, error } = await supabase
         .from('orders')
         .select(`
           *,
-          user:profiles(id, full_name, role, crateSmall, crateBig),
-          order_items(*, product:products(*))
+          user:profiles!orders_user_id_fkey (*),
+          driver:profiles!orders_driver_id_fkey (*),
+          order_items (
+            *,
+            product:products (*)
+          )
         `)
-        .eq('id', orderId)
-        .order('created_at', { ascending: false });
+        .eq('id', orderId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching order:', error);
+        throw error;
+      }
+      
       return data;
     },
-    // Disable the query when orderId is null
     enabled: !!orderId
   });
 };
@@ -95,7 +100,8 @@ export const fetchAllOrders = () => {
         .from('orders')
         .select(`
           *,
-          user:profiles (id, full_name, role),
+          user:profiles!orders_user_id_fkey (*),
+          driver:profiles!orders_driver_id_fkey (*),
           order_items (
             *,
             product:products (*)
@@ -106,6 +112,7 @@ export const fetchAllOrders = () => {
         .limit(100);
 
       if (error) throw error;
+      console.log('Fetched orders:', data);
       return data;
     }
   });
@@ -125,55 +132,37 @@ export const fetchAllOrders = () => {
 
 
 export const useInsertOrder = () => {
-  const queryClient = useQueryClient();
-  const { user } = useAuthStore.getState();
-  const { toast } = useToast();
-
   return useMutation({
-    async mutationFn(data: InsertTables<"orders">) {
-      // Check for existing order with user details
-      const { data: existingOrder, error: checkError } = await supabase
-        .from("orders")
-        .select(`
-          *,
-          user:profiles(full_name)
-        `)
-        .eq('user_id', data.user_id || user?.id)
-        .eq('date', data.date)
-        .maybeSingle();
-
-      if (checkError) throw new Error(checkError.message);
-      
-      if (existingOrder) {
-        const userName = existingOrder.user?.full_name || 'Unknown user';
-        throw new Error(`Order already exists for ${userName} on ${new Date(data.date).toLocaleDateString()}`);
-      }
-
-      const orderData = {
-        ...data,
-        user_id: data.user_id || user?.id
-      };
-
-      const { error, data: newOrder } = await supabase
-        .from("orders")
-        .insert(orderData)
-        .select()
+    mutationFn: async ({
+      date,
+      user_id,
+      total,
+      role,
+      paid_by,
+      driver_id
+    }: {
+      date: Date;
+      user_id: string;
+      total: number;
+      role: string;
+      paid_by: string;
+      driver_id?: string | null;
+    }) => {
+      const { data, error } = await supabase
+        .from('orders')
+        .insert({
+          date,
+          user_id,
+          total,
+          role,
+          paid_by,
+          driver_id
+        })
+        .select('*, user:profiles!orders_user_id_fkey(*), driver:profiles!orders_driver_id_fkey(*)')
         .single();
 
-      if (error) {
-        throw new Error(error.message);
-      }
-      return newOrder;
-    },
-    onError: (error) => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message
-      });
-    },
-    async onSuccess() {
-      await queryClient.invalidateQueries({ queryKey: ["orders"] });
+      if (error) throw error;
+      return data;
     },
   });
 };
@@ -182,7 +171,18 @@ export const useUpdateOrder = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    async mutationFn({id, updatedFields}: {id: number, updatedFields: UpdateTables<"orders">}) {
+    mutationFn: async ({ id, updatedFields }: { 
+      id: number; 
+      updatedFields: {
+        status?: string;
+        crateBig?: number;
+        crateSmall?: number;
+        crateBigReceived?: number;
+        crateSmallReceived?: number;
+        driver_id?: string | null;
+        total?: number;
+      }; 
+    }) => {
       const { error, data: updatedOrder } = await supabase
         .from("orders")
         .update( updatedFields )

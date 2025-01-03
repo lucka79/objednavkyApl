@@ -234,3 +234,19 @@ export const deleteUser = () => {
     },
   });
 };
+
+export const useDriverUsers = () => {
+  return useQuery({
+    queryKey: ['driverUsers'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'driver')
+        .order('full_name');
+
+      if (error) throw error;
+      return data;
+    }
+  });
+};
