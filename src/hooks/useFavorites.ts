@@ -10,16 +10,15 @@ export const useFavoriteOrders = () => {
         const { data, error } = await supabase
           .from('favorite_orders')
           .select(`
+            *,
+            user:profiles!favorite_orders_user_id_fkey(*),
+            driver:profiles!favorite_orders_driver_id_fkey(*),
+            favorite_items (
               *,
-              user:profiles(id, full_name, role, paid_by),
-              favorite_items (
-                  *,
-                  product:products(*)
-              )
+              product:products(*)
+            )
           `)
           .order('user(full_name)', { ascending: true });
-
-        console.log('Supabase response:', { data, error });
 
         if (error) throw error;
         return data;
@@ -28,8 +27,8 @@ export const useFavoriteOrders = () => {
         throw error;
       }
     }
-  })
-}
+  });
+};
 
 export const fetchFavoriteOrdersByUserId = (userId: string) => {
     return useQuery({
@@ -136,6 +135,7 @@ export const useUpdateFavoriteOrder = () => {
         days?: ("Po" | "Út" | "St" | "Čt" | "Pá" | "So" | "Ne" | "X")[];
         status?: string;
         user_id?: string;
+        driver_id?: string | null;
       }
     }) => {
       const { error } = await supabase

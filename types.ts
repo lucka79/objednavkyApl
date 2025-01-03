@@ -100,7 +100,8 @@ export type Product = {
   status: OrderStatus;
   user: Profile;
   paid_by: PaidBy;
-  favorite_items: FavoriteItem[];
+  driver?: Profile;
+  favorite_items?: FavoriteItem[];
  };
 
   export interface FavoriteItem {

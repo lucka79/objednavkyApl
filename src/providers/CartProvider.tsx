@@ -5,6 +5,7 @@ import { CartItem, Tables } from "types";
 import { useRouter } from "@tanstack/react-router";
 import { useInsertOrder, useInsertOrderItems } from "@/hooks/useOrders";
 import { useAuthStore } from "@/lib/supabase";
+import { format } from "date-fns";
 
 type Product = Tables<"products">;
 
@@ -85,10 +86,11 @@ const CartProvider = ({ children }: PropsWithChildren) => {
     console.warn("Checkout");
     insertOrder(
       {
-        total,
         user_id: user?.id ?? "",
-        date: new Date().toISOString(),
+        // @ts-ignore
+        date: format(new Date(), "yyyy-MM-dd"),
         status: "New",
+        total,
       },
       {
         onSuccess: saveOrderItems,

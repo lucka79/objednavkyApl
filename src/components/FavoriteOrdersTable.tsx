@@ -130,6 +130,15 @@ const columns: ColumnDef<FavoriteOrder>[] = [
     },
   },
   {
+    accessorKey: "driver.full_name",
+    header: "Řidič",
+    cell: ({ row }) => (
+      <div className="text-left">
+        {row.original.driver?.full_name || "Bez řidiče"}
+      </div>
+    ),
+  },
+  {
     id: "actions",
     cell: ({ row }) => {
       const order = row.original;
@@ -391,8 +400,13 @@ export function FavoriteOrdersTable({
           .from("orders")
           .select(
             `
-            *,
-            user:profiles(full_name)
+            id,
+            date,
+            user_id,
+            user:profiles!orders_user_id_fkey!inner (
+              id,
+              full_name
+            )
           `
           )
           .eq("user_id", favoriteOrder.user_id)
@@ -404,7 +418,7 @@ export function FavoriteOrdersTable({
         if (existingOrder) {
           toast({
             title: "Warning",
-            description: `Order already exists for ${existingOrder.user?.full_name} on ${format(date, "PP")}`,
+            description: `Order already exists for ${existingOrder.user[0]?.full_name} on ${format(date, "PP")}`,
             variant: "destructive",
             duration: 3000,
             style: { zIndex: 9999 },
@@ -452,10 +466,11 @@ export function FavoriteOrdersTable({
         // Create new order
         const newOrder = await insertOrder({
           user_id: userId,
-          date: format(date, "yyyy-MM-dd"),
+          date: new Date(format(date, "yyyy-MM-dd")),
           status: "Pre-order",
           total: total,
-          paid_by: paidBy,
+          paid_by: paidBy || userId,
+          driver_id: favoriteOrder.driver_id,
         });
 
         // Map items using manual prices when available

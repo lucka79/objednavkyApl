@@ -132,37 +132,50 @@ export const fetchAllOrders = () => {
 
 
 export const useInsertOrder = () => {
-  return useMutation({
-    mutationFn: async ({
-      date,
-      user_id,
-      total,
-      role,
-      paid_by,
-      driver_id
-    }: {
-      date: Date;
-      user_id: string;
-      total: number;
-      role: string;
-      paid_by: string;
-      driver_id?: string | null;
-    }) => {
-      const { data, error } = await supabase
+  return useMutation<any, Error, {
+    user_id: string;
+    date: Date;
+    status: string;
+    total: number;
+    paid_by: string;
+    driver_id?: string | null;
+  }>({
+    mutationFn: async (orderData) => {
+      // First insert the order
+      const { data: newOrder, error: insertError } = await supabase
         .from('orders')
-        .insert({
-          date,
-          user_id,
-          total,
-          role,
-          paid_by,
-          driver_id
-        })
-        .select('*, user:profiles!orders_user_id_fkey(*), driver:profiles!orders_driver_id_fkey(*)')
+        .insert(orderData)
+        .select('id')  // Only get the ID
         .single();
 
-      if (error) throw error;
-      return data;
+      if (insertError) throw insertError;
+
+      // Then fetch the complete order with explicit relationships
+      const { data: completeOrder, error: fetchError } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          date,
+          status,
+          total,
+          paid_by,
+          user_id,
+          driver_id,
+          user:profiles!orders_user_id_fkey (
+            id,
+            full_name,
+            role
+          ),
+          driver:profiles!orders_driver_id_fkey (
+            id,
+            full_name
+          )
+        `)
+        .eq('id', newOrder.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      return completeOrder;
     },
   });
 };

@@ -28,6 +28,14 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "./ui/button";
 import { Plus } from "lucide-react";
+import { useDriverUsers } from "@/hooks/useProfiles";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface FavoriteDetailsDialogProps {
   favoriteOrderId: number | null;
@@ -44,6 +52,7 @@ export function FavoriteDetailsDialog({
   const { data: favorites, isLoading, error, refetch } = useFavoriteOrders();
   const updateFavoriteOrder = useUpdateFavoriteOrder();
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
+  const { data: driverUsers } = useDriverUsers();
 
   const currentFavorite = favorites?.find((f) => f.id === favoriteOrderId);
 
@@ -115,6 +124,29 @@ export function FavoriteDetailsDialog({
                 <CardDescription className="flex flex-col gap-2">
                   <div className="flex justify-between items-center">
                     <span>Favorite #{currentFavorite.id}</span>
+                    <Select
+                      value={currentFavorite.driver?.id || "none"}
+                      onValueChange={(value) =>
+                        updateFavoriteOrder.mutateAsync({
+                          id: currentFavorite.id,
+                          data: {
+                            driver_id: value === "none" ? null : value,
+                          },
+                        })
+                      }
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Vyberte řidiče" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Bez řidiče</SelectItem>
+                        {driverUsers?.map((driver) => (
+                          <SelectItem key={driver.id} value={driver.id}>
+                            {driver.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <ScrollArea className="h-[60px] w-full rounded-md border p-4">
                     <div className="flex items-center gap-4">
