@@ -35,6 +35,7 @@ import {
   deleteUser,
   updateCrateBig,
   updateCrateSmall,
+  updateNote,
 } from "@/hooks/useProfiles";
 
 // import { useUsers } from "@/hooks/useProfiles";
@@ -57,12 +58,12 @@ import { useToast } from "@/hooks/use-toast";
 // 1. Memoize cell components more efficiently
 const EditableCell = memo(({ row, getValue, fieldName }: any) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [value, setLocalValue] = useState(getValue());
+  const [value, setLocalValue] = useState(getValue() || "");
   const updateProfileMutation = updateProfile();
 
   const onBlur = useCallback(() => {
     setIsEditing(false);
-    if (value !== getValue()) {
+    if (value !== (getValue() || "")) {
       updateProfileMutation.mutate({
         id: row.original.id,
         [fieldName]: value,
@@ -305,6 +306,37 @@ export function AdminTable() {
       columnHelper.accessor("phone", {
         header: "Phone",
         cell: (info) => info.getValue(),
+      }),
+      columnHelper.accessor("note", {
+        header: "Note",
+        cell: ({ row, getValue }) => {
+          const [isEditing, setIsEditing] = useState(false);
+          const [value, setLocalValue] = useState(getValue() || "");
+          const updateNoteMutation = updateNote();
+
+          const onBlur = () => {
+            setIsEditing(false);
+            if (value !== (getValue() || "")) {
+              updateNoteMutation.mutate({
+                id: row.original.id,
+                note: value,
+              });
+            }
+          };
+
+          return isEditing ? (
+            <Input
+              value={value}
+              onChange={(e) => setLocalValue(e.target.value)}
+              onBlur={onBlur}
+              autoFocus
+            />
+          ) : (
+            <div onDoubleClick={() => setIsEditing(true)}>
+              {getValue() || "—"}
+            </div>
+          );
+        },
       }),
       columnHelper.accessor("address", {
         header: "Address",

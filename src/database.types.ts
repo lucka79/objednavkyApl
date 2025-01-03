@@ -11,18 +11,21 @@ export type Database = {
     Tables: {
       categories: {
         Row: {
+          buyer: boolean | null
           created_at: string
           id: number
           name: string
           store: boolean | null
         }
         Insert: {
+          buyer?: boolean | null
           created_at?: string
           id?: number
           name: string
           store?: boolean | null
         }
         Update: {
+          buyer?: boolean | null
           created_at?: string
           id?: number
           name?: string
@@ -34,21 +37,27 @@ export type Database = {
         Row: {
           created_at: string
           id: number
+          is_manual_price: boolean
           order_id: number | null
+          price: number | null
           product_id: number | null
           quantity: number | null
         }
         Insert: {
           created_at?: string
           id?: number
+          is_manual_price?: boolean
           order_id?: number | null
+          price?: number | null
           product_id?: number | null
           quantity?: number | null
         }
         Update: {
           created_at?: string
           id?: number
+          is_manual_price?: boolean
           order_id?: number | null
+          price?: number | null
           product_id?: number | null
           quantity?: number | null
         }
@@ -73,6 +82,7 @@ export type Database = {
         Row: {
           created_at: string
           days: string[] | null
+          driver_id: string | null
           id: number
           status: string | null
           user_id: string | null
@@ -80,6 +90,7 @@ export type Database = {
         Insert: {
           created_at?: string
           days?: string[] | null
+          driver_id?: string | null
           id?: number
           status?: string | null
           user_id?: string | null
@@ -87,11 +98,19 @@ export type Database = {
         Update: {
           created_at?: string
           days?: string[] | null
+          driver_id?: string | null
           id?: number
           status?: string | null
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "favorite_orders_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "favorite_orders_user_id_fkey"
             columns: ["user_id"]
@@ -202,7 +221,9 @@ export type Database = {
           crateSmallReceived: number | null
           created_at: string
           date: string
+          driver_id: string | null
           id: number
+          note: string | null
           paid_by: Database["public"]["Enums"]["paidByType"] | null
           status: string
           total: number
@@ -215,7 +236,9 @@ export type Database = {
           crateSmallReceived?: number | null
           created_at?: string
           date: string
+          driver_id?: string | null
           id?: number
+          note?: string | null
           paid_by?: Database["public"]["Enums"]["paidByType"] | null
           status?: string
           total?: number
@@ -228,13 +251,22 @@ export type Database = {
           crateSmallReceived?: number | null
           created_at?: string
           date?: string
+          driver_id?: string | null
           id?: number
+          note?: string | null
           paid_by?: Database["public"]["Enums"]["paidByType"] | null
           status?: string
           total?: number
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_user_id_fkey"
             columns: ["user_id"]
@@ -321,7 +353,9 @@ export type Database = {
       products: {
         Row: {
           active: boolean
+          buyer: boolean
           category_id: number
+          code: string | null
           created_at: string
           description: string | null
           id: number
@@ -336,7 +370,9 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          buyer?: boolean
           category_id?: number
+          code?: string | null
           created_at?: string
           description?: string | null
           id?: number
@@ -351,7 +387,9 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          buyer?: boolean
           category_id?: number
+          code?: string | null
           created_at?: string
           description?: string | null
           id?: number
@@ -388,8 +426,12 @@ export type Database = {
           avatar_url: string | null
           crateBig: number | null
           crateSmall: number | null
+          email: string | null
           full_name: string | null
+          ico: string | null
           id: string
+          mo_partners: boolean | null
+          note: string | null
           paid_by: Database["public"]["Enums"]["paidByType"] | null
           phone: string | null
           role: Database["public"]["Enums"]["groupUser"]
@@ -404,8 +446,12 @@ export type Database = {
           avatar_url?: string | null
           crateBig?: number | null
           crateSmall?: number | null
+          email?: string | null
           full_name?: string | null
+          ico?: string | null
           id: string
+          mo_partners?: boolean | null
+          note?: string | null
           paid_by?: Database["public"]["Enums"]["paidByType"] | null
           phone?: string | null
           role?: Database["public"]["Enums"]["groupUser"]
@@ -420,8 +466,12 @@ export type Database = {
           avatar_url?: string | null
           crateBig?: number | null
           crateSmall?: number | null
+          email?: string | null
           full_name?: string | null
+          ico?: string | null
           id?: string
+          mo_partners?: boolean | null
+          note?: string | null
           paid_by?: Database["public"]["Enums"]["paidByType"] | null
           phone?: string | null
           role?: Database["public"]["Enums"]["groupUser"]

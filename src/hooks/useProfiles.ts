@@ -203,6 +203,22 @@ export const updatePaidBy = () => {
   });
 };
 
+export const updateNote = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, note }: { id: string; note: string }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ note })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+};
+
 export const updateActive = () => {
   const queryClient = useQueryClient();
   return useMutation({

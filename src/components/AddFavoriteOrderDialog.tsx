@@ -118,6 +118,7 @@ export function AddFavoriteOrderDialog() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="mb-2"
+                  onKeyDown={(e) => e.stopPropagation()}
                 />
               </div>
               {filteredUsers?.map((user) => (

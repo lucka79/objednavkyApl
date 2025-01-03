@@ -139,6 +139,7 @@ export const useInsertOrder = () => {
     total: number;
     paid_by: string;
     driver_id?: string | null;
+    note?: string;
   }>({
     mutationFn: async (orderData) => {
       // First insert the order

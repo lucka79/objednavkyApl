@@ -66,6 +66,15 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 
 const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne", "X"] as const;
+const ROLES = [
+  "all",
+  "user",
+  "buyer",
+  "driver",
+  "store",
+  "mobil",
+  "expedition",
+] as const;
 
 interface FavoriteItem {
   product_id: number;
@@ -104,10 +113,23 @@ const columns: ColumnDef<FavoriteOrder>[] = [
     header: "Typ",
   },
   {
+    accessorKey: "driver.full_name",
+    header: "Řidič",
+    cell: ({ row }) => (
+      <div className="text-left">
+        {row.original.driver?.full_name || "Bez řidiče"}
+      </div>
+    ),
+  },
+  {
     accessorKey: "status",
     header: () => <div className="text-right">Status</div>,
     cell: ({ row }) => {
       const itemCount = row.original.favorite_items?.length || 0;
+      const zeroQuantityCount =
+        row.original.favorite_items?.filter(
+          (item: FavoriteItem) => item.quantity === 0
+        ).length || 0;
       const manualPriceCount =
         row.original.favorite_items?.filter(
           (item: FavoriteItem) => item.price && item.price > 0
@@ -123,21 +145,23 @@ const columns: ColumnDef<FavoriteOrder>[] = [
               {manualPriceCount} <Lock className="h-3 w-3 ml-1 inline" />
             </Badge>
           )}
+          {zeroQuantityCount > 0 && (
+            <Badge
+              variant="outline"
+              className="border-indigo-700 text-indigo-700"
+            >
+              {zeroQuantityCount} x 0
+            </Badge>
+          )}
           <Badge variant="outline">{row.original.status}</Badge>
-          <Badge variant="secondary">{itemCount} items</Badge>
+          <Badge variant={itemCount === 0 ? "destructive" : "secondary"}>
+            {itemCount} items
+          </Badge>
         </div>
       );
     },
   },
-  {
-    accessorKey: "driver.full_name",
-    header: "Řidič",
-    cell: ({ row }) => (
-      <div className="text-left">
-        {row.original.driver?.full_name || "Bez řidiče"}
-      </div>
-    ),
-  },
+
   {
     id: "actions",
     cell: ({ row }) => {
@@ -336,6 +360,7 @@ export function FavoriteOrdersTable({
   const [selectedDay, setSelectedDay] = useState<string>("all");
   const [userNameFilter, setUserNameFilter] = useState("");
   const [selectedOrders, setSelectedOrders] = useState<Set<number>>(new Set());
+  const [roleFilter, setRoleFilter] = useState<string>("all");
 
   const { mutateAsync: insertOrder } = useInsertOrder();
   const { mutateAsync: insertOrderItems } = useInsertOrderItems();
@@ -349,6 +374,9 @@ export function FavoriteOrdersTable({
     // First filter by selected day
     if (selectedDay !== "all" && !order.days?.includes(selectedDay))
       return false;
+
+    // Then filter by role
+    if (roleFilter !== "all" && order.user?.role !== roleFilter) return false;
 
     // Then filter by selected product
     if (selectedProductId && selectedProductId !== "all") {
@@ -593,6 +621,20 @@ export function FavoriteOrdersTable({
                   onChange={(e) => setUserNameFilter(e.target.value)}
                   className="max-w-xs"
                 />
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Filter by role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLES.map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {role === "all"
+                          ? "All roles"
+                          : role.charAt(0).toUpperCase() + role.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex gap-2 items-center">
                 <Popover>

@@ -91,6 +91,8 @@ const CartProvider = ({ children }: PropsWithChildren) => {
         date: format(new Date(), "yyyy-MM-dd"),
         status: "New",
         total,
+
+        note: "",
       },
       {
         onSuccess: saveOrderItems,
