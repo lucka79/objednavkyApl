@@ -1,22 +1,8 @@
-import React, { useEffect, useMemo } from "react";
-import {
-  useReactTable,
-  getCoreRowModel,
-  getFilteredRowModel,
-  flexRender,
-  getSortedRowModel,
-  SortingState,
-} from "@tanstack/react-table";
+import React, { useRef } from "react";
+
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableHeader } from "@/components/ui/table";
 import { useState } from "react";
 
 import {
@@ -45,7 +31,6 @@ import { Card } from "./ui/card";
 import {
   CirclePlus,
   Trash2,
-  Search,
   FilePenLine,
   ChevronDown,
   ChevronUp,
@@ -63,352 +48,117 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ProductDetailsDialog } from "./ProductDetailsDialog";
 import { ProductForm } from "./ProductForm";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { memo } from "react";
+import { useAuthStore } from "@/lib/supabase";
 
-type Row = {
-  original: Product;
-};
+const ProductRow = memo(
+  ({ product, onEdit }: { product: Product; onEdit: (id: number) => void }) => {
+    const { data: categories } = fetchCategories();
+    const user = useAuthStore((state) => state.user);
+    const { mutateAsync: updateProduct } = useUpdateProduct();
+    const categoryName =
+      categories?.find((c) => c.id === product.category_id)?.name || "N/A";
 
-const PriceCell = ({
-  row,
-  priceKey,
-}: {
-  row: Row;
-  priceKey: "price" | "priceMobil" | "priceBuyer";
-}) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [price, setPrice] = useState<number>(row.original[priceKey]);
-  const { mutateAsync: updateProduct } = useUpdateProduct();
+    const handleCheckboxChange = async (field: string, checked: boolean) => {
+      try {
+        await updateProduct({
+          id: product.id,
+          [field]: checked,
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: `Failed to update ${field}`,
+          variant: "destructive",
+        });
+      }
+    };
 
-  const handlePriceChange = async (newPrice: number) => {
-    try {
-      await updateProduct({
-        id: row.original.id,
-        [priceKey]: newPrice,
-      });
-      setIsEditing(false);
-    } catch (error) {
-      console.error("Failed to update price:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update price",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Reset price when row data changes
-  useEffect(() => {
-    setPrice(row.original[priceKey]);
-  }, [row.original[priceKey]]);
-
-  return isEditing ? (
-    <Input
-      type="number"
-      step="0.01"
-      value={price}
-      onChange={(e) => setPrice(Number(e.target.value))}
-      onBlur={() => handlePriceChange(price)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") handlePriceChange(price);
-        if (e.key === "Escape") {
-          setIsEditing(false);
-          setPrice(row.original[priceKey]);
-        }
-      }}
-      className="w-24 text-right"
-      autoFocus
-    />
-  ) : (
-    <div
-      className="text-right cursor-pointer hover:bg-muted/50"
-      onClick={() => setIsEditing(true)}
-    >
-      {row.original[priceKey].toFixed(2)} Kč
-    </div>
-  );
-};
+    return (
+      <div className="grid grid-cols-[100px_200px_100px_100px_100px_130px_80px_80px_80px_80px_100px] gap-4 py-2 px-4 items-center border-b">
+        <div>{product.code}</div>
+        <div>{product.name}</div>
+        <div className="text-right">{product.priceBuyer.toFixed(2)} Kč</div>
+        <div className="text-right">{product.priceMobil.toFixed(2)} Kč</div>
+        <div className="text-right">{product.price.toFixed(2)} Kč</div>
+        <div>{categoryName}</div>
+        <div className="text-right">{product.vat}%</div>
+        <div className="flex justify-center">
+          <Checkbox
+            checked={product.active}
+            onCheckedChange={(checked) =>
+              handleCheckboxChange("active", checked as boolean)
+            }
+            className="border-amber-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500 data-[state=checked]:text-white"
+          />
+        </div>
+        <div className="flex justify-center">
+          <Checkbox
+            checked={product.buyer}
+            onCheckedChange={(checked) =>
+              handleCheckboxChange("buyer", checked as boolean)
+            }
+            className="border-orange-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 data-[state=checked]:text-white"
+          />
+        </div>
+        <div className="flex justify-center">
+          <Checkbox
+            checked={product.store}
+            onCheckedChange={(checked) =>
+              handleCheckboxChange("store", checked as boolean)
+            }
+            className="border-blue-500 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 data-[state=checked]:text-white"
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={() => onEdit(product.id)}>
+            <FilePenLine className="h-4 w-4" />
+          </Button>
+          {user?.role === "admin" && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Opravdu smazat tento výrobek?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tato akce je nevratná. Výrobek bude trvale odstraněn.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Zrušit</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteProduct(product.id)}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    Smazat
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
+      </div>
+    );
+  }
+);
 
 export function ProductsTable() {
   const { data: products, error, isLoading } = fetchAllProducts();
   const { data: categories } = fetchCategories();
-  const { mutateAsync: updateProduct } = useUpdateProduct();
+  // const { mutateAsync: updateProduct } = useUpdateProduct();
 
-  const handleActiveChange = async (itemId: number, checked: boolean) => {
-    console.log("Checkbox clicked:", { itemId, checked });
-    try {
-      await updateProduct({
-        id: itemId,
-        active: checked,
-      });
-      console.log("Product updated successfully");
-    } catch (error) {
-      console.error("Failed to update item check status:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update item status",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleBuyerChange = async (itemId: number, checked: boolean) => {
-    try {
-      await updateProduct({
-        id: itemId,
-        buyer: checked,
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update store status",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleStoreChange = async (itemId: number, checked: boolean) => {
-    try {
-      await updateProduct({
-        id: itemId,
-        store: checked,
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update store status",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const [sorting, setSorting] = useState<SortingState>([]);
-
-  const columns = useMemo(
-    () => [
-      {
-        accessorKey: "code",
-        header: "Kód",
-      },
-      {
-        accessorKey: "name",
-        header: "Name",
-      },
-      {
-        accessorKey: "priceBuyer",
-        header: () => <div className="text-right">NákupBez</div>,
-        cell: ({ row }: { row: Row }) => (
-          <PriceCell row={row} priceKey="priceBuyer" />
-        ),
-      },
-      {
-        accessorKey: "priceMobil",
-        header: () => <div className="text-right">Mobil</div>,
-        cell: ({ row }: { row: Row }) => (
-          <PriceCell row={row} priceKey="priceMobil" />
-        ),
-      },
-      {
-        accessorKey: "price",
-        header: () => <div className="text-right">Prodej</div>,
-        cell: ({ row }: { row: Row }) => (
-          <PriceCell row={row} priceKey="price" />
-        ),
-      },
-
-      {
-        accessorKey: "category_id",
-        header: "Category",
-        cell: ({ row }: { row: Row }) => (
-          <Select
-            value={(row.original.category_id ?? 0).toString()}
-            onValueChange={(newValue: string) => {
-              updateProduct({
-                id: row.original.id,
-                category_id: parseInt(newValue),
-              }).catch(() => {
-                toast({
-                  title: "Error",
-                  description: "Failed to update category",
-                  variant: "destructive",
-                });
-              });
-            }}
-          >
-            <SelectTrigger className="w-[130px]">
-              <SelectValue>
-                {categories?.find(
-                  (c: { id: number; name: string }) =>
-                    c.id === row.original.category_id
-                )?.name || "N/A"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {categories?.map((category: { id: number; name: string }) => (
-                <SelectItem key={category.id} value={category.id.toString()}>
-                  {category.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ),
-        sortingFn: (rowA: Row, rowB: Row) => {
-          const catA =
-            categories?.find(
-              (c: { id: number; name: string }) =>
-                c.id === rowA.original.category_id
-            )?.name || "";
-          const catB =
-            categories?.find(
-              (c: { id: number; name: string }) =>
-                c.id === rowB.original.category_id
-            )?.name || "";
-          return catA.localeCompare(catB);
-        },
-      },
-      {
-        accessorKey: "vat",
-        header: () => <div className="text-right">DPH</div>,
-        cell: ({ row }: { row: Row }) => (
-          <div className="text-right">{row.original.vat}%</div>
-        ),
-      },
-      {
-        accessorKey: "active",
-        header: "Active",
-        cell: ({ row }: { row: Row }) => {
-          const isActive = row.original.active;
-          return (
-            <div className="flex items-center justify-center">
-              <Checkbox
-                checked={isActive}
-                onCheckedChange={(checked) =>
-                  handleActiveChange(row.original.id, checked as boolean)
-                }
-                className="mr-2 border-amber-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500 data-[state=checked]:text-white"
-              />
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: "buyer",
-        header: "Odběr",
-        cell: ({ row }: { row: Row }) => {
-          const isBuyer = row.original.buyer;
-          return (
-            <div className="flex items-center justify-center">
-              <Checkbox
-                checked={isBuyer}
-                onCheckedChange={(checked) =>
-                  handleBuyerChange(row.original.id, checked as boolean)
-                }
-                className="mr-2 border-amber-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 data-[state=checked]:text-white"
-              />
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: "store",
-        header: "Store",
-        cell: ({ row }: { row: Row }) => {
-          const isInStore = row.original.store;
-          return (
-            <div className="flex items-center justify-center">
-              <Checkbox
-                checked={isInStore}
-                onCheckedChange={(checked) =>
-                  handleStoreChange(row.original.id, checked as boolean)
-                }
-                className="mr-2 border-blue-500 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 data-[state=checked]:text-white"
-              />
-            </div>
-          );
-        },
-      },
-      {
-        id: "actions",
-        cell: ({ row }: { row: Row }) => {
-          const product = row.original;
-
-          return (
-            <div
-              className="flex justify-end gap-2"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 text-muted-foreground hover:text-blue-500"
-                onClick={() => setSelectedProductId(product.id)}
-              >
-                <Search className="h-4 w-4" />
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 text-muted-foreground hover:text-orange-500"
-                onClick={() => {
-                  setEditProductId(product.id);
-                  setShowEditDialog(true);
-                }}
-              >
-                <FilePenLine className="h-4 w-4" />
-              </Button>
-
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      Opravdu smazat tento výrobek?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Tato akce je nevratná. Výrobek bude trvale odstraněn.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Zrušit</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={async () => {
-                        try {
-                          await deleteProduct(product.id);
-                          toast({
-                            title: "Success",
-                            description: "Product deleted successfully",
-                          });
-                        } catch (error) {
-                          console.error("Failed to delete product:", error);
-                          toast({
-                            title: "Error",
-                            description: "Failed to delete product",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                      className="bg-red-600 hover:bg-red-700"
-                    >
-                      Smazat
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          );
-        },
-      },
-    ],
-    [categories]
-  );
+  // const [sorting, setSorting] = useState<SortingState>([]);
 
   const [globalFilter, setGlobalFilter] = useState("");
   const setSelectedProductId = useProductStore(
@@ -454,20 +204,6 @@ export function ProductsTable() {
     );
   }, [products, categoryFilter, globalFilter, priceFilter]);
 
-  const table = useReactTable({
-    data: filteredProducts,
-    columns: columns,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    state: {
-      globalFilter,
-      sorting,
-    },
-    onGlobalFilterChange: setGlobalFilter,
-    onSortingChange: setSorting,
-  });
-
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
   const onSelectCategory = (categoryId: number | null) => {
@@ -477,6 +213,20 @@ export function ProductsTable() {
 
   // Add state for categories visibility
   const [showAllCategories, setShowAllCategories] = useState(false);
+
+  // 4. Add virtualization
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: filteredProducts?.length || 0,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 35,
+    overscan: 5,
+  });
+
+  const handleEdit = (id: number) => {
+    setEditProductId(id);
+    setShowEditDialog(true);
+  };
 
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders</div>;
@@ -566,51 +316,54 @@ export function ProductsTable() {
             </Button>
           </div>
         </div>
-        <div className="border rounded-md h-[calc(100vh-200px)]">
-          <div className="h-full overflow-auto">
-            <Table>
-              <TableHeader className="sticky top-0 bg-background z-10">
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <TableHead key={header.id}>
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                {table.getRowModel().rows?.length ? (
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow key={row.id} className="hover:bg-muted/50">
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-24 text-center"
-                    >
-                      No results.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+        <div
+          ref={parentRef}
+          className="border rounded-md h-[calc(100vh-200px)] overflow-auto"
+        >
+          <Table>
+            <TableHeader>
+              <div className="grid grid-cols-[100px_200px_100px_100px_100px_130px_80px_80px_80px_80px_100px] gap-4 py-2 px-4 font-medium">
+                <div>Kód</div>
+                <div>Name</div>
+                <div className="text-right">NákupBez</div>
+                <div className="text-right">Mobil</div>
+                <div className="text-right">Prodej</div>
+                <div>Category</div>
+                <div className="text-right">DPH</div>
+                <div className="text-center">Active</div>
+                <div className="text-center">Odběr</div>
+                <div className="text-center">Store</div>
+                <div className="text-right">Actions</div>
+              </div>
+            </TableHeader>
+          </Table>
+
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: "100%",
+              position: "relative",
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const product = filteredProducts[virtualRow.index];
+              return (
+                <div
+                  key={product.id}
+                  data-index={virtualRow.index}
+                  ref={rowVirtualizer.measureElement}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <ProductRow product={product} onEdit={handleEdit} />
+                </div>
+              );
+            })}
           </div>
         </div>
 
