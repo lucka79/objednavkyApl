@@ -2,14 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Coins,
-  SquareMinus,
-  SquarePlus,
-  Plus,
-  History,
-  Trash2,
-} from "lucide-react";
+import { SquareMinus, SquarePlus, Plus, History, Trash2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -42,6 +35,7 @@ interface OrderItem {
     price: number;
     priceMobil: number;
     priceBuyer: number;
+    code: string;
   };
   quantity: number;
   price: number;
@@ -315,7 +309,7 @@ export default function UpdateCart({
                 </Button>
               </DialogTrigger>
               <DialogContent
-                className="max-w-4xl max-h-[90vh] overflow-y-auto"
+                className="max-w-6xl max-h-[90vh] overflow-y-auto"
                 aria-describedby="dialog-description"
               >
                 <DialogTitle>Add Product to Order</DialogTitle>
@@ -333,7 +327,7 @@ export default function UpdateCart({
           orderItems.map((item) => (
             <div
               key={item.id}
-              className={`flex items-center justify-between pt-2 mb-2 ${
+              className={`flex flex-row items-center pt-2 mb-2 ${
                 item.quantity === 0 ? "text-gray-400 scale-95 print:hidden" : ""
               }`}
             >
@@ -346,12 +340,15 @@ export default function UpdateCart({
                   className="mr-2 border-amber-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500 data-[state=checked]:text-white print:hidden"
                 />
               )}
-              <span className="text-sm flex-1 text-left mr-2">
+              <div className="text-xs w-10 text-left inline-block text-slate-500">
+                {item.product.code || "\u00A0"}
+              </div>
+              <div className="text-sm w-150 inline-block text-left mr-2">
                 {item.product.name}
-              </span>
-              <span className="text-sm flex-1 mr-2 text-end">
+              </div>
+              <div className="text-sm flex-1 mr-2 text-end">
                 {item.price.toFixed(2)} Kč
-              </span>
+              </div>
               <div className="flex items-center">
                 {(item.quantity || 0) > 0 && (
                   <SquareMinus
@@ -439,8 +436,7 @@ export default function UpdateCart({
           ))
         )}
         <div className="flex flex-row justify-end font-bold text-slate-600 w-full mt-4">
-          <Coins className="w-1/12 mb-auto mr-2" />
-          {total.toFixed(2)}
+          <span className="text-base">{total.toFixed(2)} Kč</span>
         </div>
       </CardContent>
     </Card>

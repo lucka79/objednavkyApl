@@ -39,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatPrice } from "@/lib/utils";
 // import React from "react";
 
 export function OrderDetailsDialog() {
@@ -207,6 +208,23 @@ export function OrderDetailsDialog() {
                   <OrderItems items={order.order_items} />
                 )}
               </CardContent>
+              {(order.user?.role === "buyer" ||
+                order.user?.role === "store") && (
+                <CardContent>
+                  <div className="flex flex-col items-end font-bold text-slate-600 w-full mt-1 mr-8">
+                    {order.user?.role === "buyer" && (
+                      <>
+                        <div className="text-sm font-normal text-muted-foreground">
+                          DPH (12%) {formatPrice(order.total * 0.12)} Kč
+                        </div>
+                        <div className="text-base">
+                          {formatPrice(Math.round(order.total * 1.12))} Kč
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              )}
               <CardContent>
                 {(user?.role === "admin" || user?.role === "expedition") && (
                   <Card>
@@ -402,6 +420,7 @@ export function OrderDetailsDialog() {
                   </Card>
                 )}
               </CardContent>
+
               <CardFooter className="flex flex-col gap-2 print:hidden">
                 <div className="flex gap-2 justify-evenly">
                   {user?.role === "admin" && (
