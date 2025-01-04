@@ -424,11 +424,11 @@ export function OrderDetailsDialog() {
                   )}
                   {user?.role === "expedition" && (
                     <>
-                      {["New", "Expedice"].map((status) => (
+                      {["New", "Expedice", "Delivering"].map((status) => (
                         <Badge
                           key={status}
                           variant={
-                            order.status === status ? "default" : "outline"
+                            order.status === status ? "destructive" : "outline"
                           }
                           onClick={() => updateStatus(status)}
                           className="cursor-pointer"

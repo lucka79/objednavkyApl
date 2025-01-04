@@ -24,6 +24,7 @@ import { Route as AdminIndexImport } from './routes/admin.index'
 import { Route as UserProductsImport } from './routes/user.products'
 import { Route as UserOrdersImport } from './routes/user.orders'
 import { Route as StoreOrdersImport } from './routes/store.orders'
+import { Route as ExpeditionCreateImport } from './routes/expedition.create'
 import { Route as AdminProductsImport } from './routes/admin.products'
 import { Route as AdminOrdersImport } from './routes/admin.orders'
 import { Route as AdminCreateImport } from './routes/admin.create'
@@ -93,6 +94,11 @@ const UserOrdersRoute = UserOrdersImport.update({
 
 const StoreOrdersRoute = StoreOrdersImport.update({
   path: '/store/orders',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const ExpeditionCreateRoute = ExpeditionCreateImport.update({
+  path: '/expedition/create',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -183,6 +189,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminProductsImport
       parentRoute: typeof rootRoute
     }
+    '/expedition/create': {
+      id: '/expedition/create'
+      path: '/expedition/create'
+      fullPath: '/expedition/create'
+      preLoaderRoute: typeof ExpeditionCreateImport
+      parentRoute: typeof rootRoute
+    }
     '/store/orders': {
       id: '/store/orders'
       path: '/store/orders'
@@ -266,6 +279,7 @@ export interface FileRoutesByFullPath {
   '/admin/create': typeof AdminCreateRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
+  '/expedition/create': typeof ExpeditionCreateRoute
   '/store/orders': typeof StoreOrdersRoute
   '/user/orders': typeof UserOrdersRoute
   '/user/products': typeof UserProductsRoute
@@ -286,6 +300,7 @@ export interface FileRoutesByTo {
   '/admin/create': typeof AdminCreateRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
+  '/expedition/create': typeof ExpeditionCreateRoute
   '/store/orders': typeof StoreOrdersRoute
   '/user/orders': typeof UserOrdersRoute
   '/user/products': typeof UserProductsRoute
@@ -307,6 +322,7 @@ export interface FileRoutesById {
   '/admin/create': typeof AdminCreateRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
+  '/expedition/create': typeof ExpeditionCreateRoute
   '/store/orders': typeof StoreOrdersRoute
   '/user/orders': typeof UserOrdersRoute
   '/user/products': typeof UserProductsRoute
@@ -329,6 +345,7 @@ export interface FileRouteTypes {
     | '/admin/create'
     | '/admin/orders'
     | '/admin/products'
+    | '/expedition/create'
     | '/store/orders'
     | '/user/orders'
     | '/user/products'
@@ -348,6 +365,7 @@ export interface FileRouteTypes {
     | '/admin/create'
     | '/admin/orders'
     | '/admin/products'
+    | '/expedition/create'
     | '/store/orders'
     | '/user/orders'
     | '/user/products'
@@ -367,6 +385,7 @@ export interface FileRouteTypes {
     | '/admin/create'
     | '/admin/orders'
     | '/admin/products'
+    | '/expedition/create'
     | '/store/orders'
     | '/user/orders'
     | '/user/products'
@@ -388,6 +407,7 @@ export interface RootRouteChildren {
   AdminCreateRoute: typeof AdminCreateRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminProductsRoute: typeof AdminProductsRouteWithChildren
+  ExpeditionCreateRoute: typeof ExpeditionCreateRoute
   StoreOrdersRoute: typeof StoreOrdersRoute
   UserOrdersRoute: typeof UserOrdersRoute
   UserProductsRoute: typeof UserProductsRoute
@@ -407,6 +427,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminCreateRoute: AdminCreateRoute,
   AdminOrdersRoute: AdminOrdersRoute,
   AdminProductsRoute: AdminProductsRouteWithChildren,
+  ExpeditionCreateRoute: ExpeditionCreateRoute,
   StoreOrdersRoute: StoreOrdersRoute,
   UserOrdersRoute: UserOrdersRoute,
   UserProductsRoute: UserProductsRoute,
@@ -437,6 +458,7 @@ export const routeTree = rootRoute
         "/admin/create",
         "/admin/orders",
         "/admin/products",
+        "/expedition/create",
         "/store/orders",
         "/user/orders",
         "/user/products",
@@ -475,6 +497,9 @@ export const routeTree = rootRoute
       "children": [
         "/admin/products/$productId"
       ]
+    },
+    "/expedition/create": {
+      "filePath": "expedition.create.tsx"
     },
     "/store/orders": {
       "filePath": "store.orders.tsx"

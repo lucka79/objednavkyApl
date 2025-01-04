@@ -109,6 +109,13 @@ const columns: ColumnDef<FavoriteOrder>[] = [
     header: "Odběratel",
   },
   {
+    accessorKey: "user.note",
+    header: "Poznámka",
+    cell: ({ row }) => (
+      <div className="text-left">{row.original.user?.note || "—"}</div>
+    ),
+  },
+  {
     accessorKey: "user.role",
     header: "Typ",
   },
@@ -299,47 +306,57 @@ function FavoriteOrderTableContent({
   });
 
   return (
-    <Table>
-      <TableHeader>
-        {table.getHeaderGroups().map((headerGroup) => (
-          <TableRow key={headerGroup.id}>
-            {headerGroup.headers.map((header) => (
-              <TableHead key={header.id}>
-                {header.isPlaceholder
-                  ? null
-                  : flexRender(
-                      header.column.columnDef.header,
-                      header.getContext()
-                    )}
-              </TableHead>
+    <div className="border rounded-md">
+      <div className="max-h-[800px] overflow-auto">
+        <Table>
+          <TableHeader className="sticky top-0 bg-background z-10">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
+                ))}
+              </TableRow>
             ))}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody>
-        {table.getRowModel().rows?.length ? (
-          table.getRowModel().rows.map((row) => (
-            <TableRow
-              key={row.id}
-              onClick={() => setSelectedOrderId(row.original.id)}
-              className="cursor-pointer hover:bg-muted/50"
-            >
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  onClick={() => setSelectedOrderId(row.original.id)}
+                  className="cursor-pointer hover:bg-muted/50"
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  No results.
                 </TableCell>
-              ))}
-            </TableRow>
-          ))
-        ) : (
-          <TableRow>
-            <TableCell colSpan={columns.length} className="h-24 text-center">
-              No results.
-            </TableCell>
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
   );
 }
 
@@ -361,6 +378,7 @@ export function FavoriteOrdersTable({
   const [userNameFilter, setUserNameFilter] = useState("");
   const [selectedOrders, setSelectedOrders] = useState<Set<number>>(new Set());
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [driverFilter, setDriverFilter] = useState<string>("all");
 
   const { mutateAsync: insertOrder } = useInsertOrder();
   const { mutateAsync: insertOrderItems } = useInsertOrderItems();
@@ -392,7 +410,22 @@ export function FavoriteOrdersTable({
     // Finally filter by user name
     if (userNameFilter) {
       const userName = order.user?.full_name?.toLowerCase() || "";
-      if (!userName.includes(userNameFilter.toLowerCase())) return false;
+      const userPhone = order.user?.phone?.toLowerCase() || "";
+      if (
+        !userName.includes(userNameFilter.toLowerCase()) &&
+        !userPhone.includes(userNameFilter.toLowerCase())
+      ) {
+        return false;
+      }
+    }
+
+    // Add driver filter
+    if (driverFilter !== "all") {
+      if (driverFilter === "none") {
+        if (order.driver_id) return false;
+      } else if (order.driver?.id !== driverFilter) {
+        return false;
+      }
     }
 
     return true;
@@ -431,7 +464,7 @@ export function FavoriteOrdersTable({
             id,
             date,
             user_id,
-            user:profiles!orders_user_id_fkey!inner (
+            user:profiles!orders_user_id_fkey (
               id,
               full_name
             )
@@ -451,7 +484,7 @@ export function FavoriteOrdersTable({
             duration: 3000,
             style: { zIndex: 9999 },
           });
-          continue; // Skip this order and continue with the next one
+          continue;
         }
 
         if (!favoriteOrder.favorite_items?.length) {
@@ -616,7 +649,7 @@ export function FavoriteOrdersTable({
                   </SelectContent>
                 </Select>
                 <Input
-                  placeholder="Filter by user name..."
+                  placeholder="Filter by name or phone..."
                   value={userNameFilter}
                   onChange={(e) => setUserNameFilter(e.target.value)}
                   className="max-w-xs"
@@ -633,6 +666,29 @@ export function FavoriteOrdersTable({
                           : role.charAt(0).toUpperCase() + role.slice(1)}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+                <Select value={driverFilter} onValueChange={setDriverFilter}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Filter by driver" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All drivers</SelectItem>
+                    <SelectItem value="none">No driver</SelectItem>
+                    {Array.from(
+                      new Set(
+                        orders?.map((order) => order.driver?.id).filter(Boolean)
+                      )
+                    ).map((driverId) => {
+                      const driver = orders?.find(
+                        (o) => o.driver?.id === driverId
+                      )?.driver;
+                      return (
+                        <SelectItem key={driverId} value={driverId}>
+                          {driver?.full_name}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -661,7 +717,7 @@ export function FavoriteOrdersTable({
                       onSelect={(date) => date && setDate(date)}
                       disabled={(date) => {
                         const yesterday = new Date();
-                        yesterday.setDate(yesterday.getDate() - 1);
+                        yesterday.setDate(yesterday.getDate() - 3);
 
                         const twoMonthsFromNow = new Date();
                         twoMonthsFromNow.setMonth(

@@ -94,7 +94,7 @@ export const AddProduct: React.FC<AddProductProps> = ({
           .insert({
             order_id: selectedOrderId,
             product_id: product.id,
-            quantity: 1,
+            quantity: 0,
             price: price,
             checked: false,
           })

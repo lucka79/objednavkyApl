@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { supabase } from "@/lib/supabase";
 
 const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne", "X"] as const;
 type Day = (typeof DAYS)[number];
@@ -37,12 +38,7 @@ export function AddFavoriteOrderDialog() {
   );
 
   const handleSubmit = async () => {
-    console.log("Starting favorite order creation process");
-    console.log("Selected user ID:", selectedUserId);
-    console.log("Selected days:", selectedDays);
-
     if (!selectedUserId) {
-      console.log("Error: No user selected");
       toast({
         title: "Error",
         description: "Please select a user",
@@ -52,7 +48,6 @@ export function AddFavoriteOrderDialog() {
     }
 
     if (selectedDays.length === 0) {
-      console.log("Error: No days selected");
       toast({
         title: "Error",
         description: "Please select at least one day",
@@ -62,9 +57,38 @@ export function AddFavoriteOrderDialog() {
     }
 
     try {
-      console.log("Creating favorite orders for days:", selectedDays);
+      // Check for existing favorite orders
+      for (const day of selectedDays) {
+        const { data: existingOrder, error: checkError } = await supabase
+          .from("favorite_orders")
+          .select(
+            `
+            id,
+            days,
+            user:profiles!favorite_orders_user_id_fkey (
+              id,
+              full_name
+            )
+          `
+          )
+          .eq("user_id", selectedUserId)
+          .contains("days", [day])
+          .maybeSingle();
 
-      // We'll create a separate order for each selected day
+        if (checkError) throw checkError;
+
+        if (existingOrder) {
+          toast({
+            title: "Warning",
+            description: `Favorite order already exists for ${existingOrder.user[0]?.full_name} on ${day}`,
+            variant: "destructive",
+            duration: 3000,
+          });
+          return; // Stop the entire creation process
+        }
+      }
+
+      // Continue with order creation if no duplicates found
       const createPromises = selectedDays.map((day) => {
         const orderData = {
           user_id: selectedUserId,

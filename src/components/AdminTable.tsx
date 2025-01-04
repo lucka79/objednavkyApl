@@ -36,6 +36,7 @@ import {
   updateCrateBig,
   updateCrateSmall,
   updateNote,
+  updatePhone,
 } from "@/hooks/useProfiles";
 
 // import { useUsers } from "@/hooks/useProfiles";
@@ -305,7 +306,43 @@ export function AdminTable() {
       }),
       columnHelper.accessor("phone", {
         header: "Phone",
-        cell: (info) => info.getValue(),
+        cell: ({ row, getValue }) => {
+          const [isEditing, setIsEditing] = useState(false);
+          const [value, setLocalValue] = useState(getValue() || "");
+          const updatePhoneMutation = updatePhone();
+
+          const onBlur = async () => {
+            setIsEditing(false);
+            if (value !== (getValue() || "")) {
+              try {
+                await updatePhoneMutation.mutateAsync({
+                  id: row.original.id,
+                  phone: value,
+                });
+              } catch (error) {
+                console.error("Error updating phone:", error);
+                toast({
+                  title: "Error",
+                  description: "Failed to update phone number",
+                  variant: "destructive",
+                });
+              }
+            }
+          };
+
+          return isEditing ? (
+            <Input
+              value={value}
+              onChange={(e) => setLocalValue(e.target.value)}
+              onBlur={onBlur}
+              autoFocus
+            />
+          ) : (
+            <div onDoubleClick={() => setIsEditing(true)}>
+              {getValue() || "—"}
+            </div>
+          );
+        },
       }),
       columnHelper.accessor("note", {
         header: "Note",

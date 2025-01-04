@@ -122,6 +122,7 @@ export type Product = {
     crateBigReceived: number;
     shortcut: string;
     paid_by: PaidBy;
+    note?: string;
   };
 
   

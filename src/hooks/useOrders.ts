@@ -107,8 +107,9 @@ export const fetchAllOrders = () => {
             product:products (*)
           )
         `)
-        .order('user(full_name)', { ascending: true })
         .order('date', { ascending: false })
+        .order('user(full_name)', { ascending: true })
+       
         .limit(100);
 
       if (error) throw error;

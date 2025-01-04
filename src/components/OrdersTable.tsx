@@ -62,10 +62,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useDriverUsers } from "@/hooks/useProfiles";
+import { useAuthStore } from "@/lib/supabase";
 
 const filterOrdersByDate = (
   orders: Order[],
-  period: "today" | "tomorrow" | "week" | "month" | "lastMonth",
+  period: "today" | "tomorrow" | "week" | "month" | "lastMonth" | "nextWeek",
   selectedDate?: Date
 ) => {
   if (selectedDate) {
@@ -103,6 +104,14 @@ const filterOrdersByDate = (
           orderDate.getMonth() === lastMonth.getMonth() &&
           orderDate.getFullYear() === lastMonth.getFullYear()
         );
+      case "nextWeek":
+        const nextWeekStart = new Date(now);
+        nextWeekStart.setDate(
+          nextWeekStart.getDate() - nextWeekStart.getDay() + 7
+        );
+        const nextWeekEnd = new Date(nextWeekStart);
+        nextWeekEnd.setDate(nextWeekEnd.getDate() + 6);
+        return orderDate >= nextWeekStart && orderDate <= nextWeekEnd;
     }
   });
 };
@@ -277,6 +286,7 @@ const columns: ColumnDef<Order>[] = [
       const order = row.original;
       const deleteOrder = useDeleteOrder();
       const { toast } = useToast();
+      const user = useAuthStore((state) => state.user);
 
       const handleDelete = async () => {
         try {
@@ -294,6 +304,9 @@ const columns: ColumnDef<Order>[] = [
           });
         }
       };
+
+      // Only show delete button for admin users
+      if (user?.role !== "admin") return null;
 
       return (
         <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
@@ -617,14 +630,14 @@ export function OrdersTable({
 
   const getDateFilteredOrders = (
     orders: Order[],
-    period: "today" | "tomorrow" | "week" | "month" | "lastMonth"
+    period: "today" | "tomorrow" | "week" | "nextWeek" | "month" | "lastMonth"
   ) => {
     return filterOrdersByDate(orders || [], period);
   };
 
   const calculateTotalQuantityForPeriod = (
     productId: string,
-    period: "today" | "tomorrow" | "week" | "month" | "lastMonth"
+    period: "today" | "tomorrow" | "week" | "nextWeek" | "month" | "lastMonth"
   ) => {
     const dateFiltered = getDateFilteredOrders(orders || [], period);
     return dateFiltered.reduce((total, order) => {
@@ -977,6 +990,7 @@ export function OrdersTable({
                               | "today"
                               | "tomorrow"
                               | "week"
+                              | "nextWeek"
                               | "month"
                               | "lastMonth"
                           )}{" "}
@@ -990,6 +1004,7 @@ export function OrdersTable({
                                 | "today"
                                 | "tomorrow"
                                 | "week"
+                                | "nextWeek"
                                 | "month"
                                 | "lastMonth"
                             ).filter((order) =>
@@ -1067,6 +1082,7 @@ export function OrdersTable({
               { value: "tomorrow", label: "Zítra" },
               { value: "today", label: "Dnes" },
               { value: "week", label: "Tento týden" },
+              { value: "nextWeek", label: "Příští týden" },
               { value: "month", label: "Tento měsíc" },
               { value: "lastMonth", label: "Minulý měsíc" },
             ].map((tab) => (
@@ -1079,89 +1095,97 @@ export function OrdersTable({
             ))}
           </TabsList>
 
-          {["today", "tomorrow", "week", "month", "lastMonth"].map((period) => {
-            const filteredPeriodOrders = filterOrdersByDate(
-              filteredOrders || [],
-              period as "today" | "tomorrow" | "week" | "month" | "lastMonth",
-              date
-            );
-            const crateSums = calculateCrateSums(filteredPeriodOrders);
+          {["today", "tomorrow", "week", "nextWeek", "month", "lastMonth"].map(
+            (period) => {
+              const filteredPeriodOrders = filterOrdersByDate(
+                filteredOrders || [],
+                period as
+                  | "today"
+                  | "tomorrow"
+                  | "week"
+                  | "nextWeek"
+                  | "month"
+                  | "lastMonth",
+                date
+              );
+              const crateSums = calculateCrateSums(filteredPeriodOrders);
 
-            return (
-              <TabsContent key={period} value={period}>
-                <PrintSummary
-                  orders={filteredPeriodOrders}
-                  period={period}
-                  globalFilter={globalFilter}
-                />
+              return (
+                <TabsContent key={period} value={period}>
+                  <PrintSummary
+                    orders={filteredPeriodOrders}
+                    period={period}
+                    globalFilter={globalFilter}
+                  />
 
-                <div className="flex justify-between items-center mb-4">
-                  <div className="flex gap-2 print:hidden">
-                    <span className="text-muted-foreground text-sm font-semibold">
-                      Vydáno celkem:
-                    </span>
-                    <Badge variant="outline" className="text-yellow-700 ">
-                      {crateSums.crateSmall}
-                      <Container size={16} className="mx-1" /> ↑
-                    </Badge>
-                    <Badge variant="outline" className="text-red-800">
-                      {crateSums.crateBig}
-                      <Container size={20} className="mx-1" /> ↑
-                    </Badge>
-                    <span className="text-muted-foreground text-sm font-semibold">
-                      Přijato celkem:
-                    </span>
-                    <Badge variant="secondary" className="text-yellow-700">
-                      {crateSums.crateSmallReceived}
-                      <Container size={16} className="mx-1" /> ↓
-                    </Badge>
-                    <Badge variant="secondary" className="text-red-800">
-                      {crateSums.crateBigReceived}
-                      <Container size={20} className="mx-1" /> ↑
-                    </Badge>
+                  <div className="flex justify-between items-center mb-4">
+                    <div className="flex gap-2 print:hidden">
+                      <span className="text-muted-foreground text-sm font-semibold">
+                        Vydáno celkem:
+                      </span>
+                      <Badge variant="outline" className="text-yellow-700 ">
+                        {crateSums.crateSmall}
+                        <Container size={16} className="mx-1" /> ↑
+                      </Badge>
+                      <Badge variant="outline" className="text-red-800">
+                        {crateSums.crateBig}
+                        <Container size={20} className="mx-1" /> ↑
+                      </Badge>
+                      <span className="text-muted-foreground text-sm font-semibold">
+                        Přijato celkem:
+                      </span>
+                      <Badge variant="secondary" className="text-yellow-700">
+                        {crateSums.crateSmallReceived}
+                        <Container size={16} className="mx-1" /> ↓
+                      </Badge>
+                      <Badge variant="secondary" className="text-red-800">
+                        {crateSums.crateBigReceived}
+                        <Container size={20} className="mx-1" /> ↑
+                      </Badge>
+                    </div>
+
+                    <Select
+                      onValueChange={(value) => {
+                        switch (value) {
+                          case "summary":
+                            window.print();
+                            break;
+                          case "production":
+                            printOrderTotalsByDate(filteredPeriodOrders);
+                            break;
+                          case "orders":
+                            printOrderTotals(filteredPeriodOrders, period);
+                            break;
+                          case "products":
+                            printProductSummary(filteredPeriodOrders);
+                            break;
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-[180px] print:hidden">
+                        <Printer className="mr-2 h-4 w-4" />
+                        <SelectValue placeholder="Tisk..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tisk</SelectItem>
+                        <SelectItem value="summary">Tisk souhrnu</SelectItem>
+                        <SelectItem value="production">Tisk výroby</SelectItem>
+                        <SelectItem value="orders">Tisk objednávek</SelectItem>
+                        <SelectItem value="products">Tisk produktů</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
-                  <Select
-                    onValueChange={(value) => {
-                      switch (value) {
-                        case "summary":
-                          window.print();
-                          break;
-                        case "production":
-                          printOrderTotalsByDate(filteredPeriodOrders);
-                          break;
-                        case "orders":
-                          printOrderTotals(filteredPeriodOrders, period);
-                          break;
-                        case "products":
-                          printProductSummary(filteredPeriodOrders);
-                          break;
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-[180px] print:hidden">
-                      <Printer className="mr-2 h-4 w-4" />
-                      <SelectValue placeholder="Tisk..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tisk</SelectItem>
-                      <SelectItem value="summary">Tisk souhrnu</SelectItem>
-                      <SelectItem value="production">Tisk výroby</SelectItem>
-                      <SelectItem value="orders">Tisk objednávek</SelectItem>
-                      <SelectItem value="products">Tisk produktů</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <OrderTableContent
-                  data={filteredPeriodOrders}
-                  globalFilter={globalFilter}
-                  columns={columns}
-                  setSelectedOrderId={setSelectedOrderId}
-                />
-              </TabsContent>
-            );
-          })}
+                  <OrderTableContent
+                    data={filteredPeriodOrders}
+                    globalFilter={globalFilter}
+                    columns={columns}
+                    setSelectedOrderId={setSelectedOrderId}
+                  />
+                </TabsContent>
+              );
+            }
+          )}
         </Tabs>
       </div>
     </Card>

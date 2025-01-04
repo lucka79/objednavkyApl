@@ -266,3 +266,25 @@ export const useDriverUsers = () => {
     }
   });
 };
+
+// Add new mutation
+export const updatePhone = () => {
+  return useMutation({
+    mutationFn: async ({ id, phone }: { id: string; phone: string }) => {
+      // Update profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ phone })
+        .eq('id', id);
+
+      if (profileError) throw profileError;
+
+      // Update auth user
+      const { error: authError } = await supabase.auth.updateUser({
+        phone
+      });
+
+      if (authError) throw authError;
+    },
+  });
+};
