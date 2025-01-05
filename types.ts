@@ -124,6 +124,7 @@ export type Product = {
     shortcut: string;
     paid_by: PaidBy;
     note?: string;
+    address?: string; 
   };
 
   

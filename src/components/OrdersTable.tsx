@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useOrderStore } from "@/providers/orderStore";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -63,6 +63,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useDriverUsers } from "@/hooks/useProfiles";
 import { useAuthStore } from "@/lib/supabase";
+import { cs } from "date-fns/locale";
 
 const filterOrdersByDate = (
   orders: Order[],
@@ -503,10 +504,10 @@ const printProductSummary = (orders: Order[]) => {
   printWindow.document.write(`
     <html>
       <head>
-        <title>Product Summary</title>
+        <title>Souhrn produktů - ${new Date().toLocaleString()}</title>
         <style>
           body { font-family: Arial, sans-serif; padding: 20px; }
-          table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          table { width: 60%; border-collapse: collapse; margin: 20px 0; }
           th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
           th { background-color: #f5f5f5; }
           .total { font-weight: bold; }
@@ -514,11 +515,11 @@ const printProductSummary = (orders: Order[]) => {
         </style>
       </head>
       <body>
-        <h2>Souhrn produktů</h2>
+        <h2>Souhrn produktů - ${new Date().toLocaleDateString()}</h2>
         <table>
           <thead>
             <tr>
-              <th>Produkt</th>
+              <th>Položka</th>
               <th style="text-align: right">Množství</th>
               
             </tr>
@@ -526,7 +527,7 @@ const printProductSummary = (orders: Order[]) => {
           <tbody>
             ${Object.values(productSummary)
               .filter((item) => item.quantity > 0)
-              .sort((a, b) => b.quantity - a.quantity)
+              .sort((a, b) => a.name.localeCompare(b.name))
               .map(
                 (item) => `
               <tr>
@@ -564,6 +565,7 @@ export function OrdersTable({
   const [selectedRole, setSelectedRole] = useState<string>("all");
   const [selectedDriver, setSelectedDriver] = useState<string>("all");
   const { data: driverUsers } = useDriverUsers();
+  const [table, setTable] = useState<any>(null);
 
   // Get unique paid_by values from orders
   const uniquePaidByValues = useMemo(() => {
@@ -748,7 +750,9 @@ export function OrdersTable({
                 <div class="order-header">
                   <div class="customer-info">
                     ${order.user.full_name}
-                    <div class="status-badge">${order.status}</div>
+                  </div>
+                  <div class="order-meta">
+                    ${order.user.address || ""}
                   </div>
                   <div class="order-meta">
                     <div>Objednávka #${order.id}</div>
@@ -774,7 +778,7 @@ export function OrdersTable({
                         <td>${item.product.name}</td>
                         <td>${item.quantity}</td>
                         <td>${item.price} Kč</td>
-                        <td>${item.quantity * item.price} Kč</td>
+                        <td>${(item.quantity * item.price).toFixed(2)} Kč</td>
                       </tr>
                     `
                       )
@@ -782,8 +786,18 @@ export function OrdersTable({
                   </tbody>
                 </table>
 
-                <div style="text-align: right; margin-top: 20px;">
-                  <strong>Celková cena: ${order.total} Kč</strong>
+                 <div style="text-align: right; margin-top: 20px;">
+                  <div className="text-right font-bold">
+                    <div>${order.user?.role === "mobil" ? Math.round(order.total).toFixed(2) : order.total.toFixed(2)} Kč</div>
+                    ${
+                      order.user?.role === "buyer"
+                        ? `
+                      <div>DPH 15%: ${(order.total * 0.15).toFixed(2)} Kč</div>
+                      <div>Celkem s DPH:<strong> ${(order.total * 1.15).toFixed(2)} Kč</strong></div>
+                    `
+                        : ""
+                    }
+                  </div>
                 </div>
 
                 <div class="crates-info">
@@ -943,6 +957,7 @@ export function OrdersTable({
                   selected={date}
                   onSelect={setDate}
                   initialFocus
+                  locale={cs}
                 />
               </PopoverContent>
             </Popover>
@@ -1146,18 +1161,27 @@ export function OrdersTable({
 
                     <Select
                       onValueChange={(value) => {
+                        const selectedOrders =
+                          table.getFilteredSelectedRowModel().rows.length > 0
+                            ? table
+                                .getFilteredSelectedRowModel()
+                                .rows.map(
+                                  (row: { original: Order }) => row.original
+                                )
+                            : filteredPeriodOrders;
+
                         switch (value) {
                           case "summary":
                             window.print();
                             break;
                           case "production":
-                            printOrderTotalsByDate(filteredPeriodOrders);
+                            printOrderTotalsByDate(selectedOrders);
                             break;
                           case "orders":
-                            printOrderTotals(filteredPeriodOrders, period);
+                            printOrderTotals(selectedOrders, period);
                             break;
                           case "products":
-                            printProductSummary(filteredPeriodOrders);
+                            printProductSummary(selectedOrders);
                             break;
                         }
                       }}
@@ -1181,6 +1205,7 @@ export function OrdersTable({
                     globalFilter={globalFilter}
                     columns={columns}
                     setSelectedOrderId={setSelectedOrderId}
+                    onTableReady={(t) => setTable(t)}
                   />
                 </TabsContent>
               );
@@ -1198,11 +1223,13 @@ function OrderTableContent({
   globalFilter,
   columns,
   setSelectedOrderId,
+  onTableReady,
 }: {
   data: Order[];
   globalFilter: string;
   columns: ColumnDef<Order>[];
   setSelectedOrderId: (id: number) => void;
+  onTableReady: (table: any) => void;
 }) {
   const [rowSelection, setRowSelection] = useState({});
 
@@ -1218,6 +1245,10 @@ function OrderTableContent({
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
   });
+
+  useEffect(() => {
+    onTableReady(table);
+  }, [table, onTableReady]);
 
   return (
     <div className="border rounded-md">
