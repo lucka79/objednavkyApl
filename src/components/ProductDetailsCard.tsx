@@ -65,7 +65,7 @@ export function ProductDetailsCard() {
             <span className="flex-col text-muted-foreground">
               # {product.id}
             </span>
-            <span>{new Date(product.created_at).toLocaleDateString()}</span>
+            <span>{new Date(product.created_at!).toLocaleDateString()}</span>
           </CardDescription>
           <CardDescription className="flex justify-between">
             <span className="flex-row text-muted-foreground">

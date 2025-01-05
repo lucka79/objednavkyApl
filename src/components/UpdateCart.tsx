@@ -305,7 +305,7 @@ export default function UpdateCart({
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Product
+                  Položka
                 </Button>
               </DialogTrigger>
               <DialogContent
@@ -343,7 +343,7 @@ export default function UpdateCart({
               <div className="text-xs w-10 text-left inline-block text-slate-500">
                 {item.product.code || "\u00A0"}
               </div>
-              <div className="text-sm w-150 inline-block text-left mr-2">
+              <div className="text-sm w-120 inline-block text-left mr-2">
                 {item.product.name}
               </div>
               <div className="text-sm flex-1 mr-2 text-end">
@@ -399,7 +399,7 @@ export default function UpdateCart({
                       : "text-stone-300 hover:text-stone-400"
                   }`}
                 />
-                <Label className="w-16 mx-4 text-end">
+                <Label className="w-20 inline-block text-left mx-2">
                   {(item.price * item.quantity).toFixed(2)} Kč
                 </Label>
                 <Dialog>

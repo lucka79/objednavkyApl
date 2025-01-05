@@ -196,6 +196,7 @@ export const useUpdateOrder = () => {
         crateSmallReceived?: number;
         driver_id?: string | null;
         total?: number;
+        note?: string;
       }; 
     }) => {
       const { error, data: updatedOrder } = await supabase

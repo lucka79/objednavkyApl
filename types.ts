@@ -26,6 +26,9 @@ export type Product = {
   buyer: boolean;
   store: boolean;
   category_id?: number;
+  created_at?: string;
+  description?: string | null;
+  image?: string | null;
 };
 
   export type Category = {
@@ -70,6 +73,7 @@ export type Product = {
     crateSmallReceived: number;
     crateBigReceived: number;
     paid_by: PaidBy;
+    note?: string;
     order_items: {
       checked: boolean;
       product_id: number;

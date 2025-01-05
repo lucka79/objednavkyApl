@@ -162,6 +162,20 @@ export function OrderDetailsDialog() {
                   <span className="flex items-center gap-2 font-semibold">
                     {order.user.crateBig} <Container size={24} />
                   </span>
+                  <span className="flex items-center gap-2 justify-end">
+                    <input
+                      type="text"
+                      value={order.note || ""}
+                      onChange={(e) =>
+                        updateOrder({
+                          id: order.id,
+                          updatedFields: { note: e.target.value },
+                        })
+                      }
+                      className="border rounded px-2 py-1 text-sm"
+                      placeholder="Přidat poznámku..."
+                    />
+                  </span>
                 </CardDescription>
 
                 <CardDescription className="flex flex-col gap-2">
