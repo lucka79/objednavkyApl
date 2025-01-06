@@ -47,12 +47,12 @@ export function Navbar() {
                     <Link to="/expedition" className="hover:text-gray-300">
                       Expedice
                     </Link>
-                    <Link
+                    {/* <Link
                       to="/expedition/create"
                       className="hover:text-gray-300"
                     >
                       <ShoppingCart />
-                    </Link>
+                    </Link> */}
                   </>
                 )}
 
@@ -82,7 +82,7 @@ export function Navbar() {
                       Výrobky
                     </Link>
                     <Link to="/admin/products" className="hover:text-gray-300">
-                      Objed/Výrobky
+                      <ShoppingCart />
                     </Link>
                     {/* <Link to="/cart" className="hover:text-gray-300">
                       <ShoppingCart />

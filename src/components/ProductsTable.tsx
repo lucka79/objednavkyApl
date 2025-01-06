@@ -234,14 +234,20 @@ export function ProductsTable() {
 
         <div className="flex-1">
           <Card className="h-full p-4">
-            <div className="flex justify-between items-center mb-2">
+            <div className="flex justify-start gap-2 items-center mb-2">
               <Input
                 placeholder="Search product..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
                 className="max-w-sm"
               />
-
+              <Button
+                className="bg-orange-500 text-white"
+                variant="outline"
+                onClick={handleCreateProduct}
+              >
+                <CirclePlus className="h-4 w-4 mr-2" /> Nový výrobek
+              </Button>
               <Select value={priceFilter} onValueChange={setPriceFilter}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Filter by price" />
@@ -251,14 +257,6 @@ export function ProductsTable() {
                   <SelectItem value="mobile">Mobile Price {">"} 0</SelectItem>
                 </SelectContent>
               </Select>
-
-              <Button
-                className="bg-orange-500 text-white"
-                variant="outline"
-                onClick={handleCreateProduct}
-              >
-                <CirclePlus className="h-4 w-4 mr-2" /> Nový výrobek
-              </Button>
             </div>
             <div
               ref={parentRef}

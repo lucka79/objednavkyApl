@@ -64,6 +64,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { cs } from "date-fns/locale";
 
 const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne", "X"] as const;
 const ROLES = [
@@ -379,6 +380,7 @@ export function FavoriteOrdersTable({
   const [selectedOrders, setSelectedOrders] = useState<Set<number>>(new Set());
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [driverFilter, setDriverFilter] = useState<string>("all");
+  const [isCreating, setIsCreating] = useState(false);
 
   const { mutateAsync: insertOrder } = useInsertOrder();
   const { mutateAsync: insertOrderItems } = useInsertOrderItems();
@@ -432,16 +434,17 @@ export function FavoriteOrdersTable({
   });
 
   const createOrdersFromFavorites = async () => {
-    if (!date) {
-      toast({
-        title: "Error",
-        description: "Please select a date for the orders",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    setIsCreating(true);
     try {
+      if (!date) {
+        toast({
+          title: "Error",
+          description: "Please select a date for the orders",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const ordersToCreate = filteredOrders.filter((order) =>
         selectedOrders.has(order.id)
       );
@@ -581,6 +584,8 @@ export function FavoriteOrdersTable({
         duration: 3000,
         style: { zIndex: 9999 },
       });
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -717,7 +722,7 @@ export function FavoriteOrdersTable({
                       onSelect={(date) => date && setDate(date)}
                       disabled={(date) => {
                         const yesterday = new Date();
-                        yesterday.setDate(yesterday.getDate() - 3);
+                        yesterday.setDate(yesterday.getDate() - 4);
 
                         const twoMonthsFromNow = new Date();
                         twoMonthsFromNow.setMonth(
@@ -732,17 +737,22 @@ export function FavoriteOrdersTable({
                         day_selected:
                           "bg-orange-800 text-white hover:bg-orange-700 focus:bg-orange-700",
                       }}
+                      locale={cs}
                     />
                   </PopoverContent>
                 </Popover>
                 <Button
                   onClick={createOrdersFromFavorites}
-                  disabled={!date || selectedOrders.size === 0}
+                  disabled={!date || selectedOrders.size === 0 || isCreating}
                   className="gap-2 bg-orange-600 text-white"
                   variant="outline"
                 >
-                  <CirclePlus className="h-4 w-4" />
-                  Create Orders ({selectedOrders.size})
+                  <CirclePlus
+                    className={`h-4 w-4 ${isCreating ? "animate-spin" : ""}`}
+                  />
+                  {isCreating
+                    ? "Creating..."
+                    : `Create Orders (${selectedOrders.size})`}
                 </Button>
                 <Badge variant="secondary">
                   {date

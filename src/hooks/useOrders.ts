@@ -110,7 +110,7 @@ export const fetchAllOrders = () => {
         .order('date', { ascending: false })
         .order('user(full_name)', { ascending: true })
        
-        .limit(100);
+        .limit(1000);
 
       if (error) throw error;
       console.log('Fetched orders:', data);
