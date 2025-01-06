@@ -73,6 +73,8 @@ export type Product = {
     crateSmallReceived: number;
     crateBigReceived: number;
     paid_by: PaidBy;
+    driver_id: string;
+    driver: Profile;
     note?: string;
     order_items: {
       checked: boolean;

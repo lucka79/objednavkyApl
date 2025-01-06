@@ -1,3 +1,4 @@
+import ReactDOMServer from "react-dom/server";
 import {
   useReactTable,
   getCoreRowModel,
@@ -17,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, forwardRef } from "react";
 import { useOrderStore } from "@/providers/orderStore";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -34,6 +35,8 @@ import {
   CalendarIcon,
   Container,
   Printer,
+  FileText,
+  StickyNote,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -64,6 +67,25 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useDriverUsers } from "@/hooks/useProfiles";
 import { useAuthStore } from "@/lib/supabase";
 import { cs } from "date-fns/locale";
+
+import { ProductSummaryPrint } from "./ProductSummaryPrint";
+import { OrderPrint } from "./OrderPrint";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
+  ({ orders }, ref) => (
+    <div ref={ref} className="p-8">
+      <ProductSummaryPrint orders={orders} />
+    </div>
+  )
+);
+
+ProductPrintWrapper.displayName = "ProductPrintWrapper";
 
 const filterOrdersByDate = (
   orders: Order[],
@@ -210,6 +232,26 @@ const columns: ColumnDef<Order>[] = [
   {
     accessorKey: "driver.full_name",
     header: "Řidič",
+  },
+  {
+    accessorKey: "note",
+    header: "Pozn.",
+    cell: ({ row }) => (
+      <div className="flex justify-center">
+        {row.original.note && row.original.note !== "-" && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <StickyNote size={16} className="text-orange-500" />
+              </TooltipTrigger>
+              <TooltipContent className="bg-orange-500 text-white border-orange-500">
+                <p>{row.original.note}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
+    ),
   },
   {
     accessorKey: "total",
@@ -478,69 +520,25 @@ function PrintSummary({
   );
 }
 
-// Add this new function near other print functions
+// 1. Create print function
 const printProductSummary = (orders: Order[]) => {
-  const productSummary = orders.reduce(
-    (acc, order) => {
-      order.order_items.forEach((item) => {
-        if (!acc[item.product_id]) {
-          acc[item.product_id] = {
-            name: item.product.name,
-            quantity: 0,
-            total: 0,
-          };
-        }
-        acc[item.product_id].quantity += item.quantity;
-        acc[item.product_id].total += item.quantity * item.price;
-      });
-      return acc;
-    },
-    {} as Record<string, { name: string; quantity: number; total: number }>
-  );
-
   const printWindow = window.open("", "_blank");
   if (!printWindow) return;
 
   printWindow.document.write(`
     <html>
       <head>
-        <title>Souhrn produktů - ${new Date().toLocaleString()}</title>
+        <title>Product Summary 2</title>
         <style>
           body { font-family: Arial, sans-serif; padding: 20px; }
-          table { width: 60%; border-collapse: collapse; margin: 20px 0; }
+          table { width: 100%; border-collapse: collapse; }
           th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-          th { background-color: #f5f5f5; }
-          .total { font-weight: bold; }
-          .print-date { text-align: right; color: #666; margin-top: 20px; }
         </style>
       </head>
       <body>
-        <h2>Souhrn produktů - ${new Date().toLocaleDateString()}</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Položka</th>
-              <th style="text-align: right">Množství</th>
-              
-            </tr>
-          </thead>
-          <tbody>
-            ${Object.values(productSummary)
-              .filter((item) => item.quantity > 0)
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map(
-                (item) => `
-              <tr>
-                <td>${item.name}</td>
-                <td style="text-align: right">${item.quantity}</td>
-              
-              </tr>
-            `
-              )
-              .join("")}
-          </tbody>
-        </table>
-        <div class="print-date">Vytištěno: ${new Date().toLocaleString()}</div>
+        <div id="print-content">
+          ${ReactDOMServer.renderToString(<ProductSummaryPrint orders={orders} />)}
+        </div>
       </body>
     </html>
   `);
@@ -552,6 +550,8 @@ const printProductSummary = (orders: Order[]) => {
 export function OrdersTable({
   selectedProductId: initialProductId,
 }: OrdersTableProps) {
+  const [selectedOrders] = useState<Order[]>([]);
+
   const { data: orders, error, isLoading } = fetchAllOrders();
   const [globalFilter, setGlobalFilter] = useState("");
   const [date, setDate] = useState<Date>();
@@ -650,175 +650,24 @@ export function OrdersTable({
     }, 0);
   };
 
-  const printOrderTotals = (orders: Order[], period: string) => {
+  const printOrderTotals = (orders: Order[]) => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
     printWindow.document.write(`
       <html>
         <head>
-          <title>Objednávky - ${period}</title>
+          <title>Objednávky</title>
           <style>
-            body { 
-              font-family: Arial, sans-serif; 
-              margin: 0; 
-              padding: 20px; 
-            }
-            .order-page {
-              position: relative;
-              padding: 20px;
-              border-bottom: 1px dashed #ccc;
-              margin-bottom: 20px;
-              min-height: 90vh;
-            }
-            .order-page:last-child {
-              border-bottom: none;
-              margin-bottom: 0;
-            }
-            .order-content {
-              padding-bottom: 120px; /* Space for crates info */
-            }
-            .order-header {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 20px;
-              padding-bottom: 10px;
-              border-bottom: 1px solid #ddd;
-            }
-            .customer-info {
-              font-size: 1.2em;
-              font-weight: bold;
-            }
-            .order-meta {
-              color: #666;
-            }
-            .items-table {
-              width: 100%;
-              border-collapse: collapse;
-              margin: 20px 0;
-            }
-            .items-table th, .items-table td {
-              padding: 8px;
-              text-align: left;
-              border-bottom: 1px solid #ddd;
-            }
-            .items-table th:first-child,
-            .items-table td:first-child {
-              text-align: left;
-              width: 40%;
-            }
-            .items-table th:not(:first-child),
-            .items-table td:not(:first-child) {
-              text-align: right;
-              width: 20%;
-            }
-            .crates-info {
-              position: absolute;
-              bottom: 20px;
-              left: 20px;
-              right: 20px;
-              padding: 15px;
-              background: #f5f5f5;
-              border-radius: 4px;
-              border-top: 2px solid #ddd;
-            }
-            .crate-section {
-              display: flex;
-              justify-content: space-between;
-              margin: 5px 0;
-            }
-            .crate-group {
-              flex: 1;
-              padding: 0 20px;
-            }
-            .crate-group:first-child {
-              border-right: 1px solid #ddd;
-            }
-            @media print {
-              .order-page { 
-                page-break-after: always;
-              }
-            }
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
           </style>
         </head>
         <body>
-          ${orders
-            .map(
-              (order) => `
-            <div class="order-page">
-              <div class="order-content">
-                <div class="order-header">
-                  <div class="customer-info">
-                    ${order.user.full_name}
-                  </div>
-                  <div class="order-meta">
-                    ${order.user.address || ""}
-                  </div>
-                  <div class="order-meta">
-                    <div>Objednávka #${order.id}</div>
-                    <div>${new Date(order.date).toLocaleDateString()}</div>
-                  </div>
-                </div>
-
-                <table class="items-table">
-                  <thead>
-                    <tr>
-                      <th>Produkt</th>
-                      <th>Množství</th>
-                      <th>Cena</th>
-                      <th>Celkem</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${order.order_items
-                      .filter((item) => item.quantity > 0) // Filter out zero quantity items
-                      .map(
-                        (item) => `
-                      <tr>
-                        <td>${item.product.name}</td>
-                        <td>${item.quantity}</td>
-                        <td>${item.price} Kč</td>
-                        <td>${(item.quantity * item.price).toFixed(2)} Kč</td>
-                      </tr>
-                    `
-                      )
-                      .join("")}
-                  </tbody>
-                </table>
-
-                 <div style="text-align: right; margin-top: 20px;">
-                  <div className="text-right font-bold">
-                    <div>${order.user?.role === "mobil" ? Math.round(order.total).toFixed(2) : order.total.toFixed(2)} Kč</div>
-                    ${
-                      order.user?.role === "buyer"
-                        ? `
-                      <div>DPH 15%: ${(order.total * 0.15).toFixed(2)} Kč</div>
-                      <div>Celkem s DPH:<strong> ${(order.total * 1.15).toFixed(2)} Kč</strong></div>
-                    `
-                        : ""
-                    }
-                  </div>
-                </div>
-
-                <div class="crates-info">
-                  <div class="crate-section">
-                    <div>
-                      <strong>Vydané přepravky:</strong>
-                      <span>Malé: ${order.crateSmall || 0}</span>
-                      <span>Velké: ${order.crateBig || 0}</span>
-                    </div>
-                    <div>
-                      <strong>Přijaté přepravky:</strong>
-                      <span>Malé: ${order.crateSmallReceived || 0}</span>
-                      <span>Velké: ${order.crateBigReceived || 0}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          `
-            )
-            .join("")}
+          <div id="print-content">
+            ${ReactDOMServer.renderToString(<OrderPrint orders={orders} />)}
+          </div>
         </body>
       </html>
     `);
@@ -923,98 +772,95 @@ export function OrdersTable({
     printWindow.print();
   };
 
+  // 1. Add print state
+  const [isPrinting] = useState(false);
+  const productPrintRef = useRef<HTMLDivElement>(null);
+
+  // 2. Update print handler
+  // const handleProductPrint = useReactToPrint({
+  //   content: () => productPrintRef.current,
+  //   onAfterPrint: () => setIsPrinting(false),
+  // });
+
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders</div>;
 
   return (
-    <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible print:transform-none">
-      <div className="space-y-4 overflow-x-auto print:!m-0">
-        <div className="space-y-2 print:hidden">
-          <div className="flex justify-between items-center gap-2">
-            <Input
-              placeholder="Search orders..."
-              value={globalFilter}
-              onChange={(e) => setGlobalFilter(e.target.value)}
-              className="max-w-sm"
-            />
+    <>
+      <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible print:transform-none">
+        <div className="space-y-4 overflow-x-auto print:!m-0">
+          <div className="space-y-2 print:hidden">
+            <div className="flex justify-between items-center gap-2">
+              <Input
+                placeholder="Search orders..."
+                value={globalFilter}
+                onChange={(e) => setGlobalFilter(e.target.value)}
+                className="max-w-sm"
+              />
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-[240px] justify-start text-left font-normal",
-                    !date && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? format(date, "PPP") : <span>Vyberte datum</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  initialFocus
-                  locale={cs}
-                />
-              </PopoverContent>
-            </Popover>
-            <Badge variant="secondary">
-              {date
-                ? `${filteredOrders.length} orders`
-                : `${filteredOrders.length} total orders`}
-            </Badge>
-          </div>
-          <div className="flex flex-row gap-2">
-            <Select
-              value={selectedProductId}
-              onValueChange={setSelectedProductId}
-            >
-              <SelectTrigger className="w-full max-w-sm">
-                <SelectValue placeholder="Filter by product..." />
-                {/* {selectedProductId && selectedProductId !== "all" && (
-                // <Badge variant="secondary" className="ml-2">
-                //   {filteredOrders.length} obj. (
-                //   {calculateTotalQuantityForPeriod(
-                //     selectedProductId,
-                //     activeTab as
-                //       | "today"
-                //       | "tomorrow"
-                //       | "week"
-                //       | "month"
-                //       | "lastMonth"
-                //   )}
-                //   ks)
-                // </Badge>
-              )} */}
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Products</SelectItem>
-                {products?.map((product) => (
-                  <SelectItem key={product.id} value={product.id.toString()}>
-                    <div className="flex justify-between items-center w-full">
-                      <span className="mr-2">{product.name}</span>
-                      <div className="flex gap-2">
-                        {" "}
-                        <Badge variant="outline" className="border-green-500">
-                          {calculateTotalQuantityForPeriod(
-                            product.id.toString(),
-                            activeTab as
-                              | "today"
-                              | "tomorrow"
-                              | "week"
-                              | "nextWeek"
-                              | "month"
-                              | "lastMonth"
-                          )}{" "}
-                          ks
-                        </Badge>
-                        <Badge variant="outline" className="border-amber-500">
-                          {
-                            getDateFilteredOrders(
-                              orders || [],
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-[240px] justify-start text-left font-normal",
+                      !date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date ? format(date, "PPP") : <span>Vyberte datum</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={setDate}
+                    initialFocus
+                    locale={cs}
+                  />
+                </PopoverContent>
+              </Popover>
+              <Badge variant="secondary">
+                {date
+                  ? `${filteredOrders.length} orders`
+                  : `${filteredOrders.length} total orders`}
+              </Badge>
+            </div>
+            <div className="flex flex-row gap-2">
+              <Select
+                value={selectedProductId}
+                onValueChange={setSelectedProductId}
+              >
+                <SelectTrigger className="w-full max-w-sm">
+                  <SelectValue placeholder="Filter by product..." />
+                  {/* {selectedProductId && selectedProductId !== "all" && (
+                  // <Badge variant="secondary" className="ml-2">
+                  //   {filteredOrders.length} obj. (
+                  //   {calculateTotalQuantityForPeriod(
+                  //     selectedProductId,
+                  //     activeTab as
+                  //       | "today"
+                  //       | "tomorrow"
+                  //       | "week"
+                  //       | "month"
+                  //       | "lastMonth"
+                  //   )}
+                  //   ks)
+                  // </Badge>
+                )} */}
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Products</SelectItem>
+                  {products?.map((product) => (
+                    <SelectItem key={product.id} value={product.id.toString()}>
+                      <div className="flex justify-between items-center w-full">
+                        <span className="mr-2">{product.name}</span>
+                        <div className="flex gap-2">
+                          {" "}
+                          <Badge variant="outline" className="border-green-500">
+                            {calculateTotalQuantityForPeriod(
+                              product.id.toString(),
                               activeTab as
                                 | "today"
                                 | "tomorrow"
@@ -1022,96 +868,116 @@ export function OrdersTable({
                                 | "nextWeek"
                                 | "month"
                                 | "lastMonth"
-                            ).filter((order) =>
-                              order.order_items.some(
-                                (item: { product_id: number | string }) =>
-                                  item.product_id.toString() ===
-                                  product.id.toString()
-                              )
-                            ).length
-                          }{" "}
-                          objed.
-                        </Badge>
+                            )}{" "}
+                            ks
+                          </Badge>
+                          <Badge variant="outline" className="border-amber-500">
+                            {
+                              getDateFilteredOrders(
+                                orders || [],
+                                activeTab as
+                                  | "today"
+                                  | "tomorrow"
+                                  | "week"
+                                  | "nextWeek"
+                                  | "month"
+                                  | "lastMonth"
+                              ).filter((order) =>
+                                order.order_items.some(
+                                  (item: { product_id: number | string }) =>
+                                    item.product_id.toString() ===
+                                    product.id.toString()
+                                )
+                              ).length
+                            }{" "}
+                            objed.
+                          </Badge>
+                        </div>
                       </div>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <Select value={selectedPaidBy} onValueChange={setSelectedPaidBy}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Typ platby..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Typ platby</SelectItem>
-                {uniquePaidByValues.map((paidBy) => (
-                  <SelectItem key={paidBy} value={paidBy}>
-                    {paidBy}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select value={selectedPaidBy} onValueChange={setSelectedPaidBy}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Typ platby..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Typ platby</SelectItem>
+                  {uniquePaidByValues.map((paidBy) => (
+                    <SelectItem key={paidBy} value={paidBy}>
+                      {paidBy}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <Select value={selectedRole} onValueChange={setSelectedRole}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Typ odběratele..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Typ odběratele</SelectItem>
-                {uniqueRoles.map((role) => (
-                  <SelectItem key={role} value={role}>
-                    {role}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select value={selectedRole} onValueChange={setSelectedRole}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Typ odběratele..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Typ odběratele</SelectItem>
+                  {uniqueRoles.map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {role}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <Select value={selectedDriver} onValueChange={setSelectedDriver}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Filtrovat řidiče..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Všichni řidiči</SelectItem>
-                <SelectItem value="none">Bez řidiče</SelectItem>
-                {driverUsers?.map((driver) => (
-                  <SelectItem key={driver.id} value={driver.id}>
-                    {driver.full_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select value={selectedDriver} onValueChange={setSelectedDriver}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Filtrovat řidiče..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Všichni řidiči</SelectItem>
+                  <SelectItem value="none">Bez řidiče</SelectItem>
+                  {driverUsers?.map((driver) => (
+                    <SelectItem key={driver.id} value={driver.id}>
+                      {driver.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        </div>
 
-        <Tabs
-          defaultValue="tomorrow"
-          className="w-full"
-          onValueChange={(value) => {
-            setDate(undefined);
-            setActiveTab(value);
-          }}
-        >
-          <TabsList className="print:hidden">
+          <Tabs
+            defaultValue="tomorrow"
+            className="w-full"
+            onValueChange={(value) => {
+              setDate(undefined);
+              setActiveTab(value);
+            }}
+          >
+            <TabsList className="print:hidden">
+              {[
+                { value: "tomorrow", label: "Zítra" },
+                { value: "today", label: "Dnes" },
+                { value: "week", label: "Tento týden" },
+                { value: "nextWeek", label: "Příští týden" },
+                { value: "month", label: "Tento měsíc" },
+                { value: "lastMonth", label: "Minulý měsíc" },
+              ].map((tab) => (
+                <TabsTrigger key={tab.value} value={tab.value}>
+                  {tab.label}{" "}
+                  <Badge variant="outline" className="ml-2">
+                    {filterOrdersByDate(orders || [], tab.value as any).length}
+                  </Badge>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
             {[
-              { value: "tomorrow", label: "Zítra" },
-              { value: "today", label: "Dnes" },
-              { value: "week", label: "Tento týden" },
-              { value: "nextWeek", label: "Příští týden" },
-              { value: "month", label: "Tento měsíc" },
-              { value: "lastMonth", label: "Minulý měsíc" },
-            ].map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value}>
-                {tab.label}{" "}
-                <Badge variant="outline" className="ml-2">
-                  {filterOrdersByDate(orders || [], tab.value as any).length}
-                </Badge>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          {["today", "tomorrow", "week", "nextWeek", "month", "lastMonth"].map(
-            (period) => {
+              "today",
+              "tomorrow",
+              "week",
+              "nextWeek",
+              "month",
+              "lastMonth",
+            ].map((period) => {
               const filteredPeriodOrders = filterOrdersByDate(
                 filteredOrders || [],
                 period as
@@ -1159,45 +1025,91 @@ export function OrdersTable({
                       </Badge>
                     </div>
 
-                    <Select
-                      onValueChange={(value) => {
-                        const selectedOrders =
-                          table.getFilteredSelectedRowModel().rows.length > 0
-                            ? table
-                                .getFilteredSelectedRowModel()
-                                .rows.map(
-                                  (row: { original: Order }) => row.original
-                                )
-                            : filteredPeriodOrders;
+                    <div className="flex gap-2">
+                      <Select
+                        onValueChange={(value) => {
+                          const selectedOrders =
+                            table.getFilteredSelectedRowModel().rows.length > 0
+                              ? table
+                                  .getFilteredSelectedRowModel()
+                                  .rows.map(
+                                    (row: { original: Order }) => row.original
+                                  )
+                              : filteredPeriodOrders;
 
-                        switch (value) {
-                          case "summary":
-                            window.print();
-                            break;
-                          case "production":
-                            printOrderTotalsByDate(selectedOrders);
-                            break;
-                          case "orders":
-                            printOrderTotals(selectedOrders, period);
-                            break;
-                          case "products":
-                            printProductSummary(selectedOrders);
-                            break;
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="w-[180px] print:hidden">
-                        <Printer className="mr-2 h-4 w-4" />
-                        <SelectValue placeholder="Tisk..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Tisk</SelectItem>
-                        <SelectItem value="summary">Tisk souhrnu</SelectItem>
-                        <SelectItem value="production">Tisk výroby</SelectItem>
-                        <SelectItem value="orders">Tisk objednávek</SelectItem>
-                        <SelectItem value="products">Tisk produktů</SelectItem>
-                      </SelectContent>
-                    </Select>
+                          switch (value) {
+                            case "summary":
+                              window.print();
+                              break;
+                            case "production":
+                              printOrderTotalsByDate(selectedOrders);
+                              break;
+                            case "orders":
+                              printOrderTotals(selectedOrders);
+                              break;
+                            case "products":
+                              printProductSummary(selectedOrders);
+                              break;
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-[180px] print:hidden">
+                          <Printer className="mr-2 h-4 w-4" />
+                          <SelectValue placeholder="Tisk..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tisk</SelectItem>
+                          <SelectItem value="summary">Tisk souhrnu</SelectItem>
+                          <SelectItem value="production">
+                            Tisk výroby
+                          </SelectItem>
+                          <SelectItem value="orders">
+                            Tisk objednávek
+                          </SelectItem>
+                          <SelectItem value="products">
+                            Tisk produktů
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const orders =
+                            table.getFilteredSelectedRowModel().rows.length > 0
+                              ? table
+                                  .getFilteredSelectedRowModel()
+                                  .rows.map(
+                                    (row: { original: Order }) => row.original
+                                  )
+                              : filteredPeriodOrders;
+                          printOrderTotals(orders);
+                        }}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        Tisk objednávek
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const orders =
+                            table.getFilteredSelectedRowModel().rows.length > 0
+                              ? table
+                                  .getFilteredSelectedRowModel()
+                                  .rows.map(
+                                    (row: { original: Order }) => row.original
+                                  )
+                              : filteredPeriodOrders;
+                          printProductSummary(orders);
+                        }}
+                      >
+                        <Printer className="h-4 w-4 mr-2" />
+                        Tisk produktů
+                      </Button>
+                    </div>
                   </div>
 
                   <OrderTableContent
@@ -1209,11 +1121,17 @@ export function OrdersTable({
                   />
                 </TabsContent>
               );
-            }
-          )}
-        </Tabs>
-      </div>
-    </Card>
+            })}
+          </Tabs>
+        </div>
+      </Card>
+
+      {isPrinting && (
+        <div style={{ position: "fixed", top: "-9999px", left: "-9999px" }}>
+          <ProductPrintWrapper ref={productPrintRef} orders={selectedOrders} />
+        </div>
+      )}
+    </>
   );
 }
 

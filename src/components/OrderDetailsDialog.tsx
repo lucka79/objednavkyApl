@@ -22,6 +22,7 @@ import {
   SquareMinus,
   SquarePlus,
   Lock,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 import {
@@ -40,6 +41,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatPrice } from "@/lib/utils";
+import { Input } from "./ui/input";
+
 // import React from "react";
 
 export function OrderDetailsDialog() {
@@ -49,6 +52,15 @@ export function OrderDetailsDialog() {
   const { mutate: updateProfile } = useUpdateProfile();
   const [isLocked, setIsLocked] = useState(false);
   const { data: driverUsers } = useDriverUsers();
+  const [localNote, setLocalNote] = useState("");
+
+  const saveNote = (id: number, note: string) => {
+    updateOrder({
+      id,
+      updatedFields: { note: note.trim() || "-" },
+    });
+    setLocalNote(""); // Reset local note after saving
+  };
 
   const {
     data: orders,
@@ -151,31 +163,47 @@ export function OrderDetailsDialog() {
               <CardHeader>
                 <CardTitle className="flex justify-between">
                   {order.user.full_name}
+
+                  <span className="text-muted-foreground text-stone-500 text-thin">
+                    {order.user.address}
+                  </span>
                   <Badge variant="outline">{order.status}</Badge>
                 </CardTitle>
-                <CardDescription className="flex gap-4 print:hidden">
-                  <span>Celkový stav přepravek:</span>
-                  <span className="flex items-center gap-2 font-semibold">
-                    {order.user.crateSmall}
-                    <Container size={20} />
-                  </span>
-                  <span className="flex items-center gap-2 font-semibold">
-                    {order.user.crateBig} <Container size={24} />
-                  </span>
-                  <span className="flex items-center gap-2 justify-end">
-                    <input
+                <CardDescription className="flex justify-between items-center print:hidden">
+                  <div className="flex gap-4">
+                    <span>Celkový stav přepravek:</span>
+                    <span className="flex items-center gap-2 font-semibold">
+                      {order.user.crateSmall}
+                      <Container size={20} />
+                    </span>
+                    <span className="flex items-center gap-2 font-semibold">
+                      {order.user.crateBig} <Container size={24} />
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
                       type="text"
-                      value={order.note || ""}
-                      onChange={(e) =>
-                        updateOrder({
-                          id: order.id,
-                          updatedFields: { note: e.target.value },
-                        })
+                      autoFocus={false}
+                      value={
+                        localNote || (order.note !== "-" ? order.note : "")
                       }
-                      className="border rounded px-2 py-1 text-sm"
+                      onChange={(e) => {
+                        setLocalNote(e.target.value);
+                      }}
+                      onBlur={(e) => {
+                        saveNote(order.id, e.target.value);
+                      }}
+                      className="border rounded px-2 py-1 text-sm w-60 text-right"
                       placeholder="Přidat poznámku..."
                     />
-                  </span>
+                    {(localNote || order.note !== "-") && (
+                      <X
+                        size={16}
+                        className="cursor-pointer text-gray-500 hover:text-red-500"
+                        onClick={() => saveNote(order.id, "-")}
+                      />
+                    )}
+                  </div>
                 </CardDescription>
 
                 <CardDescription className="flex flex-col gap-2">

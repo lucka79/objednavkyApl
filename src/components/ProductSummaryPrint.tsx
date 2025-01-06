@@ -51,7 +51,7 @@ export const ProductSummaryPrint = forwardRef<
             ))}
         </tbody>
       </table>
-      <div className="text-right text-gray-600 mt-4">
+      <div className="text-right text-gray-600 mt-4 text-xs">
         Vytištěno: {new Date().toLocaleString()}
       </div>
     </div>
