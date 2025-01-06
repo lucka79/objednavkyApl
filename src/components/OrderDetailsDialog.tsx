@@ -24,7 +24,7 @@ import {
   Lock,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +53,29 @@ export function OrderDetailsDialog() {
   const [isLocked, setIsLocked] = useState(false);
   const { data: driverUsers } = useDriverUsers();
   const [localNote, setLocalNote] = useState("");
+  const {
+    data: orders,
+    error,
+    isLoading,
+    refetch,
+  } = useFetchOrderById(selectedOrderId);
+  const [localCrates, setLocalCrates] = useState({
+    crateSmall: 0,
+    crateBig: 0,
+    crateSmallReceived: 0,
+    crateBigReceived: 0,
+  });
+
+  useEffect(() => {
+    if (orders?.[0]) {
+      setLocalCrates({
+        crateSmall: orders[0].crateSmall || 0,
+        crateBig: orders[0].crateBig || 0,
+        crateSmallReceived: orders[0].crateSmallReceived || 0,
+        crateBigReceived: orders[0].crateBigReceived || 0,
+      });
+    }
+  }, [orders]);
 
   const saveNote = (id: number, note: string) => {
     updateOrder({
@@ -61,13 +84,6 @@ export function OrderDetailsDialog() {
     });
     setLocalNote(""); // Reset local note after saving
   };
-
-  const {
-    data: orders,
-    error,
-    isLoading,
-    refetch,
-  } = useFetchOrderById(selectedOrderId);
 
   console.log("OrderDetailsDialog orders:", orders);
 
@@ -308,16 +324,20 @@ export function OrderDetailsDialog() {
                             <input
                               type="number"
                               min="0"
-                              value={order.crateSmall || 0}
+                              value={localCrates.crateSmall}
                               onChange={(e) =>
-                                !isLocked &&
+                                setLocalCrates({
+                                  ...localCrates,
+                                  crateSmall: parseInt(e.target.value) || 0,
+                                })
+                              }
+                              onBlur={(e) =>
                                 updateCrates(
                                   "crateSmall",
                                   parseInt(e.target.value) || 0
                                 )
                               }
-                              disabled={isLocked}
-                              className="w-16 text-center border rounded-md"
+                              className="w-12 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                             {!isLocked && (
                               <SquarePlus
@@ -349,16 +369,20 @@ export function OrderDetailsDialog() {
                             <input
                               type="number"
                               min="0"
-                              value={order.crateBig || 0}
+                              value={localCrates.crateBig}
                               onChange={(e) =>
-                                !isLocked &&
+                                setLocalCrates({
+                                  ...localCrates,
+                                  crateBig: parseInt(e.target.value) || 0,
+                                })
+                              }
+                              onBlur={(e) =>
                                 updateCrates(
                                   "crateBig",
                                   parseInt(e.target.value) || 0
                                 )
                               }
-                              disabled={isLocked}
-                              className="w-16 text-center border rounded-md"
+                              className="w-12 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                             {!isLocked && (
                               <SquarePlus
@@ -398,14 +422,21 @@ export function OrderDetailsDialog() {
                             <input
                               type="number"
                               min="0"
-                              value={order.crateSmallReceived || 0}
+                              value={localCrates.crateSmallReceived}
                               onChange={(e) =>
+                                setLocalCrates({
+                                  ...localCrates,
+                                  crateSmallReceived:
+                                    parseInt(e.target.value) || 0,
+                                })
+                              }
+                              onBlur={(e) =>
                                 updateCrates(
                                   "crateSmallReceived",
                                   parseInt(e.target.value) || 0
                                 )
                               }
-                              className="w-16 text-center border rounded-md"
+                              className="w-12 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                             <SquarePlus
                               size={24}
@@ -435,14 +466,21 @@ export function OrderDetailsDialog() {
                             <input
                               type="number"
                               min="0"
-                              value={order.crateBigReceived || 0}
+                              value={localCrates.crateBigReceived}
                               onChange={(e) =>
+                                setLocalCrates({
+                                  ...localCrates,
+                                  crateBigReceived:
+                                    parseInt(e.target.value) || 0,
+                                })
+                              }
+                              onBlur={(e) =>
                                 updateCrates(
                                   "crateBigReceived",
                                   parseInt(e.target.value) || 0
                                 )
                               }
-                              className="w-16 text-center border rounded-md"
+                              className="w-12 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                             <SquarePlus
                               size={24}

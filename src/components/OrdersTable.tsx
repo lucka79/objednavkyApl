@@ -76,6 +76,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { OrdersTableSummary } from "./OrdersTablePrintSummary";
 
 const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
   ({ orders }, ref) => (
@@ -318,7 +319,19 @@ const columns: ColumnDef<Order>[] = [
               {/* <Flag size={14} /> */}
             </Badge>
           )}
-          <Badge variant="outline">{row.original.status}</Badge>
+          <Badge
+            variant="outline"
+            className={cn(
+              row.original.status === "Expedice" ||
+                row.original.status === "New"
+                ? "bg-orange-600 text-white"
+                : row.original.status === "Delivering"
+                  ? "bg-sky-600 text-white"
+                  : ""
+            )}
+          >
+            {row.original.status}
+          </Badge>
         </div>
       );
     },
@@ -1058,7 +1071,6 @@ export function OrdersTable({
                           <SelectValue placeholder="Tisk..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">Tisk</SelectItem>
                           <SelectItem value="summary">Tisk souhrnu</SelectItem>
                           <SelectItem value="production">
                             Tisk výroby
@@ -1071,6 +1083,47 @@ export function OrdersTable({
                           </SelectItem>
                         </SelectContent>
                       </Select>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const orders =
+                            table.getFilteredSelectedRowModel().rows.length > 0
+                              ? table
+                                  .getFilteredSelectedRowModel()
+                                  .rows.map(
+                                    (row: { original: Order }) => row.original
+                                  )
+                              : filteredPeriodOrders;
+                          const printWindow = window.open("", "_blank");
+                          if (printWindow) {
+                            printWindow.document.write(`
+                              <html>
+                                <head>
+                                  <title>Přehled objednávek</title>
+                                  <style>
+                                    body { font-family: Arial, sans-serif; }
+                                    table { width: 100%; border-collapse: collapse; }
+                                    th, td { padding: 8px; }
+                                    .border-b { border-bottom: 1px solid #ddd; }
+                                  </style>
+                                </head>
+                                <body>
+                                  ${ReactDOMServer.renderToString(
+                                    <OrdersTableSummary orders={orders} />
+                                  )}
+                                </body>
+                              </html>
+                            `);
+                            printWindow.document.close();
+                            printWindow.print();
+                          }
+                        }}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        Tisk přehledu
+                      </Button>
 
                       <Button
                         variant="outline"

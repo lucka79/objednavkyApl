@@ -379,7 +379,7 @@ export default function UpdateCart({
                       parseInt(e.target.value) || 0
                     )
                   }
-                  className={`w-20 mx-2 text-center ${
+                  className={`w-20 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                     item.quantity === 0 ? "text-gray-600" : ""
                   }`}
                   disabled={item.checked}
