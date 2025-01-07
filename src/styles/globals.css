@@ -1,8 +1,4 @@
 @media print {
-  .page-break-after-always {
-    page-break-after: always;
-  }
-
   .print\:text-right {
     text-align: right !important;
   }

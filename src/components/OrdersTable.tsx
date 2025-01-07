@@ -541,7 +541,7 @@ const printProductSummary = (orders: Order[]) => {
   printWindow.document.write(`
     <html>
       <head>
-        <title>Product Summary 2</title>
+        <title>Tisk výroby podle abecedy</title>
         <style>
           body { font-family: Arial, sans-serif; padding: 20px; }
           table { width: 100%; border-collapse: collapse; }
@@ -672,7 +672,7 @@ export function OrdersTable({
         <head>
           <title>Objednávky</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
+            body { font-family: Arial; sans-serif; padding: 20px; }
             table { width: 100%; border-collapse: collapse; }
             th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
           </style>
@@ -731,7 +731,7 @@ export function OrdersTable({
         <head>
           <title>Výroba podle dnů</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
+            body { font-family: Arial, sans-serif; font-size: 12px; padding: 20px; }
             h1 { font-size: 18px; margin-bottom: 10px; }
             h2 { font-size: 16px; color: #666; margin: 30px 0 10px 0; }
             table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
@@ -750,7 +750,7 @@ export function OrdersTable({
             <table>
               <thead>
                 <tr>
-                  <th>Produkt by categoryId</th>
+                  <th>Výrobky podle kategorie</th>
                   <th style="text-align: right">Množství</th>
                 </tr>
               </thead>
@@ -1034,55 +1034,29 @@ export function OrdersTable({
                       </Badge>
                       <Badge variant="secondary" className="text-red-800">
                         {crateSums.crateBigReceived}
-                        <Container size={20} className="mx-1" /> ↑
+                        <Container size={20} className="mx-1" /> ↓
                       </Badge>
                     </div>
 
                     <div className="flex gap-2">
-                      <Select
-                        onValueChange={(value) => {
-                          const selectedOrders =
-                            table.getFilteredSelectedRowModel().rows.length > 0
-                              ? table
-                                  .getFilteredSelectedRowModel()
-                                  .rows.map(
-                                    (row: { original: Order }) => row.original
-                                  )
-                              : filteredPeriodOrders;
-
-                          switch (value) {
-                            case "summary":
-                              window.print();
-                              break;
-                            case "production":
-                              printOrderTotalsByDate(selectedOrders);
-                              break;
-                            case "orders":
-                              printOrderTotals(selectedOrders);
-                              break;
-                            case "products":
-                              printProductSummary(selectedOrders);
-                              break;
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="w-[180px] print:hidden">
-                          <Printer className="mr-2 h-4 w-4" />
-                          <SelectValue placeholder="Tisk..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="summary">Tisk souhrnu</SelectItem>
-                          <SelectItem value="production">
-                            Tisk výroby
-                          </SelectItem>
-                          <SelectItem value="orders">
-                            Tisk objednávek
-                          </SelectItem>
-                          <SelectItem value="products">
-                            Tisk produktů
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                      {/* <div className="flex items-center gap-2 mr-4">
+                        <Badge variant="outline" className="text-yellow-700">
+                          {crateSums.crateSmall}
+                          <Container size={16} className="mx-1" /> ↑
+                        </Badge>
+                        <Badge variant="outline" className="text-red-800">
+                          {crateSums.crateBig}
+                          <Container size={20} className="mx-1" /> ↑
+                        </Badge>
+                        <Badge variant="secondary" className="text-yellow-700">
+                          {crateSums.crateSmallReceived}
+                          <Container size={16} className="mx-1" /> ↓
+                        </Badge>
+                        <Badge variant="secondary" className="text-red-800">
+                          {crateSums.crateBigReceived}
+                          <Container size={20} className="mx-1" /> ↓
+                        </Badge>
+                      </div> */}
 
                       <Button
                         variant="outline"
@@ -1096,72 +1070,96 @@ export function OrdersTable({
                                     (row: { original: Order }) => row.original
                                   )
                               : filteredPeriodOrders;
-                          const printWindow = window.open("", "_blank");
-                          if (printWindow) {
-                            printWindow.document.write(`
-                              <html>
-                                <head>
-                                  <title>Přehled objednávek</title>
-                                  <style>
-                                    body { font-family: Arial, sans-serif; }
-                                    table { width: 100%; border-collapse: collapse; }
-                                    th, td { padding: 8px; }
-                                    .border-b { border-bottom: 1px solid #ddd; }
-                                  </style>
-                                </head>
-                                <body>
-                                  ${ReactDOMServer.renderToString(
-                                    <OrdersTableSummary orders={orders} />
-                                  )}
-                                </body>
-                              </html>
-                            `);
-                            printWindow.document.close();
-                            printWindow.print();
-                          }
+                          printOrderTotalsByDate(orders);
                         }}
                       >
                         <FileText className="h-4 w-4 mr-2" />
-                        Tisk přehledu
+                        Tisk výroby
                       </Button>
 
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const orders =
-                            table.getFilteredSelectedRowModel().rows.length > 0
-                              ? table
-                                  .getFilteredSelectedRowModel()
-                                  .rows.map(
-                                    (row: { original: Order }) => row.original
-                                  )
-                              : filteredPeriodOrders;
-                          printOrderTotals(orders);
-                        }}
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        Tisk objednávek
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const orders =
+                              table.getFilteredSelectedRowModel().rows.length >
+                              0
+                                ? table
+                                    .getFilteredSelectedRowModel()
+                                    .rows.map(
+                                      (row: { original: Order }) => row.original
+                                    )
+                                : filteredPeriodOrders;
+                            const printWindow = window.open("", "_blank");
+                            if (printWindow) {
+                              printWindow.document.write(`
+                                <html>
+                                  <head>
+                                    <title>Přehled objednávek</title>
+                                    <style>
+                                      body { font-family: Arial, sans-serif; }
+                                      table { width: 100%; border-collapse: collapse; }
+                                      th, td { padding: 8px; }
+                                      .border-b { border-bottom: 1px solid #ddd; }
+                                    </style>
+                                  </head>
+                                  <body>
+                                    ${ReactDOMServer.renderToString(
+                                      <OrdersTableSummary orders={orders} />
+                                    )}
+                                  </body>
+                                </html>
+                              `);
+                              printWindow.document.close();
+                              printWindow.print();
+                            }
+                          }}
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Tisk přehledu
+                        </Button>
 
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const orders =
-                            table.getFilteredSelectedRowModel().rows.length > 0
-                              ? table
-                                  .getFilteredSelectedRowModel()
-                                  .rows.map(
-                                    (row: { original: Order }) => row.original
-                                  )
-                              : filteredPeriodOrders;
-                          printProductSummary(orders);
-                        }}
-                      >
-                        <Printer className="h-4 w-4 mr-2" />
-                        Tisk produktů
-                      </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const orders =
+                              table.getFilteredSelectedRowModel().rows.length >
+                              0
+                                ? table
+                                    .getFilteredSelectedRowModel()
+                                    .rows.map(
+                                      (row: { original: Order }) => row.original
+                                    )
+                                : filteredPeriodOrders;
+                            printOrderTotals(orders);
+                          }}
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Tisk objednávek
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const orders =
+                              table.getFilteredSelectedRowModel().rows.length >
+                              0
+                                ? table
+                                    .getFilteredSelectedRowModel()
+                                    .rows.map(
+                                      (row: { original: Order }) => row.original
+                                    )
+                                : filteredPeriodOrders;
+                            printProductSummary(orders);
+                          }}
+                        >
+                          <Printer className="h-4 w-4 mr-2" />
+                          Tisk produktů
+                        </Button>
+                      </div>
                     </div>
                   </div>
 

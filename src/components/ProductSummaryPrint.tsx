@@ -28,10 +28,8 @@ export const ProductSummaryPrint = forwardRef<
   );
 
   return (
-    <div ref={ref} className="p-8">
-      <h2 className="text-xl font-bold mb-4">
-        Souhrn produktů - {new Date().toLocaleDateString()}
-      </h2>
+    <div ref={ref} style={{ fontSize: "10px", margin: "0 10px" }}>
+      <h2 className="text-xl font-bold mb-4">Souhrn výrobků A-Z</h2>
       <table className="w-[60%] mb-4">
         <thead>
           <tr className="border-b">
@@ -45,8 +43,12 @@ export const ProductSummaryPrint = forwardRef<
             .sort((a, b) => a.name.localeCompare(b.name))
             .map((item, index) => (
               <tr key={index} className="border-b">
-                <td className="py-2">{item.name}</td>
-                <td className="text-right py-2">{item.quantity}</td>
+                <td style={{ fontSize: "10px" }} className="py-2">
+                  {item.name}
+                </td>
+                <td style={{ fontSize: "12px" }} className="text-right py-2">
+                  {item.quantity}
+                </td>
               </tr>
             ))}
         </tbody>

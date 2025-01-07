@@ -3,7 +3,7 @@ import { Order } from "types";
 
 export const OrderPrint = ({ orders }: { orders: Order[] }) => {
   return (
-    <div className="p-8">
+    <div style={{ margin: "0 10px", fontSize: "12px" }}>
       {orders.map((order) => (
         <div
           key={order.id}
@@ -45,7 +45,10 @@ export const OrderPrint = ({ orders }: { orders: Order[] }) => {
               </div>
             </div>
 
-            <table className="w-full mb-4">
+            <table
+              className="w-full mb-4"
+              style={{ textAlign: "left", fontSize: "10px" }}
+            >
               <thead>
                 <tr>
                   <th className="text-left border-b">Kód</th>
@@ -130,7 +133,7 @@ export const OrderPrint = ({ orders }: { orders: Order[] }) => {
                 </>
               )}
             </div>
-            <div style={{ display: "flex" }}>
+            <div style={{ display: "flex", fontSize: "12px" }}>
               <div
                 style={{
                   flex: "1 1 0%",

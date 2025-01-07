@@ -47,12 +47,12 @@ export function Navbar() {
                     <Link to="/expedition" className="hover:text-gray-300">
                       Expedice
                     </Link>
-                    {/* <Link
+                    <Link
                       to="/expedition/create"
                       className="hover:text-gray-300"
                     >
                       <ShoppingCart />
-                    </Link> */}
+                    </Link>
                   </>
                 )}
 
