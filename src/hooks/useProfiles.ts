@@ -110,16 +110,15 @@ export const updateProfile = () => {
       full_name,
       address,
       ico,
-      mo_partners,
-      oz,
+      
 
     }: {
       id: string;
       full_name?: string;
       address?: string;
       ico?: string;
-      mo_partners?: string;
-      oz?: string;
+
+
 
     }) => {
       const { error } = await supabase
@@ -128,8 +127,8 @@ export const updateProfile = () => {
           ...(full_name && { full_name }),
           ...(address && { address }),
           ...(ico && { ico }),
-          ...(mo_partners && { mo_partners }),
-          ...(oz && { oz }),
+
+
 
         })
         .eq("id", id);
@@ -228,6 +227,38 @@ export const updateActive = () => {
       const { error } = await supabase
         .from("profiles")
         .update({ active })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+};
+
+export const updateOZ = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, oz }: { id: string; oz: boolean }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ oz })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+};
+
+export const updateMoPartners = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, mo_partners }: { id: string; mo_partners: boolean }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ mo_partners })
         .eq("id", id);
       if (error) throw error;
     },

@@ -1,4 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../lib/supabase";
 
 import {
@@ -7,16 +6,9 @@ import {
   TableCell,
   TableHead,
   TableHeader,
-  TableRow,
 } from "@/components/ui/table";
 
-import { useState, useMemo, useCallback, memo } from "react";
-import {
-  createColumnHelper,
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+import { useState, useMemo, memo, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -35,11 +27,12 @@ import {
   deleteUser,
   updateCrateBig,
   updateCrateSmall,
-  updateNote,
-  updatePhone,
+  // updateNote,
+  // updatePhone,
+  updateOZ,
+  updateMoPartners,
 } from "@/hooks/useProfiles";
 
-// import { useUsers } from "@/hooks/useProfiles";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2 } from "lucide-react";
 import {
@@ -54,35 +47,49 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+// import { useToast } from "@/hooks/use-toast";
+import { useVirtualizer } from "@tanstack/react-virtual";
+// import { ChevronRight, ChevronDown } from "lucide-react";
+// import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useDebounce } from "@/hooks/useDebounce";
 
 // 1. Memoize cell components more efficiently
-const EditableCell = memo(({ row, getValue, fieldName }: any) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [value, setLocalValue] = useState(getValue() || "");
-  const updateProfileMutation = updateProfile();
+const EditableCell = memo(
+  ({
+    user,
+    getValue,
+    fieldName,
+  }: {
+    user: any;
+    getValue: () => string;
+    fieldName: string;
+  }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [value, setLocalValue] = useState(getValue() || "");
+    const updateProfileMutation = updateProfile();
 
-  const onBlur = useCallback(() => {
-    setIsEditing(false);
-    if (value !== (getValue() || "")) {
-      updateProfileMutation.mutate({
-        id: row.original.id,
-        [fieldName]: value,
-      });
-    }
-  }, [value, getValue, row.original.id, fieldName, updateProfileMutation]);
+    const onBlur = () => {
+      setIsEditing(false);
+      if (value !== (getValue() || "")) {
+        updateProfileMutation.mutate({
+          id: user.id,
+          [fieldName]: value,
+        });
+      }
+    };
 
-  return isEditing ? (
-    <Input
-      value={value}
-      onChange={(e) => setLocalValue(e.target.value)}
-      onBlur={onBlur}
-      autoFocus
-    />
-  ) : (
-    <div onDoubleClick={() => setIsEditing(true)}>{getValue() || "—"}</div>
-  );
-});
+    return isEditing ? (
+      <Input
+        value={value}
+        onChange={(e) => setLocalValue(e.target.value)}
+        onBlur={onBlur}
+        autoFocus
+      />
+    ) : (
+      <div onDoubleClick={() => setIsEditing(true)}>{getValue() || "—"}</div>
+    );
+  }
+);
 
 // 2. Memoize filters
 interface FilterSectionProps {
@@ -167,26 +174,30 @@ const FilterSection = memo(
 
 const CrateCell = memo(
   ({
-    row,
+    user,
     getValue,
     fieldName,
-    updateCrateBigMutation,
-    updateCrateSmallMutation,
-  }: any) => {
+  }: {
+    user: any;
+    getValue: () => number;
+    fieldName: string;
+  }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [value, setValue] = useState(getValue());
+    const updateCrateBigMutation = updateCrateBig();
+    const updateCrateSmallMutation = updateCrateSmall();
 
     const onBlur = () => {
       setIsEditing(false);
       if (value !== getValue()) {
         if (fieldName === "crateBig") {
           updateCrateBigMutation.mutate({
-            id: row.original.id,
+            id: user.id,
             crateBig: value || 0,
           });
         } else {
           updateCrateSmallMutation.mutate({
-            id: row.original.id,
+            id: user.id,
             crateSmall: value || 0,
           });
         }
@@ -210,41 +221,29 @@ const CrateCell = memo(
 
 export function AdminTable() {
   const user = useAuthStore((state) => state.user);
-  const queryClient = useQueryClient();
   const { data: users } = useUsers();
-  const { toast } = useToast();
+  // const { toast } = useToast();
 
-  const updateProfileMutation = updateProfile();
-  const updateRoleMutation = updateRole();
-  const updatePaidByMutation = updatePaidBy();
+  // Move mutation hooks inside component
+  const updateOZMutation = updateOZ();
+  const updateMoPartnersMutation = updateMoPartners();
   const updateActiveMutation = updateActive();
+  const updatePaidByMutation = updatePaidBy();
+  const updateRoleMutation = updateRole();
   const deleteUserMutation = deleteUser();
-  const updateCrateBigMutation = updateCrateBig();
-  const updateCrateSmallMutation = updateCrateSmall();
-
-  const columnHelper = createColumnHelper<any>();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebounce(searchQuery, 300);
   const [roleFilter, setRoleFilter] = useState("all");
   const [paidByFilter, setPaidByFilter] = useState("all");
   const [activeFilter, setActiveFilter] = useState("all");
 
-  // 3. Optimize filtering logic
-  const getFilteredUsers = useCallback(
-    (
-      users: any[],
-      filters: {
-        search: string;
-        role: string;
-        paidBy: string;
-        active: string;
-      }
-    ) => {
-      if (!users) return [];
-
-      return users.filter((user: any) => {
-        if (filters.search) {
-          const searchTerm = filters.search.toLowerCase();
+  // Filter users without react-table
+  const filteredUsers = useMemo(
+    () =>
+      (users ?? []).filter((user: any) => {
+        if (debouncedSearch) {
+          const searchTerm = debouncedSearch.toLowerCase();
           const matchesSearch = [
             user.full_name,
             user.ico,
@@ -256,397 +255,30 @@ export function AdminTable() {
           if (!matchesSearch) return false;
         }
 
-        if (filters.role !== "all" && user.role !== filters.role) return false;
-        if (filters.paidBy !== "all" && user.paid_by !== filters.paidBy)
+        if (roleFilter !== "all" && user.role !== roleFilter) return false;
+        if (paidByFilter !== "all" && user.paid_by !== paidByFilter)
           return false;
-        if (filters.active !== "all") {
-          const isActive = filters.active === "true";
+        if (activeFilter !== "all") {
+          const isActive = activeFilter === "true";
           if (user.active !== isActive) return false;
         }
 
         return true;
-      });
-    },
-    []
+      }),
+    [users, debouncedSearch, roleFilter, paidByFilter, activeFilter]
   );
 
-  // 4. Use the optimized filtering
-  const filteredUsers = useMemo(
-    () =>
-      getFilteredUsers(users ?? [], {
-        search: searchQuery,
-        role: roleFilter,
-        paidBy: paidByFilter,
-        active: activeFilter,
-      }),
-    [
-      users,
-      searchQuery,
-      roleFilter,
-      paidByFilter,
-      activeFilter,
-      getFilteredUsers,
-    ]
-  );
-
-  // 5. Memoize columns configuration
-  const columns = useMemo(
-    () => [
-      columnHelper.accessor("full_name", {
-        header: "Name",
-        cell: (props) => <EditableCell {...props} fieldName="full_name" />,
-      }),
-      columnHelper.accessor("ico", {
-        header: "IČO",
-        cell: (props) => <EditableCell {...props} fieldName="ico" />,
-      }),
-      columnHelper.accessor("email", {
-        header: "Email",
-        cell: (info) => info.getValue(),
-      }),
-      columnHelper.accessor("phone", {
-        header: "Phone",
-        cell: ({ row, getValue }) => {
-          const [isEditing, setIsEditing] = useState(false);
-          const [value, setLocalValue] = useState(getValue() || "");
-          const updatePhoneMutation = updatePhone();
-
-          const onBlur = async () => {
-            setIsEditing(false);
-            if (value !== (getValue() || "")) {
-              try {
-                await updatePhoneMutation.mutateAsync({
-                  id: row.original.id,
-                  phone: value,
-                });
-              } catch (error) {
-                console.error("Error updating phone:", error);
-                toast({
-                  title: "Error",
-                  description: "Failed to update phone number",
-                  variant: "destructive",
-                });
-              }
-            }
-          };
-
-          return isEditing ? (
-            <Input
-              value={value}
-              onChange={(e) => setLocalValue(e.target.value)}
-              onBlur={onBlur}
-              autoFocus
-            />
-          ) : (
-            <div onDoubleClick={() => setIsEditing(true)}>
-              {getValue() || "—"}
-            </div>
-          );
-        },
-      }),
-      columnHelper.accessor("note", {
-        header: "Note",
-        cell: ({ row, getValue }) => {
-          const [isEditing, setIsEditing] = useState(false);
-          const [value, setLocalValue] = useState(getValue() || "");
-          const updateNoteMutation = updateNote();
-
-          const onBlur = () => {
-            setIsEditing(false);
-            if (value !== (getValue() || "")) {
-              updateNoteMutation.mutate({
-                id: row.original.id,
-                note: value,
-              });
-            }
-          };
-
-          return isEditing ? (
-            <Input
-              value={value}
-              onChange={(e) => setLocalValue(e.target.value)}
-              onBlur={onBlur}
-              autoFocus
-            />
-          ) : (
-            <div onDoubleClick={() => setIsEditing(true)}>
-              {getValue() || "—"}
-            </div>
-          );
-        },
-      }),
-      columnHelper.accessor("address", {
-        header: "Address",
-        cell: (props) => <EditableCell {...props} fieldName="address" />,
-      }),
-      columnHelper.accessor("crateBig", {
-        header: "Crates Big",
-        cell: (props) => (
-          <CrateCell
-            {...props}
-            fieldName="crateBig"
-            updateCrateBigMutation={updateCrateBigMutation}
-            updateCrateSmallMutation={updateCrateSmallMutation}
-          />
-        ),
-      }),
-
-      columnHelper.accessor("crateSmall", {
-        header: "Crates Small",
-        cell: ({ row, getValue }) => {
-          const [isEditing, setIsEditing] = useState(false);
-          const [value, setValue] = useState(getValue());
-
-          const onBlur = () => {
-            setIsEditing(false);
-            if (value !== getValue()) {
-              updateCrateSmallMutation.mutate({
-                id: row.original.id,
-                crateSmall: value || 0,
-              });
-            }
-          };
-
-          return isEditing ? (
-            <Input
-              type="number"
-              min="0"
-              value={value}
-              onChange={(e) => setValue(Number(e.target.value))}
-              onBlur={onBlur}
-              autoFocus
-            />
-          ) : (
-            <div onDoubleClick={() => setIsEditing(true)}>
-              {getValue() ?? 0}
-            </div>
-          );
-        },
-      }),
-      columnHelper.accessor("paid_by", {
-        header: "Typ platby",
-        cell: ({ row, getValue }) => (
-          <Select
-            value={getValue()}
-            onValueChange={(newValue: string) => {
-              updatePaidByMutation.mutate({
-                id: row.original.id,
-                paid_by: newValue,
-              });
-            }}
-          >
-            <SelectTrigger className="w-[130px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {["Hotově", "Příkazem", "-"].map((type) => (
-                <SelectItem key={type} value={type}>
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ),
-      }),
-      columnHelper.accessor("role", {
-        header: "Role",
-        cell: ({ row, getValue }) => (
-          <Select
-            value={getValue()}
-            onValueChange={(newValue: UserRole) => {
-              updateRoleMutation.mutate({
-                id: row.original.id,
-                role: newValue,
-              });
-            }}
-          >
-            <SelectTrigger className="w-[130px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {["user", "buyer", "driver", "store", "mobil", "expedition"].map(
-                (role) => (
-                  <SelectItem key={role} value={role}>
-                    {role.charAt(0).toUpperCase() + role.slice(1)}
-                  </SelectItem>
-                )
-              )}
-            </SelectContent>
-          </Select>
-        ),
-      }),
-      columnHelper.accessor("oz", {
-        header: "Obch.zást.",
-        cell: ({ row, getValue }) => {
-          const handleChange = useMemo(
-            () => async (checked: boolean) => {
-              await Promise.all([
-                queryClient.setQueryData(["users"], (oldData: any) =>
-                  oldData.map((user: any) =>
-                    user.id === row.original.id
-                      ? { ...user, oz: checked ? "true" : "false" }
-                      : user
-                  )
-                ),
-                updateProfileMutation.mutate({
-                  id: row.original.id,
-                  oz: checked ? "true" : "false",
-                }),
-              ]);
-            },
-            [row.original.id]
-          );
-
-          return (
-            <Checkbox
-              checked={!!getValue()}
-              onCheckedChange={handleChange}
-              className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
-            />
-          );
-        },
-      }),
-      columnHelper.accessor("mo_partners", {
-        header: "MoPartners",
-        cell: ({ row, getValue }) => {
-          const handleChange = useMemo(
-            () => async (checked: boolean) => {
-              await Promise.all([
-                queryClient.setQueryData(["users"], (oldData: any) =>
-                  oldData.map((user: any) =>
-                    user.id === row.original.id
-                      ? { ...user, mo_partners: checked ? "true" : "false" }
-                      : user
-                  )
-                ),
-                updateProfileMutation.mutate({
-                  id: row.original.id,
-                  mo_partners: checked ? "true" : "false",
-                }),
-              ]);
-            },
-            [row.original.id]
-          );
-
-          return (
-            <Checkbox
-              checked={!!getValue()}
-              onCheckedChange={handleChange}
-              className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
-            />
-          );
-        },
-      }),
-      columnHelper.accessor("active", {
-        header: "Active",
-        cell: ({ row, getValue }) => {
-          const handleChange = useMemo(
-            () => async (checked: boolean) => {
-              await Promise.all([
-                queryClient.setQueryData(["users"], (oldData: any) =>
-                  oldData.map((user: any) =>
-                    user.id === row.original.id
-                      ? { ...user, active: checked }
-                      : user
-                  )
-                ),
-                updateActiveMutation.mutate({
-                  id: row.original.id,
-                  active: checked,
-                }),
-              ]);
-            },
-            [row.original.id]
-          );
-
-          return (
-            <Checkbox
-              checked={getValue()}
-              onCheckedChange={handleChange}
-              className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
-            />
-          );
-        },
-      }),
-      columnHelper.accessor("actions", {
-        header: "Actions",
-        cell: ({ row }) => {
-          const isAdmin = row.original.role === "admin";
-          const handleDelete = async () => {
-            try {
-              // console.log("Attempting to delete user:", row.original.id);
-              await deleteUserMutation.mutateAsync({ id: row.original.id });
-              // console.log("Delete mutation completed");
-              toast({
-                title: "Success",
-                description: "User deleted successfully",
-              });
-            } catch (error) {
-              // console.error("Failed to delete user:", error);
-              toast({
-                title: "Error",
-                description: "Failed to delete user",
-                variant: "destructive",
-              });
-            }
-          };
-
-          return (
-            <div className="flex justify-end">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                    disabled={isAdmin}
-                    title={
-                      isAdmin ? "Cannot delete admin users" : "Delete user"
-                    }
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      Are you sure you want to delete this user?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This action cannot be undone. This will permanently delete
-                      the user's account and all associated data.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleDelete}
-                      className="bg-red-600 hover:bg-red-700"
-                    >
-                      Delete
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          );
-        },
-      }),
-    ],
-    [columnHelper, updateProfileMutation]
-  );
-
-  // 6. Memoize table instance with virtualization
-  const table = useReactTable({
-    data: filteredUsers,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    initialState: {
-      pagination: {
-        pageSize: 300, // Limit initial render size
-      },
-    },
+  // Set up virtualizer
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: filteredUsers.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 35,
+    overscan: 5,
   });
+
+  const gridClassName =
+    "grid grid-cols-[200px_80px_190px_85px_80px_150px_60px_60px_100px_100px_60px_60px_60px_60px] gap-2 py-2 px-4 items-center border-b";
 
   if (user?.role !== "admin") {
     return <div>Access denied. Admin only.</div>;
@@ -666,38 +298,224 @@ export function AdminTable() {
       />
 
       <div className="border rounded-md">
-        <div className="max-h-[800px] overflow-auto">
+        <div ref={parentRef} className="max-h-[800px] overflow-auto">
           <Table>
             <TableHeader className="sticky top-0 bg-background z-10">
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id}>
-                      {flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
+              <div className={gridClassName}>
+                <TableHead>Name</TableHead>
+                <TableHead>IČO</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Note</TableHead>
+                <TableHead>Address</TableHead>
+                <TableHead>Crates Big</TableHead>
+                <TableHead>Crates Small</TableHead>
+                <TableHead>Typ platby</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>OZ</TableHead>
+                <TableHead>MO_P</TableHead>
+                <TableHead>Active</TableHead>
+                <TableHead>Actions</TableHead>
+              </div>
             </TableHeader>
             <TableBody>
-              {table
-                .getRowModel()
-                .rows.slice(0, 400)
-                .map((row) => (
-                  <TableRow key={row.id}>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
+              <div
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  width: "100%",
+                  position: "relative",
+                }}
+              >
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const user = filteredUsers[virtualRow.index];
+                  return (
+                    <div
+                      key={user.id}
+                      data-index={virtualRow.index}
+                      ref={rowVirtualizer.measureElement}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                      className={gridClassName}
+                    >
+                      <TableCell>
+                        <EditableCell
+                          user={user}
+                          getValue={() => user.full_name}
+                          fieldName="full_name"
+                        />
                       </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
+                      <TableCell>
+                        <EditableCell
+                          user={user}
+                          getValue={() => user.ico}
+                          fieldName="ico"
+                        />
+                      </TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        <EditableCell
+                          user={user}
+                          getValue={() => user.phone}
+                          fieldName="phone"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <EditableCell
+                          user={user}
+                          getValue={() => user.note}
+                          fieldName="note"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <EditableCell
+                          user={user}
+                          getValue={() => user.address}
+                          fieldName="address"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <CrateCell
+                          user={user}
+                          getValue={() => user.crateBig}
+                          fieldName="crateBig"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <CrateCell
+                          user={user}
+                          getValue={() => user.crateSmall}
+                          fieldName="crateSmall"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={user.paid_by}
+                          onValueChange={(newValue: string) => {
+                            updatePaidByMutation.mutate({
+                              id: user.id,
+                              paid_by: newValue,
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="w-[100px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {["Hotově", "Příkazem", "-"].map((type) => (
+                              <SelectItem key={type} value={type}>
+                                {type}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={user.role}
+                          onValueChange={(newValue: UserRole) => {
+                            updateRoleMutation.mutate({
+                              id: user.id,
+                              role: newValue,
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="w-[100px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[
+                              "user",
+                              "buyer",
+                              "driver",
+                              "store",
+                              "mobil",
+                              "expedition",
+                            ].map((role) => (
+                              <SelectItem key={role} value={role}>
+                                {role.charAt(0).toUpperCase() + role.slice(1)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Checkbox
+                          checked={user.oz}
+                          onCheckedChange={(checked) => {
+                            updateOZMutation.mutate({
+                              id: user.id,
+                              oz: checked as boolean,
+                            });
+                          }}
+                          className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Checkbox
+                          checked={user.mo_partners}
+                          onCheckedChange={(checked) => {
+                            updateMoPartnersMutation.mutate({
+                              id: user.id,
+                              mo_partners: checked as boolean,
+                            });
+                          }}
+                          className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Checkbox
+                          checked={user.active}
+                          onCheckedChange={(checked) => {
+                            updateActiveMutation.mutate({
+                              id: user.id,
+                              active: checked as boolean,
+                            });
+                          }}
+                          className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="hover:text-destructive"
+                              disabled={user.role === "admin"}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() =>
+                                  deleteUserMutation.mutate({ id: user.id })
+                                }
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </TableCell>
+                    </div>
+                  );
+                })}
+              </div>
             </TableBody>
           </Table>
         </div>
