@@ -223,7 +223,7 @@ export type Database = {
           date: string
           driver_id: string | null
           id: number
-          note: string | null
+          note: string
           paid_by: Database["public"]["Enums"]["paidByType"] | null
           status: string
           total: number
@@ -238,7 +238,7 @@ export type Database = {
           date: string
           driver_id?: string | null
           id?: number
-          note?: string | null
+          note?: string
           paid_by?: Database["public"]["Enums"]["paidByType"] | null
           status?: string
           total?: number
@@ -253,7 +253,7 @@ export type Database = {
           date?: string
           driver_id?: string | null
           id?: number
-          note?: string | null
+          note?: string
           paid_by?: Database["public"]["Enums"]["paidByType"] | null
           status?: string
           total?: number
@@ -432,6 +432,7 @@ export type Database = {
           id: string
           mo_partners: boolean | null
           note: string | null
+          oz: boolean
           paid_by: Database["public"]["Enums"]["paidByType"] | null
           phone: string | null
           role: Database["public"]["Enums"]["groupUser"]
@@ -452,6 +453,7 @@ export type Database = {
           id: string
           mo_partners?: boolean | null
           note?: string | null
+          oz?: boolean
           paid_by?: Database["public"]["Enums"]["paidByType"] | null
           phone?: string | null
           role?: Database["public"]["Enums"]["groupUser"]
@@ -472,6 +474,7 @@ export type Database = {
           id?: string
           mo_partners?: boolean | null
           note?: string | null
+          oz?: boolean
           paid_by?: Database["public"]["Enums"]["paidByType"] | null
           phone?: string | null
           role?: Database["public"]["Enums"]["groupUser"]
@@ -707,7 +710,7 @@ export type Database = {
         | "store"
         | "mobil"
         | "buyer"
-      paidByType: "Hotov─Ť" | "Kartou" | "P┼Ö├şkazem"
+      paidByType: "Hotov─Ť" | "Kartou" | "P┼Ö├şkazem" | "-"
     }
     CompositeTypes: {
       [_ in never]: never

@@ -143,7 +143,7 @@ const FilterSection = memo(
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All payments</SelectItem>
-          {["Hotově", "Příkazem"].map((type) => (
+          {["Hotově", "Příkazem", "-"].map((type) => (
             <SelectItem key={type} value={type}>
               {type}
             </SelectItem>
@@ -439,7 +439,7 @@ export function AdminTable() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {["Hotově", "Příkazem"].map((type) => (
+              {["Hotově", "Příkazem", "-"].map((type) => (
                 <SelectItem key={type} value={type}>
                   {type.charAt(0).toUpperCase() + type.slice(1)}
                 </SelectItem>
@@ -474,6 +474,37 @@ export function AdminTable() {
             </SelectContent>
           </Select>
         ),
+      }),
+      columnHelper.accessor("oz", {
+        header: "Obch.zást.",
+        cell: ({ row, getValue }) => {
+          const handleChange = useMemo(
+            () => async (checked: boolean) => {
+              await Promise.all([
+                queryClient.setQueryData(["users"], (oldData: any) =>
+                  oldData.map((user: any) =>
+                    user.id === row.original.id
+                      ? { ...user, oz: checked ? "true" : "false" }
+                      : user
+                  )
+                ),
+                updateProfileMutation.mutate({
+                  id: row.original.id,
+                  oz: checked ? "true" : "false",
+                }),
+              ]);
+            },
+            [row.original.id]
+          );
+
+          return (
+            <Checkbox
+              checked={!!getValue()}
+              onCheckedChange={handleChange}
+              className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
+            />
+          );
+        },
       }),
       columnHelper.accessor("mo_partners", {
         header: "MoPartners",

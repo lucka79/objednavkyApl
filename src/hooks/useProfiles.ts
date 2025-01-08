@@ -111,6 +111,7 @@ export const updateProfile = () => {
       address,
       ico,
       mo_partners,
+      oz,
 
     }: {
       id: string;
@@ -118,6 +119,7 @@ export const updateProfile = () => {
       address?: string;
       ico?: string;
       mo_partners?: string;
+      oz?: string;
 
     }) => {
       const { error } = await supabase
@@ -127,6 +129,7 @@ export const updateProfile = () => {
           ...(address && { address }),
           ...(ico && { ico }),
           ...(mo_partners && { mo_partners }),
+          ...(oz && { oz }),
 
         })
         .eq("id", id);

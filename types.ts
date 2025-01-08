@@ -56,7 +56,7 @@ export type Product = {
   
   export type OrderStatus = 'Pre-order' | 'New' | 'Expedice R' | 'Expedice O' | 'Přeprava' | 'Paid';
 
-  export type PaidBy = 'Hotově' | 'Karta' | 'Příkazem';
+  export type PaidBy = 'Hotově' | 'Karta' | 'Příkazem' | '-';
 
   // export type Day = "Po" | "Út" | "St" | "Čt" | "Pá" | "So" | "Ne";
   export type UserRole = 'buyer' | 'driver' | 'user' | 'store' | 'mobil' | 'expedition' | 'admin';
@@ -128,6 +128,7 @@ export type Product = {
     paid_by: PaidBy;
     note?: string;
     address?: string; 
+    oz: boolean;
   };
 
   
