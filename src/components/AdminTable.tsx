@@ -643,7 +643,7 @@ export function AdminTable() {
     getCoreRowModel: getCoreRowModel(),
     initialState: {
       pagination: {
-        pageSize: 50, // Limit initial render size
+        pageSize: 300, // Limit initial render size
       },
     },
   });
@@ -685,7 +685,7 @@ export function AdminTable() {
             <TableBody>
               {table
                 .getRowModel()
-                .rows.slice(0, 50)
+                .rows.slice(0, 400)
                 .map((row) => (
                   <TableRow key={row.id}>
                     {row.getVisibleCells().map((cell) => (

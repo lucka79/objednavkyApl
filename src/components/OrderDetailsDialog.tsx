@@ -209,7 +209,11 @@ export function OrderDetailsDialog() {
                       onBlur={(e) => {
                         saveNote(order.id, e.target.value);
                       }}
-                      className="border rounded px-2 py-1 text-sm w-60 text-right"
+                      className={`border rounded px-2 py-1 text-sm w-60 text-right ${
+                        localNote || order.note !== "-"
+                          ? "border-orange-500"
+                          : ""
+                      }`}
                       placeholder="Přidat poznámku..."
                     />
                     {(localNote || order.note !== "-") && (
