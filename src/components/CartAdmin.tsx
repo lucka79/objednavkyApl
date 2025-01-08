@@ -77,7 +77,7 @@ export default function CartAdmin() {
   }, [subsrciberUsers, searchQuery]);
 
   useEffect(() => {
-    if (user && user.role !== "admin" && user?.role !== "expedition") {
+    if (user && user.role !== "admin") {
       setSelectedUserId(user.id);
     }
   }, [user]);
@@ -86,7 +86,7 @@ export default function CartAdmin() {
     if (selectedUser?.role === "store") {
       return item.product.priceBuyer;
     }
-    if (selectedUser?.role === "mobil") {
+    if (selectedUser?.role === "mobil" || selectedUser?.role === "driver") {
       return item.product.priceMobil;
     }
     return item.product.price;
@@ -111,7 +111,7 @@ export default function CartAdmin() {
       <CardHeader>
         <div className="flex flex-col gap-2">
           <CardTitle className="flex flex-row justify-between gap-2">
-            {user?.role === "admin" || user?.role === "expedition" ? (
+            {(user?.role === "admin" || user?.role === "expedition") && (
               <Select
                 onValueChange={setSelectedUserId}
                 value={selectedUserId}
@@ -132,23 +132,30 @@ export default function CartAdmin() {
                     <div className="px-2 py-2 text-sm text-muted-foreground">
                       Načítání...
                     </div>
-                  ) : filteredUsers.length > 0 ? (
-                    filteredUsers.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.full_name || "Unnamed User"}
-                        {", "}
-                        {user.phone}
-                      </SelectItem>
-                    ))
                   ) : (
-                    <div className="px-2 py-2 text-sm text-muted-foreground">
-                      Uživatel nenalezen
-                    </div>
+                    filteredUsers
+                      .filter((user) => {
+                        const currentUser = useAuthStore.getState().user;
+                        if (currentUser?.role === "admin") {
+                          return (
+                            user.role !== "admin" || user.id === currentUser.id
+                          );
+                        }
+                        if (currentUser?.role === "expedition") {
+                          return user.role === "driver";
+                        }
+                        return user.id === currentUser?.id;
+                      })
+                      .map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.full_name || "Unnamed User"}
+                          {", "}
+                          {user.phone}
+                        </SelectItem>
+                      ))
                   )}
                 </SelectContent>
               </Select>
-            ) : (
-              <div className="w-[200px]">{user?.full_name}</div>
             )}
             <Button
               variant="outline"

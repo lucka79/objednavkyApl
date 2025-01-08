@@ -90,7 +90,14 @@ ProductPrintWrapper.displayName = "ProductPrintWrapper";
 
 const filterOrdersByDate = (
   orders: Order[],
-  period: "today" | "tomorrow" | "week" | "month" | "lastMonth" | "nextWeek",
+  period:
+    | "today"
+    | "tomorrow"
+    | "afterTomorrow"
+    | "week"
+    | "month"
+    | "lastMonth"
+    | "nextWeek",
   selectedDate?: Date
 ) => {
   if (selectedDate) {
@@ -110,6 +117,10 @@ const filterOrdersByDate = (
         const tomorrow = new Date(now);
         tomorrow.setDate(tomorrow.getDate() + 1);
         return orderDate.toDateString() === tomorrow.toDateString();
+      case "afterTomorrow":
+        const afterTomorrow = new Date(now);
+        afterTomorrow.setDate(afterTomorrow.getDate() + 2);
+        return orderDate.toDateString() === afterTomorrow.toDateString();
       case "week":
         const weekStart = new Date(now);
         weekStart.setDate(weekStart.getDate() - weekStart.getDay());
@@ -256,10 +267,18 @@ const columns: ColumnDef<Order>[] = [
   },
   {
     accessorKey: "total",
-    header: () => <div className="text-right">Celkem</div>,
-    cell: ({ row }) => (
-      <div className="text-right">{row.original.total.toFixed(2)} Kč</div>
-    ),
+    header: () => {
+      const user = useAuthStore((state) => state.user);
+      return user?.role === "admin" ? (
+        <div className="text-right">Celkem</div>
+      ) : null;
+    },
+    cell: ({ row }) => {
+      const user = useAuthStore((state) => state.user);
+      return user?.role === "admin" ? (
+        <div className="text-right">{row.original.total.toFixed(2)} Kč</div>
+      ) : null;
+    },
   },
   {
     accessorKey: "crateSmallReceived",
@@ -322,12 +341,14 @@ const columns: ColumnDef<Order>[] = [
           <Badge
             variant="outline"
             className={cn(
-              row.original.status === "Expedice" ||
+              row.original.status === "Expedice R" ||
                 row.original.status === "New"
                 ? "bg-orange-600 text-white"
-                : row.original.status === "Delivering"
-                  ? "bg-sky-600 text-white"
-                  : ""
+                : row.original.status === "Expedice O"
+                  ? "bg-orange-800 text-white"
+                  : row.original.status === "Přeprava"
+                    ? "bg-sky-600 text-white"
+                    : ""
             )}
           >
             {row.original.status}
@@ -577,6 +598,7 @@ export function OrdersTable({
   const [selectedPaidBy, setSelectedPaidBy] = useState<string>("all");
   const [selectedRole, setSelectedRole] = useState<string>("all");
   const [selectedDriver, setSelectedDriver] = useState<string>("all");
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const { data: driverUsers } = useDriverUsers();
   const [table, setTable] = useState<any>(null);
 
@@ -586,6 +608,12 @@ export function OrdersTable({
     const values = new Set(
       orders.map((order) => order.paid_by).filter(Boolean)
     );
+    return Array.from(values).sort();
+  }, [orders]);
+
+  const uniqueStatusValues = useMemo(() => {
+    if (!orders) return [];
+    const values = new Set(orders.map((order) => order.status).filter(Boolean));
     return Array.from(values).sort();
   }, [orders]);
 
@@ -619,6 +647,10 @@ export function OrdersTable({
       filtered = filtered.filter((order) => order.paid_by === selectedPaidBy);
     }
 
+    if (selectedStatus !== "all") {
+      filtered = filtered.filter((order) => order.status === selectedStatus);
+    }
+
     // Add role filtering
     if (selectedRole !== "all") {
       filtered = filtered.filter((order) => order.user?.role === selectedRole);
@@ -641,18 +673,33 @@ export function OrdersTable({
     selectedPaidBy,
     selectedRole,
     selectedDriver,
+    selectedStatus,
   ]);
 
   const getDateFilteredOrders = (
     orders: Order[],
-    period: "today" | "tomorrow" | "week" | "nextWeek" | "month" | "lastMonth"
+    period:
+      | "today"
+      | "tomorrow"
+      | "afterTomorrow"
+      | "week"
+      | "nextWeek"
+      | "month"
+      | "lastMonth"
   ) => {
     return filterOrdersByDate(orders || [], period);
   };
 
   const calculateTotalQuantityForPeriod = (
     productId: string,
-    period: "today" | "tomorrow" | "week" | "nextWeek" | "month" | "lastMonth"
+    period:
+      | "today"
+      | "tomorrow"
+      | "afterTomorrow"
+      | "week"
+      | "nextWeek"
+      | "month"
+      | "lastMonth"
   ) => {
     const dateFiltered = getDateFilteredOrders(orders || [], period);
     return dateFiltered.reduce((total, order) => {
@@ -877,6 +924,7 @@ export function OrdersTable({
                               activeTab as
                                 | "today"
                                 | "tomorrow"
+                                | "afterTomorrow"
                                 | "week"
                                 | "nextWeek"
                                 | "month"
@@ -891,6 +939,7 @@ export function OrdersTable({
                                 activeTab as
                                   | "today"
                                   | "tomorrow"
+                                  | "afterTomorrow"
                                   | "week"
                                   | "nextWeek"
                                   | "month"
@@ -932,6 +981,7 @@ export function OrdersTable({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Typ odběratele</SelectItem>
+                  {/* <SelectItem value="driver">Řidič</SelectItem> */}
                   {uniqueRoles.map((role) => (
                     <SelectItem key={role} value={role}>
                       {role}
@@ -954,6 +1004,20 @@ export function OrdersTable({
                   ))}
                 </SelectContent>
               </Select>
+
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Stav objednávky..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Stav objednávky</SelectItem>
+                  {uniqueStatusValues.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -968,6 +1032,7 @@ export function OrdersTable({
             <TabsList className="print:hidden">
               {[
                 { value: "tomorrow", label: "Zítra" },
+                { value: "afterTomorrow", label: "Pozítří" },
                 { value: "today", label: "Dnes" },
                 { value: "week", label: "Tento týden" },
                 { value: "nextWeek", label: "Příští týden" },
@@ -986,6 +1051,7 @@ export function OrdersTable({
             {[
               "today",
               "tomorrow",
+              "afterTomorrow",
               "week",
               "nextWeek",
               "month",
@@ -996,6 +1062,7 @@ export function OrdersTable({
                 period as
                   | "today"
                   | "tomorrow"
+                  | "afterTomorrow"
                   | "week"
                   | "nextWeek"
                   | "month"

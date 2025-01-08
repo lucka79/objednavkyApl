@@ -523,34 +523,40 @@ export function OrderDetailsDialog() {
                   )}
                   {user?.role === "expedition" && (
                     <>
-                      {["New", "Expedice", "Delivering"].map((status) => (
-                        <Badge
-                          key={status}
-                          variant={
-                            order.status === status ? "destructive" : "outline"
-                          }
-                          onClick={() => updateStatus(status)}
-                          className="cursor-pointer"
-                        >
-                          {status}
-                        </Badge>
-                      ))}
+                      {["New", "Expedice R", "Expedice O", "Přeprava"].map(
+                        (status) => (
+                          <Badge
+                            key={status}
+                            variant={
+                              order.status === status
+                                ? "destructive"
+                                : "outline"
+                            }
+                            onClick={() => updateStatus(status)}
+                            className="cursor-pointer"
+                          >
+                            {status}
+                          </Badge>
+                        )
+                      )}
                     </>
                   )}
                   {user?.role === "driver" && (
                     <>
-                      {["Expedice", "Delivering"].map((status) => (
-                        <Badge
-                          key={status}
-                          variant={
-                            order.status === status ? "default" : "outline"
-                          }
-                          onClick={() => updateStatus(status)}
-                          className="cursor-pointer"
-                        >
-                          {status}
-                        </Badge>
-                      ))}
+                      {["Expedice R", "Expedice O", "Přeprava"].map(
+                        (status) => (
+                          <Badge
+                            key={status}
+                            variant={
+                              order.status === status ? "default" : "outline"
+                            }
+                            onClick={() => updateStatus(status)}
+                            className="cursor-pointer"
+                          >
+                            {status}
+                          </Badge>
+                        )
+                      )}
                     </>
                   )}
                 </div>

@@ -356,13 +356,14 @@
 //               )}
 //               {user?.role === "expedition" && (
 //                 <>
-//                   {["New", "Expedice"].map((status) => (
-//                     <Badge
-//                       key={status}
-//                       variant={order.status === status ? "default" : "outline"}
-//                       onClick={() => updateStatus(status)}
-//                       className="cursor-pointer"
-//                     >
+//                   {["New", "Expedice R", "Expedice O", "Přeprava"].map(
+//                     (status) => (
+//                       <Badge
+//                         key={status}
+//                         variant={order.status === status ? "default" : "outline"}
+//                         onClick={() => updateStatus(status)}
+//                         className="cursor-pointer"
+//                       >
 //                       {status}
 //                     </Badge>
 //                   ))}
@@ -370,13 +371,14 @@
 //               )}
 //               {user?.role === "driver" && (
 //                 <>
-//                   {["Expedice", "Delivering"].map((status) => (
-//                     <Badge
-//                       key={status}
-//                       variant={order.status === status ? "default" : "outline"}
-//                       onClick={() => updateStatus(status)}
-//                       className="cursor-pointer"
-//                     >
+//                   {["Expedice R", "Expedice O", "Přeprava"].map(
+//                     (status) => (
+//                       <Badge
+//                         key={status}
+//                         variant={order.status === status ? "default" : "outline"}
+//                         onClick={() => updateStatus(status)}
+//                         className="cursor-pointer"
+//                       >
 //                       {status}
 //                     </Badge>
 //                   ))}

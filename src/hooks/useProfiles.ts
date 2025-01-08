@@ -5,6 +5,7 @@ interface SubscriberUser {
   id: string;
   full_name: string;
   phone: string;
+  role: 'buyer' | 'driver' | 'store' | 'mobil' | 'admin'| 'expedition';  // Add this line
 }
 
 
@@ -45,11 +46,9 @@ export const useSubsrciberUsers = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, phone, crateBig, crateSmall")
-        .in("role", ["buyer", "mobil", "store"])
+        .select("id, full_name, phone, crateBig, crateSmall, role")
         .eq("active", true)
-        .order("full_name", { ascending: true })
-
+        .order("full_name", { ascending: true });
       
       if (error) throw error;
       return data || [];
