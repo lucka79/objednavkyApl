@@ -444,6 +444,9 @@ function PrintSummary({
   period: string;
   globalFilter: string;
 }) {
+  const authUser = useAuthStore((state) => state.user);
+  const isAdmin = authUser?.role === "admin";
+
   // Filter orders based on globalFilter first
   const filteredOrders = orders.filter((order) => {
     if (!globalFilter) return true;
@@ -519,8 +522,12 @@ function PrintSummary({
           <tr className="border-b">
             <th className="text-left py-2">Produkt</th>
             <th className="text-right py-2">Množství</th>
-            <th className="text-right py-2">Cena</th>
-            <th className="text-right py-2">Celkem</th>
+            {isAdmin && (
+              <>
+                <th className="text-right py-2">Cena</th>
+                <th className="text-right py-2">Celkem</th>
+              </>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -531,16 +538,28 @@ function PrintSummary({
             >
               <td className="py-2">{item.name}</td>
               <td className="text-right py-2">{item.quantity}</td>
-              <td className="text-right py-2">{item.price.toFixed(2)} Kč</td>
-              <td className="text-right py-2">{item.total.toFixed(2)} Kč</td>
+              {isAdmin && (
+                <>
+                  <td className="text-right py-2">
+                    {item.price.toFixed(2)} Kč
+                  </td>
+                  <td className="text-right py-2">
+                    {item.total.toFixed(2)} Kč
+                  </td>
+                </>
+              )}
             </tr>
           ))}
-          <tr className="font-bold">
-            <td colSpan={3} className="py-2 text-right">
-              Celková suma:
-            </td>
-            <td className="text-right py-2">{totalAmount.toFixed(2)} Kč</td>
-          </tr>
+          {isAdmin && (
+            <tr className="font-bold">
+              <td colSpan={2} className="py-2 text-right">
+                Celková suma:
+              </td>
+              <td colSpan={2} className="text-right py-2">
+                {totalAmount.toFixed(2)} Kč
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
 
@@ -552,7 +571,7 @@ function PrintSummary({
             <th className="text-left py-2">Datum</th>
             <th className="text-left py-2">ID</th>
             <th className="text-left py-2">Odběratel</th>
-            <th className="text-right py-2">Celkem</th>
+            {isAdmin && <th className="text-right py-2">Celkem</th>}
           </tr>
         </thead>
         <tbody>
@@ -567,7 +586,11 @@ function PrintSummary({
                 </td>
                 <td className="py-2">{order.id}</td>
                 <td className="py-2">{order.user.full_name}</td>
-                <td className="text-right py-2">{order.total.toFixed(2)} Kč</td>
+                {isAdmin && (
+                  <td className="text-right py-2">
+                    {order.total.toFixed(2)} Kč
+                  </td>
+                )}
               </tr>
             ))}
         </tbody>
