@@ -3,13 +3,12 @@ import { format } from "date-fns";
 
 interface OrdersTableSummaryProps {
   orders: Order[];
-  user?: any;
-  driver?: any;
+  isAdmin?: boolean;
 }
 
 export const OrdersTableSummary = ({
   orders,
-  user,
+  isAdmin = false,
 }: OrdersTableSummaryProps) => {
   // Sort orders by date and then by customer name
   const sortedOrders = [...orders].sort((a, b) => {
@@ -24,8 +23,6 @@ export const OrdersTableSummary = ({
 
   // Calculate total sum
   const totalSum = orders.reduce((sum, order) => sum + order.total, 0);
-
-  // const showTotal = user?.role === "admin" || user?.role === "expedition"; // Only admin can see totals
 
   // Add these helper functions at the top of the component
   const countAllItems = (order: Order) => {
@@ -53,13 +50,10 @@ export const OrdersTableSummary = ({
             <th style={{ textAlign: "left" }}>Datum</th>
             <th style={{ textAlign: "left" }}>Odběratel</th>
             <th style={{ textAlign: "left" }}>Řidič</th>
-
-            <th style={{ textAlign: "left" }}>Položky</th>
+            {isAdmin && <th style={{ textAlign: "right" }}>Celkem</th>}
+            <th style={{ textAlign: "left" }}>Pol.</th>
             <th style={{ textAlign: "left" }}>X</th>
             <th style={{ textAlign: "left" }}>Status</th>
-            {user?.role === "admin" && (
-              <th style={{ textAlign: "left" }}>Celkem</th>
-            )}
           </tr>
         </thead>
         <tbody style={{ textAlign: "left", fontSize: "12px" }}>
@@ -70,24 +64,22 @@ export const OrdersTableSummary = ({
               </td>
               <td className="py-2">{order.user?.full_name || "-"}</td>
               <td className="py-2">{order.driver?.full_name || "-"}</td>
-
-              <td className="py-2" style={{ textAlign: "right" }}>
-                {countUncheckedItems(order)}/{countNonZeroItems(order)}
-              </td>
-              <td className="py-2" style={{ textAlign: "right" }}>
-                {countZeroItems(order)}/{countAllItems(order)}
-              </td>
-              {user?.role === "admin" && (
+              {isAdmin && (
                 <td className="py-2" style={{ textAlign: "right" }}>
                   {order.total.toFixed(2)} Kč
                 </td>
               )}
+              <td className="py-2" style={{ textAlign: "left" }}>
+                {countUncheckedItems(order)}/{countNonZeroItems(order)}
+              </td>
+              <td className="py-2" style={{ textAlign: "left" }}>
+                {countZeroItems(order)}/{countAllItems(order)}
+              </td>
               <td className="py-2">{order.status || "-"}</td>
-              <td className="py-2">{order.note || "-"}</td>
             </tr>
           ))}
 
-          {user?.role === "admin" && (
+          {isAdmin && (
             <tr className="font-bold">
               <td colSpan={3} className="py-4 text-right">
                 Celková suma:

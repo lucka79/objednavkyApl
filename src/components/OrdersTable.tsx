@@ -30,13 +30,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
-  ArrowDown,
-  ArrowUp,
   CalendarIcon,
   Container,
   Printer,
   FileText,
   StickyNote,
+  Undo2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -215,7 +214,6 @@ const columns: ColumnDef<Order>[] = [
         <Badge variant="outline" className="text-yellow-700 ">
           {row.original.crateSmall}
           <Container size={16} className="ml-2" />
-          <ArrowUp size={16} />
         </Badge>
       </div>
     ),
@@ -228,7 +226,6 @@ const columns: ColumnDef<Order>[] = [
         <Badge variant="outline" className="text-red-800 ">
           {row.original.crateBig}
           <Container size={20} className="ml-2" />
-          <ArrowUp size={16} />
         </Badge>
       </div>
     ),
@@ -282,26 +279,34 @@ const columns: ColumnDef<Order>[] = [
   },
   {
     accessorKey: "crateSmallReceived",
-    header: () => <div className="text-right print:hidden"></div>,
+    header: () => (
+      <div className="text-right justify-center flex items-center print:hidden">
+        <Undo2 size={16} />
+        Malé
+      </div>
+    ),
     cell: ({ row }) => (
       <div className="flex items-center justify-start w-12 text-right print:hidden">
         <Badge variant="outline" className="text-yellow-700 ">
           {row.original.crateSmallReceived}
           <Container size={16} className="mx-1" />
-          <ArrowDown size={16} />
         </Badge>
       </div>
     ),
   },
   {
     accessorKey: "crateBigReceived",
-    header: () => <div className="text-right print:hidden"></div>,
+    header: () => (
+      <div className="text-right justify-center flex items-center print:hidden">
+        <Undo2 size={16} />
+        Velké
+      </div>
+    ),
     cell: ({ row }) => (
       <div className="flex items-center justify-end w-12 text-right print:hidden">
         <Badge variant="outline" className="flex flex-row gap-1 text-red-800 ">
           {row.original.crateBigReceived}
           <Container size={20} className="mx-1" />
-          <ArrowDown size={16} />
         </Badge>
       </div>
     ),
@@ -507,6 +512,8 @@ function PrintSummary({
   return (
     <div className="hidden print:block mt-8 p-4">
       <h2 className="text-xl font-bold mb-4">Souhrn objednávek - {period}</h2>
+
+      {/* Product Summary Table */}
       <table className="w-full mb-8">
         <thead>
           <tr className="border-b">
@@ -524,7 +531,7 @@ function PrintSummary({
             >
               <td className="py-2">{item.name}</td>
               <td className="text-right py-2">{item.quantity}</td>
-              <td className="text-right py-2">{item.price} Kč</td>
+              <td className="text-right py-2">{item.price.toFixed(2)} Kč</td>
               <td className="text-right py-2">{item.total.toFixed(2)} Kč</td>
             </tr>
           ))}
@@ -537,7 +544,36 @@ function PrintSummary({
         </tbody>
       </table>
 
-      {/* Crates Summary (unchanged) */}
+      {/* Detailed Orders Table */}
+      <h3 className="text-lg font-bold mb-4">Seznam objednávek</h3>
+      <table className="w-full mb-8">
+        <thead>
+          <tr className="border-b">
+            <th className="text-left py-2">Datum</th>
+            <th className="text-left py-2">ID</th>
+            <th className="text-left py-2">Odběratel</th>
+            <th className="text-right py-2">Celkem</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredOrders
+            .sort(
+              (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+            )
+            .map((order) => (
+              <tr key={order.id} className="border-b">
+                <td className="py-2">
+                  {new Date(order.date).toLocaleDateString()}
+                </td>
+                <td className="py-2">{order.id}</td>
+                <td className="py-2">{order.user.full_name}</td>
+                <td className="text-right py-2">{order.total.toFixed(2)} Kč</td>
+              </tr>
+            ))}
+        </tbody>
+      </table>
+
+      {/* Crates Summary */}
       <div className="mt-4 border-t pt-4">
         <h3 className="font-bold mb-2">Přepravky:</h3>
         <div className="grid grid-cols-2 gap-4">
@@ -552,6 +588,10 @@ function PrintSummary({
             <p>Velké: {crateTotals.crateBigReceived}</p>
           </div>
         </div>
+      </div>
+
+      <div className="text-right text-sm text-gray-500 mt-4">
+        Vytištěno: {new Date().toLocaleString()}
       </div>
     </div>
   );
@@ -838,6 +878,7 @@ export function OrdersTable({
   // 1. Add print state
   const [isPrinting] = useState(false);
   const productPrintRef = useRef<HTMLDivElement>(null);
+  const authUser = useAuthStore((state) => state.user);
 
   // 2. Update print handler
   // const handleProductPrint = useReactToPrint({
@@ -1089,26 +1130,26 @@ export function OrdersTable({
                       </span>
                       <Badge variant="outline" className="text-yellow-700 ">
                         {crateSums.crateSmall}
-                        <Container size={16} className="mx-1" /> ↑
+                        <Container size={16} className="mx-1" />
                       </Badge>
                       <Badge variant="outline" className="text-red-800">
                         {crateSums.crateBig}
-                        <Container size={20} className="mx-1" /> ↑
+                        <Container size={20} className="mx-1" />
                       </Badge>
                       <span className="text-muted-foreground text-sm font-semibold">
                         Přijato celkem:
                       </span>
                       <Badge variant="secondary" className="text-yellow-700">
                         {crateSums.crateSmallReceived}
-                        <Container size={16} className="mx-1" /> ↓
+                        <Container size={16} className="mx-1" />
                       </Badge>
                       <Badge variant="secondary" className="text-red-800">
                         {crateSums.crateBigReceived}
-                        <Container size={20} className="mx-1" /> ↓
+                        <Container size={20} className="mx-1" />
                       </Badge>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 print:hidden">
                       {/* <div className="flex items-center gap-2 mr-4">
                         <Badge variant="outline" className="text-yellow-700">
                           {crateSums.crateSmall}
@@ -1176,7 +1217,10 @@ export function OrdersTable({
                                   </head>
                                   <body>
                                     ${ReactDOMServer.renderToString(
-                                      <OrdersTableSummary orders={orders} />
+                                      <OrdersTableSummary
+                                        orders={orders}
+                                        isAdmin={authUser?.role === "admin"}
+                                      />
                                     )}
                                   </body>
                                 </html>
@@ -1290,7 +1334,7 @@ function OrderTableContent({
   }, [table, onTableReady]);
 
   return (
-    <div className="border rounded-md">
+    <div className="border rounded-md print:hidden">
       <div className="max-h-[800px] overflow-auto">
         <Table>
           <TableHeader className="sticky top-0 bg-background z-10">

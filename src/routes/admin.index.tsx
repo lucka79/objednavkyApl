@@ -39,7 +39,7 @@ function AdminDashboard() {
   return (
     <>
       <Card className="flex flex-col gap-4 my-0 p-4 min-h-0 h-[calc(100vh-2rem)] print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible print:transform-none">
-        <div className="flex flex-row gap-4 flex-shrink-0">
+        <div className="flex flex-row gap-4 flex-shrink-0 print:hidden">
           {user?.role === "admin" && (
             <Dialog open={openMobile} onOpenChange={setOpenMobile}>
               <DialogTrigger asChild>
