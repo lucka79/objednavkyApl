@@ -319,12 +319,15 @@ const columns: ColumnDef<Order>[] = [
       const zeroQuantityCount =
         row.original.order_items?.filter((item) => item.quantity === 0)
           .length || 0;
+      const nonZeroQuantityCount =
+        row.original.order_items?.filter((item) => item.quantity > 0).length ||
+        0;
 
       return (
         <div className="text-right flex justify-end gap-2 items-center">
           {checkedCount > 0 && (
             <Badge variant="outline" className="border-green-700 bg-green-400">
-              {checkedCount} / {allCount}
+              {checkedCount} / {nonZeroQuantityCount}
             </Badge>
           )}
           {uncheckedCount > 0 && (
