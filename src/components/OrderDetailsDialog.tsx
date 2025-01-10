@@ -94,12 +94,12 @@ export function OrderDetailsDialog() {
         <html>
           <head>
             <title>Tisk objednávky</title>
-            <style>
-              @page { size: A4; margin: 20mm; }
-              body { font-family: Arial, sans-serif; margin: 0; }
-              table { width: 100%; border-collapse: collapse; }
-              th, td { padding: 8px; border-bottom: 1px solid #ddd; }
-            </style>
+          <style>
+          @page { size: A4;  }
+            body { font-family: Arial; sans-serif; padding: 10px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+          </style>
             <script>
               window.onafterprint = function() {
                 if (window.location.href === 'about:blank') {
@@ -150,12 +150,12 @@ export function OrderDetailsDialog() {
             <html>
               <head>
                 <title>Tisk objednávky</title>
-                <style>
-                  @page { size: A4; margin: 20mm; }
-                  body { font-family: Arial, sans-serif; margin: 0; }
-                  table { width: 100%; border-collapse: collapse; }
-                  th, td { padding: 8px; border-bottom: 1px solid #ddd; }
-                </style>
+          <style>
+          @page { size: A4;  }
+            body { font-family: Arial; sans-serif; padding: 10px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+          </style>
                 <script>
                   window.onafterprint = function() {
                     if (window.location.href === 'about:blank') {
@@ -168,13 +168,11 @@ export function OrderDetailsDialog() {
                       window.close();
                     }
                   };
-                  // Close on Escape key
                   window.onkeydown = function(e) {
                     if (e.key === 'Escape') {
                       window.close();
                     }
                   };
-                  // Close if print dialog is cancelled
                   setTimeout(function() {
                     if (window.location.href === 'about:blank') {
                       window.close();
@@ -183,7 +181,9 @@ export function OrderDetailsDialog() {
                 </script>
               </head>
               <body>
-                ${ReactDOMServer.renderToString(<OrderPrint orders={orders || []} />)}
+                <div class="page">
+                  ${ReactDOMServer.renderToString(<OrderPrint orders={orders || []} />)}
+                </div>
               </body>
             </html>
           `);

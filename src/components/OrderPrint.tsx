@@ -3,11 +3,11 @@ import { Order } from "types";
 
 export const OrderPrint = ({ orders }: { orders: Order[] }) => {
   return (
-    <div style={{ margin: "0 10px", fontSize: "12px" }}>
+    <div style={{ padding: "5px", fontSize: "12px" }}>
       {orders.map((order) => (
         <div
           key={order.id}
-          className="mb-8 pb-8 border-b page-break-after-always relative"
+          className="mb-4 pb-4 page-break-after-always relative"
           style={{
             pageBreakAfter: "always",
             minHeight: "90vh",
@@ -17,9 +17,9 @@ export const OrderPrint = ({ orders }: { orders: Order[] }) => {
             justifyContent: "space-between",
           }}
         >
-          <div className="mb-20">
+          <div style={{ margin: "10px", fontSize: "12px" }}>
             <div className="flex-1">
-              <span className="text-gray-800 text-sm text-center">
+              <span style={{ textAlign: "center", color: "#333" }}>
                 APLICA s.r.o., IČO: 00555801, DIČ: CZ00555801, Veleslavínova
                 2045/7, Ústí nad Labem
               </span>

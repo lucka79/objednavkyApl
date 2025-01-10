@@ -371,7 +371,16 @@ export default function UpdateCart({
                   type="number"
                   min="0"
                   value={item.quantity}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const newItem = {
+                      ...item,
+                      quantity: parseInt(e.target.value) || 0,
+                    };
+                    setOrderItems((prev) =>
+                      prev.map((i) => (i.id === item.id ? newItem : i))
+                    );
+                  }}
+                  onBlur={(e) =>
                     !item.checked &&
                     updateOrderQuantity(
                       item.id,
