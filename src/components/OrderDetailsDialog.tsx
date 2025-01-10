@@ -42,6 +42,8 @@ import {
 } from "@/components/ui/select";
 import { formatPrice } from "@/lib/utils";
 import { Input } from "./ui/input";
+import { OrderPrint } from "./OrderPrint";
+import ReactDOMServer from "react-dom/server";
 
 // import React from "react";
 
@@ -85,7 +87,114 @@ export function OrderDetailsDialog() {
     setLocalNote(""); // Reset local note after saving
   };
 
-  console.log("OrderDetailsDialog orders:", orders);
+  const handlePrintOrder = () => {
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Tisk objednávky</title>
+            <style>
+              @page { size: A4; margin: 20mm; }
+              body { font-family: Arial, sans-serif; margin: 0; }
+              table { width: 100%; border-collapse: collapse; }
+              th, td { padding: 8px; border-bottom: 1px solid #ddd; }
+            </style>
+            <script>
+              window.onafterprint = function() {
+                if (window.location.href === 'about:blank') {
+                  window.close();
+                }
+              };
+              window.onload = function() {
+                window.print();
+                if (window.location.href === 'about:blank') {
+                  window.close();
+                }
+              };
+            </script>
+          </head>
+          <body>
+            ${ReactDOMServer.renderToString(<OrderPrint orders={orders || []} />)}
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+  };
+
+  // Keyboard shortcut
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === "p") {
+        e.preventDefault();
+        handlePrintOrder();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, [orders]);
+
+  // Context menu (right-click)
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      if (
+        e.target instanceof HTMLElement &&
+        e.target.closest('[role="dialog"]')
+      ) {
+        e.preventDefault();
+        const printWindow = window.open("", "_blank");
+        if (printWindow) {
+          printWindow.document.write(`
+            <html>
+              <head>
+                <title>Tisk objednávky</title>
+                <style>
+                  @page { size: A4; margin: 20mm; }
+                  body { font-family: Arial, sans-serif; margin: 0; }
+                  table { width: 100%; border-collapse: collapse; }
+                  th, td { padding: 8px; border-bottom: 1px solid #ddd; }
+                </style>
+                <script>
+                  window.onafterprint = function() {
+                    if (window.location.href === 'about:blank') {
+                      window.close();
+                    }
+                  };
+                  window.onload = function() {
+                    window.print();
+                    if (window.location.href === 'about:blank') {
+                      window.close();
+                    }
+                  };
+                  // Close on Escape key
+                  window.onkeydown = function(e) {
+                    if (e.key === 'Escape') {
+                      window.close();
+                    }
+                  };
+                  // Close if print dialog is cancelled
+                  setTimeout(function() {
+                    if (window.location.href === 'about:blank') {
+                      window.close();
+                    }
+                  }, 1000);
+                </script>
+              </head>
+              <body>
+                ${ReactDOMServer.renderToString(<OrderPrint orders={orders || []} />)}
+              </body>
+            </html>
+          `);
+          printWindow.document.close();
+        }
+      }
+    };
+
+    window.addEventListener("contextmenu", handleContextMenu);
+    return () => window.removeEventListener("contextmenu", handleContextMenu);
+  }, [orders]);
 
   if (!selectedOrderId) {
     return null;
@@ -163,410 +272,435 @@ export function OrderDetailsDialog() {
       open={!!selectedOrderId}
       onOpenChange={(open) => !open && setSelectedOrderId(null)}
     >
-      <DialogContent
-        className="max-w-4xl max-h-[90vh] overflow-y-auto
-      print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible  print:transform-none"
-      >
-        <DialogHeader>
-          <DialogTitle>Detail objednávky</DialogTitle>
-          <DialogDescription>
-            Detail objednávky včetně informací o zákazníkovi, položkách a stavu
-          </DialogDescription>
-        </DialogHeader>
-        <div className="print:!m-0">
-          {orders?.map((order) => (
-            <Card key={order.id}>
-              <CardHeader>
-                <CardTitle className="flex justify-between">
-                  {order.user.full_name}
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto print:p-0 print:w-full">
+        <style type="text/css" media="print">
+          {`
+            @page { size: auto; margin: 20mm; }
+            @media print {
+              .dialog-content { display: none; }
+              .print-section { display: block; }
+              
+            }
+          `}
+        </style>
 
-                  <span className="text-muted-foreground text-stone-500 text-thin">
-                    {order.user.address}
-                  </span>
-                  <Badge variant="outline">{order.status}</Badge>
-                </CardTitle>
-                <CardDescription className="flex justify-between items-center print:hidden">
-                  <div className="flex gap-4">
-                    <span>Celkový stav přepravek:</span>
-                    <span className="flex items-center gap-2 font-semibold">
-                      {order.user.crateSmall}
-                      <Container size={20} />
+        <div className="hidden print:block mt-8 p-4">
+          <OrderPrint orders={orders || []} />
+        </div>
+
+        <div className="print:hidden">
+          <DialogHeader className="print:hidden">
+            <div className="flex justify-between items-center">
+              <div>
+                <DialogTitle>Detail objednávky</DialogTitle>
+                <DialogDescription>
+                  Detail objednávky včetně informací o zákazníkovi, položkách a
+                  stavu
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="print:hidden">
+            {orders?.map((order) => (
+              <Card key={order.id}>
+                <CardHeader>
+                  <CardTitle className="flex justify-between">
+                    {order.user.full_name}
+
+                    <span className="text-muted-foreground text-stone-500 text-thin">
+                      {order.user.address}
                     </span>
-                    <span className="flex items-center gap-2 font-semibold">
-                      {order.user.crateBig} <Container size={24} />
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="text"
-                      autoFocus={false}
-                      value={
-                        localNote || (order.note !== "-" ? order.note : "")
-                      }
-                      onChange={(e) => {
-                        setLocalNote(e.target.value);
-                      }}
-                      onBlur={(e) => {
-                        saveNote(order.id, e.target.value);
-                      }}
-                      className={`border rounded px-2 py-1 text-sm w-60 text-right ${
-                        localNote || order.note !== "-"
-                          ? "border-orange-500"
-                          : ""
-                      }`}
-                      placeholder="Přidat poznámku..."
-                    />
-                    {(localNote || order.note !== "-") && (
-                      <X
-                        size={16}
-                        className="cursor-pointer text-gray-500 hover:text-red-500"
-                        onClick={() => saveNote(order.id, "-")}
+                    <Badge variant="outline">{order.status}</Badge>
+                  </CardTitle>
+                  <CardDescription className="flex justify-between items-center print:hidden">
+                    <div className="flex gap-4">
+                      <span>Celkový stav přepravek:</span>
+                      <span className="flex items-center gap-2 font-semibold">
+                        {order.user.crateSmall}
+                        <Container size={20} />
+                      </span>
+                      <span className="flex items-center gap-2 font-semibold">
+                        {order.user.crateBig} <Container size={24} />
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="text"
+                        autoFocus={false}
+                        value={
+                          localNote || (order.note !== "-" ? order.note : "")
+                        }
+                        onChange={(e) => {
+                          setLocalNote(e.target.value);
+                        }}
+                        onBlur={(e) => {
+                          saveNote(order.id, e.target.value);
+                        }}
+                        className={`border rounded px-2 py-1 text-sm w-60 text-right ${
+                          localNote || order.note !== "-"
+                            ? "border-orange-500"
+                            : ""
+                        }`}
+                        placeholder="Přidat poznámku..."
                       />
-                    )}
-                  </div>
-                </CardDescription>
+                      {(localNote || order.note !== "-") && (
+                        <X
+                          size={16}
+                          className="cursor-pointer text-gray-500 hover:text-red-500"
+                          onClick={() => saveNote(order.id, "-")}
+                        />
+                      )}
+                    </div>
+                  </CardDescription>
 
-                <CardDescription className="flex flex-col gap-2">
-                  <div className="flex justify-between items-center">
-                    <span>Order #{order.id}</span>
-                    <span className="text-muted-foreground font-semibold">
-                      {new Date(order.date).toLocaleDateString()}
-                    </span>
-                    <Select
-                      value={order.driver?.id || "none"}
-                      onValueChange={(value) =>
-                        updateOrder({
-                          id: order.id,
-                          updatedFields: {
-                            driver_id: value === "none" ? null : value,
-                          },
-                        })
-                      }
-                    >
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Vyberte řidiče" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Bez řidiče</SelectItem>
-                        {driverUsers?.map((driver) => (
-                          <SelectItem key={driver.id} value={driver.id}>
-                            {driver.full_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {user?.role === "admin" || user?.role === "expedition" ? (
-                  <UpdateCart
-                    items={order.order_items}
-                    orderId={order.id}
-                    selectedUserId={order.user.id}
-                    onUpdate={() => refetch().then(() => {})}
-                  />
-                ) : (
-                  <OrderItems items={order.order_items} />
-                )}
-              </CardContent>
-              {(order.user?.role === "buyer" ||
-                order.user?.role === "store") && (
+                  <CardDescription className="flex flex-col gap-2">
+                    <div className="flex justify-between items-center">
+                      <span>Order #{order.id}</span>
+                      <span className="text-muted-foreground font-semibold">
+                        {new Date(order.date).toLocaleDateString()}
+                      </span>
+                      <Select
+                        value={order.driver?.id || "none"}
+                        onValueChange={(value) =>
+                          updateOrder({
+                            id: order.id,
+                            updatedFields: {
+                              driver_id: value === "none" ? null : value,
+                            },
+                          })
+                        }
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Vyberte řidiče" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Bez řidiče</SelectItem>
+                          {driverUsers?.map((driver) => (
+                            <SelectItem key={driver.id} value={driver.id}>
+                              {driver.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CardDescription>
+                </CardHeader>
                 <CardContent>
-                  <div className="flex flex-col items-end font-bold text-slate-600 w-full mt-1 mr-8">
-                    {order.user?.role === "buyer" && (
-                      <>
-                        <div className="text-sm font-normal text-muted-foreground">
-                          DPH (12%) {formatPrice(order.total * 0.12)} Kč
-                        </div>
-                        <div className="text-base">
-                          {formatPrice(Math.round(order.total * 1.12))} Kč
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  {user?.role === "admin" || user?.role === "expedition" ? (
+                    <UpdateCart
+                      items={order.order_items}
+                      orderId={order.id}
+                      selectedUserId={order.user.id}
+                      onUpdate={() => refetch().then(() => {})}
+                    />
+                  ) : (
+                    <OrderItems items={order.order_items} />
+                  )}
                 </CardContent>
-              )}
-              <CardContent>
-                {(user?.role === "admin" || user?.role === "expedition") && (
-                  <Card>
-                    {/* <CardHeader>
-                      <CardTitle>Vratné obaly</CardTitle>
-                    </CardHeader> */}
-                    <CardContent className="flex gap-8 justify-between">
-                      <div>
-                        <CardDescription className="py-2 flex gap-2">
-                          <span>Vydané obaly</span>
-                          {isLocked ? (
-                            <Lock
-                              size={16}
-                              onClick={() => setIsLocked(false)}
-                              className="cursor-pointer text-red-800"
-                            />
-                          ) : (
-                            <LockOpen
-                              size={18}
-                              onClick={() => setIsLocked(true)}
-                              className="cursor-pointer text-green-800"
-                            />
-                          )}
-                        </CardDescription>
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center gap-2">
-                            {order.crateSmall > 0 && (
-                              <SquareMinus
-                                size={24}
-                                onClick={() =>
-                                  updateCrates(
-                                    "crateSmall",
-                                    (order.crateSmall || 0) - 1
-                                  )
-                                }
-                                className="cursor-pointer text-stone-300 hover:text-green-800"
-                              />
-                            )}
-                            <input
-                              type="number"
-                              min="0"
-                              value={localCrates.crateSmall}
-                              onChange={(e) =>
-                                setLocalCrates({
-                                  ...localCrates,
-                                  crateSmall: parseInt(e.target.value) || 0,
-                                })
-                              }
-                              onBlur={(e) =>
-                                updateCrates(
-                                  "crateSmall",
-                                  parseInt(e.target.value) || 0
-                                )
-                              }
-                              className="w-12 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            />
-                            {!isLocked && (
-                              <SquarePlus
-                                size={24}
-                                onClick={() =>
-                                  updateCrates(
-                                    "crateSmall",
-                                    (order.crateSmall || 0) + 1
-                                  )
-                                }
-                                className="cursor-pointer text-stone-300 hover:text-red-800"
-                              />
-                            )}
-                            <Container size={20} className="text-yellow-600" />
+                {(order.user?.role === "buyer" ||
+                  order.user?.role === "store") && (
+                  <CardContent>
+                    <div className="flex flex-col items-end font-bold text-slate-600 w-full mt-1 mr-8">
+                      {order.user?.role === "buyer" && (
+                        <>
+                          <div className="text-sm font-normal text-muted-foreground">
+                            DPH (12%) {formatPrice(order.total * 0.12)} Kč
                           </div>
-                          <div className="flex items-center gap-2">
-                            {order.crateBig > 0 && (
-                              <SquareMinus
-                                size={24}
-                                onClick={() =>
-                                  updateCrates(
-                                    "crateBig",
-                                    (order.crateBig || 0) - 1
-                                  )
-                                }
-                                className="cursor-pointer text-stone-300 hover:text-green-800"
+                          <div className="text-base">
+                            {formatPrice(Math.round(order.total * 1.12))} Kč
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </CardContent>
+                )}
+                <CardContent>
+                  {(user?.role === "admin" || user?.role === "expedition") && (
+                    <Card>
+                      {/* <CardHeader>
+                        <CardTitle>Vratné obaly</CardTitle>
+                      </CardHeader> */}
+                      <CardContent className="flex gap-8 justify-between">
+                        <div>
+                          <CardDescription className="py-2 flex gap-2">
+                            <span>Vydané obaly</span>
+                            {isLocked ? (
+                              <Lock
+                                size={16}
+                                onClick={() => setIsLocked(false)}
+                                className="cursor-pointer text-red-800"
+                              />
+                            ) : (
+                              <LockOpen
+                                size={18}
+                                onClick={() => setIsLocked(true)}
+                                className="cursor-pointer text-green-800"
                               />
                             )}
-                            <input
-                              type="number"
-                              min="0"
-                              value={localCrates.crateBig}
-                              onChange={(e) =>
-                                setLocalCrates({
-                                  ...localCrates,
-                                  crateBig: parseInt(e.target.value) || 0,
-                                })
-                              }
-                              onBlur={(e) =>
-                                updateCrates(
-                                  "crateBig",
-                                  parseInt(e.target.value) || 0
-                                )
-                              }
-                              className="w-12 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            />
-                            {!isLocked && (
-                              <SquarePlus
-                                size={24}
-                                onClick={() =>
+                          </CardDescription>
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2">
+                              {order.crateSmall > 0 && (
+                                <SquareMinus
+                                  size={24}
+                                  onClick={() =>
+                                    updateCrates(
+                                      "crateSmall",
+                                      (order.crateSmall || 0) - 1
+                                    )
+                                  }
+                                  className="cursor-pointer text-stone-300 hover:text-green-800"
+                                />
+                              )}
+                              <input
+                                type="number"
+                                min="0"
+                                value={localCrates.crateSmall}
+                                onChange={(e) =>
+                                  setLocalCrates({
+                                    ...localCrates,
+                                    crateSmall: parseInt(e.target.value) || 0,
+                                  })
+                                }
+                                onBlur={(e) =>
                                   updateCrates(
-                                    "crateBig",
-                                    (order.crateBig || 0) + 1
+                                    "crateSmall",
+                                    parseInt(e.target.value) || 0
                                   )
                                 }
-                                className="cursor-pointer text-stone-300 hover:text-red-800"
+                                className="w-12 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
-                            )}
-                            <Container size={24} className="text-red-800" />
+                              {!isLocked && (
+                                <SquarePlus
+                                  size={24}
+                                  onClick={() =>
+                                    updateCrates(
+                                      "crateSmall",
+                                      (order.crateSmall || 0) + 1
+                                    )
+                                  }
+                                  className="cursor-pointer text-stone-300 hover:text-red-800"
+                                />
+                              )}
+                              <Container
+                                size={20}
+                                className="text-yellow-600"
+                              />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {order.crateBig > 0 && (
+                                <SquareMinus
+                                  size={24}
+                                  onClick={() =>
+                                    updateCrates(
+                                      "crateBig",
+                                      (order.crateBig || 0) - 1
+                                    )
+                                  }
+                                  className="cursor-pointer text-stone-300 hover:text-green-800"
+                                />
+                              )}
+                              <input
+                                type="number"
+                                min="0"
+                                value={localCrates.crateBig}
+                                onChange={(e) =>
+                                  setLocalCrates({
+                                    ...localCrates,
+                                    crateBig: parseInt(e.target.value) || 0,
+                                  })
+                                }
+                                onBlur={(e) =>
+                                  updateCrates(
+                                    "crateBig",
+                                    parseInt(e.target.value) || 0
+                                  )
+                                }
+                                className="w-12 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                              {!isLocked && (
+                                <SquarePlus
+                                  size={24}
+                                  onClick={() =>
+                                    updateCrates(
+                                      "crateBig",
+                                      (order.crateBig || 0) + 1
+                                    )
+                                  }
+                                  className="cursor-pointer text-stone-300 hover:text-red-800"
+                                />
+                              )}
+                              <Container size={24} className="text-red-800" />
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div>
-                        <CardDescription className="py-2">
-                          Přijaté obaly
-                        </CardDescription>
-                        <div className="flex flex-col gap-2">
-                          {" "}
-                          <div className="flex items-center gap-2">
-                            {order.crateSmallReceived > 0 && (
-                              <SquareMinus
+                        <div>
+                          <CardDescription className="py-2">
+                            Přijaté obaly
+                          </CardDescription>
+                          <div className="flex flex-col gap-2">
+                            {" "}
+                            <div className="flex items-center gap-2">
+                              {order.crateSmallReceived > 0 && (
+                                <SquareMinus
+                                  size={24}
+                                  onClick={() =>
+                                    updateCrates(
+                                      "crateSmallReceived",
+                                      (order.crateSmallReceived || 0) - 1
+                                    )
+                                  }
+                                  className="cursor-pointer text-stone-300 hover:text-green-800"
+                                />
+                              )}
+                              <input
+                                type="number"
+                                min="0"
+                                value={localCrates.crateSmallReceived}
+                                onChange={(e) =>
+                                  setLocalCrates({
+                                    ...localCrates,
+                                    crateSmallReceived:
+                                      parseInt(e.target.value) || 0,
+                                  })
+                                }
+                                onBlur={(e) =>
+                                  updateCrates(
+                                    "crateSmallReceived",
+                                    parseInt(e.target.value) || 0
+                                  )
+                                }
+                                className="w-12 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                              <SquarePlus
                                 size={24}
                                 onClick={() =>
                                   updateCrates(
                                     "crateSmallReceived",
-                                    (order.crateSmallReceived || 0) - 1
+                                    (order.crateSmallReceived || 0) + 1
                                   )
                                 }
-                                className="cursor-pointer text-stone-300 hover:text-green-800"
+                                className="cursor-pointer text-stone-300 hover:text-red-800"
                               />
-                            )}
-                            <input
-                              type="number"
-                              min="0"
-                              value={localCrates.crateSmallReceived}
-                              onChange={(e) =>
-                                setLocalCrates({
-                                  ...localCrates,
-                                  crateSmallReceived:
-                                    parseInt(e.target.value) || 0,
-                                })
-                              }
-                              onBlur={(e) =>
-                                updateCrates(
-                                  "crateSmallReceived",
-                                  parseInt(e.target.value) || 0
-                                )
-                              }
-                              className="w-12 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            />
-                            <SquarePlus
-                              size={24}
-                              onClick={() =>
-                                updateCrates(
-                                  "crateSmallReceived",
-                                  (order.crateSmallReceived || 0) + 1
-                                )
-                              }
-                              className="cursor-pointer text-stone-300 hover:text-red-800"
-                            />
-                            <Container size={20} className="text-yellow-600" />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {order.crateBigReceived > 0 && (
-                              <SquareMinus
+                              <Container
+                                size={20}
+                                className="text-yellow-600"
+                              />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {order.crateBigReceived > 0 && (
+                                <SquareMinus
+                                  size={24}
+                                  onClick={() =>
+                                    updateCrates(
+                                      "crateBigReceived",
+                                      (order.crateBigReceived || 0) - 1
+                                    )
+                                  }
+                                  className="cursor-pointer text-stone-300 hover:text-green-800"
+                                />
+                              )}
+                              <input
+                                type="number"
+                                min="0"
+                                value={localCrates.crateBigReceived}
+                                onChange={(e) =>
+                                  setLocalCrates({
+                                    ...localCrates,
+                                    crateBigReceived:
+                                      parseInt(e.target.value) || 0,
+                                  })
+                                }
+                                onBlur={(e) =>
+                                  updateCrates(
+                                    "crateBigReceived",
+                                    parseInt(e.target.value) || 0
+                                  )
+                                }
+                                className="w-12 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                              <SquarePlus
                                 size={24}
                                 onClick={() =>
                                   updateCrates(
                                     "crateBigReceived",
-                                    (order.crateBigReceived || 0) - 1
+                                    (order.crateBigReceived || 0) + 1
                                   )
                                 }
-                                className="cursor-pointer text-stone-300 hover:text-green-800"
+                                className="cursor-pointer text-stone-300 hover:text-red-800"
                               />
-                            )}
-                            <input
-                              type="number"
-                              min="0"
-                              value={localCrates.crateBigReceived}
-                              onChange={(e) =>
-                                setLocalCrates({
-                                  ...localCrates,
-                                  crateBigReceived:
-                                    parseInt(e.target.value) || 0,
-                                })
-                              }
-                              onBlur={(e) =>
-                                updateCrates(
-                                  "crateBigReceived",
-                                  parseInt(e.target.value) || 0
-                                )
-                              }
-                              className="w-12 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            />
-                            <SquarePlus
-                              size={24}
-                              onClick={() =>
-                                updateCrates(
-                                  "crateBigReceived",
-                                  (order.crateBigReceived || 0) + 1
-                                )
-                              }
-                              className="cursor-pointer text-stone-300 hover:text-red-800"
-                            />
-                            <Container size={24} className="text-red-800" />
+                              <Container size={24} className="text-red-800" />
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </CardContent>
-
-              <CardFooter className="flex flex-col gap-2 print:hidden">
-                <div className="flex gap-2 justify-evenly">
-                  {user?.role === "admin" && (
-                    <>
-                      {OrderStatusList.map((status) => (
-                        <Badge
-                          key={status}
-                          variant={
-                            order.status === status
-                              ? "destructive"
-                              : "secondary"
-                          }
-                          onClick={() => updateStatus(status)}
-                          className="cursor-pointer"
-                        >
-                          {status}
-                        </Badge>
-                      ))}
-                    </>
+                      </CardContent>
+                    </Card>
                   )}
-                  {user?.role === "expedition" && (
-                    <>
-                      {["New", "Expedice R", "Expedice O", "Přeprava"].map(
-                        (status) => (
+                </CardContent>
+
+                <CardFooter className="flex flex-col gap-2 print:hidden">
+                  <div className="flex gap-2 justify-evenly">
+                    {user?.role === "admin" && (
+                      <>
+                        {OrderStatusList.map((status) => (
                           <Badge
                             key={status}
                             variant={
                               order.status === status
                                 ? "destructive"
-                                : "outline"
+                                : "secondary"
                             }
                             onClick={() => updateStatus(status)}
                             className="cursor-pointer"
                           >
                             {status}
                           </Badge>
-                        )
-                      )}
-                    </>
-                  )}
-                  {user?.role === "driver" && (
-                    <>
-                      {["Expedice R", "Expedice O", "Přeprava"].map(
-                        (status) => (
-                          <Badge
-                            key={status}
-                            variant={
-                              order.status === status ? "default" : "outline"
-                            }
-                            onClick={() => updateStatus(status)}
-                            className="cursor-pointer"
-                          >
-                            {status}
-                          </Badge>
-                        )
-                      )}
-                    </>
-                  )}
-                </div>
-              </CardFooter>
-            </Card>
-          ))}
+                        ))}
+                      </>
+                    )}
+                    {user?.role === "expedition" && (
+                      <>
+                        {["New", "Expedice R", "Expedice O", "Přeprava"].map(
+                          (status) => (
+                            <Badge
+                              key={status}
+                              variant={
+                                order.status === status
+                                  ? "destructive"
+                                  : "outline"
+                              }
+                              onClick={() => updateStatus(status)}
+                              className="cursor-pointer"
+                            >
+                              {status}
+                            </Badge>
+                          )
+                        )}
+                      </>
+                    )}
+                    {user?.role === "driver" && (
+                      <>
+                        {["Expedice R", "Expedice O", "Přeprava"].map(
+                          (status) => (
+                            <Badge
+                              key={status}
+                              variant={
+                                order.status === status ? "default" : "outline"
+                              }
+                              onClick={() => updateStatus(status)}
+                              className="cursor-pointer"
+                            >
+                              {status}
+                            </Badge>
+                          )
+                        )}
+                      </>
+                    )}
+                  </div>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

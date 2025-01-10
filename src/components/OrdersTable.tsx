@@ -784,11 +784,12 @@ export function OrdersTable({
       <html>
         <head>
           <title>Objednávky</title>
-          <style>
-            body { font-family: Arial; sans-serif; padding: 20px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-          </style>
+            <style>
+              @page { size: A4; margin: 20mm; }
+              body { font-family: Arial, sans-serif; margin: 0; }
+              table { width: 100%; border-collapse: collapse; }
+              th, td { padding: 8px; border-bottom: 1px solid #ddd; }
+            </style>
         </head>
         <body>
           <div id="print-content">
