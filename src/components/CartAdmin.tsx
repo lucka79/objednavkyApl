@@ -4,7 +4,7 @@ import { useCartStore } from "@/providers/cartStore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Coins, SquareMinus, SquarePlus } from "lucide-react";
+import { CircleX, Coins, SquareMinus, SquarePlus } from "lucide-react";
 import { Label } from "@/components/ui/label";
 // import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/lib/supabase";
@@ -106,6 +106,8 @@ export default function CartAdmin() {
   const [selectedDriverId, setSelectedDriverId] = useState<string>("");
   const { data: driverUsers, isLoading: isLoadingDrivers } = useDriverUsers();
 
+  const [note, setNote] = useState<string>("");
+
   return (
     <Card>
       <CardHeader>
@@ -117,17 +119,22 @@ export default function CartAdmin() {
                 value={selectedUserId}
                 onOpenChange={() => setSearchQuery("")}
               >
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Vyberte uživatele" />
+                <SelectTrigger className="w-[200px] min-w-[200px]">
+                  <SelectValue
+                    placeholder="Vyberte uživatele"
+                    className="truncate"
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  <Input
-                    placeholder="Hledat uživatele..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="m-2"
-                    onKeyDown={(e) => e.stopPropagation()}
-                  />
+                  <div className="sticky top-0 bg-white p-2 z-50">
+                    <Input
+                      placeholder="Hledat uživatele..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      className="border-orange-600 hover:border-orange-600 focus-visible:ring-orange-600 focus-visible:bg-white"
+                    />
+                  </div>
                   {isLoadingUsers ? (
                     <div className="px-2 py-2 text-sm text-muted-foreground">
                       Načítání...
@@ -157,14 +164,25 @@ export default function CartAdmin() {
                 </SelectContent>
               </Select>
             )}
+            <Input
+              type="text"
+              autoFocus={false}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className={`border rounded px-2 py-1 text-sm w-[120px] min-w-[120px] text-left ${
+                note ? "border-orange-500" : ""
+              }`}
+              placeholder="Přidat poznámku..."
+            />
             <Button
               variant="outline"
               onClick={() => {
                 clearCart();
                 setSelectedUserId("");
               }}
+              className="hover:border-orange-500 hover:bg-white hover:text-white"
             >
-              Smazat
+              <CircleX size={16} className="text-orange-500" />
             </Button>
           </CardTitle>
           <CardTitle className="flex flex-row justify-between gap-2">
@@ -335,29 +353,36 @@ export default function CartAdmin() {
                 orderTotal,
                 selectedUser?.role,
                 paid_by,
-                selectedDriverId === "none" ? (null as any) : selectedDriverId
+                selectedDriverId === "none" ? (null as any) : selectedDriverId,
+                note
               );
+
+              // Success handling
               const newTomorrow = new Date();
               newTomorrow.setDate(newTomorrow.getDate() + 1);
               newTomorrow.setHours(12, 0, 0, 0);
               setDate(newTomorrow);
               setSelectedUserId("");
-              // setOpen(false);
+              setNote("");
 
               toast({
                 title: "Objednávka vytvořena",
                 description: "Your order has been placed successfully!",
                 variant: "default",
               });
-              console.log("Checkout completed");
             } catch (error) {
               console.error("Checkout failed:", error);
+              // More detailed error message
+              let errorMessage = "There was an error processing your order.";
+              if (error instanceof Error) {
+                errorMessage = error.message;
+              } else if (typeof error === "object" && error !== null) {
+                errorMessage = JSON.stringify(error);
+              }
+
               toast({
                 title: "Checkout Failed",
-                description:
-                  error instanceof Error
-                    ? error.message
-                    : "There was an error processing your order.",
+                description: errorMessage,
                 variant: "destructive",
               });
             }

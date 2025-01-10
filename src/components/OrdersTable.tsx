@@ -668,6 +668,8 @@ export function OrdersTable({
   const { data: driverUsers } = useDriverUsers();
   const [table, setTable] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedUser, setSelectedUser] = useState("all");
+  const [userSearchQuery, setUserSearchQuery] = useState("");
 
   // Get unique paid_by values from orders
   const uniquePaidByValues = useMemo(() => {
@@ -692,6 +694,22 @@ export function OrdersTable({
     );
     return Array.from(roles).sort();
   }, [orders]);
+
+  // Get unique user names from orders
+  const uniqueUserNames = useMemo(() => {
+    if (!orders) return [];
+    const names = new Set(
+      orders.map((order) => order.user.full_name).filter(Boolean)
+    );
+    return Array.from(names).sort();
+  }, [orders]);
+
+  const filteredUserNames = useMemo(() => {
+    if (!userSearchQuery) return uniqueUserNames;
+    return uniqueUserNames.filter((name) =>
+      name.toLowerCase().includes(userSearchQuery.toLowerCase())
+    );
+  }, [uniqueUserNames, userSearchQuery]);
 
   // Update filteredOrders to include role filtering
   const filteredOrders = useMemo(() => {
@@ -732,6 +750,12 @@ export function OrdersTable({
       );
     }
 
+    if (selectedUser !== "all") {
+      filtered = filtered.filter(
+        (order) => order.user.full_name === selectedUser
+      );
+    }
+
     return filtered;
   }, [
     orders,
@@ -741,6 +765,7 @@ export function OrdersTable({
     selectedRole,
     selectedDriver,
     selectedStatus,
+    selectedUser,
   ]);
 
   const getDateFilteredOrders = (
@@ -926,13 +951,40 @@ export function OrdersTable({
       <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible print:transform-none">
         <div className="space-y-4 overflow-x-auto print:!m-0">
           <div className="space-y-2 print:hidden">
-            <div className="flex justify-between items-center gap-2">
+            <div className="flex justify-start items-center gap-2">
               <Input
                 placeholder="Search orders..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
                 className="max-w-sm"
               />
+
+              <Select
+                value={selectedUser}
+                onValueChange={setSelectedUser}
+                onOpenChange={() => setUserSearchQuery("")}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Odběratel..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="relative">
+                    <Input
+                      placeholder="Hledat odběratele..."
+                      value={userSearchQuery}
+                      onChange={(e) => setUserSearchQuery(e.target.value)}
+                      className="sticky top-0 bg-background z-10 border-orange-600 hover:border-orange-600 focus-visible:ring-orange-600 mx-2 w-[calc(100%-16px)]"
+                      onKeyDown={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                  <SelectItem value="all">Všichni odběratelé</SelectItem>
+                  {filteredUserNames.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
               <Popover>
                 <PopoverTrigger asChild>
@@ -957,7 +1009,10 @@ export function OrdersTable({
                   />
                 </PopoverContent>
               </Popover>
-              <Badge variant="secondary">
+              <Badge
+                variant="secondary"
+                className="flex items-center gap-2 ml-auto"
+              >
                 {date
                   ? `${filteredOrders.length} orders`
                   : `${filteredOrders.length} total orders`}
@@ -977,9 +1032,19 @@ export function OrdersTable({
                     placeholder="Hledat produkt..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="sticky top-0 bg-background z-10 border-orange-600 hover:border-orange-600 focus-visible:ring-orange-600 mx-2 w-[calc(100%-16px)]"
+                    className="sticky top-0 bg-background z-10 border-orange-600 hover:border-orange-600 focus-visible:ring-orange-600 mx-2 w-[calc(100%-16px)] pr-8"
                     onKeyDown={(e) => e.stopPropagation()}
                   />
+                  {searchQuery && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-3 top-1.5 h-6 w-6 p-0"
+                      onClick={() => setSearchQuery("")}
+                    >
+                      ×
+                    </Button>
+                  )}
                   <SelectItem value="all">All Products</SelectItem>
                   {filteredProducts?.map((product) => (
                     <SelectItem key={product.id} value={product.id.toString()}>
