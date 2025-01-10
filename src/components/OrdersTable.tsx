@@ -667,6 +667,7 @@ export function OrdersTable({
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const { data: driverUsers } = useDriverUsers();
   const [table, setTable] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Get unique paid_by values from orders
   const uniquePaidByValues = useMemo(() => {
@@ -910,6 +911,13 @@ export function OrdersTable({
   //   onAfterPrint: () => setIsPrinting(false),
   // });
 
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery) return products;
+    return products?.filter((product) =>
+      product.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [products, searchQuery]);
+
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders</div>;
 
@@ -959,28 +967,21 @@ export function OrdersTable({
               <Select
                 value={selectedProductId}
                 onValueChange={setSelectedProductId}
+                onOpenChange={() => setSearchQuery("")}
               >
                 <SelectTrigger className="w-full max-w-sm">
-                  <SelectValue placeholder="Filter by product..." />
-                  {/* {selectedProductId && selectedProductId !== "all" && (
-                  // <Badge variant="secondary" className="ml-2">
-                  //   {filteredOrders.length} obj. (
-                  //   {calculateTotalQuantityForPeriod(
-                  //     selectedProductId,
-                  //     activeTab as
-                  //       | "today"
-                  //       | "tomorrow"
-                  //       | "week"
-                  //       | "month"
-                  //       | "lastMonth"
-                  //   )}
-                  //   ks)
-                  // </Badge>
-                )} */}
+                  <SelectValue placeholder="Výrobky v objednávkách..." />
                 </SelectTrigger>
                 <SelectContent>
+                  <Input
+                    placeholder="Hledat produkt..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="sticky top-0 bg-background z-10 border-orange-600 hover:border-orange-600 focus-visible:ring-orange-600 mx-2 w-[calc(100%-16px)]"
+                    onKeyDown={(e) => e.stopPropagation()}
+                  />
                   <SelectItem value="all">All Products</SelectItem>
-                  {products?.map((product) => (
+                  {filteredProducts?.map((product) => (
                     <SelectItem key={product.id} value={product.id.toString()}>
                       <div className="flex justify-between items-center w-full">
                         <span className="mr-2">{product.name}</span>
