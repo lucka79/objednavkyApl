@@ -30,48 +30,97 @@ const CategoryBadges = ({
   selectedCategory: number | null;
   onSelectCategory: (id: number | null) => void;
 }) => {
-  // Filter categories where buyer is true
   const buyerCategories = categories.filter((category) => category.buyer);
 
-  const itemsPerRow = Math.ceil((buyerCategories.length + 1) / 2); // +1 for "Vše" badge
-  const firstRow = [null, ...buyerCategories.slice(0, itemsPerRow - 1)];
-  const secondRow = buyerCategories.slice(itemsPerRow - 1);
-
+  // Calculate rows based on screen size using Tailwind classes
   return (
     <div className="w-full rounded-md border p-2">
-      <div className="flex flex-col gap-2">
-        <div className="flex gap-4">
-          {firstRow.map((category) => (
-            <Button
-              key={category?.id ?? "all"}
-              variant="outline"
-              className={`w-32 hover:border-orange-400 ${
-                selectedCategory === (category?.id ?? null)
-                  ? "bg-orange-400 text-white"
-                  : ""
-              }`}
-              onClick={() => onSelectCategory(category?.id ?? null)}
-            >
-              {category?.name ?? "Vše"}
-            </Button>
-          ))}
-        </div>
-        <div className="flex gap-4">
-          {secondRow.map((category) => (
-            <Button
-              key={category.id}
-              variant="outline"
-              className={`w-32 hover:border-orange-400 ${
-                selectedCategory === category.id
-                  ? "bg-orange-400 text-white"
-                  : ""
-              }`}
-              onClick={() => onSelectCategory(category.id)}
-            >
-              {category.name}
-            </Button>
-          ))}
-        </div>
+      <div className="hidden md:flex md:flex-col md:gap-2 xl:hidden">
+        {/* 3 rows for medium to large screens */}
+        {[
+          [
+            null,
+            ...buyerCategories.slice(
+              0,
+              Math.ceil(buyerCategories.length / 3) - 1
+            ),
+          ],
+          buyerCategories.slice(
+            Math.ceil(buyerCategories.length / 3) - 1,
+            Math.ceil(buyerCategories.length / 3) * 2 - 1
+          ),
+          buyerCategories.slice(Math.ceil(buyerCategories.length / 3) * 2 - 1),
+        ].map((row, rowIndex) => (
+          <div key={rowIndex} className="flex gap-4">
+            {row.map((category) => (
+              <Button
+                key={category?.id ?? "all"}
+                variant="outline"
+                className={`w-32 hover:border-orange-400 ${
+                  selectedCategory === (category?.id ?? null)
+                    ? "bg-orange-400 text-white"
+                    : ""
+                }`}
+                onClick={() => onSelectCategory(category?.id ?? null)}
+              >
+                {category?.name ?? "Vše"}
+              </Button>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden xl:flex xl:flex-col xl:gap-2">
+        {/* 2 rows for xl screens (1290px+) */}
+        {[
+          [
+            null,
+            ...buyerCategories.slice(
+              0,
+              Math.ceil(buyerCategories.length / 2) - 1
+            ),
+          ],
+          buyerCategories.slice(Math.ceil(buyerCategories.length / 2) - 1),
+        ].map((row, rowIndex) => (
+          <div key={rowIndex} className="flex gap-4">
+            {row.map((category) => (
+              <Button
+                key={category?.id ?? "all"}
+                variant="outline"
+                className={`w-32 hover:border-orange-400 ${
+                  selectedCategory === (category?.id ?? null)
+                    ? "bg-orange-400 text-white"
+                    : ""
+                }`}
+                onClick={() => onSelectCategory(category?.id ?? null)}
+              >
+                {category?.name ?? "Vše"}
+              </Button>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {/* Mobile layout */}
+      <div className="flex flex-col gap-2 md:hidden">
+        {[[null, ...buyerCategories]].map((row, rowIndex) => (
+          <div key={rowIndex} className="flex flex-wrap gap-4">
+            {row.map((category) => (
+              <Button
+                key={category?.id ?? "all"}
+                variant="outline"
+                className={`w-32 hover:border-orange-400 ${
+                  selectedCategory === (category?.id ?? null)
+                    ? "bg-orange-400 text-white"
+                    : ""
+                }`}
+                onClick={() => onSelectCategory(category?.id ?? null)}
+              >
+                {category?.name ?? "Vše"}
+              </Button>
+            ))}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -144,13 +193,11 @@ export const ProductCategory: React.FC = () => {
       <div className="container mx-auto p-2">
         <div className="flex flex-col gap-2">
           {/* Categories row */}
-          <div>
-            <CategoryBadges
-              categories={categories}
-              selectedCategory={selectedCategory}
-              onSelectCategory={setSelectedCategory}
-            />
-          </div>
+          <CategoryBadges
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+          />
 
           {/* Price filter and search row */}
           <div className="flex justify-between items-center gap-4">
@@ -178,7 +225,7 @@ export const ProductCategory: React.FC = () => {
       </div>
 
       {/* Products grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-6 gap-2 p-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6 gap-2 p-2">
         {filteredProducts?.map((product: Product) => (
           <Card
             key={product.id}

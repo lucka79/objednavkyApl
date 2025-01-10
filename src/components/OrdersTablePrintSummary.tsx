@@ -41,9 +41,14 @@ export const OrdersTableSummary = ({
     return order.order_items?.filter((item) => item.quantity > 0).length || 0;
   };
 
+  // Add order count
+  const orderCount = orders.length;
+
   return (
     <div style={{ fontSize: "12px", margin: "0 10px" }}>
-      <h2 className="text-2xl font-bold mb-6">Přehled objednávek</h2>
+      <h2 className="text-2xl font-bold mb-6">
+        Přehled objednávek ({orderCount})
+      </h2>
       <table className="w-full">
         <thead>
           <tr className="border-b">
@@ -54,6 +59,7 @@ export const OrdersTableSummary = ({
             <th style={{ textAlign: "left" }}>Pol.</th>
             <th style={{ textAlign: "left" }}>X</th>
             <th style={{ textAlign: "left" }}>Status</th>
+            <th style={{ textAlign: "left" }}>Poznámka</th>
           </tr>
         </thead>
         <tbody style={{ textAlign: "left", fontSize: "12px" }}>
@@ -76,6 +82,7 @@ export const OrdersTableSummary = ({
                 {countZeroItems(order)}/{countAllItems(order)}
               </td>
               <td className="py-2">{order.status || "-"}</td>
+              <td className="py-2">{order.note || "-"}</td>
             </tr>
           ))}
 
@@ -90,6 +97,8 @@ export const OrdersTableSummary = ({
         </tbody>
       </table>
       <div className="text-right text-sm text-gray-500 mt-4">
+        Počet objednávek: {orderCount}
+        <br />
         Vytištěno: {format(new Date(), "dd.MM.yyyy HH:mm")}
       </div>
     </div>
