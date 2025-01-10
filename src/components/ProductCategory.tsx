@@ -142,7 +142,7 @@ export const ProductCategory: React.FC = () => {
   return (
     <Card className="p-4 print:hidden">
       <div className="container mx-auto p-2">
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
           {/* Categories row */}
           <div>
             <CategoryBadges
@@ -178,7 +178,7 @@ export const ProductCategory: React.FC = () => {
       </div>
 
       {/* Products grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 p-2">
+      <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-6 gap-2 p-2">
         {filteredProducts?.map((product: Product) => (
           <Card
             key={product.id}

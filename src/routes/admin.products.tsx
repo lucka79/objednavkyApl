@@ -36,13 +36,11 @@ function AdminProducts() {
         </Button>
       </nav>
 
-      <main className="flex-1 grid h-full w-full items-start gap-4 p-2 sm:px-6 sm:py-0 md:gap-8 lg:grid-cols-3 xl:grid-cols-3">
-        <div className="grid h-full auto-rows-max items-start gap-2 md:gap-8 lg:col-span-2">
-          <div className="h-full overflow-y-auto overflow-x-hidden">
-            {activeView === "createOrder" && <ProductCategory />}
-          </div>
+      <main className="h-full w-full flex flex-col md:flex-row gap-2 p-2 sm:px-6 md:px-[20px] lg:px-[40px] sm:py-0">
+        <div className="flex-1 md:w-1/2 lg:flex-1 h-full overflow-y-auto overflow-x-hidden">
+          {activeView === "createOrder" && <ProductCategory />}
         </div>
-        <div className="h-full overflow-y-auto overflow-x-hidden">
+        <div className="order-first md:order-last md:w-1/2 lg:w-[33%] h-full w-full overflow-y-auto overflow-x-hidden">
           {activeView === "createOrder" && <CartAdmin />}
         </div>
       </main>

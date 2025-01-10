@@ -33,7 +33,20 @@ import { CartItem } from "types";
 import { useSelectedUser } from "@/hooks/useProfiles";
 import { useUpdateStoredItems } from "@/hooks/useOrders";
 import { useDriverUsers } from "@/hooks/useProfiles";
+import { z } from "zod";
 // import { Command } from "cmdk";
+
+const orderSchema = z.object({
+  selectedUserId: z.string().min(1, "Vyberte uživatele"),
+  items: z.array(z.any()).min(1, "Košík je prázdný"),
+  date: z.date({
+    required_error: "Vyberte datum",
+  }),
+  selectedDriverId: z.string().nullable(),
+  paid_by: z.enum(["Hotově", "Kartou", "Příkazem"], {
+    required_error: "Vyberte způsob platby",
+  }),
+});
 
 export default function CartAdmin() {
   const { toast } = useToast();
@@ -169,7 +182,7 @@ export default function CartAdmin() {
               autoFocus={false}
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className={`border rounded px-2 py-1 text-sm w-[120px] min-w-[120px] text-left ${
+              className={`border rounded px-2 py-1 text-thin text-sm w-[120px] min-w-[120px] text-left ${
                 note ? "border-orange-500" : ""
               }`}
               placeholder="Přidat poznámku..."
@@ -315,25 +328,29 @@ export default function CartAdmin() {
         )}
         <Button
           onClick={async () => {
-            if (!selectedUserId) {
-              toast({
-                title: "Error",
-                description: "Please select a user first",
-                variant: "destructive",
-              });
-              return;
-            }
-
-            if (items.length === 0) {
-              toast({
-                title: "Error",
-                description: "Zeje to tu prázdnotou",
-                variant: "destructive",
-              });
-              return;
-            }
-
             try {
+              const driverId =
+                selectedDriverId === "none" || !selectedDriverId
+                  ? null
+                  : selectedDriverId;
+
+              const validationResult = orderSchema.safeParse({
+                selectedUserId,
+                items,
+                date,
+                selectedDriverId: driverId,
+                paid_by,
+              });
+
+              if (!validationResult.success) {
+                toast({
+                  title: "Chybí povinné údaje",
+                  description: validationResult.error.errors[0].message,
+                  variant: "destructive",
+                });
+                return;
+              }
+
               const orderTotal = calculateTotal();
 
               await updateStoredItems({
@@ -353,7 +370,7 @@ export default function CartAdmin() {
                 orderTotal,
                 selectedUser?.role,
                 paid_by,
-                selectedDriverId === "none" ? (null as any) : selectedDriverId,
+                driverId as any,
                 note
               );
 
