@@ -14,7 +14,7 @@ interface OrderItem {
   id: number;
   quantity: number;
   price: number;
-  product: {
+  products: {
     name: string;
   };
 }
@@ -24,7 +24,7 @@ interface Order {
   date: string;
   total: number;
   order_items: OrderItem[];
-  user: {
+  profiles: {
     full_name: string;
     email: string;
     address: string;
@@ -61,11 +61,11 @@ export const InvoiceGenerator = ({ userId }: InvoiceGeneratorProps) => {
             id,
             quantity,
             price,
-            product (
+            products (
               name
             )
           ),
-          user (
+          profiles!orders_user_id_fkey (
             full_name,
             email,
             address,
@@ -97,10 +97,10 @@ export const InvoiceGenerator = ({ userId }: InvoiceGeneratorProps) => {
       const itemSummary = orders.reduce(
         (acc, order) => {
           order.order_items?.forEach((item: OrderItem) => {
-            const key = `${item.product.name}-${item.price}`;
+            const key = `${item.products.name}-${item.price}`;
             if (!acc[key]) {
               acc[key] = {
-                name: item.product.name,
+                name: item.products.name,
                 price: item.price,
                 quantity: 0,
                 total: 0,
@@ -122,7 +122,7 @@ export const InvoiceGenerator = ({ userId }: InvoiceGeneratorProps) => {
 
       // 4. Generate PDF using a library like jsPDF or react-pdf
       const invoiceData = {
-        customerInfo: orders[0]?.user,
+        customerInfo: orders[0]?.profiles,
         dateRange: { start: startDate, end: endDate },
         items: Object.values(itemSummary),
         total: invoiceTotal,

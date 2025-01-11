@@ -27,6 +27,7 @@ interface Profile {
   full_name: string
   avatar_url: string
   role: UserRole
+
 }
 
 interface UserData {

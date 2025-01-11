@@ -4,15 +4,26 @@ import { Button } from "@/components/ui/button";
 import { ShoppingCart } from "lucide-react";
 import { useCartStore } from "@/providers/cartStore";
 
+interface Profile {
+  email: string;
+  role: string;
+  id: string;
+  full_name: string;
+}
+
 export function Navbar() {
-  const user = useAuthStore((state) => state.user);
+  const user = useAuthStore((state) => state.user) as Profile | null;
   const signOut = useAuthStore((state) => state.signOut);
   const { clearCart } = useCartStore();
+
+  console.log("Current user email:", user?.email);
 
   const handleSignOut = async () => {
     await signOut();
     clearCart(); // Clear the cart after successful sign out
   };
+
+  console.log(user);
 
   return (
     <nav className="bg-primary text-primary-foreground shadow-lg print:hidden">
@@ -84,9 +95,15 @@ export function Navbar() {
                     <Link to="/admin/products" className="hover:text-gray-300">
                       <ShoppingCart />
                     </Link>
-                    {/* <Link to="/cart" className="hover:text-gray-300">
-                      <ShoppingCart />
-                    </Link> */}
+
+                    {user.email === "l.batelkova@gmail.com" && (
+                      <Link
+                        to="/admin/invoices"
+                        className="hover:text-gray-300"
+                      >
+                        Faktury
+                      </Link>
+                    )}
                   </>
                 )}
 

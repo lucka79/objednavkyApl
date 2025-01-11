@@ -118,6 +118,7 @@ export type Product = {
   
   export type Profile = {
     id: string;
+    email: string;
     role: string;
     full_name: string;
     crateSmall: number;
