@@ -17,9 +17,9 @@ export const OrderPrint = ({ orders }: { orders: Order[] }) => {
             justifyContent: "space-between",
           }}
         >
-          <div style={{ margin: "10px", fontSize: "12px" }}>
-            <div className="flex-1">
-              <span style={{ textAlign: "center", color: "#333" }}>
+          <div style={{ margin: "10px", fontSize: "14px" }}>
+            <div style={{ textAlign: "center" }}>
+              <span>
                 APLICA s.r.o., IČO: 00555801, DIČ: CZ00555801, Veleslavínova
                 2045/7, Ústí nad Labem
               </span>
@@ -27,9 +27,9 @@ export const OrderPrint = ({ orders }: { orders: Order[] }) => {
             <div className="mb-4 flex justify-between items-start">
               <div>
                 <h2 className="text-xl font-bold">{order.user.full_name}</h2>
-                <p className="text-gray-800">{order.user.address}</p>
+                <p style={{ fontSize: "14px" }}>{order.user.address}</p>
                 {order.driver?.full_name && (
-                  <p className="text-gray-800">
+                  <p style={{ fontSize: "12px" }}>
                     Řidič: {order.driver.full_name}
                   </p>
                 )}
@@ -47,7 +47,7 @@ export const OrderPrint = ({ orders }: { orders: Order[] }) => {
 
             <table
               className="w-full mb-4"
-              style={{ textAlign: "left", fontSize: "10px" }}
+              style={{ textAlign: "left", fontSize: "12px" }}
             >
               <thead>
                 <tr>
@@ -72,7 +72,10 @@ export const OrderPrint = ({ orders }: { orders: Order[] }) => {
                         <tr>
                           <td className="border-b py-1">{item.product.code}</td>
                           <td className="border-b py-1">{item.product.name}</td>
-                          <td className="text-right border-b py-1">
+                          <td
+                            style={{ fontSize: "14px" }}
+                            className="text-right border-b py-1"
+                          >
                             {item.quantity}
                           </td>
                           <td className="text-right border-b py-1">
@@ -112,7 +115,13 @@ export const OrderPrint = ({ orders }: { orders: Order[] }) => {
             </table>
 
             <div className="text-right mb-4">
-              <p className="text-right font-semibold">
+              <p
+                style={{
+                  textAlign: "right",
+                  fontWeight: "bold",
+                  fontSize: "14px",
+                }}
+              >
                 {order.user?.role === "mobil"
                   ? Math.round(order.total).toFixed(2)
                   : order.total.toFixed(2)}{" "}
@@ -120,10 +129,16 @@ export const OrderPrint = ({ orders }: { orders: Order[] }) => {
               </p>
               {order.user?.role === "buyer" && (
                 <>
-                  <p className="text-right">
+                  <p style={{ textAlign: "right", fontSize: "12px" }}>
                     DPH 12%: {(order.total * 0.12).toFixed(2)} Kč
                   </p>
-                  <p className="text-right font-bold">
+                  <p
+                    style={{
+                      textAlign: "right",
+                      fontWeight: "bold",
+                      fontSize: "14px",
+                    }}
+                  >
                     Celkem s DPH:{" "}
                     {order.paid_by === "Hotově"
                       ? Math.round(order.total * 1.12).toFixed(2)

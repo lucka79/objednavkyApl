@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { v4 as uuidv4 } from "uuid";
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { DatePicker } from "./ui/date-picker";
 import { toast } from "@/hooks/use-toast";
 import { PostgrestResponse } from "@supabase/supabase-js";
+import { generatePDF } from "./InvoicePdf";
 
 interface InvoiceGeneratorProps {
   userId: string;
@@ -33,6 +35,17 @@ interface Order {
     dic: string;
   };
 }
+
+// interface Invoice {
+//   id: number;
+//   created_at: string;
+//   user_id: string;
+//   start_date: string;
+//   end_date: string;
+//   total: number;
+//   invoice_number: string;
+//   order_ids: number[];
+// }
 
 export const InvoiceGenerator = ({ userId }: InvoiceGeneratorProps) => {
   const [startDate, setStartDate] = useState<Date>();
@@ -120,8 +133,28 @@ export const InvoiceGenerator = ({ userId }: InvoiceGeneratorProps) => {
       // 3. Calculate invoice total
       const invoiceTotal = orders.reduce((sum, order) => sum + order.total, 0);
 
-      // 4. Generate PDF using a library like jsPDF or react-pdf
+      // Generate invoice number (you might want to customize this format)
+      const invoiceNumber = `INV-${new Date().getFullYear()}-${uuidv4().slice(0, 8)}`;
+
+      // Save invoice to database
+      const { error: saveError } = await supabase
+        .from("invoices")
+        .insert({
+          user_id: userId,
+          start_date: startDate.toISOString(),
+          end_date: endDate.toISOString(),
+          total: invoiceTotal,
+          invoice_number: invoiceNumber,
+          order_ids: orders.map((o) => o.id),
+        })
+        .select()
+        .single();
+
+      if (saveError) throw saveError;
+
+      // Prepare invoice data for PDF generation
       const invoiceData = {
+        invoiceNumber,
         customerInfo: orders[0]?.profiles,
         dateRange: { start: startDate, end: endDate },
         items: Object.values(itemSummary),
@@ -129,7 +162,13 @@ export const InvoiceGenerator = ({ userId }: InvoiceGeneratorProps) => {
         orderIds: orders.map((o) => o.id),
       };
 
+      // Generate PDF
       await generatePDF(invoiceData);
+
+      toast({
+        title: "Úspěch",
+        description: `Faktura ${invoiceNumber} byla úspěšně vygenerována`,
+      });
     } catch (error) {
       console.error("Failed to generate invoice:", error);
       toast({
@@ -154,31 +193,15 @@ export const InvoiceGenerator = ({ userId }: InvoiceGeneratorProps) => {
           placeholder="Do data..."
         />
       </div>
-      <Button onClick={generateInvoice} disabled={!startDate || !endDate}>
+      <Button
+        variant="outline"
+        onClick={generateInvoice}
+        disabled={!startDate || !endDate}
+      >
         Generovat fakturu
       </Button>
     </div>
   );
 };
 
-// Separate function for PDF generation
-// @ts-ignore
-const generatePDF = async (data: {
-  customerInfo: any;
-  dateRange: { start: Date; end: Date };
-  items: Array<{
-    name: string;
-    price: number;
-    quantity: number;
-    total: number;
-  }>;
-  total: number;
-  orderIds: number[];
-}) => {
-  // Implement PDF generation using your preferred library
-  // Example using jsPDF:
-  // const doc = new jsPDF();
-  // doc.text(`Faktura pro ${data.customerInfo.full_name}`, 20, 20);
-  // ... add more content ...
-  // doc.save('invoice.pdf');
-};
+// Update the generatePDF function to include invoice numbe
