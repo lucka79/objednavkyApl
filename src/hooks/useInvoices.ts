@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 
 interface Invoice {
   id: number;
@@ -142,5 +142,41 @@ export const useIsOrderInvoiced = () => {
 
       return invoicedOrderIds;
     },
+  });
+};
+
+export const useUpdateInvoiceTotal = () => {
+  return useMutation({
+    mutationFn: async (invoiceId: string) => {
+      // First get all order IDs for this invoice
+      const { data: invoice, error: invoiceError } = await supabase
+        .from('invoices')
+        .select('order_ids')
+        .eq('id', invoiceId)
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+      // Calculate new total from all order items
+      const { data: items, error: itemsError } = await supabase
+        .from('order_items')
+        .select('quantity, price')
+        .in('order_id', invoice.order_ids);
+
+      if (itemsError) throw itemsError;
+
+      const newTotal = items?.reduce((sum, item) => 
+        sum + (item.quantity * item.price), 0) || 0;
+
+      // Update invoice with new total
+      const { error: updateError } = await supabase
+        .from('invoices')
+        .update({ total: newTotal })
+        .eq('id', invoiceId);
+
+      if (updateError) throw updateError;
+
+      return newTotal;
+    }
   });
 };

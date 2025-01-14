@@ -134,7 +134,7 @@ export const InvoiceGenerator = ({ userId }: InvoiceGeneratorProps) => {
       const invoiceTotal = orders.reduce((sum, order) => sum + order.total, 0);
 
       // Generate invoice number (you might want to customize this format)
-      const invoiceNumber = `INV-${new Date().getFullYear()}-${uuidv4().slice(0, 8)}`;
+      const invoiceNumber = `FAV${new Date().getFullYear()}-${uuidv4().slice(0, 8)}`;
 
       // Save invoice to database
       const { error: saveError } = await supabase
@@ -159,7 +159,11 @@ export const InvoiceGenerator = ({ userId }: InvoiceGeneratorProps) => {
         dateRange: { start: startDate, end: endDate },
         items: Object.values(itemSummary),
         total: invoiceTotal,
-        orderIds: orders.map((o) => o.id),
+        orders: orders.map((o) => ({
+          id: o.id.toString(),
+          date: new Date(o.date),
+          total: o.total,
+        })),
       };
 
       // Generate PDF

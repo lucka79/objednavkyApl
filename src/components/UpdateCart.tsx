@@ -36,6 +36,7 @@ import { useAuthStore } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 import { useIsOrderInvoiced } from "@/hooks/useInvoices";
 import { useOrderLockStore } from "@/providers/orderLockStore";
+import { useUpdateInvoiceTotal } from "@/hooks/useInvoices";
 
 interface OrderItem {
   id: number;
@@ -130,6 +131,7 @@ export default function UpdateCart({
   const isLocked = invoicedOrderIds?.has(orderId);
   const { isOrderUnlocked, lockOrder, unlockOrder } = useOrderLockStore();
   const isReadOnly = isLocked && !isOrderUnlocked(orderId);
+  const { mutate: updateInvoiceTotal } = useUpdateInvoiceTotal();
 
   // @ts-ignore
   const { data: historyData, isLoading } = useOrderItemHistory(selectedItemId);
@@ -297,6 +299,19 @@ export default function UpdateCart({
 
       // Refresh the data
       await onUpdate();
+
+      // After successful update, recalculate invoice total if order is invoiced
+      if (isLocked) {
+        const { data: invoice } = await supabase
+          .from("invoices")
+          .select("id")
+          .contains("order_ids", [orderId])
+          .single();
+
+        if (invoice) {
+          updateInvoiceTotal(invoice.id);
+        }
+      }
     } catch (error) {
       console.error("Failed to update quantity:", error);
       toast({

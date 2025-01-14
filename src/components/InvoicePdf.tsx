@@ -22,6 +22,11 @@ export const generatePDF = async (data: {
     total: number;
   }>;
   total: number;
+  orders: Array<{
+    id: string;
+    date: Date;
+    total: number;
+  }>;
 }) => {
   const doc = new jsPDF("p", "mm", "a4", true);
   doc.addFont(robotoFont, "Roboto", "normal");
@@ -31,7 +36,7 @@ export const generatePDF = async (data: {
   doc.setLanguage("cs");
 
   // Add company logo/header
-  doc.setFontSize(20);
+  doc.setFontSize(15);
   doc.text("FAKTURA - DAŇOVÝ DOKLAD", 105, 20, { align: "center" });
   doc.setFontSize(12);
   doc.text(`Variabilní symbol: ${data.invoiceNumber}`, 105, 30, {
@@ -57,6 +62,34 @@ export const generatePDF = async (data: {
   if (data.customerInfo.ico) doc.text(`IČO: ${data.customerInfo.ico}`, 20, 86);
   if (data.customerInfo.dic) doc.text(`DIČ: ${data.customerInfo.dic}`, 20, 93);
 
+  // Add orders section before items table
+  doc.text("Objednávky v období:", 20, 100);
+  const ordersData = data.orders.map((order) => [
+    `#${order.id}`,
+    format(order.date, "d. M. yyyy", { locale: cs }),
+    `${order.total.toLocaleString("cs-CZ")} Kč`,
+  ]);
+
+  (doc as any).autoTable({
+    startY: 105,
+    head: [["Číslo obj.", "Datum", "Celkem"]],
+    body: ordersData,
+    theme: "grid",
+    styles: {
+      fillColor: [255, 255, 255],
+      textColor: [0, 0, 0],
+      font: "Roboto",
+    },
+    headStyles: {
+      fillColor: [255, 255, 255],
+      textColor: [0, 0, 0],
+      font: "Roboto",
+    },
+    columnStyles: {
+      2: { halign: "right" },
+    },
+  });
+
   // Add items table
   const tableData = data.items.map((item) => [
     item.name,
@@ -65,16 +98,36 @@ export const generatePDF = async (data: {
     `${item.total.toLocaleString("cs-CZ")} Kč`,
   ]);
 
+  // Then add items table with adjusted startY
   (doc as any).autoTable({
-    startY: 105,
+    startY: (doc as any).lastAutoTable.finalY + 10,
     head: [["Položka", "Množství", "Cena/ks", "Celkem"]],
     body: tableData,
     theme: "grid",
-    headStyles: { fillColor: [51, 51, 51] },
+    styles: {
+      fillColor: [255, 255, 255],
+      textColor: [0, 0, 0],
+      font: "Roboto",
+    },
+    headStyles: {
+      fillColor: [255, 255, 255],
+      textColor: [0, 0, 0],
+      font: "Roboto",
+    },
+    columnStyles: {
+      2: { halign: "right" },
+      3: { halign: "right" },
+    },
     foot: [["", "", "Celkem:", `${data.total.toLocaleString("cs-CZ")} Kč`]],
-    footStyles: { fillColor: [240, 240, 240] },
+    footStyles: {
+      fillColor: [255, 255, 255],
+      textColor: [0, 0, 0],
+      font: "Roboto",
+      halign: "right",
+    },
   });
 
-  // Save the PDF
-  doc.save(`faktura-${data.invoiceNumber}.pdf`);
+  // Return the PDF as a Blob instead of downloading
+  const pdfBlob = doc.output("blob");
+  return pdfBlob;
 };

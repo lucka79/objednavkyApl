@@ -211,3 +211,19 @@ export type Production = {
   user: Profile;
   production_items: ProductionItem[];
 }
+
+export interface Invoice {
+  invoice_number: string;
+  start_date: string;
+  end_date: string;
+  created_at: string;
+  total: number;
+  profiles?: {
+    full_name: string;
+    company?: string;
+    email?: string;
+    address?: string;
+    ico?: string;
+    dic?: string;
+  };
+}
