@@ -124,3 +124,23 @@ export const useInvoice = (invoiceId: number) => {
     enabled: !!invoiceId,
   });
 };
+
+export const useIsOrderInvoiced = () => {
+  return useQuery({
+    queryKey: ["invoiced-orders"],
+    queryFn: async () => {
+      const { data: invoices, error } = await supabase
+        .from("invoices")
+        .select("order_ids");
+
+      if (error) throw error;
+
+      // Create a Set of all order IDs that are in any invoice
+      const invoicedOrderIds = new Set(
+        invoices?.flatMap((invoice) => invoice.order_ids) ?? []
+      );
+
+      return invoicedOrderIds;
+    },
+  });
+};

@@ -36,6 +36,8 @@ import {
   FileText,
   StickyNote,
   Undo2,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -76,6 +78,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { OrdersTableSummary } from "./OrdersTablePrintSummary";
+import { useIsOrderInvoiced } from "@/hooks/useInvoices";
+import { useOrderLockStore } from "@/providers/orderLockStore";
 
 const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
   ({ orders }, ref) => (
@@ -372,6 +376,29 @@ const columns: ColumnDef<Order>[] = [
       const deleteOrder = useDeleteOrder();
       const { toast } = useToast();
       const user = useAuthStore((state) => state.user);
+      const { data: invoicedOrderIds } = useIsOrderInvoiced();
+      const { unlockOrder, lockOrder, isOrderUnlocked } = useOrderLockStore();
+      const [isUnlocked, setIsUnlocked] = useState(false);
+      const isLocked = invoicedOrderIds?.has(order.id);
+      const canUnlock = user?.role === "admin";
+
+      const toggleLock = () => {
+        if (!canUnlock) return;
+        const isUnlocked = isOrderUnlocked(order.id);
+        if (isUnlocked) {
+          lockOrder(order.id);
+        } else {
+          unlockOrder(order.id);
+        }
+        setIsUnlocked(!isUnlocked);
+        toast({
+          title: isUnlocked ? "Order locked" : "Order unlocked",
+          description: isUnlocked
+            ? "The order has been locked"
+            : "The order is now unlocked. You can make changes.",
+          variant: isUnlocked ? "default" : "destructive",
+        });
+      };
 
       const handleDelete = async () => {
         try {
@@ -390,40 +417,56 @@ const columns: ColumnDef<Order>[] = [
         }
       };
 
-      // Only show delete button for admin users
-      if (user?.role !== "admin") return null;
-
       return (
-        <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Opravdu smazat objednávku?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Tato akce je nevratná. Smaže se objednávka a všechny přiřazené
-                  položky.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Zrušit</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDelete}
-                  className="bg-red-700 hover:bg-red-800"
+        <div className="flex justify-end gap-2">
+          {isLocked && canUnlock && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleLock}
+              className={isUnlocked ? "text-red-600" : "text-muted-foreground"}
+            >
+              {isUnlocked ? (
+                <Unlock className="h-4 w-4" />
+              ) : (
+                <Lock className="h-4 w-4" />
+              )}
+            </Button>
+          )}
+          {user?.role === "admin" && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                  disabled={isLocked && !isUnlocked}
                 >
-                  Smazat
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Opravdu smazat objednávku?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tato akce je nevratná. Smaže se objednávka a všechny
+                    přiřazené položky.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Zrušit</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDelete}
+                    className="bg-red-700 hover:bg-red-800"
+                  >
+                    Smazat
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       );
     },
@@ -968,12 +1011,12 @@ export function OrdersTable({
                   <SelectValue placeholder="Odběratel..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <div className="relative">
+                  <div className="sticky top-0 z-50 bg-white p-2">
                     <Input
                       placeholder="Hledat odběratele..."
                       value={userSearchQuery}
                       onChange={(e) => setUserSearchQuery(e.target.value)}
-                      className="sticky top-0 bg-background z-10 border-orange-600 hover:border-orange-600 focus-visible:ring-orange-600 mx-2 w-[calc(100%-16px)]"
+                      className="border-orange-600 hover:border-orange-600 focus-visible:ring-orange-600 w-full"
                       onKeyDown={(e) => e.stopPropagation()}
                     />
                   </div>

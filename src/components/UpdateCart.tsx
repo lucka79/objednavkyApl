@@ -2,7 +2,15 @@ import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { SquareMinus, SquarePlus, Plus, History, Trash2 } from "lucide-react";
+import {
+  SquareMinus,
+  SquarePlus,
+  Plus,
+  History,
+  Trash2,
+  Lock,
+  Unlock,
+} from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -26,6 +34,8 @@ import { AddProduct } from "@/components/AddProduct";
 import { useOrderItemsHistory } from "@/hooks/useOrders";
 import { useAuthStore } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
+import { useIsOrderInvoiced } from "@/hooks/useInvoices";
+import { useOrderLockStore } from "@/providers/orderLockStore";
 
 interface OrderItem {
   id: number;
@@ -116,10 +126,33 @@ export default function UpdateCart({
   const { mutateAsync: deleteOrderItem } = useDeleteOrderItem();
   const { toast } = useToast();
   const user = useAuthStore((state) => state.user);
+  const { data: invoicedOrderIds } = useIsOrderInvoiced();
+  const isLocked = invoicedOrderIds?.has(orderId);
+  const { isOrderUnlocked, lockOrder, unlockOrder } = useOrderLockStore();
+  const isReadOnly = isLocked && !isOrderUnlocked(orderId);
 
   // @ts-ignore
   const { data: historyData, isLoading } = useOrderItemHistory(selectedItemId);
   const { data: allHistoryData } = useOrderItemsHistory(orderItems);
+
+  const canUnlock = user?.role === "admin";
+
+  const toggleLock = () => {
+    if (!canUnlock) return;
+    const currentlyUnlocked = isOrderUnlocked(orderId);
+    if (currentlyUnlocked) {
+      lockOrder(orderId);
+    } else {
+      unlockOrder(orderId);
+    }
+    toast({
+      title: currentlyUnlocked ? "Order locked" : "Order unlocked",
+      description: currentlyUnlocked
+        ? "The order has been locked"
+        : "The order is now unlocked. You can make changes.",
+      variant: currentlyUnlocked ? "default" : "destructive",
+    });
+  };
 
   useEffect(() => {
     console.log("Received items:", items);
@@ -165,6 +198,14 @@ export default function UpdateCart({
   const total = useMemo(() => calculateTotal(), [orderItems]);
 
   const handleDeleteItem = async (itemId: number) => {
+    if (isReadOnly) {
+      toast({
+        title: "Order is locked",
+        description: "This order is part of an invoice and cannot be modified.",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       // First delete history records - corrected table name
       await supabase
@@ -193,6 +234,14 @@ export default function UpdateCart({
     productId: number,
     newQuantity: number
   ) => {
+    if (isReadOnly) {
+      toast({
+        title: "Order is locked",
+        description: "This order is part of an invoice and cannot be modified.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (newQuantity < 0) return;
 
     try {
@@ -259,6 +308,14 @@ export default function UpdateCart({
   };
 
   const handleCheckChange = async (itemId: number, checked: boolean) => {
+    if (isReadOnly) {
+      toast({
+        title: "Order is locked",
+        description: "This order is part of an invoice and cannot be modified.",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       // Update database first
       await updateOrderItems({
@@ -294,6 +351,24 @@ export default function UpdateCart({
     <Card>
       <CardContent>
         <div className="flex gap-2 mb-4 pt-2 print:hidden">
+          {isLocked && canUnlock && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleLock}
+              className={
+                isOrderUnlocked(orderId)
+                  ? "text-red-600"
+                  : "text-muted-foreground"
+              }
+            >
+              {isOrderUnlocked(orderId) ? (
+                <Unlock className="h-4 w-4" />
+              ) : (
+                <Lock className="h-4 w-4" />
+              )}
+            </Button>
+          )}
           <Badge variant="outline" className="border-green-500">
             Hotovo {getCheckboxCounts().checked}
           </Badge>
@@ -303,7 +378,7 @@ export default function UpdateCart({
           <div className="flex gap-2 ml-auto">
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" disabled={isReadOnly}>
                   <Plus className="h-4 w-4 mr-2" />
                   Položka
                 </Button>
@@ -337,6 +412,7 @@ export default function UpdateCart({
                   onCheckedChange={(checked: boolean) =>
                     handleCheckChange(item.id, checked)
                   }
+                  disabled={isReadOnly}
                   className="mr-2 border-amber-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500 data-[state=checked]:text-white print:hidden"
                 />
               )}
@@ -354,6 +430,7 @@ export default function UpdateCart({
                   <SquareMinus
                     onClick={() =>
                       !item.checked &&
+                      !isReadOnly &&
                       updateOrderQuantity(
                         item.id,
                         item.product.id,
@@ -361,7 +438,7 @@ export default function UpdateCart({
                       )
                     }
                     className={`cursor-pointer ${
-                      item.checked
+                      item.checked || isReadOnly
                         ? "text-gray-200 cursor-not-allowed"
                         : "text-stone-300 hover:text-stone-400"
                     }`}
@@ -372,6 +449,7 @@ export default function UpdateCart({
                   min="0"
                   value={item.quantity}
                   onChange={(e) => {
+                    if (isReadOnly) return;
                     const newItem = {
                       ...item,
                       quantity: parseInt(e.target.value) || 0,
@@ -382,20 +460,22 @@ export default function UpdateCart({
                   }}
                   onBlur={(e) =>
                     !item.checked &&
+                    !isReadOnly &&
                     updateOrderQuantity(
                       item.id,
                       item.product.id,
                       parseInt(e.target.value) || 0
                     )
                   }
+                  disabled={item.checked || isReadOnly}
                   className={`w-20 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                     item.quantity === 0 ? "text-gray-600" : ""
                   }`}
-                  disabled={item.checked}
                 />
                 <SquarePlus
                   onClick={() =>
                     !item.checked &&
+                    !isReadOnly &&
                     updateOrderQuantity(
                       item.id,
                       item.product.id,
@@ -403,8 +483,8 @@ export default function UpdateCart({
                     )
                   }
                   className={`cursor-pointer ${
-                    item.checked
-                      ? "text-gray-200"
+                    item.checked || isReadOnly
+                      ? "text-gray-200 cursor-not-allowed"
                       : "text-stone-300 hover:text-stone-400"
                   }`}
                 />
@@ -436,8 +516,12 @@ export default function UpdateCart({
                 </Dialog>
                 {user?.role === "admin" && (
                   <Trash2
-                    onClick={() => handleDeleteItem(item.id)}
-                    className="h-4 w-4 cursor-pointer text-stone-300 hover:text-red-500 ml-2"
+                    onClick={() => !isReadOnly && handleDeleteItem(item.id)}
+                    className={`h-4 w-4 cursor-pointer ml-2 ${
+                      isReadOnly
+                        ? "text-gray-200 cursor-not-allowed"
+                        : "text-stone-300 hover:text-red-500"
+                    }`}
                   />
                 )}
               </div>
