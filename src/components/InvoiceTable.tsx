@@ -97,21 +97,8 @@ export const InvoiceTable = () => {
 
   const handleEmailPDF = async (invoice: any) => {
     try {
-      console.log("1. Starting test email process...");
-
-      // Test email without PDF first
-      console.log("2. Sending test email to:", invoice.profiles?.email);
-      await sendEmail({
-        to: invoice.profiles?.email,
-        subject: "Test Email",
-        text: "This is a test email.",
-        attachments: [], // No attachments for test
-      });
-      console.log("3. Test email sent successfully");
-
-      // Generate invoice data
       const invoiceData = {
-        invoiceNumber: invoice.invoice_number,
+        invoiceNumber: invoice.invoice_number as string,
         customerInfo: {
           full_name: invoice.profiles?.full_name ?? "",
           company: invoice.profiles?.company ?? null,
@@ -131,28 +118,36 @@ export const InvoiceTable = () => {
             price: item.price ?? 0,
             total: (item.quantity ?? 0) * (item.price ?? 0),
           })) ?? [],
-        total: invoice.total ?? 0,
+        total: Number(invoice.total ?? 0),
         orders:
           invoice.orders?.map((order: any) => ({
             id: order.id,
             date: new Date(order.date),
-            total: order.total ?? 0,
+            total: Number(order.total ?? 0),
           })) ?? [],
       };
 
-      console.log("4. Now attempting to generate PDF...");
       const pdfBlob = await generatePDF(invoiceData);
-      console.log("5. PDF generated:", pdfBlob);
 
-      // ... rest of the code
-    } catch (err) {
-      const error = err as Error;
-      console.error("❌ Error in email process:", {
-        step: "test email",
-        error,
-        message: error.message,
-        stack: error.stack,
+      // Send email with PDF attachment
+      await sendEmail({
+        to: invoice.profiles?.email,
+        subject: `Faktura ${invoice.invoice_number}`,
+        text: `Vážený zákazníku,\n\nv příloze najdete fakturu ${invoice.invoice_number}.\n\nS pozdravem`,
+        attachments: [
+          {
+            filename: `faktura-${invoice.invoice_number}.pdf`,
+            content: pdfBlob,
+          },
+        ],
       });
+
+      toast({
+        title: "Úspěch",
+        description: "Email byl odeslán",
+      });
+    } catch (error) {
+      console.error("Error sending email:", error);
       toast({
         title: "Chyba",
         description: "Nepodařilo se odeslat email",

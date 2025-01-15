@@ -19,19 +19,27 @@ serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get('RESEND_API_KEY');
-    if (!apiKey) {
-      throw new Error('RESEND_API_KEY environment variable is not set');
+    // Use the hardcoded key again temporarily to test
+    const resend = new Resend('re_565RWApU_Hyj34Uk7frv9fZni1aWs12S7');
+
+    const { to, subject, text, attachments } = await req.json();
+    console.log('Sending email to:', to);
+
+    const emailData: any = {
+      from: 'onboarding@resend.dev',
+      to,
+      subject,
+      html: text.replace(/\n/g, '<br>'),
+    };
+
+    if (attachments && attachments.length > 0) {
+      emailData.attachments = attachments.map((attachment: any) => ({
+        filename: attachment.filename,
+        content: attachment.content,
+      }));
     }
 
-    const resend = new Resend(apiKey);
-
-    const { data, error } = await resend.emails.send({
-      from: 'onboarding@resend.dev',
-      to: 'l.batelkova@gmail.com',
-      subject: 'Test Email',
-      html: '<p>This is a test email sent at ' + new Date().toISOString() + '</p>'
-    });
+    const { data, error } = await resend.emails.send(emailData);
 
     if (error) {
       console.error('Resend error:', error);
