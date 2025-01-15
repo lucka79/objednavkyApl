@@ -8,6 +8,8 @@ import { generatePDF } from "./InvoicePdf";
 import { InvoiceDialog } from "./InvoiceDialog";
 import { Invoice } from "../../types";
 import { sendEmail } from "@/lib/email";
+import { Mail } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 export const InvoiceTable = () => {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -57,6 +59,19 @@ export const InvoiceTable = () => {
 
       const pdfBlob = await generatePDF(invoiceData);
 
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(pdfBlob);
+      // Create a temporary link element
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `faktura-${invoice.invoice_number}.pdf`;
+      // Trigger the download
+      document.body.appendChild(link);
+      link.click();
+      // Clean up
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
       if (invoice.profiles?.email) {
         await sendEmail({
           to: invoice.profiles.email,
@@ -72,6 +87,92 @@ export const InvoiceTable = () => {
       }
     } catch (error) {
       console.error("Error generating/sending PDF:", error);
+      toast({
+        title: "Chyba",
+        description: "Nepodařilo se vygenerovat PDF",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEmailPDF = async (invoice: any) => {
+    try {
+      console.log("1. Starting test email process...");
+
+      // Test email without PDF first
+      console.log("2. Sending test email to:", invoice.profiles?.email);
+      await sendEmail({
+        to: invoice.profiles?.email,
+        subject: "Test Email",
+        text: "This is a test email.",
+        attachments: [], // No attachments for test
+      });
+      console.log("3. Test email sent successfully");
+
+      // Generate invoice data
+      const invoiceData = {
+        invoiceNumber: invoice.invoice_number,
+        customerInfo: {
+          full_name: invoice.profiles?.full_name ?? "",
+          company: invoice.profiles?.company ?? null,
+          email: invoice.profiles?.email ?? "",
+          address: invoice.profiles?.address ?? "",
+          ico: invoice.profiles?.ico ?? "",
+          dic: invoice.profiles?.dic ?? "",
+        },
+        dateRange: {
+          start: new Date(invoice.start_date),
+          end: new Date(invoice.end_date),
+        },
+        items:
+          invoice.items?.map((item: any) => ({
+            name: item.products?.name ?? "",
+            quantity: item.quantity ?? 0,
+            price: item.price ?? 0,
+            total: (item.quantity ?? 0) * (item.price ?? 0),
+          })) ?? [],
+        total: invoice.total ?? 0,
+        orders:
+          invoice.orders?.map((order: any) => ({
+            id: order.id,
+            date: new Date(order.date),
+            total: order.total ?? 0,
+          })) ?? [],
+      };
+
+      console.log("4. Now attempting to generate PDF...");
+      const pdfBlob = await generatePDF(invoiceData);
+      console.log("5. PDF generated:", pdfBlob);
+
+      // ... rest of the code
+    } catch (err) {
+      const error = err as Error;
+      console.error("❌ Error in email process:", {
+        step: "test email",
+        error,
+        message: error.message,
+        stack: error.stack,
+      });
+      toast({
+        title: "Chyba",
+        description: "Nepodařilo se odeslat email",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTestEmail = async () => {
+    try {
+      console.log("Sending test email...");
+      await sendEmail({
+        to: "l.batelkova@gmail.com",
+        subject: "Test Email from Resend",
+        text: "This is a test email sent using Resend",
+        attachments: [],
+      });
+      console.log("Test email sent successfully");
+    } catch (error) {
+      console.error("Test email failed:", error);
     }
   };
 
@@ -153,17 +254,38 @@ export const InvoiceTable = () => {
                       <td className="p-2 text-right w-[100px] font-semibold">
                         {invoice.total.toFixed(2)} Kč
                       </td>
-                      <td className="p-2 text-right w-[100px]">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleGeneratePDF(invoice);
-                          }}
-                        >
-                          PDF
-                        </Button>
+                      <td className="p-2 text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleGeneratePDF(invoice);
+                            }}
+                          >
+                            PDF
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleEmailPDF(invoice);
+                            }}
+                          >
+                            <Mail className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleTestEmail}
+                          >
+                            Test Email
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   </tbody>

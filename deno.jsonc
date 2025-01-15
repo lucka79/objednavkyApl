@@ -1,0 +1,9 @@
+{
+  "tasks": {
+    "serve": "deno run --allow-net --allow-env index.ts"
+  },
+  "imports": {
+    "std/": "https://deno.land/std@0.218.2/",
+    "smtp/": "https://deno.land/x/smtp@v0.7.0/"
+  }
+} 

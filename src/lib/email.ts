@@ -10,21 +10,24 @@ interface EmailParams {
   }>;
 }
 
-export const sendEmail = async (params: EmailParams) => {
+export const sendEmail = async ({ to, subject, text, attachments }: EmailParams) => {
   const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    import.meta.env.VITE_SUPABASE_URL,
+    import.meta.env.VITE_SUPABASE_ANON_KEY
   );
+  
+  try {
+    const emailData = { to, subject, text };
+    console.log('Sending email with data:', emailData);
+    
+    const { data, error } = await supabase.functions.invoke('send-email', {
+      body: emailData
+    });
 
-  const { data, error } = await supabase.functions.invoke('send-email', {
-    body: {
-      to: params.to,
-      subject: params.subject,
-      text: params.text,
-      attachments: params.attachments
-    }
-  });
-
-  if (error) throw error;
-  return data;
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error in sendEmail:', error);
+    throw error;
+  }
 }; 
