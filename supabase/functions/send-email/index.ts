@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { Resend } from "https://esm.sh/resend@2.0.0"
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 // Define CORS headers
 const corsHeaders = {
@@ -19,39 +19,43 @@ serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get('RESEND_API_KEY');
-    if (!apiKey) throw new Error('RESEND_API_KEY not found');
-    
-    const resend = new Resend(apiKey);
+    const client = new SMTPClient({
+      connection: {
+        hostname: "smtp.cesky-hosting.cz",
+        port: 465,
+        tls: true,
+        auth: {
+          username: Deno.env.get('SMTP_USERNAME') || '',
+          password: Deno.env.get('SMTP_PASSWORD') || '',
+        }
+      },
+    });
 
     const { to, subject, text, attachments } = await req.json();
     console.log('Sending email to:', to);
 
-    const emailData: any = {
-      // from: 'onboarding@resend.dev',
-      from: 'fakturace@aplica.cz',
+    // Make sure the from address matches your authenticated domain
+    const fromEmail = Deno.env.get('SMTP_USERNAME') || 'fakturace@aplica.cz';
+
+    // Send email
+    await client.send({
+      from: fromEmail,
       to,
       subject,
+      content: text,
       html: text.replace(/\n/g, '<br>'),
-    };
-
-    if (attachments && attachments.length > 0) {
-      emailData.attachments = attachments.map((attachment: any) => ({
+      attachments: attachments?.map((attachment: any) => ({
         filename: attachment.filename,
-        content: attachment.content,
-      }));
-    }
+        content: Uint8Array.from(atob(attachment.content).split('').map(c => c.charCodeAt(0))),
+        contentType: 'application/pdf',
+      })),
+    });
 
-    const { data, error } = await resend.emails.send(emailData);
+    await client.close();
 
-    if (error) {
-      console.error('Resend error:', error);
-      throw error;
-    }
-
-    console.log('Email sent successfully:', data);
+    console.log('Email sent successfully');
     return new Response(
-      JSON.stringify({ success: true, data }),
+      JSON.stringify({ success: true }),
       { 
         status: 200,
         headers: { 
