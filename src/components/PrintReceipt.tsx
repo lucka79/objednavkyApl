@@ -25,11 +25,13 @@ export function PrintReceipt({ receipt, userName }: PrintReceiptProps) {
   );
 
   return (
-    <div className="p-4 w-full text-sm">
+    <div className="p-4 w-full text-sm font-['Roboto'] [text-rendering:optimizeLegibility]">
       <div className="text-center mb-4">
         <h2 className="font-semibold">{userName}</h2>
-        <h2 className="text-xs">Doklad #{receipt.receipt_no}</h2>
-        <p>{format(new Date(receipt.date), "PPP HH:mm", { locale: cs })}</p>
+        <h2 className="text-xs">Účtenka č. {receipt.receipt_no}</h2>
+        <p>
+          {format(new Date(receipt.date), "d. MMMM yyyy HH:mm", { locale: cs })}
+        </p>
       </div>
 
       <div className="border-t border-b py-2 my-2">
@@ -39,7 +41,7 @@ export function PrintReceipt({ receipt, userName }: PrintReceiptProps) {
               <div>{item.product.name}</div>
               <div className="flex flex-row justify-between text-sm">
                 <span>
-                  {item.quantity}x @ {item.price.toFixed(2)}
+                  {item.quantity}x {item.price.toFixed(2)} Kč
                 </span>
                 <span className="font-semibold">
                   {(item.quantity * item.price).toFixed(2)} Kč
@@ -56,7 +58,7 @@ export function PrintReceipt({ receipt, userName }: PrintReceiptProps) {
         {Object.entries(vatTotals).map(([rate, amounts]) => (
           <div key={rate}>
             <div className="flex justify-between">
-              <span>Netto ({rate}%):</span>
+              <span>Základ daně ({rate}%):</span>
               <span>{amounts.net.toFixed(2)} Kč</span>
             </div>
             <div className="flex justify-between">
@@ -69,15 +71,15 @@ export function PrintReceipt({ receipt, userName }: PrintReceiptProps) {
         <div className="border-b my-2"></div>
 
         <div className="flex justify-between font-bold">
-          <span>Celkem:</span>
+          <span>Celkem k úhradě:</span>
           <span>{receipt.total.toFixed(2)} Kč</span>
         </div>
 
         <div className="flex justify-center py-4">
-          <span>Děkujeme Vám za nákup!</span>
+          <span>Děkujeme za Váš nákup!</span>
         </div>
 
-        <div className="flex justify-center">
+        <div className="flex justify-center text-xs">
           <span>APLICA s.r.o., DIČ: CZ00555801</span>
         </div>
       </div>

@@ -5,21 +5,111 @@ export class ThermalPrinterService {
   private device: BluetoothDevice | null = null;
   private characteristic: BluetoothRemoteGATTCharacteristic | null = null;
 
-  // Singleton pattern
-  static getInstance() {
-    if (!ThermalPrinterService.instance) {
-      ThermalPrinterService.instance = new ThermalPrinterService();
+  static getInstance(): ThermalPrinterService {
+    if (!this.instance) {
+      this.instance = new ThermalPrinterService();
     }
-    return ThermalPrinterService.instance;
+    return this.instance;
+  }
+
+  async printReceipt(content: string): Promise<void> {
+    try {
+      if (!this.device || !this.device.gatt?.connected) {
+        if (localStorage.getItem("thermal_printer_connected")) {
+          await this.reconnect();
+        } else {
+          throw new Error("Printer not connected");
+        }
+      }
+
+      if (!this.characteristic) {
+        throw new Error("Printer not initialized");
+      }
+
+      // Replace Czech characters with basic ones
+      const normalizedContent = content
+        .replace(/[áā]/g, 'a')
+        .replace(/[čc]/g, 'c')
+        .replace(/[ďd]/g, 'd')
+        .replace(/[éě]/g, 'e')
+        .replace(/[í]/g, 'i')
+        .replace(/[ň]/g, 'n')
+        .replace(/[óō]/g, 'o')
+        .replace(/[řr]/g, 'r')
+        .replace(/[šs]/g, 's')
+        .replace(/[ťt]/g, 't')
+        .replace(/[úůū]/g, 'u')
+        .replace(/[ýy]/g, 'y')
+        .replace(/[žz]/g, 'z')
+        .replace(/[ÁĀÀÃ]/g, 'A')
+        .replace(/[ČC]/g, 'C')
+        .replace(/[ĎD]/g, 'D')
+        .replace(/[ÉĚ]/g, 'E')
+        .replace(/[Í]/g, 'I')
+        .replace(/[Ň]/g, 'N')
+        .replace(/[ÓŌ]/g, 'O')
+        .replace(/[ŘR]/g, 'R')
+        .replace(/[ŠS]/g, 'S')
+        .replace(/[ŤT]/g, 'T')
+        .replace(/[ÚŮŪ]/g, 'U')
+        .replace(/[ÝY]/g, 'Y')
+        .replace(/[ŽZ]/g, 'Z');
+
+      // Print normalized content
+      await this.characteristic.writeValue(new TextEncoder().encode(normalizedContent));
+      
+      // Add line feeds and cut paper
+      const cutCommand = '\n\n\n\n\x1B\x6D';
+      await this.characteristic.writeValue(new TextEncoder().encode(cutCommand));
+      
+    } catch (error) {
+      console.error("Printing error:", error);
+      localStorage.removeItem("thermal_printer_connected");
+      throw error;
+    }
+  }
+
+  async reconnect(): Promise<void> {
+    try {
+      if (!this.device) {
+        throw new Error("No device to reconnect to");
+      }
+
+      const server = await this.device.gatt?.connect();
+      if (!server) {
+        throw new Error("Failed to connect to printer");
+      }
+
+      const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+      this.characteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
+      
+      localStorage.setItem("thermal_printer_connected", "true");
+    } catch (error) {
+      localStorage.removeItem("thermal_printer_connected");
+      throw error;
+    }
+  }
+
+  // Add event listener for disconnection
+  private setupDisconnectListener() {
+    this.device?.addEventListener('gattserverdisconnected', async () => {
+      console.log('Printer disconnected, attempting to reconnect...');
+      try {
+        await this.reconnect();
+        console.log('Reconnected successfully');
+      } catch (error) {
+        console.error('Failed to reconnect:', error);
+        localStorage.removeItem("thermal_printer_connected");
+      }
+    });
   }
 
   async connectToPrinter(): Promise<void> {
     try {
       if (!navigator.bluetooth) {
-        throw new Error('Web Bluetooth API is not available. Please use Chrome or Edge browser.');
+        throw new Error('Web Bluetooth API is not available');
       }
 
-      // Request device selection dialog
       this.device = await navigator.bluetooth.requestDevice({
         filters: [
           {
@@ -28,120 +118,20 @@ export class ThermalPrinterService {
         ]
       });
 
-      const server = await this.device.gatt?.connect();
-      if (!server) {
-        throw new Error('Printer is busy or connected to another device');
-      }
-
       await this.reconnect();
-      localStorage.setItem('thermal_printer_connected', 'true');
+      this.setupDisconnectListener();
     } catch (error) {
-      localStorage.removeItem('thermal_printer_connected');
-      console.error('Connection error:', error);
-      throw error;
-    }
-  }
-
-  private async reconnect(): Promise<void> {
-    if (!this.device?.gatt) return;
-    
-    const server = await this.device.gatt.connect();
-    const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
-    this.characteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
-  }
-
-  async printReceipt(text: string): Promise<void> {
-    if (!this.characteristic) {
-      throw new Error('Printer not connected');
-    }
-
-    try {
-      // Convert text to printer commands
-      const encoder = new TextEncoder();
-      const data = encoder.encode(text);
-
-      // Split data into chunks (many BLE devices have a limit on packet size)
-      const CHUNK_SIZE = 20;
-      for (let i = 0; i < data.length; i += CHUNK_SIZE) {
-        const chunk = data.slice(i, i + CHUNK_SIZE);
-        await this.characteristic.writeValue(chunk);
-      }
-
-      // Add paper cut command
-      const cutCommand = new Uint8Array([0x1D, 0x56, 0x41, 0x03]);
-      await this.characteristic.writeValue(cutCommand);
-    } catch (error) {
-      console.error('Printing error:', error);
+      localStorage.removeItem("thermal_printer_connected");
       throw error;
     }
   }
 
   disconnect(): void {
-    if (this.device && this.device.gatt?.connected) {
+    if (this.device?.gatt?.connected) {
       this.device.gatt.disconnect();
     }
     this.device = null;
     this.characteristic = null;
-    localStorage.removeItem('thermal_printer_connected');
-  }
-
-  async connectByNamePrefix(namePrefix: string): Promise<void> {
-    try {
-      if (!navigator.bluetooth) {
-        throw new Error('Web Bluetooth API is not available. Please use Chrome or Edge browser.');
-      }
-
-      this.device = await navigator.bluetooth.requestDevice({
-        filters: [
-          {
-            namePrefix: namePrefix || "Printer001",
-            services: ['000018f0-0000-1000-8000-00805f9b34fb']
-          }
-        ],
-        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
-      });
-
-      await this.reconnect();
-      localStorage.setItem('thermal_printer_connected', 'true');
-    } catch (error) {
-      localStorage.removeItem('thermal_printer_connected');
-      console.error('Connection error:', error);
-      throw error;
-    }
-  }
-
-  async connectByIpAddress(ipAddress: string): Promise<void> {
-    try {
-      // Add validation for IP address
-      if (!ipAddress.match(/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/)) {
-        throw new Error('Invalid IP address format');
-      }
-
-      // XPrinter specific connection
-      const response = await fetch(`http://${ipAddress}:9100`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/octet-stream',
-        },
-        // Add timeout
-        signal: AbortSignal.timeout(5000)
-      });
-      
-      if (!response.ok) {
-        throw new Error('Printer connection failed');
-      }
-
-      localStorage.setItem('thermal_printer_connected', 'true');
-    } catch (error) {
-      localStorage.removeItem('thermal_printer_connected');
-      console.error('Connection error:', error);
-      throw new Error(
-        'Connection failed. Please check:\n' +
-        '1. Printer is powered on\n' +
-        '2. Printer and device are on same network\n' +
-        '3. IP address is correct\n' +
-        '4. Try port 9100 specifically'
-      );
-    }
+    localStorage.removeItem("thermal_printer_connected");
   }
 } 
