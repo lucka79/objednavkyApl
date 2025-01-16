@@ -19,14 +19,17 @@ serve(async (req) => {
   }
 
   try {
-    // Use the hardcoded key again temporarily to test
-    const resend = new Resend('re_565RWApU_Hyj34Uk7frv9fZni1aWs12S7');
+    const apiKey = Deno.env.get('RESEND_API_KEY');
+    if (!apiKey) throw new Error('RESEND_API_KEY not found');
+    
+    const resend = new Resend(apiKey);
 
     const { to, subject, text, attachments } = await req.json();
     console.log('Sending email to:', to);
 
     const emailData: any = {
-      from: 'onboarding@resend.dev',
+      // from: 'onboarding@resend.dev',
+      from: 'fakturace@aplica.cz',
       to,
       subject,
       html: text.replace(/\n/g, '<br>'),

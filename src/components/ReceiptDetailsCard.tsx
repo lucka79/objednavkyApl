@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useAuthStore } from "@/lib/supabase";
 import { useReceiptStore } from "@/providers/receiptStore";
 import { useFetchReceiptById } from "@/hooks/useReceipts";
@@ -13,10 +13,13 @@ import {
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { PrinterIcon } from "lucide-react";
-import { useReactToPrint } from "react-to-print";
+// import { useReactToPrint } from "react-to-print";
 import { ReceiptItems } from "./ReceiptItems";
 import { PrintReceipt } from "./PrintReceipt";
 import { toast } from "@/hooks/use-toast";
+// import { printExample } from "../example";
+import { ThermalPrinterService } from "@/services/ThermalPrinterService";
+import { Receipt } from "types";
 
 export function ReceiptDetailsCard() {
   // 1. Hooks at the top
@@ -28,31 +31,81 @@ export function ReceiptDetailsCard() {
     isLoading,
   } = useFetchReceiptById(selectedReceiptId);
   const printRef = useRef<HTMLDivElement>(null);
+  const [isPrinterConnected, setIsPrinterConnected] = useState(false);
+  const printer = ThermalPrinterService.getInstance();
+
+  useEffect(() => {
+    const checkPrinterConnection = () => {
+      const isConnected = !!localStorage.getItem("thermal_printer_connected");
+      setIsPrinterConnected(isConnected);
+    };
+
+    checkPrinterConnection();
+    window.addEventListener("storage", checkPrinterConnection);
+
+    return () => window.removeEventListener("storage", checkPrinterConnection);
+  }, []);
 
   // 2. Print handler
-  const handlePrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: "Doklad",
-    onAfterPrint: () => {
+  // const handlePrint = useReactToPrint({
+  //   contentRef: printRef,
+  //   documentTitle: "Doklad",
+  //   onAfterPrint: () => {
+  //     toast({
+  //       title: "Doklad vvtisknut",
+  //     });
+  //   },
+  //   pageStyle: `
+  //     @page {
+  //       size: 80mm 297mm;
+  //       margin: 0;
+  //     }
+  //     @media print {
+  //       body {
+  //         margin: 0;
+  //         padding: 8px;
+  //         width: 80mm;
+  //         height: 297mm;
+  //       }
+  //     }
+  //   `,
+  // });
+
+  const handleThermalPrint = async (receipt: Receipt) => {
+    try {
+      const receiptText = [
+        "\x1B\x40", // Initialize printer
+        "\x1B\x61\x01", // Center alignment
+        `${user?.full_name}\n`,
+        `Doklad #${receipt.receipt_no}\n`,
+        `${new Date(receipt.date).toLocaleString("cs-CZ")}\n\n`,
+
+        // Items
+        ...receipt.receipt_items.map(
+          (item) =>
+            `${item.product.name}\n` +
+            `${item.quantity}x @ ${item.price.toFixed(2)}\n` +
+            `${(item.quantity * item.price).toFixed(2)} Kč\n\n`
+        ),
+
+        // Total
+        `\nCelkem: ${receipt.total.toFixed(2)} Kč\n\n`,
+        "Děkujeme Vám za nákup!\n",
+        "APLICA s.r.o., DIČ: CZ00555801\n",
+      ].join("");
+
+      await printer.printReceipt(receiptText);
       toast({
-        title: "Doklad vvtisknut",
+        title: "Doklad vytisknut",
       });
-    },
-    pageStyle: `
-      @page {
-        size: 80mm 297mm;
-        margin: 0;
-      }
-      @media print {
-        body {
-          margin: 0;
-          padding: 8px;
-          width: 80mm;
-          height: 297mm;
-        }
-      }
-    `,
-  });
+    } catch (error) {
+      console.error("Printing error:", error);
+      toast({
+        title: "Chyba tisku",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (isLoading) {
     return <div>Loading receipt details...</div>;
@@ -64,6 +117,13 @@ export function ReceiptDetailsCard() {
 
   return (
     <div className="space-y-4">
+      {/* <Button
+        onClick={printExample}
+        variant={isPrinterConnected ? "default" : "outline"}
+      >
+        {isPrinterConnected ? "Printer Connected" : "Connect Printer"}
+      </Button> */}
+
       {/* Display version */}
       {receipts?.map((receipt) => (
         <Card key={receipt.id}>
@@ -89,7 +149,8 @@ export function ReceiptDetailsCard() {
                 className="w-1/2"
                 variant="outline"
                 size="icon"
-                onClick={() => handlePrint()}
+                onClick={() => receipt && handleThermalPrint(receipt)}
+                disabled={!isPrinterConnected}
               >
                 <PrinterIcon className="h-4 w-4" />
               </Button>

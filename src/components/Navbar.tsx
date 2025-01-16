@@ -47,7 +47,9 @@ export function Navbar() {
                     <Link to="/store/orders" className="hover:text-gray-300">
                       Prodejna
                     </Link>
-
+                    <Link to="/store/settings" className="hover:text-gray-300">
+                      Tisk
+                    </Link>
                     {/* <Link to="/cart" className="hover:text-gray-300">
                       <ShoppingCart />
                     </Link> */}
