@@ -97,6 +97,9 @@ export function Navbar() {
                     <Link to="/admin/products" className="hover:text-gray-300">
                       <ShoppingCart />
                     </Link>
+                    <Link to="/admin/reports" className="hover:text-gray-300">
+                      Reporty
+                    </Link>
 
                     {user.email === "l.batelkova@gmail.com" && (
                       <Link
