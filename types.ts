@@ -18,6 +18,7 @@ export type Product = {
   id: number;
   code: string;
   name: string;
+  nameVi?: string;
   price: number;
   priceMobil: number;
   priceBuyer: number;

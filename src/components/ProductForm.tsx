@@ -44,6 +44,7 @@ import RemoteImage from "./RemoteImage";
 
 const productSchema = z.object({
   name: z.string().min(3, "Product name is required"),
+  nameVi: z.string().optional(),
   description: z.string().min(0, "Product description is required"),
   price: z.number().min(0, "Cena musí být větší než 0"),
   priceBuyer: z.number().min(0, "Cena musí být větší než 0"),
@@ -108,6 +109,7 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
     resolver: zodResolver(productSchema),
     defaultValues: {
       name: "",
+      nameVi: "",
       description: "",
       price: 0,
       priceBuyer: 0,
@@ -124,6 +126,7 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
     if (product) {
       form.reset({
         name: product.name,
+        nameVi: product.nameVi,
         description: product.description,
         price: product.price,
         priceBuyer: product.priceBuyer,
@@ -261,6 +264,24 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
                       {/* <FormLabel>Name</FormLabel> */}
                       <FormControl>
                         <Input placeholder="Název výrobku" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Název výrobku i hmotnost v g!!
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+              <CardContent className="grid grid-cols-1 gap-2 py-2">
+                <FormField
+                  control={form.control}
+                  name="nameVi"
+                  render={({ field }) => (
+                    <FormItem>
+                      {/* <FormLabel>Name</FormLabel> */}
+                      <FormControl>
+                        <Input placeholder="Vietnam název výrobku" {...field} />
                       </FormControl>
                       <FormDescription>
                         Název výrobku i hmotnost v g!!

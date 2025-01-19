@@ -21,6 +21,7 @@ import {
   addDays,
 } from "date-fns";
 import { cs } from "date-fns/locale";
+import { ZeroQuantityOrders } from "@/components/ZeroQuantityOrders";
 
 export const Route = createFileRoute("/admin/reports")({
   component: ReportsDashboard,
@@ -32,13 +33,14 @@ const ProductQuantityCard = lazy(
 
 function ReportsDashboard() {
   const [activeView, setActiveView] = useState<"reports" | "returns">(
-    "reports"
+    "returns"
   );
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState("today");
 
   const dateRanges = {
     today: format(today, "yyyy-MM-dd"),
+    tomorrow: format(addDays(today, 1), "yyyy-MM-dd"),
     yesterday: format(subDays(today, 1), "yyyy-MM-dd"),
     thisWeek: format(
       startOfWeek(today, { locale: cs, weekStartsOn: 1 }),
@@ -92,16 +94,17 @@ function ReportsDashboard() {
             className="mb-4"
           >
             <TabsList>
-              <TabsTrigger value="today">Today</TabsTrigger>
-              <TabsTrigger value="yesterday">Yesterday</TabsTrigger>
-              <TabsTrigger value="thisWeek">This Week</TabsTrigger>
-              <TabsTrigger value="nextWeek">Next Week</TabsTrigger>
-              <TabsTrigger value="thisMonth">This Month</TabsTrigger>
-              <TabsTrigger value="lastMonth">Last Month</TabsTrigger>
+              <TabsTrigger value="today">Dnes</TabsTrigger>
+              <TabsTrigger value="tomorrow">Zítra</TabsTrigger>
+              <TabsTrigger value="yesterday">Včera</TabsTrigger>
+              <TabsTrigger value="thisWeek">Tento týden</TabsTrigger>
+              <TabsTrigger value="nextWeek">Následující týden</TabsTrigger>
+              <TabsTrigger value="thisMonth">Tento měsíc</TabsTrigger>
+              <TabsTrigger value="lastMonth">Předchozí měsíc</TabsTrigger>
             </TabsList>
           </Tabs>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex flex-col gap-4">
             {activeView === "reports" &&
               products
                 .filter(
@@ -126,6 +129,13 @@ function ReportsDashboard() {
                     />
                   </Suspense>
                 ))}
+            {activeView === "returns" && (
+              <div className="w-full">
+                <ZeroQuantityOrders
+                  date={dateRanges[selectedDate as keyof typeof dateRanges]}
+                />
+              </div>
+            )}
           </div>
         </main>
       </div>

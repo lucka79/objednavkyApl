@@ -72,7 +72,11 @@ const ProductRow = memo(
     return (
       <div className="grid grid-cols-[40px_200px_100px_100px_100px_130px_80px_80px_80px_80px_100px] gap-4 py-2 px-4 items-center border-b text-sm">
         <div>{product.code}</div>
-        <div>{product.name}</div>
+        <div>
+          {product.name}
+          <p className="text-xs text-orange-500">{product.nameVi}</p>
+        </div>
+
         <div className="text-right">{product.priceBuyer.toFixed(2)} Kč</div>
         <div className="text-right">{product.priceMobil.toFixed(2)} Kč</div>
         <div className="text-right">{product.price.toFixed(2)} Kč</div>
@@ -266,6 +270,7 @@ export function ProductsTable() {
                 <div className="grid grid-cols-[40px_200px_100px_100px_100px_130px_80px_80px_80px_80px_100px] gap-4 py-2 px-4 font-base text-sm">
                   <div>Kód</div>
                   <div>Name</div>
+
                   <div className="text-right">NákupBez</div>
                   <div className="text-right">Mobil</div>
                   <div className="text-right">Prodej</div>

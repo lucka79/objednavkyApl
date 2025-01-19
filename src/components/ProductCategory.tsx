@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 // Category badges component
 const CategoryBadges = ({
@@ -129,6 +130,7 @@ const CategoryBadges = ({
 interface Product {
   id: number;
   name: string;
+  nameVi?: string;
   category_id: number;
   priceBuyer: number;
   priceMobil: number;
@@ -144,6 +146,7 @@ export const ProductCategory: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [priceFilter, setPriceFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [useVietnamese, setUseVietnamese] = useState(false);
 
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
@@ -210,6 +213,15 @@ export const ProductCategory: React.FC = () => {
                 className="pl-8"
               />
             </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm">CZ</span>
+              <Switch
+                checked={useVietnamese}
+                onCheckedChange={setUseVietnamese}
+                className="data-[state=checked]:bg-orange-500"
+              />
+              <span className="text-sm">VI</span>
+            </div>
             <Select value={priceFilter} onValueChange={setPriceFilter}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by price" />
@@ -232,11 +244,12 @@ export const ProductCategory: React.FC = () => {
             onClick={() => addItem(product as any)}
             className="text-center h-36 flex flex-col cursor-pointer"
           >
-            {/* First half - Product Name */}
             <div className="flex-1">
               <CardHeader className="h-full px-1">
                 <CardTitle className="text-sm line-clamp-2 mx-1 hover:line-clamp-3">
-                  {product.name}
+                  {useVietnamese
+                    ? product.nameVi || product.name
+                    : product.name}
                 </CardTitle>
               </CardHeader>
             </div>

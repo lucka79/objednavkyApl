@@ -8,6 +8,7 @@ import { cs } from 'date-fns/locale';
 // Add this type definition
 type ProductFormValues = {
   name: string;
+  nameVi: string;
   description: string;
   price: number;
   priceBuyer: number;
