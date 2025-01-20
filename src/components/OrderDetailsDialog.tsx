@@ -392,6 +392,7 @@ export function OrderDetailsDialog() {
                       orderId={order.id}
                       selectedUserId={order.user.id}
                       onUpdate={() => refetch().then(() => {})}
+                      order={order}
                     />
                   ) : (
                     <OrderItems items={order.order_items} />

@@ -27,7 +27,7 @@ export const AddFavoriteProduct: React.FC<AddFavoriteProductProps> = ({
   const { data: products = [], isLoading, error } = fetchActiveProducts();
   const { data: categories = [] } = fetchCategories();
 
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(8);
   const [showMobilOnly, setShowMobilOnly] = useState<"all" | "mobil">("all");
   const queryClient = useQueryClient();
   const { toast } = useToast();

@@ -18,7 +18,7 @@ export function AddReturnProduct({
   onUpdate,
 }: AddReturnProductProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(8);
   const { data: products } = fetchActiveProducts();
   const { data: categories } = fetchCategories();
   const { mutateAsync: insertReturnItems } = useInsertReturnItems();

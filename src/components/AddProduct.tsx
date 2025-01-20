@@ -30,7 +30,7 @@ export const AddProduct: React.FC<AddProductProps> = ({
 
   const addItem = useCartStore((state) => state.addItem);
 
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(8);
   // @ts-ignore
   const { mutate: updateOrderItems } = useUpdateOrderItems();
 

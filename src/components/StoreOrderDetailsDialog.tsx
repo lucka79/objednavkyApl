@@ -163,6 +163,7 @@ export function StoreOrderDetailsDialog() {
                     orderId={order.id}
                     selectedUserId={order.user.id}
                     onUpdate={() => refetch().then(() => {})}
+                    order={order}
                   />
                 ) : (
                   <OrderItems items={order.order_items} />
@@ -336,6 +337,29 @@ export function StoreOrderDetailsDialog() {
                           </Badge>
                         )
                       )}
+                    </>
+                  )}
+                  {user?.role === "store" && (
+                    <>
+                      {["Přeprava", "OK"].map((status) => (
+                        <Badge
+                          key={status}
+                          variant={
+                            order.status === status ? "default" : "outline"
+                          }
+                          className={`cursor-pointer ${
+                            order.status === status &&
+                            (status === "OK"
+                              ? "bg-green-500 hover:bg-green-600"
+                              : status === "Přeprava"
+                                ? "bg-blue-500 hover:bg-blue-600"
+                                : "")
+                          }`}
+                          onClick={() => updateStatus(status)}
+                        >
+                          {status}
+                        </Badge>
+                      ))}
                     </>
                   )}
                 </div>

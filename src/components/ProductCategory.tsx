@@ -143,7 +143,7 @@ export const ProductCategory: React.FC = () => {
   const addItem = useCartStore((state) => state.addItem);
   const user = useAuthStore((state) => state.user);
 
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(8);
   const [priceFilter, setPriceFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [useVietnamese, setUseVietnamese] = useState(false);

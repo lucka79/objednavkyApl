@@ -58,6 +58,7 @@ interface UpdateCartProps {
   orderId: number;
   onUpdate: () => Promise<void>;
   selectedUserId: string;
+  order: { status: string };
 }
 
 // interface OrderHistory {
@@ -118,6 +119,7 @@ export default function UpdateCart({
   orderId,
   onUpdate,
   selectedUserId,
+  order,
 }: UpdateCartProps) {
   const [orderItems, setOrderItems] = useState<OrderItem[]>(items);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
@@ -323,7 +325,10 @@ export default function UpdateCart({
   };
 
   const handleCheckChange = async (itemId: number, checked: boolean) => {
-    if (isReadOnly) {
+    if (
+      isReadOnly &&
+      !(user?.role === "store" && order?.status === "Přeprava")
+    ) {
       toast({
         title: "Order is locked",
         description: "This order is part of an invoice and cannot be modified.",
@@ -332,7 +337,6 @@ export default function UpdateCart({
       return;
     }
     try {
-      // Update database first
       await updateOrderItems({
         id: itemId,
         updatedFields: {
@@ -340,7 +344,6 @@ export default function UpdateCart({
         },
       });
 
-      // Only update local state after successful database update
       setOrderItems((prevItems) =>
         prevItems.map((item) =>
           item.id === itemId ? { ...item, checked } : item
@@ -421,7 +424,9 @@ export default function UpdateCart({
                 item.quantity === 0 ? "text-gray-400 scale-95 print:hidden" : ""
               }`}
             >
-              {(user?.role === "admin" || user?.role === "expedition") && (
+              {(user?.role === "admin" ||
+                user?.role === "expedition" ||
+                (user?.role === "store" && order?.status === "Přeprava")) && (
                 <Checkbox
                   checked={item.checked || false}
                   onCheckedChange={(checked: boolean) =>

@@ -6,14 +6,14 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_KEY  // Add this
 
+// Create a single instance of the Supabase client
 export const supabase = createClient(
   supabaseUrl,
   supabaseAnonKey,
   {
     auth: {
       persistSession: true,
-      storageKey: 'auth-storage',
-      storage: window.localStorage
+      storageKey: 'app-storage-key', // Add a unique storage key
     }
   }
 )

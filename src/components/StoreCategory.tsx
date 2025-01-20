@@ -96,7 +96,7 @@ export const StoreCategory: React.FC = () => {
 
   const addItem = useReceiptStore((state) => state.addItem);
 
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(8);
 
   // Calculate future quantities for the selected user
   const getFutureQuantity = (productId: number) => {
