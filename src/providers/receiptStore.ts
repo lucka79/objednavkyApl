@@ -1,7 +1,7 @@
 // cartStore.ts
 import { create } from 'zustand';
 import { CartItem, Product } from '../../types';
-import { generateReceiptNumber } from '../lib/generateNumbers'; // Import the function
+
 import { useAuthStore } from '@/lib/supabase';
 
 
@@ -20,7 +20,8 @@ type ReceiptStore = {
     insertReceiptItems: any, 
     date: Date,
     receiptTotal: number,
-    updateStoredItems: any
+    updateStoredItems: any,
+    receiptNo: string
   ) => Promise<void>;
 };
 
@@ -80,11 +81,12 @@ export const useReceiptStore = create<ReceiptStore>((set, get) => {
 
 
     checkout: async (
-      insertReceipt: any, 
+      insertReceipt: any,
       insertReceiptItems: any,
       date: Date,
-      receiptTotal: number,
-      updateStoredItems: any
+      total: number,
+      updateStoredItems: any,
+      receiptNo: string
     ) => {
       const user = useAuthStore.getState().user;
 
@@ -96,13 +98,10 @@ export const useReceiptStore = create<ReceiptStore>((set, get) => {
           throw new Error("User not authenticated");
         }
 
-        // Generate the receipt number
-        const receipt_no = await generateReceiptNumber(user.id);
-
         const receiptResult = await insertReceipt({
-          total: receiptTotal,
+          total: total,
           date: utcDate.toISOString(),
-          receipt_no,
+          receipt_no: receiptNo,
         });
 
         const { id: receiptId } = receiptResult;

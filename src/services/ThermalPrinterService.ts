@@ -55,8 +55,17 @@ export class ThermalPrinterService {
         .replace(/[ÝY]/g, 'Y')
         .replace(/[ŽZ]/g, 'Z');
 
-      // Print normalized content
-      await this.characteristic.writeValue(new TextEncoder().encode(normalizedContent));
+      // Split content into chunks of 512 bytes
+      const encoder = new TextEncoder();
+      const data = encoder.encode(normalizedContent);
+      const chunkSize = 512;
+      
+      for (let i = 0; i < data.length; i += chunkSize) {
+        const chunk = data.slice(i, i + chunkSize);
+        await this.characteristic.writeValue(chunk);
+        // Small delay between chunks
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
       
       // Add line feeds and cut paper
       const cutCommand = '\n\n\n\n\x1B\x6D';
