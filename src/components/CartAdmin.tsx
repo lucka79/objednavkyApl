@@ -353,26 +353,47 @@ export default function CartAdmin() {
 
               const orderTotal = calculateTotal();
 
-              await updateStoredItems({
+              console.log("Starting checkout process with data:", {
                 userId: selectedUserId,
-                items: items.map((item) => ({
-                  product_id: item.product.id,
-                  quantity: -item.quantity,
-                  increment: true,
-                })),
+                items,
+                date,
+                driverId,
+                total: orderTotal,
+                role: selectedUser?.role,
+                paid_by,
+                note,
               });
 
-              await checkout(
-                insertOrder,
-                insertOrderItems,
-                date,
-                selectedUserId,
-                orderTotal,
-                selectedUser?.role,
-                paid_by,
-                driverId as any,
-                note
-              );
+              try {
+                await updateStoredItems({
+                  userId: selectedUserId,
+                  items: items.map((item) => ({
+                    product_id: item.product.id,
+                    quantity: -item.quantity,
+                    increment: true,
+                  })),
+                });
+              } catch (error) {
+                console.error("Error updating stored items:", error);
+                throw new Error("Failed to update stored items");
+              }
+
+              try {
+                await checkout(
+                  insertOrder,
+                  insertOrderItems,
+                  date,
+                  selectedUserId,
+                  orderTotal,
+                  selectedUser?.role,
+                  paid_by,
+                  driverId as any,
+                  note
+                );
+              } catch (error) {
+                console.error("Error during checkout:", error);
+                throw new Error("Failed to complete checkout");
+              }
 
               // Success handling
               const newTomorrow = new Date();

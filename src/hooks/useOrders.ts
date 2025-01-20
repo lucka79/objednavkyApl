@@ -41,23 +41,29 @@ export const fetchOrdersByUserId = (userId: string) => {
     return useQuery({
         queryKey: ['orders', userId],
         queryFn: async () => {
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        user:profiles (id, full_name, role),
-        order_items (
-        *,
-        product:products (*)
-    )
-    `)
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-  
-    if (error) throw error
-    return data
-  }
-});
+            console.log('Fetching orders for userId:', userId);
+            const { data, error } = await supabase
+                .from('orders')
+                .select(`
+                    *,
+                    user:profiles!orders_user_id_fkey (id, full_name, role),
+                    order_items (
+                        *,
+                        product:products (*)
+                    )
+                `)
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Error fetching orders:', error);
+                throw error;
+            }
+            
+            console.log('Fetched orders:', data);
+            return data;
+        }
+    });
 };
 
 // order by id

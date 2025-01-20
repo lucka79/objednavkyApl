@@ -737,8 +737,35 @@ export function StoreOrdersTable({
     printWindow.print();
   };
 
-  if (isLoading) return <div>Loading orders...</div>;
-  if (error) return <div>Error loading orders</div>;
+  if (isLoading) {
+    return (
+      <Card className="my-0 p-4">
+        <div className="flex items-center justify-center h-32">
+          Loading orders...
+        </div>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="my-0 p-4">
+        <div className="flex items-center justify-center h-32 text-red-500">
+          Error loading orders
+        </div>
+      </Card>
+    );
+  }
+
+  if (!orders || orders.length === 0) {
+    return (
+      <Card className="my-0 p-4">
+        <div className="flex items-center justify-center h-32 text-muted-foreground">
+          No orders found
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible  print:transform-none">
@@ -984,6 +1011,15 @@ function OrderTableContent({
     getFilteredRowModel: getFilteredRowModel(),
     state: { globalFilter },
   });
+
+  // Add check for empty filtered data
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-32 text-muted-foreground">
+        No orders found for this period
+      </div>
+    );
+  }
 
   return (
     <>
