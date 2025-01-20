@@ -1,42 +1,24 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ProductQuantityCardProps {
-  productId: string;
   productName: string;
   productionQty: number;
   returnsQty: number;
   orderItemQty: number;
   receiptItemQty: number;
-  date: string;
 }
 
 export default function ProductQuantityCard({
-  // productId,
   productName,
   productionQty,
   returnsQty,
   orderItemQty,
   receiptItemQty,
 }: ProductQuantityCardProps) {
-  console.log("ProductQuantityCard Props:", {
-    productName,
-    productionQty,
-    returnsQty,
-    orderItemQty,
-    receiptItemQty,
-  });
-
   return (
-    <Card className="flex">
+    <Card>
       <CardHeader>
         <CardTitle>{productName}</CardTitle>
-        <CardDescription>Daily Product Overview</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-4">
