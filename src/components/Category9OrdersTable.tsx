@@ -25,6 +25,7 @@ import { format } from "date-fns";
 import { cs } from "date-fns/locale";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { Category9OrderDetails } from "./Category9OrderDetails";
 
 const filterOrdersByDate = (
   orders: any[],
@@ -208,6 +209,16 @@ export function Category9OrdersTable() {
   const { toast } = useToast();
   const [date, setDate] = useState<Date>();
   const [isPrinterConnected, setIsPrinterConnected] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [quantityChanges, setQuantityChanges] = useState<
+    Record<
+      number,
+      {
+        oldQuantity: number;
+        newQuantity: number;
+      }
+    >
+  >({});
 
   useEffect(() => {
     // Check printer connection status on mount and when localStorage changes
@@ -224,6 +235,27 @@ export function Category9OrdersTable() {
     return () => window.removeEventListener("storage", checkPrinterStatus);
   }, []);
 
+  // Clear quantity changes after 3 seconds
+  useEffect(() => {
+    const timeouts: Record<number, NodeJS.Timeout> = {};
+
+    Object.keys(quantityChanges).forEach((itemId) => {
+      const id = Number(itemId);
+      if (timeouts[id]) {
+        clearTimeout(timeouts[id]);
+      }
+
+      timeouts[id] = setTimeout(() => {
+        setQuantityChanges((prev) => {
+          const { [id]: _, ...rest } = prev;
+          return rest;
+        });
+      }, 3000);
+    });
+
+    return () => Object.values(timeouts).forEach(clearTimeout);
+  }, [quantityChanges]);
+
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders</div>;
 
@@ -231,6 +263,8 @@ export function Category9OrdersTable() {
     driverName: string;
     products: { name: string; quantity: number }[];
   }) => {
+    if (!isPrinterConnected) return;
+
     try {
       const printerService = ThermalPrinterService.getInstance();
       const content = formatDriverPrintContent(driver);
@@ -274,226 +308,273 @@ export function Category9OrdersTable() {
     }
   };
 
+  const handleQuantityChange = (
+    itemId: number,
+    oldQuantity: number,
+    newQuantity: number
+  ) => {
+    setQuantityChanges((prev) => ({
+      ...prev,
+      [itemId]: { oldQuantity, newQuantity },
+    }));
+  };
+
   return (
-    <Card className="my-0 p-4">
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold">Objednávky FRESH výrobků</h2>
-          <div className="flex items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-[240px] justify-start text-left font-normal",
-                    !date && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? format(date, "PPP", { locale: cs }) : "Vybrat datum"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-            <Badge variant="secondary">{orders?.length || 0} objednávek</Badge>
+    <>
+      <Card className="my-0 p-4">
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold">Objednávky FRESH výrobků</h2>
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-[240px] justify-start text-left font-normal",
+                      !date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date
+                      ? format(date, "PPP", { locale: cs })
+                      : "Vybrat datum"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={setDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <Badge variant="secondary">
+                {orders?.length || 0} objednávek
+              </Badge>
+            </div>
           </div>
-        </div>
 
-        <Tabs defaultValue={date ? "specific" : "tomorrow"} className="w-full">
-          <TabsList>
-            {[
-              { value: "tomorrow", label: "Zítra" },
-              { value: "afterTomorrow", label: "Pozítří" },
-              { value: "week", label: "Tento týden" },
-              { value: "month", label: "Tento měsíc" },
-              ...(date
-                ? [
+          <Tabs
+            defaultValue={date ? "specific" : "tomorrow"}
+            className="w-full"
+          >
+            <TabsList>
+              {[
+                { value: "tomorrow", label: "Zítra" },
+                { value: "afterTomorrow", label: "Pozítří" },
+                { value: "week", label: "Tento týden" },
+                { value: "month", label: "Tento měsíc" },
+                ...(date
+                  ? [
+                      {
+                        value: "specific",
+                        label: format(date, "d.M.yyyy", { locale: cs }),
+                      },
+                    ]
+                  : []),
+              ].map((tab) => (
+                <TabsTrigger key={tab.value} value={tab.value}>
+                  {tab.label}{" "}
+                  <Badge variant="outline" className="ml-2">
                     {
-                      value: "specific",
-                      label: format(date, "d.M.yyyy", { locale: cs }),
-                    },
-                  ]
-                : []),
-            ].map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value}>
-                {tab.label}{" "}
-                <Badge variant="outline" className="ml-2">
-                  {
-                    filterOrdersByDate(orders || [], tab.value as any, date)
-                      .length
-                  }
-                </Badge>
-              </TabsTrigger>
-            ))}
-          </TabsList>
+                      filterOrdersByDate(orders || [], tab.value as any, date)
+                        .length
+                    }
+                  </Badge>
+                </TabsTrigger>
+              ))}
+            </TabsList>
 
-          {[
-            "tomorrow",
-            "afterTomorrow",
-            "week",
-            "month",
-            ...(date ? ["specific"] : []),
-          ].map((period) => {
-            const filteredOrders = filterOrdersByDate(
-              orders || [],
-              period as any,
-              date
-            );
-            const productTotals = calculateProductTotals(filteredOrders);
-            const driverTotals = calculateDriverTotals(filteredOrders);
+            {[
+              "tomorrow",
+              "afterTomorrow",
+              "week",
+              "month",
+              ...(date ? ["specific"] : []),
+            ].map((period) => {
+              const filteredOrders = filterOrdersByDate(
+                orders || [],
+                period as any,
+                date
+              );
+              const productTotals = calculateProductTotals(filteredOrders);
+              const driverTotals = calculateDriverTotals(filteredOrders);
 
-            return (
-              <TabsContent key={period} value={period}>
-                {/* Total Products Card */}
-                <Card className="mb-4 p-4">
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-md font-semibold">
-                      Souhrn FRESH výrobků
-                    </h3>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handlePrintTotals(productTotals)}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Printer
-                        className={cn(
-                          "h-4 w-4",
-                          isPrinterConnected
-                            ? "text-green-500"
-                            : "text-orange-500"
-                        )}
-                      />
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {productTotals.map((product) => (
-                      <Badge
-                        key={product.name}
+              return (
+                <TabsContent key={period} value={period}>
+                  {/* Total Products Card */}
+                  <Card className="mb-4 p-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-md font-semibold">
+                        Souhrn FRESH výrobků
+                      </h3>
+                      <Button
                         variant="outline"
-                        className="text-base py-2 border-orange-500 text-orange-500"
+                        size="sm"
+                        onClick={() => handlePrintTotals(productTotals)}
+                        disabled={!isPrinterConnected}
+                        className={cn(
+                          "h-8 w-8 p-0",
+                          !isPrinterConnected && "opacity-50 cursor-not-allowed"
+                        )}
                       >
-                        {product.name}: {product.quantity} ks
-                      </Badge>
-                    ))}
-                  </div>
-                </Card>
+                        <Printer className="h-4 w-4 text-orange-500" />
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {productTotals.map((product) => (
+                        <Badge
+                          key={product.name}
+                          variant="outline"
+                          className="text-base py-2 border-orange-500 text-orange-500"
+                        >
+                          {product.name}: {product.quantity} ks
+                        </Badge>
+                      ))}
+                    </div>
+                  </Card>
 
-                {/* Driver Totals Card */}
-                <Card className="mb-4 p-4">
-                  <h3 className="text-md font-semibold mb-3">
-                    Souhrn podle řidičů
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {driverTotals.map((driver) => (
-                      <div
-                        key={driver.driverName}
-                        className="space-y-2 border rounded-lg p-3"
-                      >
-                        <div className="flex justify-between items-center border-b pb-2">
-                          <h4 className="font-medium text-orange-500">
-                            {driver.driverName}
-                          </h4>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handlePrint(driver)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Printer
-                              className={cn(
-                                "h-4 w-4",
-                                isPrinterConnected
-                                  ? "text-green-500"
-                                  : "text-orange-500"
-                              )}
-                            />
-                          </Button>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {driver.products.map((product) => (
-                            <Badge
-                              key={`${driver.driverName}-${product.name}`}
+                  {/* Driver Totals Card */}
+                  <Card className="mb-4 p-4">
+                    <h3 className="text-md font-semibold mb-3">
+                      Souhrn podle řidičů
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {driverTotals.map((driver) => (
+                        <div
+                          key={driver.driverName}
+                          className="space-y-2 border rounded-lg p-3"
+                        >
+                          <div className="flex justify-between items-center border-b pb-2">
+                            <h4 className="font-medium text-orange-500">
+                              {driver.driverName}
+                            </h4>
+                            <Button
                               variant="outline"
-                              className="text-base py-2"
+                              size="sm"
+                              onClick={() => handlePrint(driver)}
+                              disabled={!isPrinterConnected}
+                              className={cn(
+                                "h-8 w-8 p-0",
+                                !isPrinterConnected &&
+                                  "opacity-50 cursor-not-allowed"
+                              )}
                             >
-                              {product.name}: {product.quantity} ks
-                            </Badge>
-                          ))}
+                              <Printer className="h-4 w-4 text-orange-500" />
+                            </Button>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {driver.products.map((product) => (
+                              <Badge
+                                key={`${driver.driverName}-${product.name}`}
+                                variant="outline"
+                                className="text-base py-2"
+                              >
+                                {product.name}: {product.quantity} ks
+                              </Badge>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
+                      ))}
+                    </div>
+                  </Card>
 
-                {/* Orders Table */}
-                <div className="border rounded-md">
-                  <div className="max-h-[800px] overflow-auto">
-                    <Table>
-                      <TableHeader className="sticky top-0 bg-background z-10">
-                        <TableRow>
-                          <TableHead>Datum</TableHead>
-                          <TableHead>Odběratel</TableHead>
-                          <TableHead>Řidič</TableHead>
-                          <TableHead>Produkty kat. 9</TableHead>
-                          <TableHead className="text-right">Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredOrders.length > 0 ? (
-                          filteredOrders.map((order) => (
-                            <TableRow key={order.id}>
-                              <TableCell>
-                                {new Date(order.date).toLocaleDateString()}
-                              </TableCell>
-                              <TableCell>{order.user?.full_name}</TableCell>
-                              <TableCell>
-                                {order.driver?.full_name || "-"}
-                              </TableCell>
-                              <TableCell>
-                                {order.order_items
-                                  .filter(
-                                    (item: OrderItem) =>
-                                      item.product.category_id === 9
-                                  )
-                                  .map((item: OrderItem) => (
-                                    <Badge
-                                      key={item.id}
-                                      variant="outline"
-                                      className="mr-2 mb-1"
-                                    >
-                                      {item.product.name}: {item.quantity}
-                                    </Badge>
-                                  ))}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Badge variant="outline">{order.status}</Badge>
+                  {/* Orders Table */}
+                  <div className="border rounded-md">
+                    <div className="max-h-[800px] overflow-auto">
+                      <Table>
+                        <TableHeader className="sticky top-0 bg-background z-10">
+                          <TableRow>
+                            <TableHead>Datum</TableHead>
+                            <TableHead>Odběratel</TableHead>
+                            <TableHead>Řidič</TableHead>
+                            <TableHead>FRESH výrobky</TableHead>
+                            <TableHead className="text-right">Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredOrders.length > 0 ? (
+                            filteredOrders.map((order) => (
+                              <TableRow
+                                key={order.id}
+                                onClick={() => setSelectedOrderId(order.id)}
+                                className="cursor-pointer hover:bg-muted/50"
+                              >
+                                <TableCell>
+                                  {new Date(order.date).toLocaleDateString()}
+                                </TableCell>
+                                <TableCell>{order.user?.full_name}</TableCell>
+                                <TableCell>
+                                  {order.driver?.full_name || "-"}
+                                </TableCell>
+                                <TableCell>
+                                  {order.order_items
+                                    .filter(
+                                      (item: OrderItem) =>
+                                        item.product.category_id === 9
+                                    )
+                                    .map((item: OrderItem) => (
+                                      <Badge
+                                        key={item.id}
+                                        variant="outline"
+                                        className={cn(
+                                          "mr-2 mb-1",
+                                          quantityChanges[item.id] &&
+                                            "relative animate-pulse bg-muted"
+                                        )}
+                                      >
+                                        {item.product.name}: {item.quantity}
+                                        {quantityChanges[item.id] && (
+                                          <span className="absolute -top-3 -right-3 text-xs text-orange-500">
+                                            {
+                                              quantityChanges[item.id]
+                                                .oldQuantity
+                                            }{" "}
+                                            →{" "}
+                                            {
+                                              quantityChanges[item.id]
+                                                .newQuantity
+                                            }
+                                          </span>
+                                        )}
+                                      </Badge>
+                                    ))}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Badge variant="outline">
+                                    {order.status}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell
+                                colSpan={5}
+                                className="h-24 text-center"
+                              >
+                                Žádné objednávky s výrobky kategorie 9.
                               </TableCell>
                             </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={5} className="h-24 text-center">
-                              Žádné objednávky s výrobky kategorie 9.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
-                </div>
-              </TabsContent>
-            );
-          })}
-        </Tabs>
-      </div>
-    </Card>
+                </TabsContent>
+              );
+            })}
+          </Tabs>
+        </div>
+      </Card>
+
+      <Category9OrderDetails
+        orderId={selectedOrderId}
+        onClose={() => setSelectedOrderId(null)}
+        onQuantityChange={handleQuantityChange}
+      />
+    </>
   );
 }

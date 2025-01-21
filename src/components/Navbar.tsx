@@ -67,14 +67,21 @@ export function Navbar() {
                       Prodejna
                     </Link>
                     <Link to="/store/settings" className="hover:text-gray-300">
-                      <Printer
+                      <div
                         className={cn(
-                          "h-4 w-4",
-                          isPrinterConnected
-                            ? "text-green-500"
-                            : "text-orange-500"
+                          "p-2 rounded-full",
+                          !isPrinterConnected && "bg-red-500"
                         )}
-                      />
+                      >
+                        <Printer
+                          className={cn(
+                            "h-4 w-4",
+                            isPrinterConnected
+                              ? "text-orange-500"
+                              : "text-white"
+                          )}
+                        />
+                      </div>
                     </Link>
                     {user.full_name === "APLICA - Forum UL" && (
                       <Link

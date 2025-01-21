@@ -621,7 +621,6 @@ export const useOrdersWithCategory9 = () => {
         throw error;
       }
 
-      console.log('Fetched category 9 orders:', data);
       return data;
     }
   });
