@@ -1,8 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { useAuthStore } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, Printer } from "lucide-react";
 import { useCartStore } from "@/providers/cartStore";
+import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
 
 interface Profile {
   email: string;
@@ -15,6 +17,23 @@ export function Navbar() {
   const user = useAuthStore((state) => state.user) as Profile | null;
   const signOut = useAuthStore((state) => state.signOut);
   const { clearCart } = useCartStore();
+  const [isPrinterConnected, setIsPrinterConnected] = useState(false);
+
+  useEffect(() => {
+    const checkPrinterStatus = () => {
+      const status =
+        localStorage.getItem("thermal_printer_connected") === "true";
+      setIsPrinterConnected(status);
+    };
+
+    // Initial check
+    checkPrinterStatus();
+
+    // Set up an interval to check periodically
+    const interval = setInterval(checkPrinterStatus, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   console.log("Current user email:", user?.email);
 
@@ -42,14 +61,30 @@ export function Navbar() {
                 {user.role === "store" && (
                   <>
                     <Link to="/store" className="hover:text-gray-300">
-                      Kasa
+                      KASA
                     </Link>
                     <Link to="/store/orders" className="hover:text-gray-300">
                       Prodejna
                     </Link>
                     <Link to="/store/settings" className="hover:text-gray-300">
-                      Tisk
+                      <Printer
+                        className={cn(
+                          "h-4 w-4",
+                          isPrinterConnected
+                            ? "text-green-500"
+                            : "text-orange-500"
+                        )}
+                      />
                     </Link>
+                    {user.full_name === "APLICA - Forum UL" && (
+                      <Link
+                        to="/store/freshOrders"
+                        className="hover:text-gray-300"
+                      >
+                        FRESH
+                      </Link>
+                    )}
+
                     {/* <Link to="/cart" className="hover:text-gray-300">
                       <ShoppingCart />
                     </Link> */}

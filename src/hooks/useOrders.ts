@@ -595,5 +595,37 @@ export const useUpdateStoredItems = () => {
   });
 };
 
+export const useOrdersWithCategory9 = () => {
+  return useQuery({
+    queryKey: ['ordersCategory9'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          user:profiles!orders_user_id_fkey (*),
+          driver:profiles!orders_driver_id_fkey (*),
+          order_items!inner (
+            *,
+            product:products!inner (
+              *,
+              category_id
+            )
+          )
+        `)
+        .eq('order_items.product.category_id', 9)
+        .order('date', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching category 9 orders:', error);
+        throw error;
+      }
+
+      console.log('Fetched category 9 orders:', data);
+      return data;
+    }
+  });
+};
+
 
 
