@@ -20,6 +20,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "./ui/button";
 import { useOrderItemHistory } from "@/hooks/useOrders";
 import { useQueryClient } from "@tanstack/react-query";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 
 interface Category9OrderDetailsProps {
   orderId: number | null;
@@ -84,6 +86,7 @@ export function Category9OrderDetails({
   >({});
   const { mutate: updateOrder } = useUpdateOrder();
   const [localNote, setLocalNote] = useState("");
+  const [lockedItems, setLockedItems] = useState<Record<number, boolean>>({});
 
   // Initialize local quantities when order data changes
   useEffect(() => {
@@ -200,7 +203,9 @@ export function Category9OrderDetails({
     <Dialog open={!!orderId} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Detail objednávky FRESH výrobků</DialogTitle>
+          <DialogTitle className="flex items-center justify-between">
+            <span>Detail objednávky FRESH výrobků</span>
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -261,10 +266,27 @@ export function Category9OrderDetails({
                     key={item.id}
                     className="flex items-center justify-between p-2 border rounded-lg"
                   >
-                    <span className="font-medium">{item.product.name}</span>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id={`lock-${item.id}`}
+                        checked={lockedItems[item.id]}
+                        onCheckedChange={(checked) =>
+                          setLockedItems((prev) => ({
+                            ...prev,
+                            [item.id]: checked as boolean,
+                          }))
+                        }
+                        className={cn(
+                          lockedItems[item.id] &&
+                            "border-orange-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 data-[state=checked]:text-white"
+                        )}
+                      />
+                      <span className="font-medium">{item.product.name}</span>
+                    </div>
                     <div className="flex items-center gap-2">
                       <SquareMinus
                         onClick={() => {
+                          if (lockedItems[item.id]) return;
                           const newQuantity =
                             (localQuantities[item.id] || item.quantity) - 1;
                           setLocalQuantities({
@@ -278,13 +300,19 @@ export function Category9OrderDetails({
                             item.quantity
                           );
                         }}
-                        className="cursor-pointer text-stone-300 hover:text-stone-400"
+                        className={cn(
+                          "cursor-pointer",
+                          lockedItems[item.id]
+                            ? "text-gray-200 cursor-not-allowed"
+                            : "text-stone-300 hover:text-stone-400"
+                        )}
                       />
                       <Input
                         type="number"
                         min="0"
                         value={localQuantities[item.id] ?? item.quantity}
                         onChange={(e) => {
+                          if (lockedItems[item.id]) return;
                           const newQuantity = parseInt(e.target.value) || 0;
                           setLocalQuantities({
                             ...localQuantities,
@@ -292,6 +320,7 @@ export function Category9OrderDetails({
                           });
                         }}
                         onBlur={(e) => {
+                          if (lockedItems[item.id]) return;
                           const newQuantity = parseInt(e.target.value) || 0;
                           updateOrderQuantity(
                             item.id,
@@ -300,10 +329,15 @@ export function Category9OrderDetails({
                             item.quantity
                           );
                         }}
-                        className="w-20 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        disabled={lockedItems[item.id]}
+                        className={cn(
+                          "w-20 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                          lockedItems[item.id] && "bg-gray-100 text-gray-400"
+                        )}
                       />
                       <SquarePlus
                         onClick={() => {
+                          if (lockedItems[item.id]) return;
                           const newQuantity =
                             (localQuantities[item.id] || item.quantity) + 1;
                           setLocalQuantities({
@@ -317,7 +351,12 @@ export function Category9OrderDetails({
                             item.quantity
                           );
                         }}
-                        className="cursor-pointer text-stone-300 hover:text-stone-400"
+                        className={cn(
+                          "cursor-pointer",
+                          lockedItems[item.id]
+                            ? "text-gray-200 cursor-not-allowed"
+                            : "text-stone-300 hover:text-stone-400"
+                        )}
                       />
                       <Dialog>
                         <DialogTrigger asChild>

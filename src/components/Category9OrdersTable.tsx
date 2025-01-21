@@ -408,7 +408,7 @@ export function Category9OrdersTable() {
                   <Card className="mb-4 p-4">
                     <div className="flex justify-between items-center mb-3">
                       <h3 className="text-md font-semibold">
-                        Souhrn FRESH výrobků
+                        Souhrn FRESH výrobků (pouze mobil)
                       </h3>
                       <Button
                         variant="outline"
@@ -423,16 +423,21 @@ export function Category9OrdersTable() {
                         <Printer className="h-4 w-4 text-orange-500" />
                       </Button>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {productTotals.map((product) => (
-                        <Badge
-                          key={product.name}
-                          variant="outline"
-                          className="text-base py-2 border-orange-500 text-orange-500"
-                        >
-                          {product.name}: {product.quantity} ks
-                        </Badge>
-                      ))}
+                    <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-2">
+                      {productTotals
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map((product) => (
+                          <Badge
+                            key={product.name}
+                            variant="outline"
+                            className="text-base py-2 border-orange-500 text-orange-500 flex flex-col"
+                          >
+                            <div className="flex flex-col items-center">
+                              <span>{product.name}</span>
+                              <span>{product.quantity} ks</span>
+                            </div>
+                          </Badge>
+                        ))}
                     </div>
                   </Card>
 
@@ -465,14 +470,17 @@ export function Category9OrdersTable() {
                               <Printer className="h-4 w-4 text-orange-500" />
                             </Button>
                           </div>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-col items-stretch gap-2">
                             {driver.products.map((product) => (
                               <Badge
                                 key={`${driver.driverName}-${product.name}`}
                                 variant="outline"
-                                className="text-base py-2"
+                                className="text-base py-2 w-full"
                               >
-                                {product.name}: {product.quantity} ks
+                                <div className="flex justify-between w-full">
+                                  <span>{product.name}</span>
+                                  <span>{product.quantity} ks</span>
+                                </div>
                               </Badge>
                             ))}
                           </div>
