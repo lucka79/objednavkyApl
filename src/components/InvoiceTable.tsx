@@ -25,19 +25,10 @@ export const InvoiceTable = () => {
 
   const handleGeneratePDF = async (invoice: any) => {
     try {
-      const formattedItems =
-        invoice.items?.map((item: any) => ({
-          name: item.products?.name ?? "",
-          quantity: item.quantity ?? 0,
-          price: item.price ?? 0,
-          total: (item.quantity ?? 0) * (item.price ?? 0),
-        })) ?? [];
-
       const invoiceData = {
         invoiceNumber: invoice.invoice_number,
         customerInfo: {
           full_name: invoice.profiles?.full_name ?? "",
-          company: invoice.profiles?.company ?? null,
           email: invoice.profiles?.email ?? "",
           address: invoice.profiles?.address ?? "",
           ico: invoice.profiles?.ico ?? "",
@@ -47,17 +38,14 @@ export const InvoiceTable = () => {
           start: new Date(invoice.start_date),
           end: new Date(invoice.end_date),
         },
-        items: formattedItems,
+        items: invoice.items ?? [],
         total: invoice.total ?? 0,
-        orders:
-          invoice.orders?.map((order: any) => ({
-            id: order.id,
-            date: new Date(order.date),
-            total: order.total ?? 0,
-          })) ?? [],
+        orders: invoice.orders ?? [],
       };
 
+      console.log("Generating PDF...");
       const pdfBlob = await generatePDF(invoiceData);
+      console.log("Generated PDF blob size:", pdfBlob.size);
 
       // Create a URL for the blob
       const url = window.URL.createObjectURL(pdfBlob);
@@ -73,6 +61,13 @@ export const InvoiceTable = () => {
       window.URL.revokeObjectURL(url);
 
       if (invoice.profiles?.email) {
+        const base64Data = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () =>
+            resolve((reader.result as string).split(",")[1]);
+          reader.readAsDataURL(pdfBlob);
+        });
+
         await sendEmail({
           to: invoice.profiles.email,
           subject: `Faktura ${invoice.invoice_number}`,
@@ -80,7 +75,9 @@ export const InvoiceTable = () => {
           attachments: [
             {
               filename: `faktura-${invoice.invoice_number}.pdf`,
-              content: pdfBlob,
+              content: base64Data,
+              contentType: "application/pdf",
+              encoding: "base64",
             },
           ],
         });
@@ -98,18 +95,17 @@ export const InvoiceTable = () => {
   const handleEmailPDF = async (invoice: any) => {
     try {
       const invoiceData = {
-        invoiceNumber: invoice.invoice_number as string,
+        invoiceNumber: invoice.invoice_number,
         customerInfo: {
           full_name: invoice.profiles?.full_name ?? "",
-          company: invoice.profiles?.company ?? null,
           email: invoice.profiles?.email ?? "",
           address: invoice.profiles?.address ?? "",
           ico: invoice.profiles?.ico ?? "",
           dic: invoice.profiles?.dic ?? "",
         },
         dateRange: {
-          start: new Date(invoice.start_date),
-          end: new Date(invoice.end_date),
+          start: invoice.start_date ? new Date(invoice.start_date) : new Date(),
+          end: invoice.end_date ? new Date(invoice.end_date) : new Date(),
         },
         items:
           invoice.items?.map((item: any) => ({
@@ -118,56 +114,132 @@ export const InvoiceTable = () => {
             price: item.price ?? 0,
             total: (item.quantity ?? 0) * (item.price ?? 0),
           })) ?? [],
-        total: Number(invoice.total ?? 0),
+        total: Number(invoice.total) ?? 0,
         orders:
           invoice.orders?.map((order: any) => ({
             id: order.id,
-            date: new Date(order.date),
-            total: Number(order.total ?? 0),
+            date: order.date ? new Date(order.date) : new Date(),
+            total: Number(order.total) ?? 0,
           })) ?? [],
       };
 
+      console.log("Generating PDF...");
       const pdfBlob = await generatePDF(invoiceData);
+      console.log("PDF blob size:", pdfBlob.size);
 
-      // Send email with PDF attachment
+      // Convert PDF to base64 in one piece
+      const base64Data = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          resolve(base64.split(",")[1]); // Remove data URL prefix
+        };
+        reader.readAsDataURL(pdfBlob);
+      });
+
+      console.log("Sending email with PDF attachment...");
       await sendEmail({
-        to: invoice.profiles?.email,
+        to: invoice.profiles.email,
         subject: `Faktura ${invoice.invoice_number}`,
         text: `Vážený zákazníku,\n\nv příloze najdete fakturu ${invoice.invoice_number}.\n\nS pozdravem`,
         attachments: [
           {
             filename: `faktura-${invoice.invoice_number}.pdf`,
-            content: pdfBlob,
+            content: base64Data,
+            contentType: "application/pdf",
+            encoding: "base64",
           },
         ],
       });
 
       toast({
         title: "Úspěch",
-        description: "Email byl odeslán",
+        description: "Email byl úspěšně odeslán",
       });
     } catch (error) {
-      console.error("Error sending email:", error);
+      console.error("Error in handleEmailPDF:", error);
       toast({
         title: "Chyba",
-        description: "Nepodařilo se odeslat email",
+        description: (error as Error).message || "Nepodařilo se odeslat email",
         variant: "destructive",
       });
     }
   };
 
-  const handleTestEmail = async () => {
+  const handleTestEmailPDF = async () => {
     try {
-      console.log("Sending test email...");
+      // Create a simple test PDF
+      const testData = {
+        invoiceNumber: "TEST-001",
+        customerInfo: {
+          full_name: "Test Customer",
+          email: "l.batelkova@gmail.com",
+          address: "Test Address",
+          ico: "12345678",
+          dic: "CZ12345678",
+        },
+        dateRange: {
+          start: new Date(),
+          end: new Date(),
+        },
+        items: [
+          {
+            name: "Test Item",
+            quantity: 1,
+            price: 100,
+            total: 100,
+          },
+        ],
+        total: 100,
+        orders: [],
+      };
+
+      const pdfBlob = await generatePDF(testData);
+
+      // Test if PDF is valid by downloading it directly
+      const testUrl = URL.createObjectURL(pdfBlob);
+      const a = document.createElement("a");
+      a.href = testUrl;
+      a.download = "test-direct.pdf";
+      a.click();
+      URL.revokeObjectURL(testUrl);
+
+      // Now try sending via email
+      const base64Data = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          console.log("Base64 prefix:", base64.substring(0, 50));
+          resolve(base64.split(",")[1]);
+        };
+        reader.readAsDataURL(pdfBlob);
+      });
+
+      console.log("Test PDF base64 length:", base64Data.length);
+
       await sendEmail({
         to: "l.batelkova@gmail.com",
-        subject: "Test Email from Resend",
-        text: "This is a test email sent using Resend",
-        attachments: [],
+        subject: "Test PDF Email",
+        text: "This is a test email with PDF attachment",
+        attachments: [
+          {
+            filename: "test.pdf",
+            content: base64Data,
+          },
+        ],
       });
-      console.log("Test email sent successfully");
+
+      toast({
+        title: "Úspěch",
+        description: "Test email byl odeslán",
+      });
     } catch (error) {
-      console.error("Test email failed:", error);
+      console.error("Error sending test email:", error);
+      toast({
+        title: "Chyba",
+        description: "Nepodařilo se odeslat test email",
+        variant: "destructive",
+      });
     }
   };
 
@@ -273,12 +345,13 @@ export const InvoiceTable = () => {
                           >
                             <Mail className="h-4 w-4" />
                           </Button>
+
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={handleTestEmail}
+                            onClick={handleTestEmailPDF}
                           >
-                            Test Email
+                            Test PDF Email
                           </Button>
                         </div>
                       </td>

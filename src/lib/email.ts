@@ -6,7 +6,9 @@ interface EmailParams {
   text: string;
   attachments?: Array<{
     filename: string;
-    content: Blob;
+    content: string;
+    contentType?: string;
+    encoding?: string;
   }>;
 }
 
@@ -17,42 +19,33 @@ export const sendEmail = async ({ to, subject, text, attachments = [] }: EmailPa
   );
 
   try {
-    // Convert PDF blob to base64
-    const attachmentsWithBase64 = await Promise.all(
-      attachments.map(async (attachment) => ({
-        filename: attachment.filename,
-        content: await blobToBase64(attachment.content),
-      }))
-    );
+    console.log('Sending email with attachments:', attachments.map(a => ({
+      filename: a.filename,
+      size: a.content.length
+    })));
 
-    const { data, error } = await supabase.functions.invoke('send-email', {
-      body: { 
-        to, 
-        subject, 
+    const response = await supabase.functions.invoke('send-email', {
+      body: {
+        to,
+        subject,
         text,
-        attachments: attachmentsWithBase64
+        attachments: attachments.map(attachment => ({
+          filename: attachment.filename,
+          content: attachment.content,
+          contentType: attachment.contentType || 'application/octet-stream',
+          encoding: 'base64'
+        }))
       }
     });
 
-    if (error) throw error;
-    return data;
+    if (response.error) {
+      console.error('Response error details:', response.error);
+      throw new Error(response.error.message || 'Unknown error');
+    }
+
+    return response.data;
   } catch (error) {
     console.error('Error in sendEmail:', error);
     throw error;
   }
-};
-
-// Helper function to convert Blob to base64
-const blobToBase64 = (blob: Blob): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = reader.result as string;
-      // Remove the data URL prefix (e.g., "data:application/pdf;base64,")
-      const base64Content = base64String.split(',')[1];
-      resolve(base64Content);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
 }; 
