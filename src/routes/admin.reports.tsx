@@ -9,7 +9,7 @@ import { TooltipTrigger } from "@/components/ui/tooltip";
 import { Tooltip } from "@/components/ui/tooltip";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { FileSliders, Undo2 } from "lucide-react";
+import { FileSliders, Undo2, UserRoundCheck } from "lucide-react";
 import { useState } from "react";
 
 import {
@@ -22,6 +22,7 @@ import {
 } from "date-fns";
 import { cs } from "date-fns/locale";
 import { ZeroQuantityOrders } from "@/components/ZeroQuantityOrders";
+import { ZeroQuantityByDriver } from "@/components/ZeroQuantityByDriver";
 
 export const Route = createFileRoute("/admin/reports")({
   component: ReportsDashboard,
@@ -32,9 +33,9 @@ const ProductQuantityCard = lazy(
 );
 
 function ReportsDashboard() {
-  const [activeView, setActiveView] = useState<"reports" | "returns">(
-    "returns"
-  );
+  const [activeView, setActiveView] = useState<
+    "reports" | "returns" | "drivers"
+  >("returns");
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [viewMode, setViewMode] = useState<"today" | "week" | "month">("today");
@@ -75,6 +76,13 @@ function ReportsDashboard() {
             onClick={() => setActiveView("returns")}
           >
             <Undo2 className="h-5 w-5" />
+          </Button>
+          <Button
+            variant={activeView === "drivers" ? "outline" : "ghost"}
+            size="icon"
+            onClick={() => setActiveView("drivers")}
+          >
+            <UserRoundCheck className="h-5 w-5" />
           </Button>
         </nav>
         <main className="flex-1 p-4">
@@ -167,6 +175,11 @@ function ReportsDashboard() {
             {activeView === "returns" && (
               <div className="w-full">
                 <ZeroQuantityOrders />
+              </div>
+            )}
+            {activeView === "drivers" && (
+              <div className="w-full">
+                <ZeroQuantityByDriver />
               </div>
             )}
           </div>
