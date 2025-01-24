@@ -3,7 +3,10 @@ import { ProductionItem } from "../../types";
 import { Card, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
 import { Trash2, PlusSquare, MinusSquare, Plus } from "lucide-react";
-import { useUpdateProductionItems } from "@/hooks/useProductions";
+import {
+  useUpdateProductionItems,
+  useDeleteProductionItem,
+} from "@/hooks/useProductions";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { AddProductionProduct } from "@/components/AddProductionProduct";
@@ -25,6 +28,7 @@ export default function UpdateProductionCart({
   const [productionItems, setProductionItems] =
     useState<ProductionItem[]>(items);
   const { mutate: updateProductionItems } = useUpdateProductionItems();
+  const { mutate: deleteProductionItem } = useDeleteProductionItem();
 
   useEffect(() => {
     if (!items) return;
@@ -36,9 +40,7 @@ export default function UpdateProductionCart({
 
   const handleDelete = async (itemId: number) => {
     try {
-      const itemToDelete = productionItems.find((item) => item.id === itemId);
-      if (!itemToDelete) return;
-
+      await deleteProductionItem({ itemId });
       await onUpdate();
     } catch (error) {
       console.error("Failed to delete item:", error);
@@ -46,23 +48,27 @@ export default function UpdateProductionCart({
   };
 
   const handleQuantityChange = async (itemId: number, newQuantity: number) => {
+    if (newQuantity < 0) return;
+
     try {
       const currentItem = productionItems.find((item) => item.id === itemId);
-      if (!currentItem) {
-        console.error("No current item found with id:", itemId);
-        return;
-      }
+      if (!currentItem) return;
 
       await updateProductionItems({
         itemId,
         newQuantity,
         productionId,
-        total, // Pass the current calculated total
+        total,
       });
 
-      if (onUpdate) {
-        await onUpdate();
-      }
+      // Update local state
+      setProductionItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === itemId ? { ...item, quantity: newQuantity } : item
+        )
+      );
+
+      await onUpdate();
     } catch (error) {
       console.error("Failed to update quantities:", error);
     }
@@ -102,7 +108,7 @@ export default function UpdateProductionCart({
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Product
+                Přidat výrobek
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -115,7 +121,7 @@ export default function UpdateProductionCart({
           </Dialog>
         </div>
         {!productionItems || productionItems.length === 0 ? (
-          <p>No items in production.</p>
+          <p>Žádné výrobky v výrobě.</p>
         ) : (
           productionItems.map((item) => (
             <div
@@ -137,8 +143,19 @@ export default function UpdateProductionCart({
                 )}
                 <Input
                   type="number"
+                  min="0"
                   value={item.quantity || 0}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const newValue = parseInt(e.target.value) || 0;
+                    setProductionItems((prevItems) =>
+                      prevItems.map((prevItem) =>
+                        prevItem.id === item.id
+                          ? { ...prevItem, quantity: newValue }
+                          : prevItem
+                      )
+                    );
+                  }}
+                  onBlur={(e) =>
                     handleQuantityChange(item.id, parseInt(e.target.value) || 0)
                   }
                   className="w-16 mx-2"
@@ -162,7 +179,7 @@ export default function UpdateProductionCart({
           ))
         )}
         <div className="flex justify-end font-bold text-lg mt-4">
-          Total: {total.toFixed(2)} Kč
+          Celkem: {total.toFixed(2)} Kč
         </div>
       </CardContent>
     </Card>

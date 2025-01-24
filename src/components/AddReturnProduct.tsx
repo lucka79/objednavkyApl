@@ -4,9 +4,10 @@ import { fetchActiveProducts } from "@/hooks/useProducts";
 import { fetchCategories } from "@/hooks/useCategories";
 import { Product } from "../../types";
 import { Input } from "./ui/input";
-import { Card, CardTitle, CardHeader } from "./ui/card";
+import { Card, CardTitle, CardHeader, CardContent } from "./ui/card";
 import { CategoryBadgesVertical } from "./CategoryBadgesVertical";
 import { supabase } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
 
 interface AddReturnProductProps {
   returnId: number;
@@ -22,6 +23,7 @@ export function AddReturnProduct({
   const { data: products } = fetchActiveProducts();
   const { data: categories } = fetchCategories();
   const { mutateAsync: insertReturnItems } = useInsertReturnItems();
+  const { toast } = useToast();
 
   const filteredProducts = products?.filter((product: Product) => {
     const matchesSearch = product.name
@@ -34,9 +36,24 @@ export function AddReturnProduct({
   });
 
   const handleAddProduct = async (product: Product) => {
-    // Determine price based on user's role
-
     try {
+      // Check if item already exists
+      const { data: existingItem } = await supabase
+        .from("return_items")
+        .select()
+        .eq("return_id", returnId)
+        .eq("product_id", product.id)
+        .single();
+
+      if (existingItem) {
+        toast({
+          variant: "destructive",
+          title: "Product already exists",
+          description: "This product is already in the return list.",
+        });
+        return;
+      }
+
       // Get the return's user role first
       const { data: returnData } = await supabase
         .from("returns")
@@ -51,6 +68,7 @@ export function AddReturnProduct({
       // Determine price based on user's role
       const price =
         returnData?.user?.role === "mobil" ? product.priceMobil : product.price;
+
       await insertReturnItems([
         {
           return_id: returnId,
@@ -62,6 +80,11 @@ export function AddReturnProduct({
       await onUpdate();
     } catch (error) {
       console.error("Failed to add product:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to add product to return.",
+      });
     }
   };
 
@@ -82,7 +105,7 @@ export function AddReturnProduct({
             />
           </div>
 
-          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-2">
             {(filteredProducts ?? []).length === 0 ? (
               <div>No products found</div>
             ) : (
@@ -90,16 +113,18 @@ export function AddReturnProduct({
                 <Card
                   key={product.id}
                   onClick={() => handleAddProduct(product)}
-                  className="text-center h-32 flex flex-col cursor-pointer"
+                  className="text-center h-28 flex flex-col justify-between relative"
                 >
-                  <div className="flex-1">
-                    <CardHeader className="h-full px-1">
-                      <CardTitle className="text-sm line-clamp-2 mx-1 hover:line-clamp-3">
-                        {product.name}
-                      </CardTitle>
-                    </CardHeader>
+                  <CardHeader className="px-1">
+                    <CardTitle className="text-sm mx-1 hover:line-clamp-none line-clamp-2 hover:absolute hover:z-10 hover:bg-white hover:w-full hover:left-0">
+                      {product.name}
+                    </CardTitle>
+                  </CardHeader>
+                  <div className="bg-white/80 backdrop-blur-sm">
+                    <CardContent className="pb-2 text-sm font-semibold">
+                      {product.price.toFixed(2)} Kč
+                    </CardContent>
                   </div>
-                  <div className="flex-1 flex flex-col justify-between"></div>
                 </Card>
               ))
             )}

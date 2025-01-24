@@ -66,6 +66,8 @@ export default function UpdateReturnCart({
   };
 
   const handleQuantityChange = async (itemId: number, newQuantity: number) => {
+    if (newQuantity < 0) return;
+
     try {
       const currentItem = returnItems.find((item) => item.id === itemId);
       if (!currentItem) {
@@ -80,7 +82,7 @@ export default function UpdateReturnCart({
         itemId,
         newQuantity,
         returnId,
-        total, // Pass the current calculated total
+        total,
       });
 
       // Update stored items if quantity changed
@@ -96,9 +98,7 @@ export default function UpdateReturnCart({
         });
       }
 
-      if (onUpdate) {
-        await onUpdate();
-      }
+      await onUpdate();
     } catch (error) {
       console.error("Failed to update quantities:", error);
     }
@@ -143,7 +143,7 @@ export default function UpdateReturnCart({
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Product
+                Přidat výrobek
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -153,7 +153,7 @@ export default function UpdateReturnCart({
           </Dialog>
         </div>
         {!returnItems || returnItems.length === 0 ? (
-          <p>No items in return.</p>
+          <p>Žádné položky vratky.</p>
         ) : (
           returnItems.map((item) => (
             <div
@@ -179,8 +179,19 @@ export default function UpdateReturnCart({
                 )}
                 <Input
                   type="number"
+                  min="0"
                   value={item.quantity || 0}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const newValue = parseInt(e.target.value) || 0;
+                    setReturnItems((prevItems) =>
+                      prevItems.map((prevItem) =>
+                        prevItem.id === item.id
+                          ? { ...prevItem, quantity: newValue }
+                          : prevItem
+                      )
+                    );
+                  }}
+                  onBlur={(e) =>
                     handleQuantityChange(item.id, parseInt(e.target.value) || 0)
                   }
                   className="w-16 mx-2"
@@ -209,7 +220,7 @@ export default function UpdateReturnCart({
           ))
         )}
         <div className="flex justify-end font-bold text-lg mt-4">
-          Total: {total.toFixed(2)} Kč
+          Celkem: {total.toFixed(2)} Kč
         </div>
       </CardContent>
     </Card>

@@ -33,94 +33,33 @@ const CategoryBadges = ({
 }) => {
   const buyerCategories = categories.filter((category) => category.buyer);
 
-  // Calculate rows based on screen size using Tailwind classes
   return (
     <div className="w-full rounded-md border p-2">
-      <div className="hidden md:flex md:flex-col md:gap-2 xl:hidden">
-        {/* 3 rows for medium to large screens */}
-        {[
-          [
-            null,
-            ...buyerCategories.slice(
-              0,
-              Math.ceil(buyerCategories.length / 3) - 1
-            ),
-          ],
-          buyerCategories.slice(
-            Math.ceil(buyerCategories.length / 3) - 1,
-            Math.ceil(buyerCategories.length / 3) * 2 - 1
-          ),
-          buyerCategories.slice(Math.ceil(buyerCategories.length / 3) * 2 - 1),
-        ].map((row, rowIndex) => (
-          <div key={rowIndex} className="flex gap-4">
-            {row.map((category) => (
-              <Button
-                key={category?.id ?? "all"}
-                variant="outline"
-                className={`w-32 hover:border-orange-400 ${
-                  selectedCategory === (category?.id ?? null)
-                    ? "bg-orange-400 text-white"
-                    : ""
-                }`}
-                onClick={() => onSelectCategory(category?.id ?? null)}
-              >
-                {category?.name ?? "Vše"}
-              </Button>
-            ))}
-          </div>
-        ))}
-      </div>
-
-      <div className="hidden xl:flex xl:flex-col xl:gap-2">
-        {/* 2 rows for xl screens (1290px+) */}
-        {[
-          [
-            null,
-            ...buyerCategories.slice(
-              0,
-              Math.ceil(buyerCategories.length / 2) - 1
-            ),
-          ],
-          buyerCategories.slice(Math.ceil(buyerCategories.length / 2) - 1),
-        ].map((row, rowIndex) => (
-          <div key={rowIndex} className="flex gap-4">
-            {row.map((category) => (
-              <Button
-                key={category?.id ?? "all"}
-                variant="outline"
-                className={`w-32 hover:border-orange-400 ${
-                  selectedCategory === (category?.id ?? null)
-                    ? "bg-orange-400 text-white"
-                    : ""
-                }`}
-                onClick={() => onSelectCategory(category?.id ?? null)}
-              >
-                {category?.name ?? "Vše"}
-              </Button>
-            ))}
-          </div>
-        ))}
-      </div>
-
-      {/* Mobile layout */}
-      <div className="flex flex-col gap-2 md:hidden">
-        {[[null, ...buyerCategories]].map((row, rowIndex) => (
-          <div key={rowIndex} className="flex flex-wrap gap-4">
-            {row.map((category) => (
-              <Button
-                key={category?.id ?? "all"}
-                variant="outline"
-                className={`w-32 hover:border-orange-400 ${
-                  selectedCategory === (category?.id ?? null)
-                    ? "bg-orange-400 text-white"
-                    : ""
-                }`}
-                onClick={() => onSelectCategory(category?.id ?? null)}
-              >
-                {category?.name ?? "Vše"}
-              </Button>
-            ))}
-          </div>
+      {/* Grid layout for all screen sizes */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 2xl:grid-cols-8">
+        <Button
+          key="all"
+          variant="outline"
+          className={`w-full hover:border-orange-400 ${
+            selectedCategory === null ? "bg-orange-400 text-white" : ""
+          }`}
+          onClick={() => onSelectCategory(null)}
+        >
+          Vše
+        </Button>
+        {buyerCategories.map((category) => (
+          <Button
+            key={category?.id}
+            variant="outline"
+            className={`w-full hover:border-orange-400 ${
+              selectedCategory === category?.id
+                ? "bg-orange-400 text-white"
+                : ""
+            }`}
+            onClick={() => onSelectCategory(category?.id)}
+          >
+            {category?.name}
+          </Button>
         ))}
       </div>
     </div>

@@ -140,3 +140,21 @@ export const useCheckExistingProduction = () => {
       },
     });
   };
+
+export const useDeleteProductionItem = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ itemId }: { itemId: number }) => {
+      const { error } = await supabase
+        .from('production_items')
+        .delete()
+        .eq('id', itemId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['productions'] });
+    },
+  });
+};

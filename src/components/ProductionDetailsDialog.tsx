@@ -70,7 +70,7 @@ export function ProductionDetailsDialog({
               </CardTitle>
               <CardDescription className="flex flex-col gap-2">
                 <div className="flex justify-between items-center">
-                  <span>Production #{productionItem.id}</span>
+                  <span>Výroba #{productionItem.id}</span>
                   <span className="text-muted-foreground font-semibold">
                     {new Date(productionItem.created_at).toLocaleDateString()}
                   </span>

@@ -60,14 +60,14 @@ const columns: ColumnDef<Return>[] = [
     header: "Odběratel",
     cell: ({ row }) => <div>{row.original.user?.full_name || "N/A"}</div>,
   },
-  {
-    accessorKey: "user.role",
-    header: "Typ",
-    cell: ({ row }) => <div>{row.original.user?.role || "N/A"}</div>,
-  },
+  // {
+  //   accessorKey: "user.role",
+  //   header: "Typ",
+  //   cell: ({ row }) => <div>{row.original.user?.role || "N/A"}</div>,
+  // },
   {
     accessorKey: "return_items",
-    header: () => <div className="text-left">Items</div>,
+    header: () => <div className="text-left">Položky</div>,
     cell: ({ row }) => (
       <div className="text-left">
         <Badge variant="outline">
