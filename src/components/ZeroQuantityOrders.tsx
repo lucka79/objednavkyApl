@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { OrderDetailsDialog } from "./OrderDetailsDialog";
+import { useOrderStore } from "@/providers/orderStore";
 
 interface ProductSummary {
   name: string;
@@ -222,6 +224,9 @@ export const ZeroQuantityOrders = () => {
       setViewMode("today");
     }
   };
+
+  // Add setSelectedOrderId from orderStore
+  const { setSelectedOrderId } = useOrderStore();
 
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
@@ -475,7 +480,11 @@ export const ZeroQuantityOrders = () => {
         </TableHeader>
         <TableBody>
           {filteredOrders.map((order) => (
-            <TableRow key={order.id}>
+            <TableRow
+              key={order.id}
+              className="cursor-pointer hover:bg-gray-100"
+              onClick={() => setSelectedOrderId(order.id)}
+            >
               <TableCell>
                 {format(new Date(order.date), "dd.MM.yyyy")}
               </TableCell>
@@ -500,6 +509,9 @@ export const ZeroQuantityOrders = () => {
           ))}
         </TableBody>
       </Table>
+
+      {/* Add OrderDetailsDialog component */}
+      <OrderDetailsDialog />
     </div>
   );
 };
