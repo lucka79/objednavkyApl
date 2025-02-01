@@ -49,7 +49,13 @@ import { useAuthStore } from "@/lib/supabase";
 
 const filterOrdersByDate = (
   orders: Order[],
-  period: "today" | "tomorrow" | "week" | "month" | "lastMonth",
+  period:
+    | "today"
+    | "tomorrow"
+    | "dayAfterTomorrow"
+    | "week"
+    | "nextWeek"
+    | "year",
   selectedDate?: Date
 ) => {
   if (selectedDate) {
@@ -65,28 +71,52 @@ const filterOrdersByDate = (
     switch (period) {
       case "today":
         return orderDate.toDateString() === now.toDateString();
-      case "tomorrow":
+      case "tomorrow": {
         const tomorrow = new Date(now);
         tomorrow.setDate(tomorrow.getDate() + 1);
         return orderDate.toDateString() === tomorrow.toDateString();
-      case "week":
+      }
+      case "dayAfterTomorrow": {
+        const dayAfterTomorrow = new Date(now);
+        dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+        return orderDate.toDateString() === dayAfterTomorrow.toDateString();
+      }
+      case "week": {
+        const orderTime = orderDate.getTime();
         const weekStart = new Date(now);
-        weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+        weekStart.setDate(
+          now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)
+        );
+        weekStart.setHours(0, 0, 0, 0);
+
         const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 6);
-        return orderDate >= weekStart && orderDate <= weekEnd;
-      case "month":
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
+
         return (
-          orderDate.getMonth() === now.getMonth() &&
-          orderDate.getFullYear() === now.getFullYear()
+          orderTime >= weekStart.getTime() && orderTime <= weekEnd.getTime()
         );
-      case "lastMonth":
-        const lastMonth = new Date(now);
-        lastMonth.setMonth(lastMonth.getMonth() - 1);
+      }
+      case "nextWeek": {
+        const orderTime = orderDate.getTime();
+        const nextWeekStart = new Date(now);
+        nextWeekStart.setDate(now.getDate() - now.getDay() + 8);
+        nextWeekStart.setHours(0, 0, 0, 0);
+
+        const nextWeekEnd = new Date(nextWeekStart);
+        nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
+        nextWeekEnd.setHours(23, 59, 59, 999);
+
         return (
-          orderDate.getMonth() === lastMonth.getMonth() &&
-          orderDate.getFullYear() === lastMonth.getFullYear()
+          orderTime >= nextWeekStart.getTime() &&
+          orderTime <= nextWeekEnd.getTime()
         );
+      }
+
+      case "year":
+        return orderDate.getFullYear() === now.getFullYear();
+      default:
+        return true;
     }
   });
 };
@@ -421,6 +451,45 @@ const printProductSummary = (orders: Order[]) => {
   printWindow.print();
 };
 
+// Add a month selector component
+const MonthSelector = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) => {
+  const months = [
+    { value: "1", label: "Leden" },
+    { value: "2", label: "Únor" },
+    { value: "3", label: "Březen" },
+    { value: "4", label: "Duben" },
+    { value: "5", label: "Květen" },
+    { value: "6", label: "Červen" },
+    { value: "7", label: "Červenec" },
+    { value: "8", label: "Srpen" },
+    { value: "9", label: "Září" },
+    { value: "10", label: "Říjen" },
+    { value: "11", label: "Listopad" },
+    { value: "12", label: "Prosinec" },
+  ];
+
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="w-[180px]">
+        <SelectValue placeholder="Vyberte měsíc" />
+      </SelectTrigger>
+      <SelectContent>
+        {months.map((month) => (
+          <SelectItem key={month.value} value={month.value}>
+            {month.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+};
+
 export function StoreOrdersTable({
   selectedProductId: initialProductId,
 }: OrdersTableProps) {
@@ -436,6 +505,9 @@ export function StoreOrdersTable({
   );
   const { data: products } = fetchActiveProducts();
   const [activeTab, setActiveTab] = useState("today");
+  const [selectedMonth, setSelectedMonth] = useState(
+    new Date().getMonth() + 1 + ""
+  );
 
   const filteredOrders = useMemo(() => {
     let filtered = orders || [];
@@ -458,14 +530,26 @@ export function StoreOrdersTable({
 
   const getDateFilteredOrders = (
     orders: Order[],
-    period: "today" | "tomorrow" | "week" | "month" | "lastMonth"
+    period:
+      | "today"
+      | "tomorrow"
+      | "dayAfterTomorrow"
+      | "week"
+      | "nextWeek"
+      | "year"
   ) => {
     return filterOrdersByDate(orders || [], period);
   };
 
   const calculateTotalQuantityForPeriod = (
     productId: string,
-    period: "today" | "tomorrow" | "week" | "month" | "lastMonth"
+    period:
+      | "today"
+      | "tomorrow"
+      | "dayAfterTomorrow"
+      | "week"
+      | "nextWeek"
+      | "year"
   ) => {
     const dateFiltered = getDateFilteredOrders(orders || [], period);
     return dateFiltered.reduce((total, order) => {
@@ -737,6 +821,17 @@ export function StoreOrdersTable({
     printWindow.print();
   };
 
+  // Filter orders by selected month
+  const getMonthFilteredOrders = (orders: Order[]) => {
+    return orders.filter((order) => {
+      const orderDate = new Date(order.date);
+      return (
+        orderDate.getMonth() === parseInt(selectedMonth) - 1 &&
+        orderDate.getFullYear() === new Date().getFullYear()
+      );
+    });
+  };
+
   if (isLoading) {
     return (
       <Card className="my-0 p-4">
@@ -768,7 +863,7 @@ export function StoreOrdersTable({
   }
 
   return (
-    <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible  print:transform-none">
+    <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible print:transform-none">
       <div className="space-y-4 overflow-x-auto print:!m-0">
         <div className="space-y-2 print:hidden">
           <div className="flex justify-between items-center gap-2">
@@ -798,6 +893,7 @@ export function StoreOrdersTable({
                   selected={date}
                   onSelect={setDate}
                   initialFocus
+                  numberOfMonths={2}
                 />
               </PopoverContent>
             </Popover>
@@ -844,9 +940,10 @@ export function StoreOrdersTable({
                           activeTab as
                             | "today"
                             | "tomorrow"
+                            | "dayAfterTomorrow"
                             | "week"
-                            | "month"
-                            | "lastMonth"
+                            | "nextWeek"
+                            | "year"
                         )}{" "}
                         ks
                       </Badge>
@@ -857,9 +954,10 @@ export function StoreOrdersTable({
                             activeTab as
                               | "today"
                               | "tomorrow"
+                              | "dayAfterTomorrow"
                               | "week"
-                              | "month"
-                              | "lastMonth"
+                              | "nextWeek"
+                              | "year"
                           ).filter((order) =>
                             order.order_items.some(
                               (item: { product_id: number | string }) =>
@@ -878,6 +976,14 @@ export function StoreOrdersTable({
           </Select>
         </div>
 
+        <div className="flex items-center gap-4 print:hidden">
+          <MonthSelector value={selectedMonth} onChange={setSelectedMonth} />
+          <Badge variant="secondary">
+            {getMonthFilteredOrders(filteredOrders).length} orders in selected
+            month
+          </Badge>
+        </div>
+
         <Tabs
           defaultValue="today"
           className="w-full"
@@ -888,11 +994,12 @@ export function StoreOrdersTable({
         >
           <TabsList className="print:hidden">
             {[
-              { value: "today", label: "Today" },
-              { value: "tomorrow", label: "Tomorrow" },
-              { value: "week", label: "This Week" },
-              { value: "month", label: "This Month" },
-              { value: "lastMonth", label: "Last Month" },
+              { value: "today", label: "Dnes" },
+              { value: "tomorrow", label: "Zítra" },
+              { value: "dayAfterTomorrow", label: "Pozítří" },
+              { value: "week", label: "Tento týden" },
+              { value: "nextWeek", label: "Následující týden" },
+              { value: "year", label: "Rok " + new Date().getFullYear() },
             ].map((tab) => (
               <TabsTrigger key={tab.value} value={tab.value}>
                 {tab.label}{" "}
@@ -903,12 +1010,38 @@ export function StoreOrdersTable({
             ))}
           </TabsList>
 
-          {["today", "tomorrow", "week", "month", "lastMonth"].map((period) => {
-            const filteredPeriodOrders = filterOrdersByDate(
+          {[
+            "today",
+            "tomorrow",
+            "dayAfterTomorrow",
+            "week",
+            "nextWeek",
+            "year",
+          ].map((period) => {
+            // First apply the period filter
+            let filteredPeriodOrders = filterOrdersByDate(
               filteredOrders || [],
-              period as "today" | "tomorrow" | "week" | "month" | "lastMonth",
+              period as
+                | "today"
+                | "tomorrow"
+                | "dayAfterTomorrow"
+                | "week"
+                | "nextWeek"
+                | "year",
               date
             );
+
+            // Then apply month filter if we're in year view
+            if (period === "year") {
+              filteredPeriodOrders = filteredPeriodOrders.filter((order) => {
+                const orderDate = new Date(order.date);
+                return (
+                  orderDate.getMonth() === parseInt(selectedMonth) - 1 &&
+                  orderDate.getFullYear() === new Date().getFullYear()
+                );
+              });
+            }
+
             const crateSums = calculateCrateSums(filteredPeriodOrders);
 
             return (

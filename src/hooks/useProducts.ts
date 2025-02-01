@@ -74,7 +74,6 @@ export const fetchActiveProducts = () => {
         .from("products")
         .select("*")
         .eq("active", true)
-        .eq("buyer", true)
         .order("name", { ascending: true });
       if (error) {
         throw new Error(error.message);

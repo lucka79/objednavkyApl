@@ -19,7 +19,7 @@ export function AddReturnProduct({
   onUpdate,
 }: AddReturnProductProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(8);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const { data: products } = fetchActiveProducts();
   const { data: categories } = fetchCategories();
   const { mutateAsync: insertReturnItems } = useInsertReturnItems();
@@ -31,7 +31,19 @@ export function AddReturnProduct({
       .includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory
       ? product.category_id === selectedCategory
-      : true;
+      : product.category_id === 8 ||
+        product.category_id === 14 ||
+        product.category_id === 13;
+
+    console.log(
+      "Product:",
+      product.name,
+      "Category:",
+      product.category_id,
+      "Selected:",
+      selectedCategory
+    );
+
     return matchesSearch && matchesCategory;
   });
 

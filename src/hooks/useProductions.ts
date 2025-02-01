@@ -145,7 +145,7 @@ export const useDeleteProductionItem = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ itemId }: { itemId: number }) => {
+    mutationFn: async ({ itemId, productionId: _ }: { itemId: number; productionId: number }) => {
       const { error } = await supabase
         .from('production_items')
         .delete()
@@ -153,8 +153,9 @@ export const useDeleteProductionItem = () => {
       
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_, { productionId }) => {
       queryClient.invalidateQueries({ queryKey: ['productions'] });
+      queryClient.invalidateQueries({ queryKey: ['production', productionId] });
     },
   });
 };

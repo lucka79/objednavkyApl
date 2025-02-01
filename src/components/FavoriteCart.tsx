@@ -167,7 +167,7 @@ export default function FavoriteCart({
                         )
                       }
                       onBlur={() => setEditingPriceId(null)}
-                      className="w-24 text-right"
+                      className="w-24 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       autoFocus
                     />
                   ) : (
@@ -203,19 +203,30 @@ export default function FavoriteCart({
                     type="number"
                     min="0"
                     value={item.quantity}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const updatedItems = favoriteItems.map((favItem) =>
+                        favItem.id === item.id
+                          ? {
+                              ...favItem,
+                              quantity: parseInt(e.target.value) || 0,
+                            }
+                          : favItem
+                      );
+                      setFavoriteItems(updatedItems);
+                    }}
+                    onBlur={(e) =>
                       updateFavoriteQuantity(
                         item.id,
                         parseInt(e.target.value) || 0
                       )
                     }
-                    className={`w-16 ${item.quantity > 0 ? "mx-2" : "ml-6"} text-center`}
+                    className={`w-16 ${item.quantity > 0 ? "mx-2" : "ml-6"} text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                   />
                   <SquarePlus
                     onClick={() =>
                       updateFavoriteQuantity(item.id, item.quantity + 1)
                     }
-                    className="cursor-pointer text-stone-300 hover:text-stone-400"
+                    className="cursor-pointer text-stone-300 hover:text-stone-400 ml-2"
                   />
                   <Label className="w-16 mx-2 text-end">
                     {(getItemPrice(item) * (item.quantity || 0)).toFixed(2)} Kč

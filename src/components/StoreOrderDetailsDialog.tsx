@@ -17,7 +17,8 @@ import { supabase, useAuthStore } from "@/lib/supabase";
 import UpdateCart from "./UpdateCart";
 import { useUpdateProfile } from "@/hooks/useProfiles";
 import { Container, SquareMinus, SquarePlus } from "lucide-react";
-// import { useState } from "react";
+import { Input } from "./ui/input";
+import { X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -25,14 +26,14 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-// import React from "react";
+import { useState } from "react";
 
 export function StoreOrderDetailsDialog() {
   const user = useAuthStore((state) => state.user);
   const { selectedOrderId, setSelectedOrderId } = useOrderStore();
   const { mutate: updateOrder } = useUpdateOrder();
   const { mutate: updateProfile } = useUpdateProfile();
-  //   const [isLocked, setIsLocked] = useState(false);
+  const [localNote, setLocalNote] = useState("");
 
   const {
     data: orders,
@@ -109,6 +110,14 @@ export function StoreOrderDetailsDialog() {
     });
   };
 
+  const saveNote = (id: number, note: string) => {
+    updateOrder({
+      id,
+      updatedFields: { note: note.trim() || "-" },
+    });
+    setLocalNote(""); // Reset local note after saving
+  };
+
   if (isLoading) return <div>Loading order details...</div>;
   if (error) return <div>Error loading order details</div>;
 
@@ -145,7 +154,31 @@ export function StoreOrderDetailsDialog() {
                     {order.user.crateBig} <Container size={24} />
                   </span>
                 </CardDescription>
-
+                <CardDescription className="flex justify-end items-center">
+                  <div className="flex gap-4">
+                    <Input
+                      type="text"
+                      value={
+                        localNote || (order.note !== "-" ? order.note : "")
+                      }
+                      onChange={(e) => setLocalNote(e.target.value)}
+                      onBlur={(e) => saveNote(order.id, e.target.value)}
+                      className={`border rounded px-2 py-1 text-sm w-60 text-right ${
+                        localNote || order.note !== "-"
+                          ? "border-orange-500"
+                          : ""
+                      }`}
+                      placeholder="Přidat poznámku..."
+                    />
+                    {(localNote || order.note !== "-") && (
+                      <X
+                        size={16}
+                        className="cursor-pointer text-gray-500 hover:text-red-500"
+                        onClick={() => saveNote(order.id, "-")}
+                      />
+                    )}
+                  </div>
+                </CardDescription>
                 <CardDescription className="flex flex-col gap-2">
                   <div className="flex justify-between items-center">
                     <span>Order #{order.id}</span>
@@ -172,9 +205,6 @@ export function StoreOrderDetailsDialog() {
               <CardContent>
                 {user?.role === "store" && (
                   <Card>
-                    {/* <CardHeader>
-                      <CardTitle>Vratné obaly</CardTitle>
-                    </CardHeader> */}
                     <CardContent className="flex gap-8 justify-between">
                       <div>
                         <CardDescription className="py-2 flex gap-2">
@@ -341,7 +371,7 @@ export function StoreOrderDetailsDialog() {
                   )}
                   {user?.role === "store" && (
                     <>
-                      {["Přeprava", "OK"].map((status) => (
+                      {["New", "Přeprava", "OK"].map((status) => (
                         <Badge
                           key={status}
                           variant={

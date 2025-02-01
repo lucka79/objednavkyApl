@@ -38,6 +38,7 @@ import { useOrderStore } from "@/providers/orderStore";
 interface ProductSummary {
   name: string;
   totalOriginalQuantity: number;
+  totalLostPrice: number;
 }
 
 export const ZeroQuantityOrders = () => {
@@ -182,7 +183,7 @@ export const ZeroQuantityOrders = () => {
   useEffect(() => {
     if (!filteredOrders || !itemHistories) return;
 
-    const summaries: Record<string, number> = {};
+    const summaries: Record<string, { quantity: number; price: number }> = {};
 
     filteredOrders.forEach((order) => {
       order.order_items
@@ -190,20 +191,26 @@ export const ZeroQuantityOrders = () => {
         .forEach((item: OrderItem) => {
           const productName = item.product.name;
           const originalQuantity = itemHistories[item.id] || 0;
-          summaries[productName] =
-            (summaries[productName] || 0) + originalQuantity;
+          const lostPrice = originalQuantity * item.price;
+
+          if (!summaries[productName]) {
+            summaries[productName] = { quantity: 0, price: 0 };
+          }
+          summaries[productName].quantity += originalQuantity;
+          summaries[productName].price += lostPrice;
         });
     });
 
     const summaryArray = Object.entries(summaries)
-      .map(([name, totalOriginalQuantity]) => ({
+      .map(([name, { quantity, price }]) => ({
         name,
-        totalOriginalQuantity,
+        totalOriginalQuantity: quantity,
+        totalLostPrice: price,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
     setProductSummaries(summaryArray);
-  }, [filteredOrders, itemHistories]); // Only depend on filteredOrders and itemHistories
+  }, [filteredOrders, itemHistories]);
 
   // Update dateRangeText to handle today
   const dateRangeText = useMemo(() => {
@@ -449,6 +456,26 @@ export const ZeroQuantityOrders = () => {
           >
             {filteredOrdersCount}
           </Badge>
+          <Badge
+            className="ml-2 justify-center bg-red-500 text-white"
+            variant="outline"
+          >
+            {filteredOrders
+              .reduce(
+                (total: number, order) =>
+                  total +
+                  order.order_items
+                    .filter((item: OrderItem) => item.quantity === 0)
+                    .reduce(
+                      (itemTotal: number, item: OrderItem) =>
+                        itemTotal + (itemHistories[item.id] || 0) * item.price,
+                      0
+                    ),
+                0
+              )
+              .toFixed(2)}{" "}
+            Kč
+          </Badge>
         </h2>
       </div>
 
@@ -459,10 +486,13 @@ export const ZeroQuantityOrders = () => {
             className="bg-white p-4 rounded-lg shadow relative"
           >
             <h3 className="font-semibold text-lg">{summary.name}</h3>
-            <div className="absolute bottom-2 right-2">
-              <Badge className="bg-orange-500">
+            <div className="absolute bottom-2 right-2 flex flex-col items-end">
+              <Badge className="bg-orange-500 mb-1">
                 {summary.totalOriginalQuantity}
               </Badge>
+              <span className="text-red-700 text-sm font-semibold">
+                {summary.totalLostPrice.toFixed(2)} Kč
+              </span>
             </div>
           </div>
         ))}
@@ -474,6 +504,7 @@ export const ZeroQuantityOrders = () => {
             <TableHead>Datum</TableHead>
             <TableHead>Odběratel</TableHead>
             <TableHead>Řidič</TableHead>
+            <TableHead className="text-right">Ztráta</TableHead>
             <TableHead>Položky s nulovým množstvím</TableHead>
             <TableHead>Poznámka</TableHead>
           </TableRow>
@@ -490,6 +521,17 @@ export const ZeroQuantityOrders = () => {
               </TableCell>
               <TableCell>{order.user?.full_name || "N/A"}</TableCell>
               <TableCell>{order.driver?.full_name || "N/A"}</TableCell>
+              <TableCell className="text-right text-red-700 font-semibold">
+                {order.order_items
+                  .filter((item: OrderItem) => item.quantity === 0)
+                  .reduce(
+                    (total: number, item: OrderItem) =>
+                      total + (itemHistories[item.id] || 0) * item.price,
+                    0
+                  )
+                  .toFixed(2)}{" "}
+                Kč
+              </TableCell>
               <TableCell>
                 <ul className="list-disc list-inside">
                   {order.order_items
@@ -504,6 +546,7 @@ export const ZeroQuantityOrders = () => {
                     ))}
                 </ul>
               </TableCell>
+
               <TableCell>{order.note || "N/A"}</TableCell>
             </TableRow>
           ))}

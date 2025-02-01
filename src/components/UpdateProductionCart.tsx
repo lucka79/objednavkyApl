@@ -7,6 +7,7 @@ import {
   useUpdateProductionItems,
   useDeleteProductionItem,
 } from "@/hooks/useProductions";
+import { useUpdateStoredItems } from "@/hooks/useOrders";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { AddProductionProduct } from "@/components/AddProductionProduct";
@@ -23,12 +24,13 @@ export default function UpdateProductionCart({
   items,
   productionId,
   onUpdate,
-  //   selectedUserId,
+  selectedUserId,
 }: UpdateProductionCartProps) {
   const [productionItems, setProductionItems] =
     useState<ProductionItem[]>(items);
   const { mutate: updateProductionItems } = useUpdateProductionItems();
-  const { mutate: deleteProductionItem } = useDeleteProductionItem();
+  const { mutateAsync: deleteProductionItem } = useDeleteProductionItem();
+  const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
 
   useEffect(() => {
     if (!items) return;
@@ -40,7 +42,22 @@ export default function UpdateProductionCart({
 
   const handleDelete = async (itemId: number) => {
     try {
-      await deleteProductionItem({ itemId });
+      const itemToDelete = productionItems.find((item) => item.id === itemId);
+      if (!itemToDelete) return;
+
+      await deleteProductionItem({ itemId, productionId });
+
+      // Update stored quantity
+      await updateStoredItems({
+        userId: selectedUserId,
+        items: [
+          {
+            product_id: itemToDelete.product_id,
+            quantity: -itemToDelete.quantity || 0,
+          },
+        ],
+      });
+
       await onUpdate();
     } catch (error) {
       console.error("Failed to delete item:", error);
@@ -52,8 +69,14 @@ export default function UpdateProductionCart({
 
     try {
       const currentItem = productionItems.find((item) => item.id === itemId);
-      if (!currentItem) return;
+      if (!currentItem) {
+        console.error("No current item found with id:", itemId);
+        return;
+      }
 
+      const quantityDifference = newQuantity - currentItem.quantity;
+
+      // Update production item quantity and total
       await updateProductionItems({
         itemId,
         newQuantity,
@@ -61,12 +84,18 @@ export default function UpdateProductionCart({
         total,
       });
 
-      // Update local state
-      setProductionItems((prevItems) =>
-        prevItems.map((item) =>
-          item.id === itemId ? { ...item, quantity: newQuantity } : item
-        )
-      );
+      // Update stored items if quantity changed
+      if (quantityDifference !== 0) {
+        await updateStoredItems({
+          userId: selectedUserId,
+          items: [
+            {
+              product_id: currentItem.product_id,
+              quantity: quantityDifference,
+            },
+          ],
+        });
+      }
 
       await onUpdate();
     } catch (error) {
