@@ -169,7 +169,13 @@ const columns: ColumnDef<FavoriteOrder>[] = [
       );
     },
   },
-
+  {
+    accessorKey: "note",
+    header: "Poznámka",
+    cell: ({ row }) => (
+      <div className="text-left">{row.original.note || "—"}</div>
+    ),
+  },
   {
     id: "actions",
     cell: ({ row }) => {

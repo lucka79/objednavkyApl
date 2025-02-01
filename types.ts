@@ -103,6 +103,7 @@ export type Product = {
   user_id: string;
   days: Day[];
   status: OrderStatus;
+  note?: string;
   user: Profile;
   paid_by: PaidBy;
   driver?: Profile;

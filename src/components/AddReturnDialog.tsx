@@ -103,7 +103,7 @@ export function AddReturnDialog({ open, onClose }: AddReturnDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
           <DialogTitle>Vytvořit vratku</DialogTitle>
         </DialogHeader>

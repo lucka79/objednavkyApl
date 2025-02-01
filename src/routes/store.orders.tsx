@@ -38,14 +38,14 @@ function StoreOrders() {
         <Button
           variant={activeView === "returns" ? "outline" : "secondary"}
           onClick={() => setActiveView("returns")}
-          className="cursor-pointer"
+          className="cursor-pointer text-orange-500 hover:text-white hover:bg-orange-500"
         >
           Vratky
         </Button>
         <Button
           variant={activeView === "productions" ? "outline" : "secondary"}
           onClick={() => setActiveView("productions")}
-          className="cursor-pointer"
+          className="cursor-pointer text-green-500 hover:text-white hover:bg-green-500"
         >
           Výroby
         </Button>

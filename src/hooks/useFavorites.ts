@@ -126,16 +126,14 @@ export const useUpdateFavoriteOrder = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      id, 
-      data 
-    }: { 
+    mutationFn: async ({ id, data }: { 
       id: number; 
       data: {
         days?: ("Po" | "Út" | "St" | "Čt" | "Pá" | "So" | "Ne" | "X")[];
         status?: string;
         user_id?: string;
         driver_id?: string | null;
+        note?: string;
       }
     }) => {
       const { error } = await supabase
@@ -159,11 +157,12 @@ export const useCreateFavoriteOrder = () => {
       data 
     }: { 
       data: {
-        days: Day[];
+        days: ("Po" | "Út" | "St" | "Čt" | "Pá" | "So" | "Ne" | "X")[];
         status?: string;
         user_id: string;
       }
     }) => {
+      // Insert new favorite order directly without any checks
       const { data: newOrder, error } = await supabase
         .from('favorite_orders')
         .insert(data)

@@ -149,16 +149,16 @@ export const useInsertOrder = () => {
     note?: string;
   }>({
     mutationFn: async (orderData) => {
-      // First insert the order
+      // Insert the order directly without checking for duplicates
       const { data: newOrder, error: insertError } = await supabase
         .from('orders')
         .insert(orderData)
-        .select('id')  // Only get the ID
+        .select('id')
         .single();
 
       if (insertError) throw insertError;
 
-      // Then fetch the complete order with explicit relationships
+      // Fetch complete order with relationships
       const { data: completeOrder, error: fetchError } = await supabase
         .from('orders')
         .select(`

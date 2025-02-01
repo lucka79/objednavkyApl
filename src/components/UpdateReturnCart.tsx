@@ -194,7 +194,7 @@ export default function UpdateReturnCart({
                   onBlur={(e) =>
                     handleQuantityChange(item.id, parseInt(e.target.value) || 0)
                   }
-                  className="w-16 mx-2"
+                  className="w-16 mx-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
                 <PlusSquare
                   className="h-5 w-5 cursor-pointer text-gray-500 hover:text-gray-700"

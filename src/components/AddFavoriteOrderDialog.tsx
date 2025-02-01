@@ -57,67 +57,63 @@ export function AddFavoriteOrderDialog() {
     }
 
     try {
-      // Check for existing favorite orders
-      for (const day of selectedDays) {
-        const { data: existingOrder, error: checkError } = await supabase
-          .from("favorite_orders")
-          .select(
-            `
-            id,
-            days,
-            user:profiles!favorite_orders_user_id_fkey (
-              id,
-              full_name
-            )
-          `
-          )
-          .eq("user_id", selectedUserId)
-          .contains("days", [day])
-          .maybeSingle();
+      // Get user role first
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", selectedUserId)
+        .single();
 
-        if (checkError) throw checkError;
-
-        if (existingOrder) {
-          toast({
-            title: "Warning",
-            description: `Favorite order already exists for ${existingOrder.user[0]?.full_name} on ${day}`,
-            variant: "destructive",
-            duration: 3000,
-          });
-          return; // Stop the entire creation process
-        }
-      }
-
-      // Continue with order creation if no duplicates found
-      const createPromises = selectedDays.map((day) => {
-        const orderData = {
-          user_id: selectedUserId,
-          days: [day],
-          status: "Pre-order",
-        };
-        console.log("Creating order with data:", orderData);
-
-        return createFavoriteOrder.mutateAsync({
-          // @ts-ignore
-          data: orderData,
+      // Skip duplicate check for store users
+      if (userProfile?.role === "store") {
+        await createFavoriteOrder.mutateAsync({
+          data: {
+            user_id: selectedUserId,
+            days: selectedDays,
+            status: "active",
+          },
         });
-      });
+      } else {
+        // For non-store users, check for duplicates
+        const { data: existingOrders } = await supabase
+          .from("favorite_orders")
+          .select("days")
+          .eq("user_id", selectedUserId);
 
-      const results = await Promise.all(createPromises);
-      console.log("Created favorite orders:", results);
+        const hasDuplicateDay = selectedDays.some((day) =>
+          existingOrders?.some((order) => order.days.includes(day))
+        );
+
+        if (hasDuplicateDay) {
+          toast({
+            title: "Error",
+            description: "Oblíbená objednávka pro tento den již existuje",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        await createFavoriteOrder.mutateAsync({
+          data: {
+            user_id: selectedUserId,
+            days: selectedDays,
+            status: "active",
+          },
+        });
+      }
 
       toast({
         title: "Success",
-        description: `Created ${selectedDays.length} favorite order(s) successfully`,
+        description: "Oblíbená objednávka byla vytvořena",
       });
       setIsOpen(false);
       setSelectedDays([]);
       setSelectedUserId("");
     } catch (error) {
-      console.error("Failed to create favorite order(s):", error);
+      console.error("Error creating favorite order:", error);
       toast({
         title: "Error",
-        description: "Failed to create favorite order(s)",
+        description: "Chyba při vytváření oblíbené objednávky",
         variant: "destructive",
       });
     }

@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "./ui/input";
 
 interface FavoriteDetailsDialogProps {
   favoriteOrderId: number | null;
@@ -147,6 +148,23 @@ export function FavoriteDetailsDialog({
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="flex justify-between items-center mt-2">
+                    <span>Poznámka:</span>
+                    <Input
+                      type="text"
+                      placeholder="Přidat poznámku..."
+                      defaultValue={currentFavorite?.note || ""}
+                      onBlur={(e) =>
+                        updateFavoriteOrder.mutateAsync({
+                          id: currentFavorite.id,
+                          data: {
+                            note: e.target.value,
+                          },
+                        })
+                      }
+                      className="w-[180px]"
+                    />
                   </div>
                   <ScrollArea className="h-[60px] w-full rounded-md border p-4">
                     <div className="flex items-center gap-4">
