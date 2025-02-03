@@ -102,25 +102,37 @@ export const fetchAllOrders = () => {
   return useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { count } = await supabase
         .from('orders')
-        .select(`
-          *,
-          user:profiles!orders_user_id_fkey (*),
-          driver:profiles!orders_driver_id_fkey (*),
-          order_items (
-            *,
-            product:products (*)
-          )
-        `)
-        .order('date', { ascending: false })
-        .order('user(full_name)', { ascending: true })
-       
-        .limit(1000);
+        .select('*', { count: 'exact', head: true });
 
-      if (error) throw error;
-      console.log('Fetched orders:', data);
-      return data;
+      // Fetch all orders in chunks if needed
+      const pageSize = 1000;
+      const pages = Math.ceil((count || 0) / pageSize);
+      let allOrders: Order[] = [];
+
+      for (let i = 0; i < pages; i++) {
+        const { data, error } = await supabase
+          .from('orders')
+          .select(`
+            *,
+            user:profiles!orders_user_id_fkey (*),
+            driver:profiles!orders_driver_id_fkey (*),
+            order_items (
+              *,
+              product:products (*)
+            )
+          `)
+          .order('date', { ascending: false })
+          .order('user(full_name)', { ascending: true })
+          .range(i * pageSize, (i + 1) * pageSize - 1);
+
+        if (error) throw error;
+        allOrders = [...allOrders, ...data];
+      }
+
+      console.log('Fetched orders:', allOrders.length);
+      return allOrders;
     }
   });
 };

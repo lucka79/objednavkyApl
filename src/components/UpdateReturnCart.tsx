@@ -191,18 +191,9 @@ export default function UpdateReturnCart({
                   min="0"
                   value={item.quantity || 0}
                   onChange={(e) => {
-                    const newValue = parseInt(e.target.value) || 0;
-                    setReturnItems((prevItems) =>
-                      prevItems.map((prevItem) =>
-                        prevItem.id === item.id
-                          ? { ...prevItem, quantity: newValue }
-                          : prevItem
-                      )
-                    );
+                    const newQuantity = parseInt(e.target.value) || 0;
+                    handleQuantityChange(item.id, newQuantity);
                   }}
-                  onBlur={(e) =>
-                    handleQuantityChange(item.id, parseInt(e.target.value) || 0)
-                  }
                   className="w-16 mx-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
                 <PlusSquare
