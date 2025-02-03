@@ -88,20 +88,20 @@ export const OrderPrint = ({ orders }: { orders: Order[] }) => {
                         {needsPageBreak && (
                           <>
                             <tr className="page-break-after">
-                              <td colSpan={5} style={{ height: "300px" }}></td>
+                              {/* <td colSpan={5} style={{ height: "10px" }}></td> */}
                             </tr>
                             <tr>
                               <td colSpan={5}>
                                 <div
                                   style={{
                                     position: "absolute",
-                                    bottom: "20px",
+                                    bottom: "10px",
                                     left: "0",
                                     right: "0",
                                     backgroundColor: "#f3f4f6",
-                                    padding: "1rem",
+                                    padding: "0.5rem",
                                     borderRadius: "0.25rem",
-                                    marginBottom: "1.25rem",
+                                    marginBottom: "0.75rem",
                                   }}
                                 ></div>
                               </td>
@@ -156,8 +156,10 @@ export const OrderPrint = ({ orders }: { orders: Order[] }) => {
                 }}
               >
                 <p style={{ fontWeight: "bold" }}>Vydané přepravky:</p>
+                <br />
                 <p>Malé: {order.crateSmall || 0}</p>
-                <p>Velké: {order.crateBig || 0}</p>
+                <br />
+                Velké: {order.crateBig || 0}
               </div>
               <div
                 style={{
@@ -166,8 +168,10 @@ export const OrderPrint = ({ orders }: { orders: Order[] }) => {
                 }}
               >
                 <p style={{ fontWeight: "bold" }}>Přijaté přepravky:</p>
+                <br />
                 <p>Malé: {order.crateSmallReceived || 0}</p>
-                <p>Velké: {order.crateBigReceived || 0}</p>
+                <br />
+                Velké: {order.crateBigReceived || 0}
               </div>
             </div>
           </div>

@@ -80,6 +80,8 @@ import {
 import { OrdersTableSummary } from "./OrdersTablePrintSummary";
 import { useIsOrderInvoiced } from "@/hooks/useInvoices";
 import { useOrderLockStore } from "@/providers/orderLockStore";
+import { PrintDonutSummary } from "./PrintDonutSummary";
+import { PrintSweetSummary } from "./PrintSweetSummary";
 
 const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
   ({ orders }, ref) => (
@@ -167,6 +169,17 @@ const calculateCrateSums = (orders: Order[]) => {
   );
 };
 
+const roleTranslations: Record<string, string> = {
+  admin: "Administrátor",
+  user: "Uživatel",
+  driver: "Řidič (vzorky)",
+  mobil: "Mobil",
+  expedition: "Expedice",
+  store: "APLICA prodejny",
+  buyer: "Odběratel",
+  all: "Všichni odběratelé",
+};
+
 const columns: ColumnDef<Order>[] = [
   {
     id: "select",
@@ -245,6 +258,10 @@ const columns: ColumnDef<Order>[] = [
   {
     accessorKey: "driver.full_name",
     header: "Řidič",
+    cell: ({ row }) => {
+      const driverName = row.original.driver?.full_name || "-";
+      return <div>{driverName}</div>;
+    },
   },
   {
     accessorKey: "note",
@@ -690,6 +707,58 @@ const printProductSummary = (orders: Order[]) => {
   printWindow.print();
 };
 
+const printCategoryDonuts = (orders: Order[]) => {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return;
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Tisk výroby koblih</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        </style>
+      </head>
+      <body>
+        <div id="print-content">
+          ${ReactDOMServer.renderToString(<PrintDonutSummary orders={orders} />)}
+        </div>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+  printWindow.print();
+};
+
+const printCategorySweets = (orders: Order[]) => {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return;
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Tisk výroby zákusků a čajového</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        </style>
+      </head>
+      <body>
+        <div id="print-content">
+          ${ReactDOMServer.renderToString(<PrintSweetSummary orders={orders} />)}
+        </div>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+  printWindow.print();
+};
+
 export function OrdersTable({
   selectedProductId: initialProductId,
 }: OrdersTableProps) {
@@ -873,100 +942,100 @@ export function OrdersTable({
   };
 
   // Modify the calculateOrderTotalsByDate function
-  const calculateOrderTotalsByDate = (orders: Order[]) => {
-    const totalsByDate = new Map<
-      string,
-      Map<string, { name: string; quantity: number; categoryId: number }>
-    >();
+  // const calculateOrderTotalsByDate = (orders: Order[]) => {
+  //   const totalsByDate = new Map<
+  //     string,
+  //     Map<string, { name: string; quantity: number; categoryId: number }>
+  //   >();
 
-    orders.forEach((order) => {
-      const date = new Date(order.date).toLocaleDateString();
-      if (!totalsByDate.has(date)) {
-        totalsByDate.set(date, new Map());
-      }
+  //   orders.forEach((order) => {
+  //     const date = new Date(order.date).toLocaleDateString();
+  //     if (!totalsByDate.has(date)) {
+  //       totalsByDate.set(date, new Map());
+  //     }
 
-      const dateMap = totalsByDate.get(date)!;
-      order.order_items.forEach((item) => {
-        const product = products?.find((p) => p.id === item.product_id);
-        const current = dateMap.get(item.product_id.toString()) || {
-          name: product?.name || "Unknown",
-          quantity: 0,
-          categoryId: product?.category_id || 0,
-        };
-        dateMap.set(item.product_id.toString(), {
-          ...current,
-          quantity: current.quantity + item.quantity,
-        });
-      });
-    });
+  //     const dateMap = totalsByDate.get(date)!;
+  //     order.order_items.forEach((item) => {
+  //       const product = products?.find((p) => p.id === item.product_id);
+  //       const current = dateMap.get(item.product_id.toString()) || {
+  //         name: product?.name || "Unknown",
+  //         quantity: 0,
+  //         categoryId: product?.category_id || 0,
+  //       };
+  //       dateMap.set(item.product_id.toString(), {
+  //         ...current,
+  //         quantity: current.quantity + item.quantity,
+  //       });
+  //     });
+  //   });
 
-    return totalsByDate;
-  };
+  //   return totalsByDate;
+  // };
 
   // Update the printOrderTotalsByDate function
-  const printOrderTotalsByDate = (orders: Order[]) => {
-    const totalsByDate = calculateOrderTotalsByDate(orders);
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
+  // const printOrderTotalsByDate = (orders: Order[]) => {
+  //   const totalsByDate = calculateOrderTotalsByDate(orders);
+  //   const printWindow = window.open("", "_blank");
+  //   if (!printWindow) return;
 
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Výroba podle dnů</title>
-          <style>
-            body { font-family: Arial, sans-serif; font-size: 12px; padding: 20px; }
-            h1 { font-size: 18px; margin-bottom: 10px; }
-            h2 { font-size: 16px; color: #666; margin: 30px 0 10px 0; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-            th { background-color: #f5f5f5; }
-            td:last-child { text-align: right; }
-            .date { margin-bottom: 20px; color: #666; }
-            .print-date { text-align: right; color: #666; margin-bottom: 20px; }
-          </style>
-        </head>
-        <body>        
-          ${Array.from(totalsByDate.entries())
-            .map(
-              ([date, products]) => `
-            <h1>Datum výroby: ${date}</h1>
-            <table>
-              <thead>
-                <tr>
-                  <th>Výrobky podle kategorie</th>
-                  <th style="text-align: right">Množství</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${Array.from(products.values())
-                  .filter((item) => item.quantity > 0) // Filter out zero quantity items
-                  .sort(
-                    (a, b) =>
-                      a.categoryId - b.categoryId ||
-                      a.name.localeCompare(b.name)
-                  )
-                  .map(
-                    (item) => `
-                    <tr>
-                      <td>${item.name}</td>
-                      <td style="text-align: right">${item.quantity}</td>
-                    </tr>
-                  `
-                  )
-                  .join("")}
-              </tbody>
-            </table>
-          `
-            )
-            .join("")}
-            <div class="print-date">Vytištěno: ${new Date().toLocaleString()}</div>
-        </body>
-      </html>
-    `);
+  //   printWindow.document.write(`
+  //     <html>
+  //       <head>
+  //         <title>Výroba podle dnů</title>
+  //         <style>
+  //           body { font-family: Arial, sans-serif; font-size: 12px; padding: 20px; }
+  //           h1 { font-size: 18px; margin-bottom: 10px; }
+  //           h2 { font-size: 16px; color: #666; margin: 30px 0 10px 0; }
+  //           table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+  //           th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+  //           th { background-color: #f5f5f5; }
+  //           td:last-child { text-align: right; }
+  //           .date { margin-bottom: 20px; color: #666; }
+  //           .print-date { text-align: right; color: #666; margin-bottom: 20px; }
+  //         </style>
+  //       </head>
+  //       <body>
+  //         ${Array.from(totalsByDate.entries())
+  //           .map(
+  //             ([date, products]) => `
+  //           <h1>Datum výroby: ${date}</h1>
+  //           <table>
+  //             <thead>
+  //               <tr>
+  //                 <th>Výrobky podle kategorie</th>
+  //                 <th style="text-align: right">Množství</th>
+  //               </tr>
+  //             </thead>
+  //             <tbody>
+  //               ${Array.from(products.values())
+  //                 .filter((item) => item.quantity > 0) // Filter out zero quantity items
+  //                 .sort(
+  //                   (a, b) =>
+  //                     a.categoryId - b.categoryId ||
+  //                     a.name.localeCompare(b.name)
+  //                 )
+  //                 .map(
+  //                   (item) => `
+  //                   <tr>
+  //                     <td>${item.name}</td>
+  //                     <td style="text-align: right">${item.quantity}</td>
+  //                   </tr>
+  //                 `
+  //                 )
+  //                 .join("")}
+  //             </tbody>
+  //           </table>
+  //         `
+  //           )
+  //           .join("")}
+  //           <div class="print-date">Vytištěno: ${new Date().toLocaleString()}</div>
+  //       </body>
+  //     </html>
+  //   `);
 
-    printWindow.document.close();
-    printWindow.print();
-  };
+  //   printWindow.document.close();
+  //   printWindow.print();
+  // };
 
   // 1. Add print state
   const [isPrinting] = useState(false);
@@ -1158,10 +1227,9 @@ export function OrdersTable({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Typ odběratele</SelectItem>
-                  {/* <SelectItem value="driver">Řidič</SelectItem> */}
                   {uniqueRoles.map((role) => (
                     <SelectItem key={role} value={role}>
-                      {role}
+                      {roleTranslations[role] || role}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1302,7 +1370,7 @@ export function OrdersTable({
                         </Badge>
                       </div> */}
 
-                      <Button
+                      {/* <Button
                         variant="outline"
                         size="sm"
                         onClick={() => {
@@ -1319,8 +1387,63 @@ export function OrdersTable({
                       >
                         <FileText className="h-4 w-4 mr-2" />
                         Tisk výroby
+                      </Button> */}
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const orders =
+                            table.getFilteredSelectedRowModel().rows.length > 0
+                              ? table
+                                  .getFilteredSelectedRowModel()
+                                  .rows.map(
+                                    (row: { original: Order }) => row.original
+                                  )
+                              : filteredPeriodOrders;
+                          printCategoryDonuts(orders);
+                        }}
+                      >
+                        <Printer className="h-4 w-4 mr-2" />
+                        Výroba koblih
                       </Button>
 
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const orders =
+                            table.getFilteredSelectedRowModel().rows.length > 0
+                              ? table
+                                  .getFilteredSelectedRowModel()
+                                  .rows.map(
+                                    (row: { original: Order }) => row.original
+                                  )
+                              : filteredPeriodOrders;
+                          printCategorySweets(orders);
+                        }}
+                      >
+                        <Printer className="h-4 w-4 mr-2" />
+                        Výroba dortů
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const orders =
+                            table.getFilteredSelectedRowModel().rows.length > 0
+                              ? table
+                                  .getFilteredSelectedRowModel()
+                                  .rows.map(
+                                    (row: { original: Order }) => row.original
+                                  )
+                              : filteredPeriodOrders;
+                          printProductSummary(orders);
+                        }}
+                      >
+                        <Printer className="h-4 w-4 mr-2" />
+                        Výroba pekaři
+                      </Button>
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
@@ -1385,26 +1508,6 @@ export function OrdersTable({
                         >
                           <FileText className="h-4 w-4 mr-2" />
                           Tisk objednávek
-                        </Button>
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const orders =
-                              table.getFilteredSelectedRowModel().rows.length >
-                              0
-                                ? table
-                                    .getFilteredSelectedRowModel()
-                                    .rows.map(
-                                      (row: { original: Order }) => row.original
-                                    )
-                                : filteredPeriodOrders;
-                            printProductSummary(orders);
-                          }}
-                        >
-                          <Printer className="h-4 w-4 mr-2" />
-                          Tisk produktů
                         </Button>
                       </div>
                     </div>

@@ -1,5 +1,4 @@
 import { fetchAllOrders } from "@/hooks/useOrders";
-import { OrderItem } from "../../types";
 
 import {
   format,
@@ -125,9 +124,9 @@ export const ZeroQuantityByDriver = () => {
     const uniqueDrivers = new Map<number, Driver>();
 
     orders.forEach((order) => {
-      if (order.driver && !uniqueDrivers.has(order.driver.id)) {
-        uniqueDrivers.set(order.driver.id, {
-          id: order.driver.id,
+      if (order.driver && !uniqueDrivers.has(Number(order.driver.id))) {
+        uniqueDrivers.set(Number(order.driver.id), {
+          id: Number(order.driver.id),
           full_name: order.driver.full_name,
         });
       }
@@ -145,8 +144,8 @@ export const ZeroQuantityByDriver = () => {
 
       const zeroQuantityItemIds = orders.flatMap((order) =>
         order.order_items
-          .filter((item: OrderItem) => item.quantity === 0)
-          .map((item: OrderItem) => item.id)
+          .filter((item) => item.quantity === 0)
+          .map((item) => Number(item.product_id))
       );
 
       if (zeroQuantityItemIds.length === 0) {
@@ -195,14 +194,14 @@ export const ZeroQuantityByDriver = () => {
       }
 
       const hasZeroItems = order.order_items.some(
-        (item: OrderItem) => item.quantity === 0
+        (item) => Number(item.quantity) === 0
       );
 
       if (!hasZeroItems) return false;
 
       if (globalFilter) {
         const searchTerm = globalFilter.toLowerCase();
-        const matchesProducts = order.order_items.some((item: OrderItem) =>
+        const matchesProducts = order.order_items.some((item) =>
           item.product.name.toLowerCase().includes(searchTerm)
         );
         const matchesCustomer = order.user.full_name
@@ -221,8 +220,8 @@ export const ZeroQuantityByDriver = () => {
 
     filteredOrders.forEach((order) => {
       order.order_items
-        .filter((item: OrderItem) => item.quantity === 0)
-        .forEach((item: OrderItem) => {
+        .filter((item) => Number(item.quantity) === 0)
+        .forEach((item) => {
           const productName = item.product.name;
           if (!summaries[productName]) {
             summaries[productName] = {
@@ -233,7 +232,7 @@ export const ZeroQuantityByDriver = () => {
           }
 
           summaries[productName].totalOriginalQuantity +=
-            itemHistories[item.id] || 0;
+            itemHistories[Number(item.product_id)] || 0;
           if (
             order.user?.full_name &&
             !summaries[productName].customers.includes(order.user.full_name)

@@ -1,5 +1,5 @@
 import { fetchAllOrders } from "@/hooks/useOrders";
-import { OrderItem } from "../../types";
+
 import {
   Table,
   TableBody,
@@ -108,8 +108,8 @@ export const ZeroQuantityOrders = () => {
       // Get all order item IDs with zero quantity
       const zeroQuantityItemIds = orders.flatMap((order) =>
         order.order_items
-          .filter((item: OrderItem) => item.quantity === 0)
-          .map((item: OrderItem) => item.id)
+          .filter((item) => item.quantity === 0)
+          .map((item) => item.product_id)
       );
 
       if (zeroQuantityItemIds.length === 0) {
@@ -153,13 +153,13 @@ export const ZeroQuantityOrders = () => {
         if (!isInRange) return false;
 
         const hasZeroItems = order.order_items.some(
-          (item: OrderItem) => item.quantity === 0
+          (item) => item.quantity === 0
         );
         if (!hasZeroItems) return false;
 
         if (globalFilter) {
           const searchTerm = globalFilter.toLowerCase();
-          const matchesProducts = order.order_items.some((item: OrderItem) =>
+          const matchesProducts = order.order_items.some((item) =>
             item.product.name.toLowerCase().includes(searchTerm)
           );
           const matchesCustomer = order.user.full_name
@@ -187,10 +187,10 @@ export const ZeroQuantityOrders = () => {
 
     filteredOrders.forEach((order) => {
       order.order_items
-        .filter((item: OrderItem) => item.quantity === 0)
-        .forEach((item: OrderItem) => {
+        .filter((item) => item.quantity === 0)
+        .forEach((item) => {
           const productName = item.product.name;
-          const originalQuantity = itemHistories[item.id] || 0;
+          const originalQuantity = itemHistories[item.product_id] || 0;
           const lostPrice = originalQuantity * item.price;
 
           if (!summaries[productName]) {
@@ -465,10 +465,11 @@ export const ZeroQuantityOrders = () => {
                 (total: number, order) =>
                   total +
                   order.order_items
-                    .filter((item: OrderItem) => item.quantity === 0)
+                    .filter((item) => item.quantity === 0)
                     .reduce(
-                      (itemTotal: number, item: OrderItem) =>
-                        itemTotal + (itemHistories[item.id] || 0) * item.price,
+                      (itemTotal: number, item) =>
+                        itemTotal +
+                        (itemHistories[item.product_id] || 0) * item.price,
                       0
                     ),
                 0
@@ -523,10 +524,11 @@ export const ZeroQuantityOrders = () => {
               <TableCell>{order.driver?.full_name || "N/A"}</TableCell>
               <TableCell className="text-right text-red-700 font-semibold">
                 {order.order_items
-                  .filter((item: OrderItem) => item.quantity === 0)
+                  .filter((item) => item.quantity === 0)
                   .reduce(
-                    (total: number, item: OrderItem) =>
-                      total + (itemHistories[item.id] || 0) * item.price,
+                    (total: number, item) =>
+                      total +
+                      (itemHistories[item.product_id] || 0) * item.price,
                     0
                   )
                   .toFixed(2)}{" "}
@@ -535,12 +537,13 @@ export const ZeroQuantityOrders = () => {
               <TableCell>
                 <ul className="list-disc list-inside">
                   {order.order_items
-                    .filter((item: OrderItem) => item.quantity === 0)
-                    .map((item: OrderItem) => (
-                      <li key={item.id}>
+                    .filter((item) => item.quantity === 0)
+                    .map((item) => (
+                      <li key={item.product_id}>
                         {item.product.name}
                         <span className="text-gray-500 ml-2">
-                          (Original: {itemHistories[item.id] || "?"} → Nyní: 0)
+                          (Original: {itemHistories[item.product_id] || "?"} →
+                          Nyní: 0)
                         </span>
                       </li>
                     ))}
