@@ -335,20 +335,24 @@ export function StoreOrderDetailsDialog() {
                   )}
                   {user?.role === "expedition" && (
                     <>
-                      {["New", "Expedice R", "Expedice O", "Přeprava"].map(
-                        (status) => (
-                          <Badge
-                            key={status}
-                            variant={
-                              order.status === status ? "default" : "outline"
-                            }
-                            onClick={() => updateStatus(status)}
-                            className="cursor-pointer"
-                          >
-                            {status}
-                          </Badge>
-                        )
-                      )}
+                      {[
+                        "New",
+                        "Tisk",
+                        "Expedice R",
+                        "Expedice O",
+                        "Přeprava",
+                      ].map((status) => (
+                        <Badge
+                          key={status}
+                          variant={
+                            order.status === status ? "default" : "outline"
+                          }
+                          onClick={() => updateStatus(status)}
+                          className="cursor-pointer"
+                        >
+                          {status}
+                        </Badge>
+                      ))}
                     </>
                   )}
                   {user?.role === "driver" && (
@@ -371,7 +375,7 @@ export function StoreOrderDetailsDialog() {
                   )}
                   {user?.role === "store" && (
                     <>
-                      {["New", "Přeprava", "OK"].map((status) => (
+                      {["New", "Tisk", "Přeprava", "OK"].map((status) => (
                         <Badge
                           key={status}
                           variant={
@@ -379,7 +383,7 @@ export function StoreOrderDetailsDialog() {
                           }
                           className={`cursor-pointer ${
                             order.status === status &&
-                            (status === "OK"
+                            (status === "OK" || status === "Tisk"
                               ? "bg-green-500 hover:bg-green-600"
                               : status === "Přeprava"
                                 ? "bg-blue-500 hover:bg-blue-600"

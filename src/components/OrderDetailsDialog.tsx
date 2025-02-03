@@ -661,22 +661,26 @@ export function OrderDetailsDialog() {
                     )}
                     {user?.role === "expedition" && (
                       <>
-                        {["New", "Expedice R", "Expedice O", "Přeprava"].map(
-                          (status) => (
-                            <Badge
-                              key={status}
-                              variant={
-                                order.status === status
-                                  ? "destructive"
-                                  : "outline"
-                              }
-                              onClick={() => updateStatus(status)}
-                              className="cursor-pointer"
-                            >
-                              {status}
-                            </Badge>
-                          )
-                        )}
+                        {[
+                          "New",
+                          "Tisk",
+                          "Expedice R",
+                          "Expedice O",
+                          "Přeprava",
+                        ].map((status) => (
+                          <Badge
+                            key={status}
+                            variant={
+                              order.status === status
+                                ? "destructive"
+                                : "outline"
+                            }
+                            onClick={() => updateStatus(status)}
+                            className="cursor-pointer"
+                          >
+                            {status}
+                          </Badge>
+                        ))}
                       </>
                     )}
                     {user?.role === "driver" && (

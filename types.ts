@@ -49,13 +49,14 @@ export type Product = {
   export const OrderStatusList: OrderStatus[] = [
     'Pre-order',
     'New',
+    'Tisk',
     'Expedice R',
     'Expedice O',
     'Přeprava',
     'Paid',
   ];
   
-  export type OrderStatus = 'Pre-order' | 'New' | 'Expedice R' | 'Expedice O' | 'Přeprava' | 'Paid';
+  export type OrderStatus = 'Pre-order' | 'New' | 'Tisk' | 'Expedice R' | 'Expedice O' | 'Přeprava' | 'Paid';
 
   export type PaidBy = 'Hotově' | 'Karta' | 'Příkazem' | '-';
 

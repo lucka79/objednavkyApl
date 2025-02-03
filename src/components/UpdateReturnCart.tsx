@@ -77,6 +77,13 @@ export default function UpdateReturnCart({
 
       const quantityDifference = newQuantity - currentItem.quantity;
 
+      // Update local state immediately to prevent UI flicker
+      setReturnItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === itemId ? { ...item, quantity: newQuantity } : item
+        )
+      );
+
       // Update return item quantity and total
       await updateReturnItems({
         itemId,
@@ -101,6 +108,8 @@ export default function UpdateReturnCart({
       await onUpdate();
     } catch (error) {
       console.error("Failed to update quantities:", error);
+      // Revert local state on error
+      setReturnItems(items);
     }
   };
 

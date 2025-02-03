@@ -61,7 +61,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { supabase } from "@/lib/supabase";
+// import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cs } from "date-fns/locale";
@@ -465,37 +465,6 @@ export function FavoriteOrdersTable({
       }
 
       for (const favoriteOrder of ordersToCreate) {
-        // Check for existing order
-        const { data: existingOrder, error: checkError } = await supabase
-          .from("orders")
-          .select(
-            `
-            id,
-            date,
-            user_id,
-            user:profiles!orders_user_id_fkey (
-              id,
-              full_name
-            )
-          `
-          )
-          .eq("user_id", favoriteOrder.user_id)
-          .eq("date", format(date, "yyyy-MM-dd"))
-          .maybeSingle();
-
-        if (checkError) throw checkError;
-
-        if (existingOrder) {
-          toast({
-            title: "Warning",
-            description: `Order already exists for ${existingOrder.user[0]?.full_name} on ${format(date, "PP")}`,
-            variant: "destructive",
-            duration: 3000,
-            style: { zIndex: 9999 },
-          });
-          continue;
-        }
-
         if (!favoriteOrder.favorite_items?.length) {
           console.log(
             `Skipping order for user ${favoriteOrder.user_id} - no items`
@@ -507,14 +476,11 @@ export function FavoriteOrdersTable({
         const userId = favoriteOrder.user_id;
         const paidBy = favoriteOrder.user?.paid_by;
 
-        // Calculate total using manual prices when available
         const total = favoriteOrder.favorite_items.reduce(
           (sum: number, item: FavoriteItem) => {
-            // First check for manual price
             if (item.price && item.price > 0) {
               return sum + item.quantity * item.price;
             }
-            // Otherwise use role-based pricing
             const price =
               userRole === "mobil"
                 ? item.product.priceMobil
@@ -526,19 +492,13 @@ export function FavoriteOrdersTable({
           0
         );
 
-        console.log("Creating order with paid_by:", {
-          userId,
-          userRole,
-          paidBy,
-          userProfile: favoriteOrder.user,
-        });
-
-        // Create new order
+        // Create new order directly without checking for duplicates
         const newOrder = await insertOrder({
           user_id: userId,
           date: new Date(format(date, "yyyy-MM-dd")),
           status: "Pre-order",
           total: total,
+          note: favoriteOrder.note || "",
           paid_by: paidBy || userId,
           driver_id: favoriteOrder.driver_id,
         });
