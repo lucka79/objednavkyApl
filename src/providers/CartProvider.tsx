@@ -1,5 +1,5 @@
 import { createContext, PropsWithChildren, useContext, useState } from "react";
-import { CartItem, Tables } from "types";
+import { Tables } from "types";
 // import { randomUUID } from "crypto";
 
 import { useRouter } from "@tanstack/react-router";
@@ -8,6 +8,13 @@ import { useAuthStore } from "@/lib/supabase";
 import { format } from "date-fns";
 
 type Product = Tables<"products">;
+
+type CartItem = {
+  id: number;
+  product_id: number;
+  product: Tables<"products">; // Use Supabase-generated type
+  quantity: number;
+};
 
 type CartType = {
   items: CartItem[];
@@ -44,13 +51,8 @@ const CartProvider = ({ children }: PropsWithChildren) => {
 
     const newCartItem: CartItem = {
       id: Date.now(),
-      product: {
-        ...product,
-        vat: 12,
-        buyer: false,
-        code: product.code || "",
-      },
       product_id: product.id,
+      product: product,
       quantity: 1,
     };
 

@@ -6,7 +6,11 @@ import {
   ColumnDef,
   flexRender,
 } from "@tanstack/react-table";
-import { fetchAllOrders, useDeleteOrder } from "@/hooks/useOrders";
+import {
+  fetchAllOrders,
+  useDeleteOrder,
+  useUpdateOrder,
+} from "@/hooks/useOrders";
 import { Order } from "../../types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -382,6 +386,71 @@ const columns: ColumnDef<Order>[] = [
           >
             {row.original.status}
           </Badge>
+        </div>
+      );
+    },
+  },
+  {
+    id: "lock",
+    header: () => <div className="w-8 text-center print:hidden">Lock</div>,
+    cell: ({ row }) => {
+      const order = row.original;
+      const { mutate: updateOrder } = useUpdateOrder();
+      const { toast } = useToast();
+      const user = useAuthStore((state) => state.user);
+      const canManageLocks =
+        user?.role === "admin" || user?.role === "expedition";
+
+      const handleLockToggle = (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent row selection
+        if (!canManageLocks) return;
+
+        updateOrder(
+          {
+            id: order.id,
+            updatedFields: { isLocked: !order.isLocked },
+          },
+          {
+            onSuccess: () => {
+              toast({
+                title: order.isLocked ? "Order Unlocked" : "Order Locked",
+                description: order.isLocked
+                  ? "The order can now be edited"
+                  : "The order is now read-only",
+              });
+            },
+            onError: () => {
+              toast({
+                title: "Error",
+                description: "Failed to update order lock status",
+                variant: "destructive",
+              });
+            },
+          }
+        );
+      };
+
+      return (
+        <div className="flex justify-center print:hidden">
+          {canManageLocks ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLockToggle}
+              className={cn(
+                "h-8 w-8 p-0",
+                order.isLocked ? "text-muted-foreground" : "text-orange-500"
+              )}
+            >
+              {order.isLocked ? (
+                <Lock className="h-4 w-4" />
+              ) : (
+                <Unlock className="h-4 w-4" />
+              )}
+            </Button>
+          ) : order.isLocked ? (
+            <Lock className="h-4 w-4 text-muted-foreground" />
+          ) : null}
         </div>
       );
     },

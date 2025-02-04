@@ -16,7 +16,6 @@ export const ProductSummaryPrint = forwardRef<
         if (
           item.product.category_id !== 4 &&
           item.product.category_id !== 5 &&
-          item.product.category_id !== 9 &&
           item.product.category_id !== 17
         ) {
           if (!acc[item.product_id]) {

@@ -84,6 +84,7 @@ export type Database = {
           days: string[] | null
           driver_id: string | null
           id: number
+          note: string | null
           status: string | null
           user_id: string | null
         }
@@ -92,6 +93,7 @@ export type Database = {
           days?: string[] | null
           driver_id?: string | null
           id?: number
+          note?: string | null
           status?: string | null
           user_id?: string | null
         }
@@ -100,6 +102,7 @@ export type Database = {
           days?: string[] | null
           driver_id?: string | null
           id?: number
+          note?: string | null
           status?: string | null
           user_id?: string | null
         }
@@ -113,6 +116,47 @@ export type Database = {
           },
           {
             foreignKeyName: "favorite_orders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          created_at: string
+          end_date: string
+          id: number
+          invoice_number: string
+          order_ids: number[]
+          start_date: string
+          total: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          id?: never
+          invoice_number: string
+          order_ids: number[]
+          start_date: string
+          total: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          id?: never
+          invoice_number?: string
+          order_ids?: number[]
+          start_date?: string
+          total?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -223,6 +267,7 @@ export type Database = {
           date: string
           driver_id: string | null
           id: number
+          isLocked: boolean
           note: string
           paid_by: Database["public"]["Enums"]["paidByType"] | null
           status: string
@@ -238,6 +283,7 @@ export type Database = {
           date: string
           driver_id?: string | null
           id?: number
+          isLocked?: boolean
           note?: string
           paid_by?: Database["public"]["Enums"]["paidByType"] | null
           status?: string
@@ -253,6 +299,7 @@ export type Database = {
           date?: string
           driver_id?: string | null
           id?: number
+          isLocked?: boolean
           note?: string
           paid_by?: Database["public"]["Enums"]["paidByType"] | null
           status?: string
@@ -361,6 +408,7 @@ export type Database = {
           id: number
           image: string | null
           name: string
+          nameVi: string | null
           price: number
           priceBuyer: number
           priceMobil: number
@@ -378,6 +426,7 @@ export type Database = {
           id?: number
           image?: string | null
           name: string
+          nameVi?: string | null
           price?: number
           priceBuyer?: number
           priceMobil?: number
@@ -395,6 +444,7 @@ export type Database = {
           id?: number
           image?: string | null
           name?: string
+          nameVi?: string | null
           price?: number
           priceBuyer?: number
           priceMobil?: number
@@ -424,8 +474,10 @@ export type Database = {
           active: boolean
           address: string | null
           avatar_url: string | null
+          company: string | null
           crateBig: number | null
           crateSmall: number | null
+          dic: string | null
           email: string | null
           full_name: string | null
           ico: string | null
@@ -445,8 +497,10 @@ export type Database = {
           active?: boolean
           address?: string | null
           avatar_url?: string | null
+          company?: string | null
           crateBig?: number | null
           crateSmall?: number | null
+          dic?: string | null
           email?: string | null
           full_name?: string | null
           ico?: string | null
@@ -466,8 +520,10 @@ export type Database = {
           active?: boolean
           address?: string | null
           avatar_url?: string | null
+          company?: string | null
           crateBig?: number | null
           crateSmall?: number | null
+          dic?: string | null
           email?: string | null
           full_name?: string | null
           ico?: string | null

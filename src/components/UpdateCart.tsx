@@ -58,7 +58,10 @@ interface UpdateCartProps {
   orderId: number;
   onUpdate: () => Promise<void>;
   selectedUserId: string;
-  order: { status: string };
+  order: {
+    status: string;
+    isLocked: boolean;
+  };
 }
 
 // interface OrderHistory {
@@ -139,7 +142,7 @@ export default function UpdateCart({
   const { data: historyData, isLoading } = useOrderItemHistory(selectedItemId);
   const { data: allHistoryData } = useOrderItemsHistory(orderItems);
 
-  const canUnlock = user?.role === "admin";
+  const canUnlock = user?.role === "admin" || user?.role === "expedition";
 
   const toggleLock = () => {
     if (!canUnlock) return;
@@ -238,14 +241,16 @@ export default function UpdateCart({
     productId: number,
     newQuantity: number
   ) => {
-    if (isReadOnly) {
+    // Check both invoice lock and manual lock status
+    if (isLocked || order.isLocked) {
       toast({
         title: "Order is locked",
-        description: "This order is part of an invoice and cannot be modified.",
+        description: "This order is locked and cannot be modified.",
         variant: "destructive",
       });
       return;
     }
+
     if (newQuantity < 0) return;
 
     try {

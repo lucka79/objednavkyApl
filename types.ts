@@ -79,6 +79,7 @@ export type Product = {
     driver_id: string;
     driver: Profile;
     note?: string;
+    isLocked: boolean;
     order_items: {
       checked: boolean;
       product_id: number;
@@ -229,4 +230,9 @@ export interface Invoice {
     ico?: string;
     dic?: string;
   };
+}
+
+export type UpdateOrder = {
+  // ... existing properties ...
+  isLocked?: boolean;
 }

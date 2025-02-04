@@ -215,6 +215,7 @@ export const useUpdateOrder = () => {
         driver_id?: string | null;
         total?: number;
         note?: string;
+        isLocked?: boolean;
       }; 
     }) => {
       const { error, data: updatedOrder } = await supabase
@@ -633,6 +634,37 @@ export const useOrdersWithCategory9 = () => {
         throw error;
       }
 
+      return data;
+    }
+  });
+};
+
+export const fetchLastMonthOrders = () => {
+  return useQuery({
+    queryKey: ['lastMonthOrders'],
+    queryFn: async () => {
+      const lastMonth = new Date();
+      lastMonth.setMonth(lastMonth.getMonth() - 1);
+      const firstDay = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1);
+      const lastDay = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0);
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          user:profiles!orders_user_id_fkey (*),
+          driver:profiles!orders_driver_id_fkey (*),
+          order_items (
+            *,
+            product:products (*)
+          )
+        `)
+        .gte('date', firstDay.toISOString())
+        .lte('date', lastDay.toISOString())
+        .order('date', { ascending: false })
+        .order('user(full_name)', { ascending: true });
+
+      if (error) throw error;
       return data;
     }
   });
