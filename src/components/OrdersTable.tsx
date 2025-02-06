@@ -294,12 +294,18 @@ const columns: ColumnDef<Order>[] = [
   },
   {
     accessorKey: "total",
-    header: () => <div className=""></div>,
-    cell: ({ row }) => (
-      <div className="w-[80px] text-right">
-        {row.original.total.toFixed(2)} Kč
-      </div>
-    ),
+    header: () => {
+      const user = useAuthStore((state) => state.user);
+      return user?.role === "admin" ? <div className=""></div> : null;
+    },
+    cell: ({ row }) => {
+      const user = useAuthStore((state) => state.user);
+      return user?.role === "admin" ? (
+        <div className="w-[80px] text-right">
+          {row.original.total.toFixed(2)} Kč
+        </div>
+      ) : null;
+    },
   },
   {
     accessorKey: "crateSmallReceived",
@@ -343,7 +349,7 @@ const columns: ColumnDef<Order>[] = [
         0;
 
       return (
-        <div className="w-[180px] text-right flex justify-end gap-2 items-center">
+        <div className="w-[240px] text-right flex justify-end gap-2 items-center">
           {checkedCount > 0 && (
             <Badge variant="outline" className="border-green-700 bg-green-400">
               {checkedCount} / {nonZeroQuantityCount}
