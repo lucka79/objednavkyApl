@@ -87,6 +87,7 @@ import { PrintDonutSummary } from "./PrintDonutSummary";
 import { PrintSweetSummary } from "./PrintSweetSummary";
 
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { PrintReportBuyerOrders } from "./PrintReportBuyerOrders";
 
 const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
   ({ orders }, ref) => (
@@ -826,6 +827,32 @@ const printCategorySweets = (orders: Order[]) => {
   printWindow.print();
 };
 
+const printReportBuyerOrders = (orders: Order[]) => {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return;
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Tisk reportu objednávek</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        </style>
+      </head>
+      <body>
+        <div id="print-content">
+          ${ReactDOMServer.renderToString(<PrintReportBuyerOrders orders={orders} />)}
+        </div>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+  printWindow.print();
+};
+
 export function OrdersTable({
   selectedProductId: initialProductId,
 }: OrdersTableProps) {
@@ -1511,6 +1538,29 @@ export function OrdersTable({
                         <Printer className="h-4 w-4 mr-2" />
                         Výroba pekaři
                       </Button>
+
+                      {authUser?.role === "admin" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const orders =
+                              table.getFilteredSelectedRowModel().rows.length >
+                              0
+                                ? table
+                                    .getFilteredSelectedRowModel()
+                                    .rows.map(
+                                      (row: { original: Order }) => row.original
+                                    )
+                                : filteredPeriodOrders;
+                            printReportBuyerOrders(orders);
+                          }}
+                        >
+                          <Printer className="h-4 w-4 mr-2" />
+                          Report objednávek
+                        </Button>
+                      )}
+
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
