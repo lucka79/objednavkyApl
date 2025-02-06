@@ -6,3 +6,15 @@
     text-align: right !important;
   }
 }
+
+.virtual-table-body {
+  position: relative;
+  width: 100%;
+}
+
+.virtual-table-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}

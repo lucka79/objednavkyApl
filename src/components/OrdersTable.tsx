@@ -39,7 +39,6 @@ import {
   Printer,
   FileText,
   StickyNote,
-  Undo2,
   Lock,
   Unlock,
 } from "lucide-react";
@@ -86,6 +85,8 @@ import { useIsOrderInvoiced } from "@/hooks/useInvoices";
 import { useOrderLockStore } from "@/providers/orderLockStore";
 import { PrintDonutSummary } from "./PrintDonutSummary";
 import { PrintSweetSummary } from "./PrintSweetSummary";
+
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
   ({ orders }, ref) => (
@@ -188,7 +189,7 @@ const columns: ColumnDef<Order>[] = [
   {
     id: "select",
     header: ({ table }) => (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 w-[40px]">
         <Checkbox
           checked={table.getIsAllPageRowsSelected()}
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
@@ -203,36 +204,37 @@ const columns: ColumnDef<Order>[] = [
       </div>
     ),
     cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label="Select row"
-        onClick={(e) => e.stopPropagation()}
-        className="border-orange-500 data-[state=checked]:bg-orange-500 data-[state=checked]:text-white"
-      />
+      <div className="w-[40px]">
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+          onClick={(e) => e.stopPropagation()}
+          className="border-orange-500 data-[state=checked]:bg-orange-500 data-[state=checked]:text-white"
+        />
+      </div>
     ),
-    enableSorting: false,
-    enableHiding: false,
   },
   {
     accessorKey: "date",
-    header: () => <div className="w-18 text-left">Datum</div>,
+    header: () => <div className=""></div>,
     cell: ({ row }) => (
-      <div className="w-18 text-left">
+      <div className="w-[80px]">
         {new Date(row.original.date).toLocaleDateString()}
       </div>
     ),
   },
   {
     accessorKey: "id",
-    header: "# ID",
+    header: () => <div className=""></div>,
+    cell: ({ row }) => <div className="w-[60px]">{row.original.id}</div>,
   },
   {
     accessorKey: "crateSmall",
-    header: () => <div className="w-12 text-right print:hidden"></div>,
+    header: () => <div className="print:hidden"></div>,
     cell: ({ row }) => (
-      <div className="flex items-center w-12 text-right print:hidden">
-        <Badge variant="outline" className="text-yellow-700 ">
+      <div className="flex items-center w-[50px] text-right print:hidden">
+        <Badge variant="outline" className="text-yellow-700 ml-auto">
           {row.original.crateSmall}
           <Container size={16} className="ml-2" />
         </Badge>
@@ -241,10 +243,10 @@ const columns: ColumnDef<Order>[] = [
   },
   {
     accessorKey: "crateBig",
-    header: () => <div className="text-right print:hidden"></div>,
+    header: () => <div className="print:hidden"></div>,
     cell: ({ row }) => (
-      <div className="flex items-center justify-end w-12 text-right print:hidden">
-        <Badge variant="outline" className="text-red-800 ">
+      <div className="flex items-center w-[50px] justify-end print:hidden">
+        <Badge variant="outline" className="text-red-800">
           {row.original.crateBig}
           <Container size={20} className="ml-2" />
         </Badge>
@@ -253,25 +255,28 @@ const columns: ColumnDef<Order>[] = [
   },
   {
     accessorKey: "user.full_name",
-    header: "Odběratel",
+    header: () => <div className=""></div>,
+    cell: ({ row }) => (
+      <div className="w-[180px]">{row.original.user.full_name}</div>
+    ),
   },
   {
     accessorKey: "paid_by",
-    header: "Platba",
+    header: () => <div className=""></div>,
+    cell: ({ row }) => <div className="w-[60px]">{row.original.paid_by}</div>,
   },
   {
     accessorKey: "driver.full_name",
-    header: "Řidič",
-    cell: ({ row }) => {
-      const driverName = row.original.driver?.full_name || "-";
-      return <div>{driverName}</div>;
-    },
+    header: () => <div className=""></div>,
+    cell: ({ row }) => (
+      <div className="w-[80px]">{row.original.driver?.full_name || "-"}</div>
+    ),
   },
   {
     accessorKey: "note",
-    header: "Pozn.",
+    header: () => <div className=""></div>,
     cell: ({ row }) => (
-      <div className="flex justify-center">
+      <div className="flex justify-center w-[40px]">
         {row.original.note && row.original.note !== "-" && (
           <TooltipProvider>
             <Tooltip>
@@ -289,30 +294,19 @@ const columns: ColumnDef<Order>[] = [
   },
   {
     accessorKey: "total",
-    header: () => {
-      const user = useAuthStore((state) => state.user);
-      return user?.role === "admin" ? (
-        <div className="text-right">Celkem</div>
-      ) : null;
-    },
-    cell: ({ row }) => {
-      const user = useAuthStore((state) => state.user);
-      return user?.role === "admin" ? (
-        <div className="text-right">{row.original.total.toFixed(2)} Kč</div>
-      ) : null;
-    },
+    header: () => <div className=""></div>,
+    cell: ({ row }) => (
+      <div className="w-[80px] text-right">
+        {row.original.total.toFixed(2)} Kč
+      </div>
+    ),
   },
   {
     accessorKey: "crateSmallReceived",
-    header: () => (
-      <div className="text-right justify-center flex items-center print:hidden">
-        <Undo2 size={16} />
-        Malé
-      </div>
-    ),
+    header: () => <div className="print:hidden"></div>,
     cell: ({ row }) => (
-      <div className="flex items-center justify-start w-12 text-right print:hidden">
-        <Badge variant="outline" className="text-yellow-700 ">
+      <div className="flex items-center w-[50px] text-right print:hidden">
+        <Badge variant="outline" className="text-yellow-700 ml-auto">
           {row.original.crateSmallReceived}
           <Container size={16} className="mx-1" />
         </Badge>
@@ -321,15 +315,10 @@ const columns: ColumnDef<Order>[] = [
   },
   {
     accessorKey: "crateBigReceived",
-    header: () => (
-      <div className="text-right justify-center flex items-center print:hidden">
-        <Undo2 size={16} />
-        Velké
-      </div>
-    ),
+    header: () => <div className="print:hidden"></div>,
     cell: ({ row }) => (
-      <div className="flex items-center justify-end w-12 text-right print:hidden">
-        <Badge variant="outline" className="flex flex-row gap-1 text-red-800 ">
+      <div className="flex items-center w-[50px] justify-end print:hidden">
+        <Badge variant="outline" className="text-red-800">
           {row.original.crateBigReceived}
           <Container size={20} className="mx-1" />
         </Badge>
@@ -338,7 +327,7 @@ const columns: ColumnDef<Order>[] = [
   },
   {
     accessorKey: "status",
-    header: () => <div className="text-right">Status</div>,
+    header: () => <div className=""></div>,
     cell: ({ row }) => {
       const allCount = row.original.order_items?.length || 0;
       row.original.order_items?.filter((item) => item.checked).length || 0;
@@ -354,7 +343,7 @@ const columns: ColumnDef<Order>[] = [
         0;
 
       return (
-        <div className="text-right flex justify-end gap-2 items-center">
+        <div className="w-[180px] text-right flex justify-end gap-2 items-center">
           {checkedCount > 0 && (
             <Badge variant="outline" className="border-green-700 bg-green-400">
               {checkedCount} / {nonZeroQuantityCount}
@@ -392,7 +381,7 @@ const columns: ColumnDef<Order>[] = [
   },
   {
     id: "lock",
-    header: () => <div className="w-8 text-center print:hidden">Lock</div>,
+    header: () => <div className="print:hidden"></div>,
     cell: ({ row }) => {
       const order = row.original;
       const { mutate: updateOrder } = useUpdateOrder();
@@ -433,7 +422,7 @@ const columns: ColumnDef<Order>[] = [
       };
 
       return (
-        <div className="flex justify-center print:hidden">
+        <div className="w-[50px] flex justify-center print:hidden">
           {canManageLocks ? (
             <Button
               variant="ghost"
@@ -459,6 +448,7 @@ const columns: ColumnDef<Order>[] = [
   },
   {
     id: "actions",
+    header: () => <div className="w-[100px]"></div>,
     cell: ({ row }) => {
       const order = row.original;
       const deleteOrder = useDeleteOrder();
@@ -506,7 +496,7 @@ const columns: ColumnDef<Order>[] = [
       };
 
       return (
-        <div className="flex justify-end gap-2">
+        <div className="w-[100px] flex justify-end gap-2">
           {isLocked && canUnlock && (
             <Button
               variant="ghost"
@@ -1622,6 +1612,7 @@ function OrderTableContent({
   onTableReady: (table: any) => void;
 }) {
   const [rowSelection, setRowSelection] = useState({});
+  const tableContainerRef = useRef<HTMLDivElement>(null);
 
   const table = useReactTable({
     data,
@@ -1636,19 +1627,28 @@ function OrderTableContent({
     onRowSelectionChange: setRowSelection,
   });
 
+  const { rows } = table.getRowModel();
+
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 45, // Approximate height of each row
+    overscan: 10, // Number of items to render outside of the visible area
+  });
+
   useEffect(() => {
     onTableReady(table);
   }, [table, onTableReady]);
 
   return (
     <div className="border rounded-md print:hidden">
-      <div className="max-h-[800px] overflow-auto">
-        <Table>
+      <div ref={tableContainerRef} className="max-h-[800px] overflow-auto">
+        <Table className="relative table-fixed w-full">
           <TableHeader className="sticky top-0 bg-background z-10">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead key={header.id} className="px-2">
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -1660,16 +1660,26 @@ function OrderTableContent({
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+          <TableBody
+            className="relative"
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const row = rows[virtualRow.index];
+              return (
                 <TableRow
                   key={row.id}
                   onClick={() => setSelectedOrderId(row.original.id)}
-                  className="cursor-pointer hover:bg-muted/50"
+                  className="cursor-pointer hover:bg-muted/50 absolute w-full"
+                  style={{
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell key={cell.id} className="px-2">
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -1677,17 +1687,8 @@ function OrderTableContent({
                     </TableCell>
                   ))}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No results.
-                </TableCell>
-              </TableRow>
-            )}
+              );
+            })}
           </TableBody>
         </Table>
       </div>
