@@ -13,7 +13,10 @@ export const supabase = createClient(
   {
     auth: {
       persistSession: true,
-      storageKey: 'app-storage-key', // Add a unique storage key
+      autoRefreshToken: true,
+      storageKey: 'app-storage-key',
+      storage: window.localStorage,  // Explicitly use localStorage instead of the default
+      detectSessionInUrl: true,      // Detect session from URL
     }
   }
 )
@@ -287,8 +290,26 @@ export const useAuthStore = create<AuthState>((set) => ({
       // Get current session
       const { data: { session } } = await supabase.auth.getSession();
       
+      // Set up auth state change listener
+      supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          if (session?.user) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+
+            if (profile) {
+              set({ user: profile });
+            }
+          }
+        } else if (event === 'SIGNED_OUT') {
+          set({ user: null });
+        }
+      });
+
       if (session?.user) {
-        // Fetch user profile
         const { data: profile } = await supabase
           .from('profiles')
           .select('*')

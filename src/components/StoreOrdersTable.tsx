@@ -34,6 +34,8 @@ import {
   CalendarIcon,
   Container,
   Printer,
+  Lock,
+  LockOpen,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -147,6 +149,23 @@ const columns: ColumnDef<Order>[] = [
   {
     accessorKey: "id",
     header: "# ID",
+  },
+  {
+    accessorKey: "isLocked",
+    header: "Zámek",
+    cell: ({ row }) => (
+      <div className="flex items-center justify-center">
+        {row.original.isLocked ? (
+          <Lock className="h-4 w-4 text-orange-500" />
+        ) : (
+          <LockOpen className="h-4 w-4 text-green-500" />
+        )}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "note",
+    header: "Poznámka",
   },
   {
     accessorKey: "crateSmall",

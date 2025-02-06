@@ -525,7 +525,7 @@ export default function UpdateCart({
                       className={`ml-2 ${
                         !allHistoryData?.includes(item.id)
                           ? "opacity-30 cursor-not-allowed"
-                          : "hover:bg-slate-50"
+                          : "hover:bg-slate-50 text-orange-500"
                       }`}
                       onClick={() => setSelectedItemId(item.id)}
                     >

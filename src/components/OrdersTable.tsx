@@ -413,10 +413,12 @@ const columns: ColumnDef<Order>[] = [
           {
             onSuccess: () => {
               toast({
-                title: order.isLocked ? "Order Unlocked" : "Order Locked",
+                title: order.isLocked
+                  ? "Objednávka odemčena"
+                  : "Objednávka uzamčena",
                 description: order.isLocked
-                  ? "The order can now be edited"
-                  : "The order is now read-only",
+                  ? "Objednávka je nyní editovatelná"
+                  : "Objednávka je nyní jen pro čtení",
               });
             },
             onError: () => {
