@@ -134,6 +134,7 @@ export type Product = {
     note?: string;
     address?: string; 
     oz: boolean;
+    mo_partners: boolean;
   };
 
   

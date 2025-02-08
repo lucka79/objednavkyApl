@@ -88,6 +88,7 @@ import { PrintSweetSummary } from "./PrintSweetSummary";
 
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { PrintReportBuyerOrders } from "./PrintReportBuyerOrders";
+import { PrintReportProducts } from "./PrintReportProducts";
 
 const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
   ({ orders }, ref) => (
@@ -350,7 +351,7 @@ const columns: ColumnDef<Order>[] = [
         0;
 
       return (
-        <div className="w-[240px] text-right flex justify-end gap-2 items-center">
+        <div className="w-[220px] text-right flex justify-end gap-2 items-center">
           {checkedCount > 0 && (
             <Badge variant="outline" className="border-green-700 bg-green-400">
               {checkedCount} / {nonZeroQuantityCount}
@@ -429,7 +430,7 @@ const columns: ColumnDef<Order>[] = [
       };
 
       return (
-        <div className="w-[50px] flex justify-center print:hidden">
+        <div className="w-[30px] flex justify-center print:hidden">
           {canManageLocks ? (
             <Button
               variant="ghost"
@@ -455,7 +456,7 @@ const columns: ColumnDef<Order>[] = [
   },
   {
     id: "actions",
-    header: () => <div className="w-[100px]"></div>,
+    header: () => <div className="w-[30px]"></div>,
     cell: ({ row }) => {
       const order = row.original;
       const deleteOrder = useDeleteOrder();
@@ -503,7 +504,7 @@ const columns: ColumnDef<Order>[] = [
       };
 
       return (
-        <div className="w-[100px] flex justify-end gap-2">
+        <div className="w-[30px] flex justify-end gap-2">
           {isLocked && canUnlock && (
             <Button
               variant="ghost"
@@ -853,6 +854,32 @@ const printReportBuyerOrders = (orders: Order[]) => {
   printWindow.print();
 };
 
+const printReportProducts = (orders: Order[]) => {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return;
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Tisk reportu výrobků</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        </style>
+      </head>
+      <body>
+        <div id="print-content">
+          ${ReactDOMServer.renderToString(<PrintReportProducts orders={orders} />)}
+        </div>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+  printWindow.print();
+};
+
 export function OrdersTable({
   selectedProductId: initialProductId,
 }: OrdersTableProps) {
@@ -876,6 +903,7 @@ export function OrdersTable({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState("all");
   const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [selectedOZ, setSelectedOZ] = useState<string>("all");
 
   // Get unique paid_by values from orders
   const uniquePaidByValues = useMemo(() => {
@@ -962,6 +990,15 @@ export function OrdersTable({
       );
     }
 
+    // Update OZ filter to include "no OZ" option
+    if (selectedOZ === "oz") {
+      filtered = filtered.filter((order) => order.user?.oz === true);
+    } else if (selectedOZ === "mo_partners") {
+      filtered = filtered.filter((order) => order.user?.mo_partners === true);
+    } else if (selectedOZ === "no_oz") {
+      filtered = filtered.filter((order) => order.user?.oz === false);
+    }
+
     return filtered;
   }, [
     orders,
@@ -972,6 +1009,7 @@ export function OrdersTable({
     selectedDriver,
     selectedStatus,
     selectedUser,
+    selectedOZ,
   ]);
 
   const getDateFilteredOrders = (
@@ -1215,6 +1253,19 @@ export function OrdersTable({
                   />
                 </PopoverContent>
               </Popover>
+
+              <Select value={selectedOZ} onValueChange={setSelectedOZ}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Obchodní zástupce..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Všichni</SelectItem>
+                  <SelectItem value="oz">Obchodní zástupce</SelectItem>
+                  <SelectItem value="mo_partners">Mo Partners</SelectItem>
+                  <SelectItem value="no_oz">Bez Obchod.zástupce</SelectItem>
+                </SelectContent>
+              </Select>
+
               <Badge
                 variant="secondary"
                 className="flex items-center gap-2 ml-auto"
@@ -1560,7 +1611,27 @@ export function OrdersTable({
                           Report objednávek
                         </Button>
                       )}
-
+                      {authUser?.role === "admin" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const orders =
+                              table.getFilteredSelectedRowModel().rows.length >
+                              0
+                                ? table
+                                    .getFilteredSelectedRowModel()
+                                    .rows.map(
+                                      (row: { original: Order }) => row.original
+                                    )
+                                : filteredPeriodOrders;
+                            printReportProducts(orders);
+                          }}
+                        >
+                          <Printer className="h-4 w-4 mr-2" />
+                          Report výrobků
+                        </Button>
+                      )}
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
