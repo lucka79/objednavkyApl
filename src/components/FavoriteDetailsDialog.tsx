@@ -163,7 +163,7 @@ export function FavoriteDetailsDialog({
                           },
                         })
                       }
-                      className="w-[180px]"
+                      className="w-[600px]"
                     />
                   </div>
                   <ScrollArea className="h-[60px] w-full rounded-md border p-4">

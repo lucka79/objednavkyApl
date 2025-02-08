@@ -5,7 +5,7 @@ import {
   flexRender,
 } from "@tanstack/react-table";
 // import { fetchAllOrders } from "@/hooks/useOrders";
-import { FavoriteOrder } from "../../types";
+import { FavoriteOrder, FavoriteItem } from "../../types";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -35,7 +35,7 @@ import { FavoriteDetailsDialog } from "./FavoriteDetailsDialog";
 import { useInsertOrder, useInsertOrderItems } from "@/hooks/useOrders";
 import { format } from "date-fns";
 
-import { CirclePlus, Trash2, Lock } from "lucide-react";
+import { CirclePlus, Trash2, Lock, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -46,7 +46,7 @@ import {
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AddFavoriteOrderDialog } from "./AddFavoriteOrderDialog";
-import { useAuthStore } from "@/lib/supabase";
+import { supabase, useAuthStore } from "@/lib/supabase";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { useDeleteFavoriteOrder } from "@/hooks/useFavorites";
 import { useUpdateStoredItems } from "@/hooks/useFavorites";
@@ -76,18 +76,6 @@ const ROLES = [
   "mobil",
   "expedition",
 ] as const;
-
-interface FavoriteItem {
-  product_id: number;
-  quantity: number;
-  price?: number;
-  product: {
-    id: number;
-    price: number;
-    priceMobil: number;
-    priceBuyer: number;
-  };
-}
 
 const columns: ColumnDef<FavoriteOrder>[] = [
   {
@@ -200,8 +188,66 @@ const columns: ColumnDef<FavoriteOrder>[] = [
         }
       };
 
+      const handleCopy = async () => {
+        try {
+          // First create the favorite order
+          const { data: newOrder, error: orderError } = await supabase
+            .from("favorite_orders")
+            .insert([
+              {
+                user_id: order.user_id,
+                driver_id: order.driver?.id,
+                days: ["X"],
+                note: order.note,
+                status: order.status,
+              },
+            ])
+            .select()
+            .single();
+
+          if (orderError) throw orderError;
+
+          // Then create the favorite items
+          if (order.favorite_items?.length) {
+            const { error: itemsError } = await supabase
+              .from("favorite_items")
+              .insert(
+                order.favorite_items.map((item) => ({
+                  order_id: newOrder.id,
+                  product_id: item.product_id,
+                  quantity: item.quantity,
+                  price: item.price,
+                  is_manual_price: false,
+                }))
+              );
+
+            if (itemsError) throw itemsError;
+          }
+
+          toast({
+            title: "Success",
+            description: "Favorite order copied successfully",
+          });
+        } catch (error) {
+          console.error("Failed to copy favorite order:", error);
+          toast({
+            title: "Error",
+            description: "Failed to copy favorite order",
+            variant: "destructive",
+          });
+        }
+      };
+
       return (
         <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+            onClick={handleCopy}
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button

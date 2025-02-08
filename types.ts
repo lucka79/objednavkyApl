@@ -118,6 +118,7 @@ export type Product = {
     quantity: number;
     product_id: number;
     order_id: number;   
+    price: number;
   };
   
   export type Profile = {
