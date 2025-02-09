@@ -6,11 +6,7 @@ import {
   ColumnDef,
   flexRender,
 } from "@tanstack/react-table";
-import {
-  fetchAllOrders,
-  useDeleteOrder,
-  useUpdateOrder,
-} from "@/hooks/useOrders";
+import { fetchAllOrders, useDeleteOrder } from "@/hooks/useOrders";
 import { Order } from "../../types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -81,7 +77,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { OrdersTableSummary } from "./OrdersTablePrintSummary";
-import { useIsOrderInvoiced } from "@/hooks/useInvoices";
 import { useOrderLockStore } from "@/providers/orderLockStore";
 import { PrintDonutSummary } from "./PrintDonutSummary";
 import { PrintSweetSummary } from "./PrintSweetSummary";
@@ -89,6 +84,7 @@ import { PrintSweetSummary } from "./PrintSweetSummary";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { PrintReportBuyerOrders } from "./PrintReportBuyerOrders";
 import { PrintReportProducts } from "./PrintReportProducts";
+import { PrintReportBuyersSummary } from "./PrintReportBuyersSummary";
 
 const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
   ({ orders }, ref) => (
@@ -388,84 +384,14 @@ const columns: ColumnDef<Order>[] = [
     },
   },
   {
-    id: "lock",
-    header: () => <div className="print:hidden"></div>,
-    cell: ({ row }) => {
-      const order = row.original;
-      const { mutate: updateOrder } = useUpdateOrder();
-      const { toast } = useToast();
-      const user = useAuthStore((state) => state.user);
-      const canManageLocks =
-        user?.role === "admin" || user?.role === "expedition";
-
-      const handleLockToggle = (e: React.MouseEvent) => {
-        e.stopPropagation(); // Prevent row selection
-        if (!canManageLocks) return;
-
-        updateOrder(
-          {
-            id: order.id,
-            updatedFields: { isLocked: !order.isLocked },
-          },
-          {
-            onSuccess: () => {
-              toast({
-                title: order.isLocked
-                  ? "Objednávka odemčena"
-                  : "Objednávka uzamčena",
-                description: order.isLocked
-                  ? "Objednávka je nyní editovatelná"
-                  : "Objednávka je nyní jen pro čtení",
-              });
-            },
-            onError: () => {
-              toast({
-                title: "Error",
-                description: "Failed to update order lock status",
-                variant: "destructive",
-              });
-            },
-          }
-        );
-      };
-
-      return (
-        <div className="w-[30px] flex justify-center print:hidden">
-          {canManageLocks ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLockToggle}
-              className={cn(
-                "h-8 w-8 p-0",
-                order.isLocked ? "text-muted-foreground" : "text-orange-500"
-              )}
-            >
-              {order.isLocked ? (
-                <Lock className="h-4 w-4" />
-              ) : (
-                <Unlock className="h-4 w-4" />
-              )}
-            </Button>
-          ) : order.isLocked ? (
-            <Lock className="h-4 w-4 text-muted-foreground" />
-          ) : null}
-        </div>
-      );
-    },
-  },
-  {
     id: "actions",
-    header: () => <div className="w-[30px]"></div>,
+    header: () => <div className="w-[60px]"></div>,
     cell: ({ row }) => {
       const order = row.original;
       const deleteOrder = useDeleteOrder();
       const { toast } = useToast();
       const user = useAuthStore((state) => state.user);
-      const { data: invoicedOrderIds } = useIsOrderInvoiced();
       const { unlockOrder, lockOrder, isOrderUnlocked } = useOrderLockStore();
-      const [isUnlocked, setIsUnlocked] = useState(false);
-      const isLocked = invoicedOrderIds?.has(order.id);
       const canUnlock = user?.role === "admin";
 
       const toggleLock = () => {
@@ -476,7 +402,6 @@ const columns: ColumnDef<Order>[] = [
         } else {
           unlockOrder(order.id);
         }
-        setIsUnlocked(!isUnlocked);
         toast({
           title: isUnlocked ? "Order locked" : "Order unlocked",
           description: isUnlocked
@@ -504,18 +429,20 @@ const columns: ColumnDef<Order>[] = [
       };
 
       return (
-        <div className="w-[30px] flex justify-end gap-2">
-          {isLocked && canUnlock && (
+        <div className="w-[60px] flex justify-end gap-2">
+          {canUnlock && (
             <Button
               variant="ghost"
               size="sm"
               onClick={toggleLock}
-              className={isUnlocked ? "text-red-600" : "text-muted-foreground"}
+              className={
+                order.isLocked ? "text-muted-foreground" : "text-red-600"
+              }
             >
-              {isUnlocked ? (
-                <Unlock className="h-4 w-4" />
-              ) : (
+              {order.isLocked ? (
                 <Lock className="h-4 w-4" />
+              ) : (
+                <Unlock className="h-4 w-4" />
               )}
             </Button>
           )}
@@ -526,7 +453,7 @@ const columns: ColumnDef<Order>[] = [
                   variant="ghost"
                   size="sm"
                   className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                  disabled={isLocked && !isUnlocked}
+                  disabled={order.isLocked}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -880,6 +807,32 @@ const printReportProducts = (orders: Order[]) => {
   printWindow.print();
 };
 
+const printReportBuyersSummary = (orders: Order[]) => {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return;
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Tisk reportu odběratelů</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        </style>
+      </head>
+      <body>
+        <div id="print-content">
+          ${ReactDOMServer.renderToString(<PrintReportBuyersSummary orders={orders} />)}
+        </div>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+  printWindow.print();
+};
+
 export function OrdersTable({
   selectedProductId: initialProductId,
 }: OrdersTableProps) {
@@ -1072,102 +1025,6 @@ export function OrdersTable({
     printWindow.document.close();
     printWindow.print();
   };
-
-  // Modify the calculateOrderTotalsByDate function
-  // const calculateOrderTotalsByDate = (orders: Order[]) => {
-  //   const totalsByDate = new Map<
-  //     string,
-  //     Map<string, { name: string; quantity: number; categoryId: number }>
-  //   >();
-
-  //   orders.forEach((order) => {
-  //     const date = new Date(order.date).toLocaleDateString();
-  //     if (!totalsByDate.has(date)) {
-  //       totalsByDate.set(date, new Map());
-  //     }
-
-  //     const dateMap = totalsByDate.get(date)!;
-  //     order.order_items.forEach((item) => {
-  //       const product = products?.find((p) => p.id === item.product_id);
-  //       const current = dateMap.get(item.product_id.toString()) || {
-  //         name: product?.name || "Unknown",
-  //         quantity: 0,
-  //         categoryId: product?.category_id || 0,
-  //       };
-  //       dateMap.set(item.product_id.toString(), {
-  //         ...current,
-  //         quantity: current.quantity + item.quantity,
-  //       });
-  //     });
-  //   });
-
-  //   return totalsByDate;
-  // };
-
-  // Update the printOrderTotalsByDate function
-  // const printOrderTotalsByDate = (orders: Order[]) => {
-  //   const totalsByDate = calculateOrderTotalsByDate(orders);
-  //   const printWindow = window.open("", "_blank");
-  //   if (!printWindow) return;
-
-  //   printWindow.document.write(`
-  //     <html>
-  //       <head>
-  //         <title>Výroba podle dnů</title>
-  //         <style>
-  //           body { font-family: Arial, sans-serif; font-size: 12px; padding: 20px; }
-  //           h1 { font-size: 18px; margin-bottom: 10px; }
-  //           h2 { font-size: 16px; color: #666; margin: 30px 0 10px 0; }
-  //           table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-  //           th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-  //           th { background-color: #f5f5f5; }
-  //           td:last-child { text-align: right; }
-  //           .date { margin-bottom: 20px; color: #666; }
-  //           .print-date { text-align: right; color: #666; margin-bottom: 20px; }
-  //         </style>
-  //       </head>
-  //       <body>
-  //         ${Array.from(totalsByDate.entries())
-  //           .map(
-  //             ([date, products]) => `
-  //           <h1>Datum výroby: ${date}</h1>
-  //           <table>
-  //             <thead>
-  //               <tr>
-  //                 <th>Výrobky podle kategorie</th>
-  //                 <th style="text-align: right">Množství</th>
-  //               </tr>
-  //             </thead>
-  //             <tbody>
-  //               ${Array.from(products.values())
-  //                 .filter((item) => item.quantity > 0) // Filter out zero quantity items
-  //                 .sort(
-  //                   (a, b) =>
-  //                     a.categoryId - b.categoryId ||
-  //                     a.name.localeCompare(b.name)
-  //                 )
-  //                 .map(
-  //                   (item) => `
-  //                   <tr>
-  //                     <td>${item.name}</td>
-  //                     <td style="text-align: right">${item.quantity}</td>
-  //                   </tr>
-  //                 `
-  //                 )
-  //                 .join("")}
-  //             </tbody>
-  //           </table>
-  //         `
-  //           )
-  //           .join("")}
-  //           <div class="print-date">Vytištěno: ${new Date().toLocaleString()}</div>
-  //       </body>
-  //     </html>
-  //   `);
-
-  //   printWindow.document.close();
-  //   printWindow.print();
-  // };
 
   // 1. Add print state
   const [isPrinting] = useState(false);
@@ -1630,6 +1487,27 @@ export function OrdersTable({
                         >
                           <Printer className="h-4 w-4 mr-2" />
                           Report výrobků
+                        </Button>
+                      )}
+                      {authUser?.role === "admin" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const orders =
+                              table.getFilteredSelectedRowModel().rows.length >
+                              0
+                                ? table
+                                    .getFilteredSelectedRowModel()
+                                    .rows.map(
+                                      (row: { original: Order }) => row.original
+                                    )
+                                : filteredPeriodOrders;
+                            printReportBuyersSummary(orders);
+                          }}
+                        >
+                          <Printer className="h-4 w-4 mr-2" />
+                          Report odběratelů
                         </Button>
                       )}
                       <div className="flex gap-2">
