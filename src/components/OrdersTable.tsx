@@ -87,6 +87,9 @@ import { PrintReportProducts } from "./PrintReportProducts";
 import { PrintReportBuyersSummary } from "./PrintReportBuyersSummary";
 import { PrintCategoryBagets } from "./PrintCategoryBagets";
 
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
+
 const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
   ({ orders }, ref) => (
     <div ref={ref} className="p-8">
@@ -884,6 +887,8 @@ export function OrdersTable({
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [selectedOZ, setSelectedOZ] = useState<string>("all");
 
+  const queryClient = useQueryClient();
+
   // Get unique paid_by values from orders
   const uniquePaidByValues = useMemo(() => {
     if (!orders) return [];
@@ -966,7 +971,12 @@ export function OrdersTable({
         return true;
       })
       .sort((a, b) => {
-        // Sort by full_name
+        // Sort by date first (newest first)
+        const dateCompare =
+          new Date(b.date).getTime() - new Date(a.date).getTime();
+        if (dateCompare !== 0) return dateCompare;
+
+        // If dates are equal, sort by full_name
         return (a.user.full_name ?? "").localeCompare(
           b.user.full_name ?? "",
           "cs"
@@ -1091,6 +1101,62 @@ export function OrdersTable({
       globalFilter,
     },
   });
+
+  // Add refetch interval effect
+  useEffect(() => {
+    // Refetch orders every 30 seconds while component is mounted
+    const interval = setInterval(() => {
+      console.log("Periodic refetch of orders table");
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    }, 30000); // 30 seconds
+
+    // Cleanup on unmount
+    return () => {
+      console.log("OrdersTable unmounted - cleaning up");
+      clearInterval(interval);
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    };
+  }, [queryClient]);
+
+  useEffect(() => {
+    const checkSessionAndRefresh = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      console.log("Current session:", {
+        user: session?.user?.id,
+        expires: session?.expires_at
+          ? new Date(session.expires_at * 1000)
+          : null,
+        isExpired: session?.expires_at
+          ? new Date(session.expires_at * 1000) <= new Date()
+          : true,
+      });
+
+      // Check if session is expired
+      if (
+        !session ||
+        (session.expires_at &&
+          new Date(session.expires_at * 1000) <= new Date())
+      ) {
+        console.log("Session expired, logging out...");
+        // Clear queries and auth state
+        queryClient.clear();
+        await supabase.auth.signOut();
+        // Redirect to login
+        window.location.href = "/login";
+        return;
+      }
+
+      // If session is valid, refresh orders
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    };
+
+    checkSessionAndRefresh();
+    const interval = setInterval(checkSessionAndRefresh, 60000);
+
+    return () => clearInterval(interval);
+  }, [queryClient]);
 
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders</div>;

@@ -101,58 +101,57 @@ export const useFetchOrderById = (orderId: number | null) => {
 export const fetchAllOrders = () => {
   const { user } = useAuthStore.getState();
   const isExpedition = user?.role === 'expedition';
+  const isAdmin = user?.role === 'admin';
 
   return useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
-      if (isExpedition) {
-        const { data, error } = await supabase
-          .from('orders')
-          .select(`
-            *,
-            user:profiles!orders_user_id_fkey (*),
-            driver:profiles!orders_driver_id_fkey (*),
-            order_items (
+      // For admin, fetch in two batches of 1000
+      if (isAdmin) {
+        const [firstBatch, secondBatch] = await Promise.all([
+          supabase
+            .from('orders')
+            .select(`
               *,
-              product:products (*)
-            )
-          `)
-          .order('date', { ascending: false })
-          .limit(200);
+              user:profiles!orders_user_id_fkey (*),
+              driver:profiles!orders_driver_id_fkey (*),
+              order_items (*, product:products(*))
+            `)
+            .order('date', { ascending: false })
+            .limit(1000),
+          
+          supabase
+            .from('orders')
+            .select(`
+              *,
+              user:profiles!orders_user_id_fkey (*),
+              driver:profiles!orders_driver_id_fkey (*),
+              order_items (*, product:products(*))
+            `)
+            .order('date', { ascending: false })
+            .range(1000, 1999)
+        ]);
 
-        if (error) throw error;
-        return data as Order[];
+        if (firstBatch.error) throw firstBatch.error;
+        if (secondBatch.error) throw secondBatch.error;
+
+        return [...firstBatch.data, ...secondBatch.data] as Order[];
       }
 
-      // Original pagination logic for other roles
-      const { count } = await supabase
+      // For non-admin users, fetch with regular limits
+      const { data, error } = await supabase
         .from('orders')
-        .select('*', { count: 'exact', head: true });
+        .select(`
+          *,
+          user:profiles!orders_user_id_fkey (*),
+          driver:profiles!orders_driver_id_fkey (*),
+          order_items (*, product:products(*))
+        `)
+        .order('date', { ascending: false })
+        .limit(isExpedition ? 200 : 1000);
 
-      const pageSize = 1000;
-      const pages = Math.ceil((count || 0) / pageSize);
-      let allOrders: Order[] = [];
-
-      const promises = Array.from({ length: pages }, (_, i) => 
-        supabase
-          .from('orders')
-          .select(`
-            *,
-            user:profiles!orders_user_id_fkey (*),
-            driver:profiles!orders_driver_id_fkey (*),
-            order_items (
-              *,
-              product:products (*)
-            )
-          `)
-          .order('date', { ascending: false })
-          .range(i * pageSize, (i + 1) * pageSize - 1)
-      );
-
-      const results = await Promise.all(promises);
-      allOrders = results.flatMap(({ data }) => data || []);
-
-      return allOrders;
+      if (error) throw error;
+      return data as Order[];
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,

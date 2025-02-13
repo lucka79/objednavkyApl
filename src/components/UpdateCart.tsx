@@ -37,6 +37,7 @@ import { supabase } from "@/lib/supabase";
 import { useIsOrderInvoiced } from "@/hooks/useInvoices";
 import { useOrderLockStore } from "@/providers/orderLockStore";
 import { useUpdateInvoiceTotal } from "@/hooks/useInvoices";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface OrderItem {
   id: number;
@@ -137,6 +138,7 @@ export default function UpdateCart({
   const { isOrderUnlocked, lockOrder, unlockOrder } = useOrderLockStore();
   const isReadOnly = isLocked && !isOrderUnlocked(orderId);
   const { mutate: updateInvoiceTotal } = useUpdateInvoiceTotal();
+  const queryClient = useQueryClient();
 
   // @ts-ignore
   const { data: historyData, isLoading } = useOrderItemHistory(selectedItemId);
@@ -359,6 +361,22 @@ export default function UpdateCart({
     const unchecked = orderItems.filter((item) => !item.checked).length;
     return { checked, unchecked };
   };
+
+  // Add refetch interval effect
+  useEffect(() => {
+    // Refetch orders every 30 seconds while component is mounted
+    const interval = setInterval(() => {
+      console.log("Periodic refetch of orders");
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    }, 30000); // 30 seconds
+
+    // Cleanup on unmount
+    return () => {
+      console.log("UpdateCart unmounted - refetching orders");
+      clearInterval(interval);
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    };
+  }, [queryClient]);
 
   return (
     <Card>

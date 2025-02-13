@@ -155,7 +155,7 @@ export function Navbar() {
                 )}
 
                 <Button variant="secondary" onClick={handleSignOut}>
-                  <Link to="/login" className="hover:text-gray-300">
+                  <Link to="/" className="hover:text-gray-300">
                     Sign out
                   </Link>
                 </Button>
