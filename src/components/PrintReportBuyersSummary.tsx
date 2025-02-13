@@ -24,45 +24,62 @@ export const PrintReportBuyersSummary = ({
 
   // Add order count
   const orderCount = orders.length;
+  const uniqueUsersCount = new Set(orders.map((order) => order.user?.full_name))
+    .size;
 
   // Calculate totals per user and overall sum
   const userTotals = orders.reduce(
     (acc, order) => {
       const userName = order.user?.full_name || "-";
-      acc[userName] = (acc[userName] || 0) + order.total;
+      if (!acc[userName]) {
+        acc[userName] = {
+          total: 0,
+          ico: order.user?.ico || "-",
+        };
+      }
+      acc[userName].total += order.total;
       return acc;
     },
-    {} as Record<string, number>
+    {} as Record<string, { total: number; ico: string }>
   );
 
-  // Sort users by name
-  const sortedUsers = Object.keys(userTotals).sort();
+  // Sort users by name using Czech locale
+  const sortedUsers = Object.keys(userTotals).sort((a, b) =>
+    a.localeCompare(b, "cs")
+  );
 
   return (
-    <div style={{ fontSize: "12px", margin: "0 10px" }}>
+    <div style={{ fontSize: "10px", margin: "0 10px" }}>
       <h2 className="text-2xl font-bold mb-6">
-        Report objednávek ({orderCount})
+        Report odběratelů ({uniqueUsersCount})
       </h2>
 
       {/* User totals table */}
       <table className="w-full mb-8">
         <thead>
           <tr className="border-b">
+            <th style={{ textAlign: "right" }}>IČO</th>
             <th style={{ textAlign: "left" }}>Odběratel</th>
+
             <th style={{ textAlign: "right" }}>Celkem</th>
           </tr>
         </thead>
         <tbody>
           {sortedUsers.map((userName) => (
             <tr key={userName} className="border-b">
+              <td style={{ textAlign: "right" }} className="py-2">
+                {userTotals[userName].ico}
+              </td>
               <td className="py-2">{userName}</td>
+
               <td className="py-2" style={{ textAlign: "right" }}>
-                {userTotals[userName].toFixed(2)} Kč
+                {userTotals[userName].total.toFixed(2)} Kč
               </td>
             </tr>
           ))}
           <tr className="font-bold border-t">
             <td className="py-2">Celková suma:</td>
+            <td className="py-2"></td>
             <td className="py-2" style={{ textAlign: "right" }}>
               {totalSum.toFixed(2)} Kč
             </td>

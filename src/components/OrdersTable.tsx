@@ -85,6 +85,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { PrintReportBuyerOrders } from "./PrintReportBuyerOrders";
 import { PrintReportProducts } from "./PrintReportProducts";
 import { PrintReportBuyersSummary } from "./PrintReportBuyersSummary";
+import { PrintCategoryBagets } from "./PrintCategoryBagets";
 
 const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
   ({ orders }, ref) => (
@@ -746,6 +747,32 @@ const printCategorySweets = (orders: Order[]) => {
       <body>
         <div id="print-content">
           ${ReactDOMServer.renderToString(<PrintSweetSummary orders={orders} />)}
+        </div>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+  printWindow.print();
+};
+
+const printCategoryBagets = (orders: Order[]) => {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return;
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Tisk výroby baget</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        </style>
+      </head>
+      <body>
+        <div id="print-content">
+          ${ReactDOMServer.renderToString(<PrintCategoryBagets orders={orders} />)}
         </div>
       </body>
     </html>
@@ -1440,6 +1467,24 @@ export function OrdersTable({
                                     (row: { original: Order }) => row.original
                                   )
                               : filteredPeriodOrders;
+                          printCategoryBagets(orders);
+                        }}
+                      >
+                        <Printer className="h-4 w-4 mr-2" />
+                        Výroba baget
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const orders =
+                            table.getFilteredSelectedRowModel().rows.length > 0
+                              ? table
+                                  .getFilteredSelectedRowModel()
+                                  .rows.map(
+                                    (row: { original: Order }) => row.original
+                                  )
+                              : filteredPeriodOrders;
                           printProductSummary(orders);
                         }}
                       >
@@ -1448,10 +1493,9 @@ export function OrdersTable({
                       </Button>
 
                       {authUser?.role === "admin" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
+                        <Select
+                          defaultValue=""
+                          onValueChange={(value) => {
                             const orders =
                               table.getFilteredSelectedRowModel().rows.length >
                               0
@@ -1461,54 +1505,35 @@ export function OrdersTable({
                                       (row: { original: Order }) => row.original
                                     )
                                 : filteredPeriodOrders;
-                            printReportBuyerOrders(orders);
+
+                            switch (value) {
+                              case "orders":
+                                printReportBuyerOrders(orders);
+                                break;
+                              case "products":
+                                printReportProducts(orders);
+                                break;
+                              case "buyers":
+                                printReportBuyersSummary(orders);
+                                break;
+                            }
                           }}
                         >
-                          <Printer className="h-4 w-4 mr-2" />
-                          Report objednávek
-                        </Button>
-                      )}
-                      {authUser?.role === "admin" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const orders =
-                              table.getFilteredSelectedRowModel().rows.length >
-                              0
-                                ? table
-                                    .getFilteredSelectedRowModel()
-                                    .rows.map(
-                                      (row: { original: Order }) => row.original
-                                    )
-                                : filteredPeriodOrders;
-                            printReportProducts(orders);
-                          }}
-                        >
-                          <Printer className="h-4 w-4 mr-2" />
-                          Report výrobků
-                        </Button>
-                      )}
-                      {authUser?.role === "admin" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const orders =
-                              table.getFilteredSelectedRowModel().rows.length >
-                              0
-                                ? table
-                                    .getFilteredSelectedRowModel()
-                                    .rows.map(
-                                      (row: { original: Order }) => row.original
-                                    )
-                                : filteredPeriodOrders;
-                            printReportBuyersSummary(orders);
-                          }}
-                        >
-                          <Printer className="h-4 w-4 mr-2" />
-                          Report odběratelů
-                        </Button>
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Vyberte tisk" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="orders">
+                              Report objednávek
+                            </SelectItem>
+                            <SelectItem value="products">
+                              Report výrobků
+                            </SelectItem>
+                            <SelectItem value="buyers">
+                              Report odběratelů
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
                       )}
                       <div className="flex gap-2">
                         <Button

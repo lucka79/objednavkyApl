@@ -136,6 +136,7 @@ export type Product = {
     address?: string; 
     oz: boolean;
     mo_partners: boolean;
+    ico?: string;
   };
 
   
