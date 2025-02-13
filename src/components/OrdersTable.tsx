@@ -879,7 +879,6 @@ export function OrdersTable({
   const [selectedDriver, setSelectedDriver] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const { data: driverUsers } = useDriverUsers();
-  const [table, setTable] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState("all");
   const [userSearchQuery, setUserSearchQuery] = useState("");
@@ -927,70 +926,69 @@ export function OrdersTable({
 
   // Update filteredOrders to include role filtering
   const filteredOrders = useMemo(() => {
-    let filtered = orders || [];
+    if (!orders) return [];
 
-    if (date) {
-      filtered = filterOrdersByDate(filtered, "today", date);
-    }
+    return orders
+      .filter((order) => {
+        // Combine all filter conditions into a single pass
+        if (date && !isOrderInDate(order, date)) return false;
 
-    if (selectedProductId && selectedProductId !== "all") {
-      filtered = filtered.filter((order) =>
-        order.order_items.some(
-          (item: { product_id: number }) =>
-            item.product_id.toString() === selectedProductId
-        )
-      );
-    }
+        if (selectedProductId && selectedProductId !== "all") {
+          const hasProduct = order.order_items.some(
+            (item) => item.product_id.toString() === selectedProductId
+          );
+          if (!hasProduct) return false;
+        }
 
-    if (selectedPaidBy !== "all") {
-      filtered = filtered.filter((order) => order.paid_by === selectedPaidBy);
-    }
+        if (selectedPaidBy !== "all" && order.paid_by !== selectedPaidBy)
+          return false;
 
-    if (selectedStatus !== "all") {
-      filtered = filtered.filter((order) => order.status === selectedStatus);
-    }
+        if (selectedStatus !== "all" && order.status !== selectedStatus)
+          return false;
 
-    // Add role filtering
-    if (selectedRole !== "all") {
-      filtered = filtered.filter((order) => order.user?.role === selectedRole);
-    }
+        if (selectedRole !== "all" && order.user?.role !== selectedRole)
+          return false;
 
-    // Add driver filtering
-    if (selectedDriver !== "all") {
-      filtered = filtered.filter((order) =>
-        selectedDriver === "none"
-          ? !order.driver_id
-          : order.driver_id === selectedDriver
-      );
-    }
+        if (selectedDriver !== "all") {
+          if (selectedDriver === "none" && order.driver_id) return false;
+          if (selectedDriver !== "none" && order.driver_id !== selectedDriver)
+            return false;
+        }
 
-    if (selectedUser !== "all") {
-      filtered = filtered.filter(
-        (order) => order.user.full_name === selectedUser
-      );
-    }
+        if (selectedUser !== "all" && order.user.full_name !== selectedUser)
+          return false;
 
-    // Update OZ filter to include "no OZ" option
-    if (selectedOZ === "oz") {
-      filtered = filtered.filter((order) => order.user?.oz === true);
-    } else if (selectedOZ === "mo_partners") {
-      filtered = filtered.filter((order) => order.user?.mo_partners === true);
-    } else if (selectedOZ === "no_oz") {
-      filtered = filtered.filter((order) => order.user?.oz === false);
-    }
+        if (selectedOZ === "oz" && !order.user?.oz) return false;
+        if (selectedOZ === "mo_partners" && !order.user?.mo_partners)
+          return false;
+        if (selectedOZ === "no_oz" && order.user?.oz !== false) return false;
 
-    return filtered;
+        return true;
+      })
+      .sort((a, b) => {
+        // Sort by full_name
+        return (a.user.full_name ?? "").localeCompare(
+          b.user.full_name ?? "",
+          "cs"
+        );
+      });
   }, [
     orders,
-    selectedProductId,
     date,
+    selectedProductId,
     selectedPaidBy,
+    selectedStatus,
     selectedRole,
     selectedDriver,
-    selectedStatus,
     selectedUser,
     selectedOZ,
   ]);
+
+  // Helper function for date checking
+  const isOrderInDate = (order: Order, date: Date) => {
+    const orderDate = new Date(order.date);
+    return orderDate.toDateString() === date.toDateString();
+  };
 
   const getDateFilteredOrders = (
     orders: Order[],
@@ -1070,6 +1068,29 @@ export function OrdersTable({
       product.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [products, searchQuery]);
+
+  // Near your other state declarations
+  const [deferredValue, setDeferredValue] = useState<Order[]>([]);
+
+  // Add this effect after your filteredOrders useMemo
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDeferredValue(filteredOrders);
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [filteredOrders]);
+
+  // Rename the table instance
+  const tableInstance = useReactTable({
+    data: deferredValue,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    state: {
+      globalFilter,
+    },
+  });
 
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders</div>;
@@ -1423,8 +1444,9 @@ export function OrdersTable({
                         size="sm"
                         onClick={() => {
                           const orders =
-                            table.getFilteredSelectedRowModel().rows.length > 0
-                              ? table
+                            tableInstance.getFilteredSelectedRowModel().rows
+                              .length > 0
+                              ? tableInstance
                                   .getFilteredSelectedRowModel()
                                   .rows.map(
                                     (row: { original: Order }) => row.original
@@ -1442,8 +1464,9 @@ export function OrdersTable({
                         size="sm"
                         onClick={() => {
                           const orders =
-                            table.getFilteredSelectedRowModel().rows.length > 0
-                              ? table
+                            tableInstance.getFilteredSelectedRowModel().rows
+                              .length > 0
+                              ? tableInstance
                                   .getFilteredSelectedRowModel()
                                   .rows.map(
                                     (row: { original: Order }) => row.original
@@ -1460,8 +1483,9 @@ export function OrdersTable({
                         size="sm"
                         onClick={() => {
                           const orders =
-                            table.getFilteredSelectedRowModel().rows.length > 0
-                              ? table
+                            tableInstance.getFilteredSelectedRowModel().rows
+                              .length > 0
+                              ? tableInstance
                                   .getFilteredSelectedRowModel()
                                   .rows.map(
                                     (row: { original: Order }) => row.original
@@ -1478,8 +1502,9 @@ export function OrdersTable({
                         size="sm"
                         onClick={() => {
                           const orders =
-                            table.getFilteredSelectedRowModel().rows.length > 0
-                              ? table
+                            tableInstance.getFilteredSelectedRowModel().rows
+                              .length > 0
+                              ? tableInstance
                                   .getFilteredSelectedRowModel()
                                   .rows.map(
                                     (row: { original: Order }) => row.original
@@ -1497,9 +1522,9 @@ export function OrdersTable({
                           defaultValue=""
                           onValueChange={(value) => {
                             const orders =
-                              table.getFilteredSelectedRowModel().rows.length >
-                              0
-                                ? table
+                              tableInstance.getFilteredSelectedRowModel().rows
+                                .length > 0
+                                ? tableInstance
                                     .getFilteredSelectedRowModel()
                                     .rows.map(
                                       (row: { original: Order }) => row.original
@@ -1541,9 +1566,9 @@ export function OrdersTable({
                           size="sm"
                           onClick={() => {
                             const orders =
-                              table.getFilteredSelectedRowModel().rows.length >
-                              0
-                                ? table
+                              tableInstance.getFilteredSelectedRowModel().rows
+                                .length > 0
+                                ? tableInstance
                                     .getFilteredSelectedRowModel()
                                     .rows.map(
                                       (row: { original: Order }) => row.original
@@ -1586,9 +1611,9 @@ export function OrdersTable({
                           size="sm"
                           onClick={() => {
                             const orders =
-                              table.getFilteredSelectedRowModel().rows.length >
-                              0
-                                ? table
+                              tableInstance.getFilteredSelectedRowModel().rows
+                                .length > 0
+                                ? tableInstance
                                     .getFilteredSelectedRowModel()
                                     .rows.map(
                                       (row: { original: Order }) => row.original
@@ -1609,7 +1634,6 @@ export function OrdersTable({
                     globalFilter={globalFilter}
                     columns={columns}
                     setSelectedOrderId={setSelectedOrderId}
-                    onTableReady={(t) => setTable(t)}
                   />
                 </TabsContent>
               );
@@ -1633,13 +1657,11 @@ function OrderTableContent({
   globalFilter,
   columns,
   setSelectedOrderId,
-  onTableReady,
 }: {
   data: Order[];
   globalFilter: string;
   columns: ColumnDef<Order>[];
   setSelectedOrderId: (id: number) => void;
-  onTableReady: (table: any) => void;
 }) {
   const [rowSelection, setRowSelection] = useState({});
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -1665,10 +1687,6 @@ function OrderTableContent({
     estimateSize: () => 45, // Approximate height of each row
     overscan: 10, // Number of items to render outside of the visible area
   });
-
-  useEffect(() => {
-    onTableReady(table);
-  }, [table, onTableReady]);
 
   return (
     <div className="border rounded-md print:hidden">

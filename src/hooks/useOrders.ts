@@ -99,19 +99,13 @@ export const useFetchOrderById = (orderId: number | null) => {
 
 // all orders
 export const fetchAllOrders = () => {
+  const { user } = useAuthStore.getState();
+  const isExpedition = user?.role === 'expedition';
+
   return useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
-      const { count } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true });
-
-      // Fetch all orders in chunks if needed
-      const pageSize = 1000;
-      const pages = Math.ceil((count || 0) / pageSize);
-      let allOrders: Order[] = [];
-
-      for (let i = 0; i < pages; i++) {
+      if (isExpedition) {
         const { data, error } = await supabase
           .from('orders')
           .select(`
@@ -124,16 +118,44 @@ export const fetchAllOrders = () => {
             )
           `)
           .order('date', { ascending: false })
-          .order('user(full_name)', { ascending: true })
-          .range(i * pageSize, (i + 1) * pageSize - 1);
+          .limit(200);
 
         if (error) throw error;
-        allOrders = [...allOrders, ...data];
+        return data as Order[];
       }
 
-      console.log('Fetched orders:', allOrders.length);
+      // Original pagination logic for other roles
+      const { count } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true });
+
+      const pageSize = 1000;
+      const pages = Math.ceil((count || 0) / pageSize);
+      let allOrders: Order[] = [];
+
+      const promises = Array.from({ length: pages }, (_, i) => 
+        supabase
+          .from('orders')
+          .select(`
+            *,
+            user:profiles!orders_user_id_fkey (*),
+            driver:profiles!orders_driver_id_fkey (*),
+            order_items (
+              *,
+              product:products (*)
+            )
+          `)
+          .order('date', { ascending: false })
+          .range(i * pageSize, (i + 1) * pageSize - 1)
+      );
+
+      const results = await Promise.all(promises);
+      allOrders = results.flatMap(({ data }) => data || []);
+
       return allOrders;
-    }
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 };
 

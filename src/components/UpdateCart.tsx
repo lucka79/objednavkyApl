@@ -161,40 +161,30 @@ export default function UpdateCart({
     });
   };
 
-  useEffect(() => {
-    console.log("Received items:", items);
-
-    // Combine duplicate products by summing their quantities
+  // Memoize the combined and sorted items
+  const processedItems = useMemo(() => {
     const combinedItems = items.reduce((acc: OrderItem[], curr) => {
-      console.log("Processing item:", curr);
-
       const existingItem = acc.find(
         (item) => item.product.id === curr.product.id
       );
       if (existingItem) {
-        console.log("Found existing item:", existingItem);
         existingItem.quantity += curr.quantity;
         return acc;
       }
       return [...acc, curr];
     }, []);
 
-    console.log("Combined items:", combinedItems);
-
-    // Sort items: non-zero quantities first, then by name, then zero quantities last
-    const sortedItems = combinedItems.sort((a, b) => {
-      // First sort by quantity (non-zero first)
+    return combinedItems.sort((a, b) => {
       if ((a.quantity === 0) !== (b.quantity === 0)) {
         return a.quantity === 0 ? 1 : -1;
       }
-      // Then sort by name
       return a.product.name.localeCompare(b.product.name, "cs");
     });
-
-    console.log("Sorted items:", sortedItems);
-
-    setOrderItems(sortedItems);
   }, [items]);
+
+  useEffect(() => {
+    setOrderItems(processedItems);
+  }, [processedItems]);
 
   const calculateTotal = () => {
     return orderItems.reduce((sum: number, item: OrderItem) => {
