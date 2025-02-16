@@ -6,7 +6,7 @@ import {
   ColumnDef,
   flexRender,
 } from "@tanstack/react-table";
-import { fetchAllOrders, useDeleteOrder } from "@/hooks/useOrders";
+import { fetchExpeditionOrders, useDeleteOrder } from "@/hooks/useOrders";
 import { Order } from "../../types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -99,22 +99,6 @@ const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
 );
 
 ProductPrintWrapper.displayName = "ProductPrintWrapper";
-
-type OrderData = {
-  order_items: any[];
-  id: any;
-  date: any;
-  status: any;
-  paid_by: any;
-  total: any;
-  user: any[];
-  driver: any[];
-};
-
-export const isOrderInDate = (order: OrderData, date: Date) => {
-  const orderDate = new Date(order.date);
-  return orderDate.toDateString() === date.toDateString();
-};
 
 const filterOrdersByDate = (
   orders: Order[],
@@ -506,7 +490,7 @@ const columns: ColumnDef<Order>[] = [
   },
 ];
 
-interface OrdersTableProps {
+interface OrdersExpeditionTableProps {
   selectedProductId: string | null;
 }
 
@@ -879,12 +863,18 @@ const printReportBuyersSummary = (orders: Order[]) => {
   printWindow.print();
 };
 
-export function OrdersTable({
+// Move helper functions before they are used
+const isOrderInDate = (order: Order, date: Date) => {
+  const orderDate = new Date(order.date);
+  return orderDate.toDateString() === date.toDateString();
+};
+
+export function OrdersExpeditionTable({
   selectedProductId: initialProductId,
-}: OrdersTableProps) {
+}: OrdersExpeditionTableProps) {
   const [selectedOrders] = useState<Order[]>([]);
 
-  const { data: orders, error, isLoading } = fetchAllOrders();
+  const { data: orders, error, isLoading } = fetchExpeditionOrders();
   const [globalFilter, setGlobalFilter] = useState("");
   const [date, setDate] = useState<Date>();
   const setSelectedOrderId = useOrderStore((state) => state.setSelectedOrderId);
@@ -924,7 +914,7 @@ export function OrdersTable({
   const uniqueRoles = useMemo(() => {
     if (!orders) return [];
     const roles = new Set(
-      orders.map((order) => order.user[0]?.role).filter(Boolean)
+      orders.map((order) => order.user?.role).filter(Boolean)
     );
     return Array.from(roles).sort();
   }, [orders]);
@@ -933,7 +923,7 @@ export function OrdersTable({
   const uniqueUserNames = useMemo(() => {
     if (!orders) return [];
     const names = new Set(
-      orders.map((order) => order.user[0]?.full_name).filter(Boolean)
+      orders.map((order) => order.user.full_name).filter(Boolean)
     );
     return Array.from(names).sort();
   }, [orders]);
@@ -967,25 +957,22 @@ export function OrdersTable({
         if (selectedStatus !== "all" && order.status !== selectedStatus)
           return false;
 
-        if (selectedRole !== "all" && order.user[0]?.role !== selectedRole)
+        if (selectedRole !== "all" && order.user?.role !== selectedRole)
           return false;
 
         if (selectedDriver !== "all") {
-          if (selectedDriver === "none" && order.driver[0]?.id) return false;
-          if (
-            selectedDriver !== "none" &&
-            order.driver[0]?.id !== selectedDriver
-          )
+          if (selectedDriver === "none" && order.driver_id) return false;
+          if (selectedDriver !== "none" && order.driver_id !== selectedDriver)
             return false;
         }
 
-        if (selectedUser !== "all" && order.user[0]?.full_name !== selectedUser)
+        if (selectedUser !== "all" && order.user.full_name !== selectedUser)
           return false;
 
-        if (selectedOZ === "oz" && !order.user[0]?.oz) return false;
-        if (selectedOZ === "mo_partners" && !order.user[0]?.mo_partners)
+        if (selectedOZ === "oz" && !order.user?.oz) return false;
+        if (selectedOZ === "mo_partners" && !order.user?.mo_partners)
           return false;
-        if (selectedOZ === "no_oz" && order.user[0]?.oz !== false) return false;
+        if (selectedOZ === "no_oz" && order.user?.oz !== false) return false;
 
         return true;
       })
@@ -996,8 +983,8 @@ export function OrdersTable({
         if (dateCompare !== 0) return dateCompare;
 
         // If dates are equal, sort by full_name
-        return (a.user[0]?.full_name ?? "").localeCompare(
-          b.user[0]?.full_name ?? "",
+        return (a.user.full_name ?? "").localeCompare(
+          b.user.full_name ?? "",
           "cs"
         );
       });
@@ -1013,12 +1000,6 @@ export function OrdersTable({
     selectedOZ,
   ]);
 
-  // Helper function for date checking
-  const isOrderInDate = (order: OrderData, date: Date) => {
-    const orderDate = new Date(order.date);
-    return orderDate.toDateString() === date.toDateString();
-  };
-
   const getDateFilteredOrders = (
     orders: Order[],
     period:
@@ -1030,7 +1011,7 @@ export function OrdersTable({
       | "month"
       | "lastMonth"
   ) => {
-    return filterOrdersByDate(orders, period);
+    return filterOrdersByDate(orders || [], period);
   };
 
   const calculateTotalQuantityForPeriod = (
@@ -1043,11 +1024,8 @@ export function OrdersTable({
       | "nextWeek"
       | "month"
       | "lastMonth"
-  ): number => {
-    const dateFiltered = getDateFilteredOrders(
-      (orders || []) as unknown as Order[],
-      period
-    );
+  ) => {
+    const dateFiltered = getDateFilteredOrders(orders || [], period);
     return dateFiltered.reduce((total, order) => {
       const quantity = order.order_items
         .filter((item) => item.product_id.toString() === productId)
@@ -1107,7 +1085,7 @@ export function OrdersTable({
   // Add this effect after your filteredOrders useMemo
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      setDeferredValue(filteredOrders as unknown as Order[]);
+      setDeferredValue(filteredOrders);
     }, 100);
 
     return () => clearTimeout(timeoutId);
@@ -1319,7 +1297,7 @@ export function OrdersTable({
                           <Badge variant="outline" className="border-amber-500">
                             {
                               getDateFilteredOrders(
-                                (orders || []) as unknown as Order[],
+                                orders || [],
                                 activeTab as
                                   | "today"
                                   | "tomorrow"
@@ -1425,12 +1403,7 @@ export function OrdersTable({
                 <TabsTrigger key={tab.value} value={tab.value}>
                   {tab.label}{" "}
                   <Badge variant="outline" className="ml-2">
-                    {
-                      filterOrdersByDate(
-                        (orders || []) as unknown as Order[],
-                        tab.value as any
-                      ).length
-                    }
+                    {filterOrdersByDate(orders || [], tab.value as any).length}
                   </Badge>
                 </TabsTrigger>
               ))}
@@ -1446,7 +1419,7 @@ export function OrdersTable({
               "lastMonth",
             ].map((period) => {
               const filteredPeriodOrders = filterOrdersByDate(
-                (filteredOrders || []) as unknown as Order[],
+                filteredOrders || [],
                 period as
                   | "today"
                   | "tomorrow"

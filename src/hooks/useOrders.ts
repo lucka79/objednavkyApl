@@ -98,47 +98,72 @@ export const useFetchOrderById = (orderId: number | null) => {
 };
 
 // all orders
+// Add this near the top of the file
+const fetchOrdersInBatches = async () => {
+  try {
+    // First, fetch just the orders with essential relations
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select(`
+        id,
+        date,
+        status,
+        paid_by,
+        total,
+        user:profiles!orders_user_id_fkey (*),
+        driver:profiles!orders_driver_id_fkey (*)
+      `)
+      .order('date', { ascending: false })
+      .limit(500);
+
+    if (error) throw error;
+
+    // Then fetch order items separately for each order
+    const orderIds = orders.map(order => order.id);
+    const { data: orderItems, error: itemsError } = await supabase
+      .from('order_items')
+      .select(`
+        *,
+        product:products (
+          id,
+          name,
+          price
+        )
+      `)
+      .in('order_id', orderIds);
+
+    if (itemsError) throw itemsError;
+
+    // Combine the data
+    const ordersWithItems = orders.map(order => ({
+      ...order,
+      order_items: orderItems.filter(item => item.order_id === order.id)
+    }));
+
+    return ordersWithItems;
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    throw error;
+  }
+};
+
+// Update the fetchAllOrders hook to use the new function
 export const fetchAllOrders = () => {
-  const { user } = useAuthStore.getState();
-  const isExpedition = user?.role === 'expedition';
-  const isAdmin = user?.role === 'admin';
+  return useQuery({
+    queryKey: ['orders'],
+    queryFn: fetchOrdersInBatches,
+    staleTime: 30 * 1000, // 30 seconds
+    gcTime: 5 * 60 * 1000, // 5 minutes
+  });
+};
+
+// all orders
+export const fetchExpeditionOrders = () => {
 
   return useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
-      // For admin, fetch in two batches of 1000
-      if (isAdmin) {
-        const [firstBatch, secondBatch] = await Promise.all([
-          supabase
-            .from('orders')
-            .select(`
-              *,
-              user:profiles!orders_user_id_fkey (*),
-              driver:profiles!orders_driver_id_fkey (*),
-              order_items (*, product:products(*))
-            `)
-            .order('date', { ascending: false })
-            .limit(1000),
-          
-          supabase
-            .from('orders')
-            .select(`
-              *,
-              user:profiles!orders_user_id_fkey (*),
-              driver:profiles!orders_driver_id_fkey (*),
-              order_items (*, product:products(*))
-            `)
-            .order('date', { ascending: false })
-            .range(1000, 1999)
-        ]);
 
-        if (firstBatch.error) throw firstBatch.error;
-        if (secondBatch.error) throw secondBatch.error;
-
-        return [...firstBatch.data, ...secondBatch.data] as Order[];
-      }
-
-      // For non-admin users, fetch with regular limits
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -148,7 +173,7 @@ export const fetchAllOrders = () => {
           order_items (*, product:products(*))
         `)
         .order('date', { ascending: false })
-        .limit(isExpedition ? 200 : 1000);
+        .limit(200);
 
       if (error) throw error;
       return data as Order[];
