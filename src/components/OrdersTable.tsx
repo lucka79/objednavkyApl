@@ -90,26 +90,7 @@ import { PrintCategoryBagets } from "./PrintCategoryBagets";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 
-const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
-  ({ orders }, ref) => (
-    <div ref={ref} className="p-8">
-      <ProductSummaryPrint orders={orders} />
-    </div>
-  )
-);
-
-ProductPrintWrapper.displayName = "ProductPrintWrapper";
-
-type OrderData = {
-  order_items: any[];
-  id: any;
-  date: any;
-  status: any;
-  paid_by: any;
-  total: any;
-  user: any[];
-  driver: any[];
-};
+type OrderData = Order;
 
 export const isOrderInDate = (order: OrderData, date: Date) => {
   const orderDate = new Date(order.date);
@@ -879,6 +860,15 @@ const printReportBuyersSummary = (orders: Order[]) => {
   printWindow.print();
 };
 
+// Add near the top of the file, after imports
+const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
+  ({ orders }, ref) => (
+    <div ref={ref} className="p-8">
+      <ProductSummaryPrint orders={orders} />
+    </div>
+  )
+);
+
 export function OrdersTable({
   selectedProductId: initialProductId,
 }: OrdersTableProps) {
@@ -924,7 +914,7 @@ export function OrdersTable({
   const uniqueRoles = useMemo(() => {
     if (!orders) return [];
     const roles = new Set(
-      orders.map((order) => order.user[0]?.role).filter(Boolean)
+      orders.map((order) => order.user.role).filter(Boolean)
     );
     return Array.from(roles).sort();
   }, [orders]);
@@ -933,7 +923,7 @@ export function OrdersTable({
   const uniqueUserNames = useMemo(() => {
     if (!orders) return [];
     const names = new Set(
-      orders.map((order) => order.user[0]?.full_name).filter(Boolean)
+      orders.map((order) => order.user.full_name).filter(Boolean)
     );
     return Array.from(names).sort();
   }, [orders]);
@@ -951,9 +941,24 @@ export function OrdersTable({
 
     return orders
       .filter((order) => {
-        // Combine all filter conditions into a single pass
-        if (date && !isOrderInDate(order, date)) return false;
+        // Date filtering
+        if (date) {
+          const orderDate = new Date(order.date);
+          return orderDate.toDateString() === date.toDateString();
+        }
 
+        // If no date selected, apply period filtering (today, tomorrow, etc.)
+        if (!date && activeTab) {
+          return (
+            filterOrdersByDate([order as unknown as Order], activeTab as any)
+              .length > 0
+          );
+        }
+
+        return true;
+      })
+      .filter((order) => {
+        // Rest of your existing filters
         if (selectedProductId && selectedProductId !== "all") {
           const hasProduct = order.order_items.some(
             (item) => item.product_id.toString() === selectedProductId
@@ -967,43 +972,38 @@ export function OrdersTable({
         if (selectedStatus !== "all" && order.status !== selectedStatus)
           return false;
 
-        if (selectedRole !== "all" && order.user[0]?.role !== selectedRole)
+        if (selectedRole !== "all" && order.user.role !== selectedRole)
           return false;
 
         if (selectedDriver !== "all") {
-          if (selectedDriver === "none" && order.driver[0]?.id) return false;
-          if (
-            selectedDriver !== "none" &&
-            order.driver[0]?.id !== selectedDriver
-          )
+          if (selectedDriver === "none" && order.driver.id) return false;
+          if (selectedDriver !== "none" && order.driver.id !== selectedDriver)
             return false;
         }
 
-        if (selectedUser !== "all" && order.user[0]?.full_name !== selectedUser)
+        if (selectedUser !== "all" && order.user.full_name !== selectedUser)
           return false;
 
-        if (selectedOZ === "oz" && !order.user[0]?.oz) return false;
-        if (selectedOZ === "mo_partners" && !order.user[0]?.mo_partners)
+        if (selectedOZ === "oz" && !order.user.oz) return false;
+        if (selectedOZ === "mo_partners" && !order.user.mo_partners)
           return false;
-        if (selectedOZ === "no_oz" && order.user[0]?.oz !== false) return false;
+        if (selectedOZ === "no_oz" && order.user.oz !== false) return false;
 
         return true;
       })
       .sort((a, b) => {
-        // Sort by date first (newest first)
         const dateCompare =
           new Date(b.date).getTime() - new Date(a.date).getTime();
         if (dateCompare !== 0) return dateCompare;
-
-        // If dates are equal, sort by full_name
-        return (a.user[0]?.full_name ?? "").localeCompare(
-          b.user[0]?.full_name ?? "",
+        return (a.user.full_name ?? "").localeCompare(
+          b.user.full_name ?? "",
           "cs"
         );
       });
   }, [
     orders,
     date,
+    activeTab,
     selectedProductId,
     selectedPaidBy,
     selectedStatus,
@@ -1013,11 +1013,18 @@ export function OrdersTable({
     selectedOZ,
   ]);
 
-  // Helper function for date checking
-  const isOrderInDate = (order: OrderData, date: Date) => {
-    const orderDate = new Date(order.date);
-    return orderDate.toDateString() === date.toDateString();
-  };
+  // When date is selected, clear the period tab
+  useEffect(() => {
+    if (date) {
+      setActiveTab("");
+    }
+  }, [date]);
+
+  // // Helper function for date checking
+  // const isOrderInDate = (order: Order, date: Date) => {
+  //   const orderDate = new Date(order.date);
+  //   return orderDate.toDateString() === date.toDateString();
+  // };
 
   const getDateFilteredOrders = (
     orders: Order[],
@@ -1034,25 +1041,20 @@ export function OrdersTable({
   };
 
   const calculateTotalQuantityForPeriod = (
-    productId: string,
-    period:
-      | "today"
-      | "tomorrow"
-      | "afterTomorrow"
-      | "week"
-      | "nextWeek"
-      | "month"
-      | "lastMonth"
-  ): number => {
-    const dateFiltered = getDateFilteredOrders(
-      (orders || []) as unknown as Order[],
-      period
-    );
-    return dateFiltered.reduce((total, order) => {
-      const quantity = order.order_items
-        .filter((item) => item.product_id.toString() === productId)
-        .reduce((sum, item) => sum + item.quantity, 0);
-      return total + quantity;
+    orders: Order[],
+    productId: string | null
+  ) => {
+    if (!productId) return 0;
+
+    return orders.reduce((total, order) => {
+      const orderItems =
+        order.order_items?.filter(
+          (item) => item.product_id && item.product_id.toString() === productId
+        ) || [];
+
+      return (
+        total + orderItems.reduce((sum, item) => sum + (item.quantity || 0), 0)
+      );
     }, 0);
   };
 
@@ -1304,15 +1306,8 @@ export function OrdersTable({
                           {" "}
                           <Badge variant="outline" className="border-green-500">
                             {calculateTotalQuantityForPeriod(
-                              product.id.toString(),
-                              activeTab as
-                                | "today"
-                                | "tomorrow"
-                                | "afterTomorrow"
-                                | "week"
-                                | "nextWeek"
-                                | "month"
-                                | "lastMonth"
+                              (orders || []) as unknown as Order[],
+                              product.id.toString()
                             )}{" "}
                             ks
                           </Badge>
@@ -1780,6 +1775,13 @@ function OrderTableContent({
     estimateSize: () => 45, // Approximate height of each row
     overscan: 10, // Number of items to render outside of the visible area
   });
+
+  const selectedOrders = table
+    .getFilteredRowModel()
+    .rows.filter((row) => row.getIsSelected())
+    .map((row) => row.original);
+
+  console.log("Selected orders:", selectedOrders);
 
   return (
     <div className="border rounded-md print:hidden">
