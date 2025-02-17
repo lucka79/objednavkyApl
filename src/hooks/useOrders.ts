@@ -108,6 +108,12 @@ const fetchOrdersInBatches = async () => {
         status,
         paid_by,
         total,
+        driver_id,
+        crateBig,
+        crateSmall,
+        crateBigReceived,
+        crateSmallReceived,
+        note,
         user:profiles!orders_user_id_fkey (*),
         driver:profiles!orders_driver_id_fkey (*)
       `)
@@ -742,7 +748,8 @@ export const fetchOrdersForPrinting = async (orderIds: number[]) => {
         ),
         driver:profiles!orders_driver_id_fkey (
           id,
-          full_name
+          full_name,
+          role
         ),
         order_items (
           id,

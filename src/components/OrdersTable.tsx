@@ -90,6 +90,7 @@ import { PrintReportBuyerOrders } from "./PrintReportBuyerOrders";
 import { PrintReportProducts } from "./PrintReportProducts";
 import { PrintReportBuyersSummary } from "./PrintReportBuyersSummary";
 import { PrintCategoryBagets } from "./PrintCategoryBagets";
+import { useQueryClient } from "@tanstack/react-query";
 
 const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
   ({ orders }, ref) => (
@@ -922,6 +923,7 @@ export function OrdersTable({
 }: OrdersTableProps) {
   // const [selectedOrders] = useState<Order[]>([]);
 
+  const queryClient = useQueryClient();
   const { data: orders, error, isLoading } = fetchAllOrders();
   const [globalFilter, setGlobalFilter] = useState("");
   const [date, setDate] = useState<Date>();
@@ -1012,13 +1014,14 @@ export function OrdersTable({
       filtered = filtered.filter((order) => order.user?.role === selectedRole);
     }
 
-    // Add driver filtering
+    // Fix driver filtering
     if (selectedDriver !== "all") {
-      filtered = filtered.filter((order) =>
-        selectedDriver === "none"
-          ? !order.driver_id
-          : order.driver_id === selectedDriver
-      );
+      filtered = filtered.filter((order) => {
+        if (selectedDriver === "none") {
+          return !order.driver_id;
+        }
+        return order.driver_id === selectedDriver;
+      });
     }
 
     if (selectedUser !== "all") {
@@ -1091,6 +1094,22 @@ export function OrdersTable({
   }, [products, searchQuery]);
 
   const { user: authUser } = useAuthStore();
+
+  // Add refetch interval effect
+  useEffect(() => {
+    // Refetch orders every 30 seconds while component is mounted
+    const interval = setInterval(() => {
+      console.log("Periodic refetch of orders table");
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    }, 30000); // 30 seconds
+
+    // Cleanup on unmount
+    return () => {
+      console.log("OrdersTable unmounted - cleaning up");
+      clearInterval(interval);
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    };
+  }, [queryClient]);
 
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders</div>;
@@ -1401,30 +1420,11 @@ export function OrdersTable({
                     </div>
 
                     <div className="flex gap-2 print:hidden">
-                      {/* <div className="flex items-center gap-2 mr-4">
-                        <Badge variant="outline" className="text-yellow-700">
-                          {crateSums.crateSmall}
-                          <Container size={16} className="mx-1" /> ↑
-                        </Badge>
-                        <Badge variant="outline" className="text-red-800">
-                          {crateSums.crateBig}
-                          <Container size={20} className="mx-1" /> ↑
-                        </Badge>
-                        <Badge variant="secondary" className="text-yellow-700">
-                          {crateSums.crateSmallReceived}
-                          <Container size={16} className="mx-1" /> ↓
-                        </Badge>
-                        <Badge variant="secondary" className="text-red-800">
-                          {crateSums.crateBigReceived}
-                          <Container size={20} className="mx-1" /> ↓
-                        </Badge>
-                      </div> */}
-
-                      {/* <Button
+                      <Button
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          const orders =
+                          const selectedOrders =
                             table.getFilteredSelectedRowModel().rows.length > 0
                               ? table
                                   .getFilteredSelectedRowModel()
@@ -1432,18 +1432,17 @@ export function OrdersTable({
                                     (row: { original: Order }) => row.original
                                   )
                               : filteredPeriodOrders;
-                          printOrderTotalsByDate(orders);
+                          printOrderTotals(selectedOrders);
                         }}
                       >
                         <FileText className="h-4 w-4 mr-2" />
-                        Tisk výroby
-                      </Button> */}
-
+                        Tisk objednávek
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={async () => {
-                          const orders =
+                          const selectedOrders =
                             table.getFilteredSelectedRowModel().rows.length > 0
                               ? table
                                   .getFilteredSelectedRowModel()
@@ -1451,18 +1450,17 @@ export function OrdersTable({
                                     (row: { original: Order }) => row.original
                                   )
                               : filteredPeriodOrders;
-                          await printCategoryDonuts(orders);
+                          await printCategoryDonuts(selectedOrders);
                         }}
                       >
                         <Printer className="h-4 w-4 mr-2" />
                         Výroba koblih
                       </Button>
-
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={async () => {
-                          const orders =
+                          const selectedOrders =
                             table.getFilteredSelectedRowModel().rows.length > 0
                               ? table
                                   .getFilteredSelectedRowModel()
@@ -1470,7 +1468,7 @@ export function OrdersTable({
                                     (row: { original: Order }) => row.original
                                   )
                               : filteredPeriodOrders;
-                          await printCategorySweets(orders);
+                          await printCategorySweets(selectedOrders);
                         }}
                       >
                         <Printer className="h-4 w-4 mr-2" />
@@ -1480,7 +1478,7 @@ export function OrdersTable({
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          const orders =
+                          const selectedOrders =
                             table.getFilteredSelectedRowModel().rows.length > 0
                               ? table
                                   .getFilteredSelectedRowModel()
@@ -1488,7 +1486,7 @@ export function OrdersTable({
                                     (row: { original: Order }) => row.original
                                   )
                               : filteredPeriodOrders;
-                          printCategoryBagets(orders);
+                          printCategoryBagets(selectedOrders);
                         }}
                       >
                         <Printer className="h-4 w-4 mr-2" />
@@ -1498,7 +1496,7 @@ export function OrdersTable({
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          const orders =
+                          const selectedOrders =
                             table.getFilteredSelectedRowModel().rows.length > 0
                               ? table
                                   .getFilteredSelectedRowModel()
@@ -1506,7 +1504,7 @@ export function OrdersTable({
                                     (row: { original: Order }) => row.original
                                   )
                               : filteredPeriodOrders;
-                          printProductSummary(orders);
+                          printProductSummary(selectedOrders);
                         }}
                       >
                         <Printer className="h-4 w-4 mr-2" />
@@ -1517,7 +1515,7 @@ export function OrdersTable({
                         <Select
                           defaultValue=""
                           onValueChange={(value) => {
-                            const orders =
+                            const selectedOrders =
                               table.getFilteredSelectedRowModel().rows.length >
                               0
                                 ? table
@@ -1529,13 +1527,13 @@ export function OrdersTable({
 
                             switch (value) {
                               case "orders":
-                                printReportBuyerOrders(orders);
+                                printReportBuyerOrders(selectedOrders);
                                 break;
                               case "products":
-                                printReportProducts(orders);
+                                printReportProducts(selectedOrders);
                                 break;
                               case "buyers":
-                                printReportBuyersSummary(orders);
+                                printReportBuyersSummary(selectedOrders);
                                 break;
                             }
                           }}
@@ -1561,7 +1559,7 @@ export function OrdersTable({
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            const orders =
+                            const selectedOrders =
                               table.getFilteredSelectedRowModel().rows.length >
                               0
                                 ? table
@@ -1586,7 +1584,7 @@ export function OrdersTable({
                                   <body>
                                     ${ReactDOMServer.renderToString(
                                       <OrdersTableSummary
-                                        orders={orders}
+                                        orders={selectedOrders}
                                         isAdmin={authUser?.role === "admin"}
                                       />
                                     )}
@@ -1600,26 +1598,6 @@ export function OrdersTable({
                         >
                           <FileText className="h-4 w-4 mr-2" />
                           Tisk přehledu
-                        </Button>
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const orders =
-                              table.getFilteredSelectedRowModel().rows.length >
-                              0
-                                ? table
-                                    .getFilteredSelectedRowModel()
-                                    .rows.map(
-                                      (row: { original: Order }) => row.original
-                                    )
-                                : filteredPeriodOrders;
-                            printOrderTotals(orders);
-                          }}
-                        >
-                          <FileText className="h-4 w-4 mr-2" />
-                          Tisk objednávek
                         </Button>
                       </div>
                     </div>
