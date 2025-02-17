@@ -6,11 +6,7 @@ import {
   ColumnDef,
   flexRender,
 } from "@tanstack/react-table";
-import {
-  fetchAllOrders,
-  useDeleteOrder,
-  fetchOrdersForPrinting,
-} from "@/hooks/useOrders";
+import { fetchAllOrders, useDeleteOrder } from "@/hooks/useOrders";
 import { Order } from "../../types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -298,12 +294,12 @@ const columns: ColumnDef<Order>[] = [
   {
     accessorKey: "total",
     header: () => {
-      const { user: authUser } = useAuthStore();
-      return authUser?.role === "admin" ? <div className=""></div> : null;
+      const user = useAuthStore((state) => state.user);
+      return user?.role === "admin" ? <div className=""></div> : null;
     },
     cell: ({ row }) => {
-      const { user: authUser } = useAuthStore();
-      return authUser?.role === "admin" ? (
+      const user = useAuthStore((state) => state.user);
+      return user?.role === "admin" ? (
         <div className="w-[80px] text-right">
           {row.original.total.toFixed(2)} Kč
         </div>
@@ -395,9 +391,9 @@ const columns: ColumnDef<Order>[] = [
       const order = row.original;
       const deleteOrder = useDeleteOrder();
       const { toast } = useToast();
-      const { user: authUser } = useAuthStore();
+      const user = useAuthStore((state) => state.user);
       const { unlockOrder, lockOrder, isOrderUnlocked } = useOrderLockStore();
-      const canUnlock = authUser?.role === "admin";
+      const canUnlock = user?.role === "admin";
 
       const toggleLock = () => {
         if (!canUnlock) return;
@@ -451,7 +447,7 @@ const columns: ColumnDef<Order>[] = [
               )}
             </Button>
           )}
-          {authUser?.role === "admin" && (
+          {user?.role === "admin" && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
@@ -505,7 +501,7 @@ function PrintSummary({
   period: string;
   globalFilter: string;
 }) {
-  const { user: authUser } = useAuthStore();
+  const authUser = useAuthStore((state) => state.user);
   const isAdmin = authUser?.role === "admin";
 
   // Filter orders based on globalFilter first
@@ -708,97 +704,82 @@ const printProductSummary = (orders: Order[]) => {
   printWindow.print();
 };
 
-const printCategoryBagets = async (orders: Order[]) => {
-  try {
-    const orderIds = orders.map((order) => order.id);
-    const completeOrders = await fetchOrdersForPrinting(orderIds);
+const printCategoryDonuts = (orders: Order[]) => {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return;
 
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Výroba baget</title>
-          <style>
-            @page { size: A4; }
-            body { font-family: Arial, sans-serif; padding: 10px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-          </style>
-          </head>
-          <body>
-            ${ReactDOMServer.renderToString(<PrintCategoryBagets orders={completeOrders} />)}
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
-    }
-  } catch (error) {
-    console.error("Error printing bagets:", error);
-  }
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Tisk výroby koblih</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        </style>
+      </head>
+      <body>
+        <div id="print-content">
+          ${ReactDOMServer.renderToString(<PrintDonutSummary orders={orders} />)}
+        </div>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+  printWindow.print();
 };
 
-const printCategoryDonuts = async (orders: Order[]) => {
-  try {
-    const orderIds = orders.map((order) => order.id);
-    const completeOrders = await fetchOrdersForPrinting(orderIds);
+const printCategorySweets = (orders: Order[]) => {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return;
 
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-        <head>
-          <title>Výroba koblih</title>
-          <style>
-            @page { size: A4; }
-            body { font-family: Arial, sans-serif; padding: 10px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-          </style>
-        </head>
-          <body>
-            ${ReactDOMServer.renderToString(<PrintDonutSummary orders={completeOrders} />)}
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
-    }
-  } catch (error) {
-    console.error("Error printing donuts:", error);
-  }
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Tisk výroby zákusků a čajového</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        </style>
+      </head>
+      <body>
+        <div id="print-content">
+          ${ReactDOMServer.renderToString(<PrintSweetSummary orders={orders} />)}
+        </div>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+  printWindow.print();
 };
 
-const printCategorySweets = async (orders: Order[]) => {
-  try {
-    const orderIds = orders.map((order) => order.id);
-    const completeOrders = await fetchOrdersForPrinting(orderIds);
+const printCategoryBagets = (orders: Order[]) => {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return;
 
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-        <head>
-          <title>Výroba dortů a čajových výrobků</title>
-          <style>
-            @page { size: A4; }
-            body { font-family: Arial, sans-serif; padding: 10px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-          </style>
-        </head>
-          <body>
-            ${ReactDOMServer.renderToString(<PrintSweetSummary orders={completeOrders} />)}
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
-    }
-  } catch (error) {
-    console.error("Error printing sweets:", error);
-  }
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Tisk výroby baget</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        </style>
+      </head>
+      <body>
+        <div id="print-content">
+          ${ReactDOMServer.renderToString(<PrintCategoryBagets orders={orders} />)}
+        </div>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+  printWindow.print();
 };
 
 const printReportBuyerOrders = (orders: Order[]) => {
@@ -879,48 +860,10 @@ const printReportBuyersSummary = (orders: Order[]) => {
   printWindow.print();
 };
 
-const printOrderTotals = async (orders: Order[]) => {
-  try {
-    // Get the IDs of orders to print
-    const orderIds = orders.map((order) => order.id);
-
-    // Fetch complete order data for printing
-    const completeOrders = await fetchOrdersForPrinting(orderIds);
-
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Objednávky</title>
-          <style>
-            @page { size: A4; }
-            body { font-family: Arial, sans-serif; padding: 10px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-          </style>
-        </head>
-        <body>
-          <div id="print-content">
-            ${ReactDOMServer.renderToString(<OrderPrint orders={completeOrders} />)}
-          </div>
-        </body>
-      </html>
-    `);
-
-    printWindow.document.close();
-    printWindow.print();
-  } catch (error) {
-    console.error("Error preparing print data:", error);
-    // You might want to show a toast or other error notification here
-  }
-};
-
 export function OrdersTable({
   selectedProductId: initialProductId,
 }: OrdersTableProps) {
-  // const [selectedOrders] = useState<Order[]>([]);
+  const [selectedOrders] = useState<Order[]>([]);
 
   const { data: orders, error, isLoading } = fetchAllOrders();
   const [globalFilter, setGlobalFilter] = useState("");
@@ -936,7 +879,6 @@ export function OrdersTable({
   const [selectedDriver, setSelectedDriver] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const { data: driverUsers } = useDriverUsers();
-  const [table, setTable] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState("all");
   const [userSearchQuery, setUserSearchQuery] = useState("");
@@ -984,70 +926,69 @@ export function OrdersTable({
 
   // Update filteredOrders to include role filtering
   const filteredOrders = useMemo(() => {
-    let filtered = orders || [];
+    if (!orders) return [];
 
-    if (date) {
-      filtered = filterOrdersByDate(filtered, "today", date);
-    }
+    return orders
+      .filter((order) => {
+        // Combine all filter conditions into a single pass
+        if (date && !isOrderInDate(order, date)) return false;
 
-    if (selectedProductId && selectedProductId !== "all") {
-      filtered = filtered.filter((order) =>
-        order.order_items.some(
-          (item: { product_id: number }) =>
-            item.product_id.toString() === selectedProductId
-        )
-      );
-    }
+        if (selectedProductId && selectedProductId !== "all") {
+          const hasProduct = order.order_items.some(
+            (item) => item.product_id.toString() === selectedProductId
+          );
+          if (!hasProduct) return false;
+        }
 
-    if (selectedPaidBy !== "all") {
-      filtered = filtered.filter((order) => order.paid_by === selectedPaidBy);
-    }
+        if (selectedPaidBy !== "all" && order.paid_by !== selectedPaidBy)
+          return false;
 
-    if (selectedStatus !== "all") {
-      filtered = filtered.filter((order) => order.status === selectedStatus);
-    }
+        if (selectedStatus !== "all" && order.status !== selectedStatus)
+          return false;
 
-    // Add role filtering
-    if (selectedRole !== "all") {
-      filtered = filtered.filter((order) => order.user?.role === selectedRole);
-    }
+        if (selectedRole !== "all" && order.user?.role !== selectedRole)
+          return false;
 
-    // Add driver filtering
-    if (selectedDriver !== "all") {
-      filtered = filtered.filter((order) =>
-        selectedDriver === "none"
-          ? !order.driver_id
-          : order.driver_id === selectedDriver
-      );
-    }
+        if (selectedDriver !== "all") {
+          if (selectedDriver === "none" && order.driver_id) return false;
+          if (selectedDriver !== "none" && order.driver_id !== selectedDriver)
+            return false;
+        }
 
-    if (selectedUser !== "all") {
-      filtered = filtered.filter(
-        (order) => order.user.full_name === selectedUser
-      );
-    }
+        if (selectedUser !== "all" && order.user.full_name !== selectedUser)
+          return false;
 
-    // Update OZ filter to include "no OZ" option
-    if (selectedOZ === "oz") {
-      filtered = filtered.filter((order) => order.user?.oz === true);
-    } else if (selectedOZ === "mo_partners") {
-      filtered = filtered.filter((order) => order.user?.mo_partners === true);
-    } else if (selectedOZ === "no_oz") {
-      filtered = filtered.filter((order) => order.user?.oz === false);
-    }
+        if (selectedOZ === "oz" && !order.user?.oz) return false;
+        if (selectedOZ === "mo_partners" && !order.user?.mo_partners)
+          return false;
+        if (selectedOZ === "no_oz" && order.user?.oz !== false) return false;
 
-    return filtered;
+        return true;
+      })
+      .sort((a, b) => {
+        // Sort by full_name
+        return (a.user.full_name ?? "").localeCompare(
+          b.user.full_name ?? "",
+          "cs"
+        );
+      });
   }, [
     orders,
-    selectedProductId,
     date,
+    selectedProductId,
     selectedPaidBy,
+    selectedStatus,
     selectedRole,
     selectedDriver,
-    selectedStatus,
     selectedUser,
     selectedOZ,
   ]);
+
+  // Helper function for date checking
+  const isOrderInDate = (order: Order, date: Date) => {
+    const orderDate = new Date(order.date);
+    return orderDate.toDateString() === date.toDateString();
+  };
 
   const getDateFilteredOrders = (
     orders: Order[],
@@ -1083,6 +1024,44 @@ export function OrdersTable({
     }, 0);
   };
 
+  const printOrderTotals = (orders: Order[]) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Objednávky</title>
+          <style>
+          @page { size: A4;  }
+            body { font-family: Arial; sans-serif; padding: 10px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+          </style>
+        </head>
+        <body>
+          <div id="print-content">
+            ${ReactDOMServer.renderToString(<OrderPrint orders={orders} />)}
+          </div>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.print();
+  };
+
+  // 1. Add print state
+  const [isPrinting] = useState(false);
+  const productPrintRef = useRef<HTMLDivElement>(null);
+  const authUser = useAuthStore((state) => state.user);
+
+  // 2. Update print handler
+  // const handleProductPrint = useReactToPrint({
+  //   content: () => productPrintRef.current,
+  //   onAfterPrint: () => setIsPrinting(false),
+  // });
+
   const filteredProducts = useMemo(() => {
     if (!searchQuery) return products;
     return products?.filter((product) =>
@@ -1090,7 +1069,28 @@ export function OrdersTable({
     );
   }, [products, searchQuery]);
 
-  const { user: authUser } = useAuthStore();
+  // Near your other state declarations
+  const [deferredValue, setDeferredValue] = useState<Order[]>([]);
+
+  // Add this effect after your filteredOrders useMemo
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDeferredValue(filteredOrders);
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [filteredOrders]);
+
+  // Rename the table instance
+  const tableInstance = useReactTable({
+    data: deferredValue,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    state: {
+      globalFilter,
+    },
+  });
 
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders</div>;
@@ -1442,16 +1442,17 @@ export function OrdersTable({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={async () => {
+                        onClick={() => {
                           const orders =
-                            table.getFilteredSelectedRowModel().rows.length > 0
-                              ? table
+                            tableInstance.getFilteredSelectedRowModel().rows
+                              .length > 0
+                              ? tableInstance
                                   .getFilteredSelectedRowModel()
                                   .rows.map(
                                     (row: { original: Order }) => row.original
                                   )
                               : filteredPeriodOrders;
-                          await printCategoryDonuts(orders);
+                          printCategoryDonuts(orders);
                         }}
                       >
                         <Printer className="h-4 w-4 mr-2" />
@@ -1461,16 +1462,17 @@ export function OrdersTable({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={async () => {
+                        onClick={() => {
                           const orders =
-                            table.getFilteredSelectedRowModel().rows.length > 0
-                              ? table
+                            tableInstance.getFilteredSelectedRowModel().rows
+                              .length > 0
+                              ? tableInstance
                                   .getFilteredSelectedRowModel()
                                   .rows.map(
                                     (row: { original: Order }) => row.original
                                   )
                               : filteredPeriodOrders;
-                          await printCategorySweets(orders);
+                          printCategorySweets(orders);
                         }}
                       >
                         <Printer className="h-4 w-4 mr-2" />
@@ -1481,8 +1483,9 @@ export function OrdersTable({
                         size="sm"
                         onClick={() => {
                           const orders =
-                            table.getFilteredSelectedRowModel().rows.length > 0
-                              ? table
+                            tableInstance.getFilteredSelectedRowModel().rows
+                              .length > 0
+                              ? tableInstance
                                   .getFilteredSelectedRowModel()
                                   .rows.map(
                                     (row: { original: Order }) => row.original
@@ -1492,15 +1495,16 @@ export function OrdersTable({
                         }}
                       >
                         <Printer className="h-4 w-4 mr-2" />
-                        Výroba bagety
+                        Výroba baget
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => {
                           const orders =
-                            table.getFilteredSelectedRowModel().rows.length > 0
-                              ? table
+                            tableInstance.getFilteredSelectedRowModel().rows
+                              .length > 0
+                              ? tableInstance
                                   .getFilteredSelectedRowModel()
                                   .rows.map(
                                     (row: { original: Order }) => row.original
@@ -1518,9 +1522,9 @@ export function OrdersTable({
                           defaultValue=""
                           onValueChange={(value) => {
                             const orders =
-                              table.getFilteredSelectedRowModel().rows.length >
-                              0
-                                ? table
+                              tableInstance.getFilteredSelectedRowModel().rows
+                                .length > 0
+                                ? tableInstance
                                     .getFilteredSelectedRowModel()
                                     .rows.map(
                                       (row: { original: Order }) => row.original
@@ -1562,9 +1566,9 @@ export function OrdersTable({
                           size="sm"
                           onClick={() => {
                             const orders =
-                              table.getFilteredSelectedRowModel().rows.length >
-                              0
-                                ? table
+                              tableInstance.getFilteredSelectedRowModel().rows
+                                .length > 0
+                                ? tableInstance
                                     .getFilteredSelectedRowModel()
                                     .rows.map(
                                       (row: { original: Order }) => row.original
@@ -1607,9 +1611,9 @@ export function OrdersTable({
                           size="sm"
                           onClick={() => {
                             const orders =
-                              table.getFilteredSelectedRowModel().rows.length >
-                              0
-                                ? table
+                              tableInstance.getFilteredSelectedRowModel().rows
+                                .length > 0
+                                ? tableInstance
                                     .getFilteredSelectedRowModel()
                                     .rows.map(
                                       (row: { original: Order }) => row.original
@@ -1630,7 +1634,6 @@ export function OrdersTable({
                     globalFilter={globalFilter}
                     columns={columns}
                     setSelectedOrderId={setSelectedOrderId}
-                    onTableReady={(t) => setTable(t)}
                   />
                 </TabsContent>
               );
@@ -1639,11 +1642,11 @@ export function OrdersTable({
         </div>
       </Card>
 
-      {/* {isPrinting && (
+      {isPrinting && (
         <div style={{ position: "fixed", top: "-9999px", left: "-9999px" }}>
           <ProductPrintWrapper ref={productPrintRef} orders={selectedOrders} />
         </div>
-      )} */}
+      )}
     </>
   );
 }
@@ -1654,13 +1657,11 @@ function OrderTableContent({
   globalFilter,
   columns,
   setSelectedOrderId,
-  onTableReady,
 }: {
   data: Order[];
   globalFilter: string;
   columns: ColumnDef<Order>[];
   setSelectedOrderId: (id: number) => void;
-  onTableReady: (table: any) => void;
 }) {
   const [rowSelection, setRowSelection] = useState({});
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -1686,10 +1687,6 @@ function OrderTableContent({
     estimateSize: () => 45, // Approximate height of each row
     overscan: 10, // Number of items to render outside of the visible area
   });
-
-  useEffect(() => {
-    onTableReady(table);
-  }, [table, onTableReady]);
 
   return (
     <div className="border rounded-md print:hidden">

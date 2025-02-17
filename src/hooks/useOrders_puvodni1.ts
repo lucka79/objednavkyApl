@@ -718,55 +718,5 @@ export const fetchLastMonthOrders = () => {
   });
 };
 
-// New function to fetch complete order data for printing
-export const fetchOrdersForPrinting = async (orderIds: number[]) => {
-  try {
-    const { data: orders, error } = await supabase
-      .from('orders')
-      .select(`
-        id,
-        date,
-        status,
-        paid_by,
-        total,
-        note,
-        crateBig,
-        crateSmall,
-        crateBigReceived,
-        crateSmallReceived,
-        user:profiles!orders_user_id_fkey (
-          id,
-          full_name,
-          role,
-          address
-        ),
-        driver:profiles!orders_driver_id_fkey (
-          id,
-          full_name
-        ),
-        order_items (
-          id,
-          quantity,
-          price,
-          product_id,
-          product:products (
-            id,
-            name,
-            code,
-            price,
-            category_id
-          )
-        )
-      `)
-      .in('id', orderIds);
-
-    if (error) throw error;
-    return orders as unknown as Order[];
-  } catch (error) {
-    console.error('Error fetching complete orders:', error);
-    throw error;
-  }
-};
-
 
 

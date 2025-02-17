@@ -12,13 +12,13 @@ export const PrintCategoryBagets = forwardRef<
   const productSummary = orders.reduce(
     (acc, order) => {
       order.order_items.forEach((item) => {
-        // Only process items from category 4
         if (item.product.category_id === 9) {
           if (!acc[item.product_id]) {
             acc[item.product_id] = {
               name: item.product.name,
               quantity: 0,
               total: 0,
+              category_id: item.product.category_id || 0,
             };
           }
           acc[item.product_id].quantity += item.quantity;
@@ -27,11 +27,14 @@ export const PrintCategoryBagets = forwardRef<
       });
       return acc;
     },
-    {} as Record<string, { name: string; quantity: number; total: number }>
+    {} as Record<
+      string,
+      { name: string; quantity: number; total: number; category_id: number }
+    >
   );
 
   return (
-    <div ref={ref} style={{ fontSize: "10px", margin: "0 10px" }}>
+    <div ref={ref} style={{ fontSize: "12px", margin: "0 10px" }}>
       <h2 className="text-xl font-bold mb-4">Výroba baget</h2>
       <table className="w-[60%] mb-4">
         <thead>
