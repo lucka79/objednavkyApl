@@ -68,6 +68,8 @@ export const fetchOrdersByUserId = (userId: string) => {
 
 // order by id
 export const useFetchOrderById = (orderId: number | null) => {
+  const updateOrderTotal = useUpdateOrderTotal();
+  
   return useQuery({
     queryKey: ['order', orderId],
     queryFn: async () => {
@@ -89,6 +91,18 @@ export const useFetchOrderById = (orderId: number | null) => {
       if (error) {
         console.error('Error fetching order:', error);
         throw error;
+      }
+
+      // If we have data, check if total needs updating
+      if (data && data[0]) {
+        const calculatedTotal = data[0].order_items.reduce(
+          (sum: number, item: OrderItem) => sum + (item.quantity * item.price),
+          0
+        );
+
+        if (Math.abs(calculatedTotal - (data[0].total || 0)) > 0.01) {
+          updateOrderTotal.mutate(orderId);
+        }
       }
       
       return data;
@@ -881,7 +895,8 @@ export const fetchOrdersForPrinting = async (orderIds: number[]) => {
           )
         )
       `)
-      .in('id', orderIds);
+      .in('id', orderIds)
+      .order('user(full_name)', { ascending: true });
 
     if (error) throw error;
     return orders as unknown as Order[];
@@ -889,6 +904,53 @@ export const fetchOrdersForPrinting = async (orderIds: number[]) => {
     console.error('Error fetching complete orders:', error);
     throw error;
   }
+};
+
+export const useUpdateOrderTotal = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (orderId: number) => {
+      // First get the order details with items
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          total,
+          order_items (
+            quantity,
+            price
+          )
+        `)
+        .eq('id', orderId)
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Calculate the actual total from order items
+      const calculatedTotal = order.order_items.reduce(
+        (sum, item) => sum + (item.quantity * item.price),
+        0
+      );
+
+      // If there's a difference, update the order total
+      if (Math.abs(calculatedTotal - (order.total || 0)) > 0.01) {
+        console.log(`Updating order ${orderId} total from ${order.total} to ${calculatedTotal}`);
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update({ total: calculatedTotal })
+          .eq('id', orderId);
+
+        if (updateError) throw updateError;
+      }
+
+      return calculatedTotal;
+    },
+    onSuccess: (_, orderId) => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['order', orderId] });
+    },
+  });
 };
 
 

@@ -1053,31 +1053,42 @@ export function OrdersExpeditionTable({
     }, 0);
   };
 
-  const printOrderTotals = (orders: Order[]) => {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
+  const printOrderTotals = async (orders: Order[]) => {
+    try {
+      // Get the IDs of orders to print
+      const orderIds = orders.map((order) => order.id);
 
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Objednávky</title>
-          <style>
-          @page { size: A4;  }
-            body { font-family: Arial; sans-serif; padding: 10px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-          </style>
-        </head>
-        <body>
-          <div id="print-content">
-            ${ReactDOMServer.renderToString(<OrderPrint orders={orders} />)}
-          </div>
-        </body>
-      </html>
-    `);
+      // Fetch complete order data for printing
+      const completeOrders = await fetchOrdersForPrinting(orderIds);
 
-    printWindow.document.close();
-    printWindow.print();
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) return;
+
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Objednávky</title>
+            <style>
+              @page { size: A4; }
+              body { font-family: Arial, sans-serif; padding: 10px; }
+              table { width: 100%; border-collapse: collapse; }
+              th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+            </style>
+          </head>
+          <body>
+            <div id="print-content">
+              ${ReactDOMServer.renderToString(<OrderPrint orders={completeOrders} />)}
+            </div>
+          </body>
+        </html>
+      `);
+
+      printWindow.document.close();
+      printWindow.print();
+    } catch (error) {
+      console.error("Error preparing print data:", error);
+      // You might want to show a toast or other error notification here
+    }
   };
 
   // 1. Add print state
