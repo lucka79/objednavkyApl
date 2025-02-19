@@ -171,7 +171,7 @@ export const fetchAllOrders = () => {
   return useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
-      // First fetch orders with essential data
+      // First get orders
       const { data: orders, error } = await supabase
         .from('orders')
         .select(`
@@ -201,26 +201,39 @@ export const fetchAllOrders = () => {
 
       if (error) throw error;
 
-      // Then fetch order items separately
+      // Then get all items for these orders in chunks to avoid query size limits
       const orderIds = orders.map(order => order.id);
-      const { data: orderItems, error: itemsError } = await supabase
-        .from('order_items')
-        .select(`
-          *,
-          product:products (
-            id,
-            name,
-            price
-          )
-        `)
-        .in('order_id', orderIds);
+      const chunkSize = 100;
+      const orderItemsPromises = [];
+      
+      for (let i = 0; i < orderIds.length; i += chunkSize) {
+        const chunk = orderIds.slice(i, i + chunkSize);
+        orderItemsPromises.push(
+          supabase
+            .from('order_items')
+            .select(`
+              *,
+              product:products (
+                id,
+                name,
+                price
+              )
+            `)
+            .in('order_id', chunk)
+        );
+      }
 
-      if (itemsError) throw itemsError;
+      const itemsResults = await Promise.all(orderItemsPromises);
+      const allOrderItems = itemsResults.reduce<any[]>((acc, { data }) => 
+        acc.concat(data || []), 
+      []);
 
-      // Combine the data
+      // Combine orders with their items
       const data = orders.map(order => ({
         ...order,
-        order_items: orderItems.filter(item => item.order_id === order.id)
+        order_items: allOrderItems.filter(item => 
+          Number(item.order_id) === Number(order.id)
+        )
       }));
 
       return data as unknown as Order[];
@@ -263,7 +276,6 @@ export const fetchExpeditionOrders = () => {
   return useQuery({
     queryKey: ['expeditionOrders'],
     queryFn: async () => {
-      // First fetch orders with essential data
       const { data: orders, error } = await supabase
         .from('orders')
         .select(`
@@ -291,26 +303,38 @@ export const fetchExpeditionOrders = () => {
 
       if (error) throw error;
 
-      // Then fetch order items separately
+      // Fetch items in chunks
       const orderIds = orders.map(order => order.id);
-      const { data: orderItems, error: itemsError } = await supabase
-        .from('order_items')
-        .select(`
-          *,
-          product:products (
-            id,
-            name,
-            price
-          )
-        `)
-        .in('order_id', orderIds);
+      const chunkSize = 100;
+      const orderItemsPromises = [];
+      
+      for (let i = 0; i < orderIds.length; i += chunkSize) {
+        const chunk = orderIds.slice(i, i + chunkSize);
+        orderItemsPromises.push(
+          supabase
+            .from('order_items')
+            .select(`
+              *,
+              product:products (
+                id,
+                name,
+                price
+              )
+            `)
+            .in('order_id', chunk)
+        );
+      }
 
-      if (itemsError) throw itemsError;
+      const itemsResults = await Promise.all(orderItemsPromises);
+      const allOrderItems = itemsResults.reduce<any[]>((acc, { data }) => 
+        acc.concat(data || []), 
+      []);
 
-      // Combine the data
       const data = orders.map(order => ({
         ...order,
-        order_items: orderItems.filter(item => item.order_id === order.id)
+        order_items: allOrderItems.filter(item => 
+          Number(item.order_id) === Number(order.id)
+        )
       }));
 
       return data as unknown as Order[];

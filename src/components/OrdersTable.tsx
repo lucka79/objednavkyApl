@@ -339,51 +339,40 @@ const columns: ColumnDef<Order>[] = [
     accessorKey: "status",
     header: () => <div className=""></div>,
     cell: ({ row }) => {
-      const allCount = row.original.order_items?.length || 0;
-      row.original.order_items?.filter((item) => item.checked).length || 0;
-      const checkedCount =
-        row.original.order_items?.filter((item) => item.checked).length || 0;
-      const uncheckedCount =
-        row.original.order_items?.filter((item) => !item.checked).length || 0;
-      const zeroQuantityCount =
-        row.original.order_items?.filter((item) => item.quantity === 0)
-          .length || 0;
-      const nonZeroQuantityCount =
-        row.original.order_items?.filter((item) => item.quantity > 0).length ||
-        0;
+      const order = row.original;
+      console.log(`Order ${order.id}:`, {
+        hasOrderItems: Boolean(order.order_items),
+        itemsLength: order.order_items?.length,
+        date: order.date,
+        items: order.order_items,
+      });
+
+      const checkedItems =
+        order.order_items?.filter((item) => item.checked).length || 0;
+      const totalItems = order.order_items?.length || 0;
 
       return (
         <div className="w-[220px] text-right flex justify-end gap-2 items-center">
-          {checkedCount > 0 && (
-            <Badge variant="outline" className="border-green-700 bg-green-400">
-              {checkedCount} / {nonZeroQuantityCount}
-            </Badge>
-          )}
-          {uncheckedCount > 0 && (
-            <Badge variant="outline" className="border-amber-700 bg-amber-400">
-              {uncheckedCount}
-            </Badge>
-          )}
-          {zeroQuantityCount > 0 && (
-            <Badge variant="outline" className="border-red-700 bg-red-400">
-              {zeroQuantityCount} / {allCount}
-              {/* <Flag size={14} /> */}
-            </Badge>
+          {totalItems > 0 && (
+            <>
+              <Badge variant="outline" className="border-green-500">
+                {checkedItems}/{totalItems}
+              </Badge>
+            </>
           )}
           <Badge
             variant="outline"
             className={cn(
-              row.original.status === "Expedice R" ||
-                row.original.status === "New"
+              order.status === "Expedice R"
                 ? "bg-orange-600 text-white"
-                : row.original.status === "Expedice O"
+                : order.status === "Expedice O"
                   ? "bg-orange-800 text-white"
-                  : row.original.status === "Přeprava"
+                  : order.status === "Přeprava"
                     ? "bg-sky-600 text-white"
                     : ""
             )}
           >
-            {row.original.status}
+            {order.status}
           </Badge>
         </div>
       );
