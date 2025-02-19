@@ -49,7 +49,7 @@ import { AddFavoriteOrderDialog } from "./AddFavoriteOrderDialog";
 import { supabase, useAuthStore } from "@/lib/supabase";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { useDeleteFavoriteOrder } from "@/hooks/useFavorites";
-import { useUpdateStoredItems } from "@/hooks/useFavorites";
+// import { useUpdateStoredItems } from "@/hooks/useFavorites";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -436,7 +436,7 @@ export function FavoriteOrdersTable({
 
   const { mutateAsync: insertOrder } = useInsertOrder();
   const { mutateAsync: insertOrderItems } = useInsertOrderItems();
-  const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
+  // const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
 
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders: {error.message}</div>;
@@ -538,7 +538,6 @@ export function FavoriteOrdersTable({
           0
         );
 
-        // Create new order directly without checking for duplicates
         const newOrder = await insertOrder({
           user_id: userId,
           date: new Date(format(date, "yyyy-MM-dd")),
@@ -549,7 +548,6 @@ export function FavoriteOrdersTable({
           driver_id: favoriteOrder.driver_id,
         });
 
-        // Map items using manual prices when available
         const orderItems = favoriteOrder.favorite_items.map(
           (item: FavoriteItem) => ({
             order_id: newOrder.id,
@@ -568,16 +566,6 @@ export function FavoriteOrdersTable({
 
         if (orderItems.length > 0) {
           await insertOrderItems(orderItems);
-
-          // Update stored items for this user
-          await updateStoredItems({
-            userId,
-            items: favoriteOrder.favorite_items.map((item: FavoriteItem) => ({
-              product_id: item.product_id,
-              quantity: item.quantity,
-              increment: true, // Add this flag to indicate we want to increment
-            })),
-          });
         }
       }
 

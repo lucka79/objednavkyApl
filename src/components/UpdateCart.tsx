@@ -18,7 +18,7 @@ import {
   useUpdateOrder,
   useDeleteOrderItem,
   useOrderItemHistory,
-  useUpdateStoredItems,
+  // useUpdateStoredItems,
 } from "@/hooks/useOrders";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -122,14 +122,14 @@ export default function UpdateCart({
   items,
   orderId,
   onUpdate,
-  selectedUserId,
+  // selectedUserId,
   order,
 }: UpdateCartProps) {
   const [orderItems, setOrderItems] = useState<OrderItem[]>(items);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const { mutate: updateOrderItems } = useUpdateOrderItems();
   const { mutate: updateOrder } = useUpdateOrder();
-  const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
+  // const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
   const { mutateAsync: deleteOrderItem } = useDeleteOrderItem();
   const { toast } = useToast();
   const user = useAuthStore((state) => state.user);
@@ -233,8 +233,10 @@ export default function UpdateCart({
     productId: number,
     newQuantity: number
   ) => {
+    console.log("Starting quantity update...");
     // Check both invoice lock and manual lock status
     if (isLocked || order.isLocked) {
+      console.log("Order is locked, showing lock toast");
       toast({
         title: "Order is locked",
         description: "This order is locked and cannot be modified.",
@@ -249,7 +251,10 @@ export default function UpdateCart({
       const currentItem = orderItems.find((item) => item.id === itemId);
       if (!currentItem) return;
 
-      const quantityDifference = newQuantity - currentItem.quantity;
+      console.log("Current item:", currentItem);
+      console.log(
+        `Updating quantity from ${currentItem.quantity} to ${newQuantity}`
+      );
 
       // Update the order item quantity
       await updateOrderItems({
@@ -258,21 +263,6 @@ export default function UpdateCart({
           quantity: newQuantity,
         },
       });
-
-      // Update stored items if quantity changed
-      if (quantityDifference !== 0) {
-        await updateStoredItems({
-          userId: selectedUserId,
-          items: [
-            {
-              product_id: productId,
-              // When increasing order quantity (positive difference), increase stored items
-              // When decreasing order quantity (negative difference), decrease stored items
-              quantity: -quantityDifference,
-            },
-          ],
-        });
-      }
 
       // Update local state
       const updatedItems = orderItems.map((item) =>
@@ -311,21 +301,31 @@ export default function UpdateCart({
           updateInvoiceTotal(invoice.id);
         }
       }
+
+      // Show success toast
+      console.log("Showing success toast for quantity update");
+      toast({
+        title: "Změna množství",
+        description: `${currentItem.product.name}: ${currentItem.quantity} → ${newQuantity}`,
+      });
     } catch (error) {
       console.error("Failed to update quantity:", error);
+      console.log("Showing error toast for quantity update");
       toast({
-        title: "Error",
-        description: "Failed to update quantity and total",
+        title: "Chyba",
+        description: "Nepodařilo se upravit množství a celkovou částku",
         variant: "destructive",
       });
     }
   };
 
   const handleCheckChange = async (itemId: number, checked: boolean) => {
+    console.log("Starting status update...");
     if (
       isReadOnly &&
       !(user?.role === "store" && order?.status === "Přeprava")
     ) {
+      console.log("Order is readonly, showing lock toast");
       toast({
         title: "Order is locked",
         description: "This order is part of an invoice and cannot be modified.",
@@ -334,23 +334,62 @@ export default function UpdateCart({
       return;
     }
     try {
-      await updateOrderItems({
-        id: itemId,
-        updatedFields: {
-          checked,
-        },
+      const currentItem = orderItems.find((item) => item.id === itemId);
+      if (!currentItem) return;
+
+      console.log("Current item:", currentItem);
+      console.log(`Updating status to ${checked ? "Hotovo" : "Připravit"}`);
+
+      // Try to update the item with timeout
+      const updatePromise = new Promise(async (resolve, reject) => {
+        try {
+          await updateOrderItems({
+            id: itemId,
+            updatedFields: {
+              checked,
+            },
+          });
+          resolve(true);
+        } catch (error) {
+          reject(error);
+        }
       });
 
+      // Add timeout of 5 seconds
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(
+          () => reject(new Error("Database operation timed out")),
+          5000
+        );
+      });
+
+      await Promise.race([updatePromise, timeoutPromise]);
+
+      // If we get here, update was successful
       setOrderItems((prevItems) =>
         prevItems.map((item) =>
           item.id === itemId ? { ...item, checked } : item
         )
       );
+
+      toast({
+        title: "Změna statusu",
+        description: `${currentItem.product.name}: ${checked ? "Hotovo" : "Připravit"}`,
+      });
     } catch (error) {
       console.error("Failed to update item check status:", error);
+
+      // Revert the checkbox state in UI
+      setOrderItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === itemId ? { ...item, checked: !checked } : item
+        )
+      );
+
       toast({
-        title: "Error",
-        description: "Failed to update item status",
+        title: "Chyba",
+        description:
+          "Nepodařilo se uložit změnu statusu. Zkontrolujte připojení k internetu.",
         variant: "destructive",
       });
     }
