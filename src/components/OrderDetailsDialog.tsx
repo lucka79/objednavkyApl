@@ -44,6 +44,7 @@ import { formatPrice } from "@/lib/utils";
 import { Input } from "./ui/input";
 import { OrderPrint } from "./OrderPrint";
 import ReactDOMServer from "react-dom/server";
+import { Button } from "@/components/ui/button";
 
 // import React from "react";
 
@@ -202,7 +203,38 @@ export function OrderDetailsDialog() {
 
   const updateStatus = (status: string) => {
     if (!selectedOrderId) return;
-    updateOrder({ id: selectedOrderId, updatedFields: { status } });
+    console.log("Updating order status:", {
+      orderId: selectedOrderId,
+      oldStatus: orders?.[0]?.status,
+      newStatus: status,
+      timestamp: new Date().toISOString(),
+    });
+
+    updateOrder(
+      {
+        id: selectedOrderId,
+        updatedFields: { status },
+      },
+      {
+        onSuccess: () => {
+          console.log("Status update successful:", {
+            orderId: selectedOrderId,
+            status,
+            timestamp: new Date().toISOString(),
+          });
+          // Refetch order after successful status update
+          refetch();
+        },
+        onError: (error) => {
+          console.error("Status update failed:", {
+            orderId: selectedOrderId,
+            status,
+            error,
+            timestamp: new Date().toISOString(),
+          });
+        },
+      }
+    );
   };
 
   const updateCrates = async (
@@ -644,7 +676,7 @@ export function OrderDetailsDialog() {
                     {user?.role === "admin" && (
                       <>
                         {OrderStatusList.map((status) => (
-                          <Badge
+                          <Button
                             key={status}
                             variant={
                               order.status === status
@@ -652,10 +684,15 @@ export function OrderDetailsDialog() {
                                 : "secondary"
                             }
                             onClick={() => updateStatus(status)}
-                            className="cursor-pointer"
+                            size="sm"
+                            className={`min-w-[100px] ${
+                              order.status === status
+                                ? "bg-red-500 hover:bg-red-600"
+                                : ""
+                            }`}
                           >
                             {status}
-                          </Badge>
+                          </Button>
                         ))}
                       </>
                     )}
@@ -668,7 +705,7 @@ export function OrderDetailsDialog() {
                           "Expedice O",
                           "Přeprava",
                         ].map((status) => (
-                          <Badge
+                          <Button
                             key={status}
                             variant={
                               order.status === status
@@ -676,10 +713,15 @@ export function OrderDetailsDialog() {
                                 : "outline"
                             }
                             onClick={() => updateStatus(status)}
-                            className="cursor-pointer"
+                            size="sm"
+                            className={`min-w-[100px] ${
+                              order.status === status
+                                ? "bg-red-500 hover:bg-red-600"
+                                : ""
+                            }`}
                           >
                             {status}
-                          </Badge>
+                          </Button>
                         ))}
                       </>
                     )}
@@ -687,16 +729,21 @@ export function OrderDetailsDialog() {
                       <>
                         {["Expedice R", "Expedice O", "Přeprava"].map(
                           (status) => (
-                            <Badge
+                            <Button
                               key={status}
                               variant={
                                 order.status === status ? "default" : "outline"
                               }
                               onClick={() => updateStatus(status)}
-                              className="cursor-pointer"
+                              size="sm"
+                              className={`min-w-[100px] ${
+                                order.status === status
+                                  ? "bg-slate-900 hover:bg-slate-800 text-white"
+                                  : ""
+                              }`}
                             >
                               {status}
-                            </Badge>
+                            </Button>
                           )
                         )}
                       </>

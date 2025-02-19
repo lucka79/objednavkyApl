@@ -20,7 +20,7 @@ import {
   useOrderItemHistory,
   // useUpdateStoredItems,
 } from "@/hooks/useOrders";
-import { Checkbox } from "@/components/ui/checkbox";
+
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -308,6 +308,9 @@ export default function UpdateCart({
         title: "Změna množství",
         description: `${currentItem.product.name}: ${currentItem.quantity} → ${newQuantity}`,
       });
+
+      // Add this to ensure OrdersExpedition is updated
+      queryClient.invalidateQueries({ queryKey: ["expeditionOrders"] });
     } catch (error) {
       console.error("Failed to update quantity:", error);
       console.log("Showing error toast for quantity update");
@@ -376,6 +379,9 @@ export default function UpdateCart({
         title: "Změna statusu",
         description: `${currentItem.product.name}: ${checked ? "Hotovo" : "Připravit"}`,
       });
+
+      // Add this to ensure OrdersExpedition is updated
+      queryClient.invalidateQueries({ queryKey: ["expeditionOrders"] });
     } catch (error) {
       console.error("Failed to update item check status:", error);
 
@@ -411,9 +417,10 @@ export default function UpdateCart({
 
     // Cleanup on unmount
     return () => {
-      console.log("UpdateCart unmounted - refetching orders");
+      console.log("UpdateCart unmounted, also refetching expeditionOrders");
       clearInterval(interval);
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["expeditionOrders"] });
     };
   }, [queryClient]);
 
@@ -479,14 +486,18 @@ export default function UpdateCart({
               {(user?.role === "admin" ||
                 user?.role === "expedition" ||
                 (user?.role === "store" && order?.status === "Přeprava")) && (
-                <Checkbox
-                  checked={item.checked || false}
-                  onCheckedChange={(checked: boolean) =>
-                    handleCheckChange(item.id, checked)
-                  }
+                <Button
+                  variant="ghost"
+                  onClick={() => handleCheckChange(item.id, !item.checked)}
                   disabled={isReadOnly}
-                  className="mr-2 border-amber-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500 data-[state=checked]:text-white print:hidden"
-                />
+                  className={`mr-2 h-6 w-6 min-w-[1.5rem] min-h-[1.5rem] p-0 print:hidden ${
+                    item.checked
+                      ? "bg-green-500 hover:bg-green-600 text-white"
+                      : "border-2 border-amber-500 hover:bg-amber-50"
+                  }`}
+                >
+                  {item.checked ? "✓" : ""}
+                </Button>
               )}
               <div className="text-xs w-10 text-left inline-block text-slate-500">
                 {item.product.code || "\u00A0"}

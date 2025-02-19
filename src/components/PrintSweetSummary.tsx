@@ -32,7 +32,9 @@ export const PrintSweetSummary = forwardRef<
 
   return (
     <div ref={ref} style={{ fontSize: "10px", margin: "0 10px" }}>
-      <h2 className="text-xl font-bold mb-4">Výroba koblih</h2>
+      <h2 className="text-xl font-bold mb-4">
+        Výroba zákusků a čajových výrobků
+      </h2>
       <table className="w-[60%] mb-4">
         <thead>
           <tr className="border-b">

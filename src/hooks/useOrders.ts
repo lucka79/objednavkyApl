@@ -97,96 +97,211 @@ export const useFetchOrderById = (orderId: number | null) => {
   });
 };
 
-const fetchOrdersInBatches = async () => {
-  try {
-    // First, fetch just the orders with essential relations
-    const { data: orders, error } = await supabase
-      .from('orders')
-      .select(`
-        id,
-        date,
-        status,
-        paid_by,
-        total,
-        driver_id,
-        crateBig,
-        crateSmall,
-        crateBigReceived,
-        crateSmallReceived,
-        note,
-        user:profiles!orders_user_id_fkey (*),
-        driver:profiles!orders_driver_id_fkey (*)
-      `)
-      .order('date', { ascending: false })
-      .order('user(full_name)', { ascending: true })
-      .limit(500);
+// const fetchOrdersInBatches = async () => {
+//   try {
+//     // First, fetch just the orders with essential relations
+//     const { data: orders, error } = await supabase
+//       .from('orders')
+//       .select(`
+//         id,
+//         date,
+//         status,
+//         paid_by,
+//         total,
+//         driver_id,
+//         crateBig,
+//         crateSmall,
+//         crateBigReceived,
+//         crateSmallReceived,
+//         note,
+//         user:profiles!orders_user_id_fkey (*),
+//         driver:profiles!orders_driver_id_fkey (*)
+//       `)
+//       .order('date', { ascending: false })
+//       .order('user(full_name)', { ascending: true })
+//       .limit(500);
 
-    if (error) throw error;
+//     if (error) throw error;
 
-    // Then fetch order items separately for each order
-    const orderIds = orders.map(order => order.id);
-    const { data: orderItems, error: itemsError } = await supabase
-      .from('order_items')
-      .select(`
-        *,
-        product:products (
-          id,
-          name,
-          price
-        )
-      `)
-      .in('order_id', orderIds);
+//     // Then fetch order items separately for each order
+//     const orderIds = orders.map(order => order.id);
+//     const { data: orderItems, error: itemsError } = await supabase
+//       .from('order_items')
+//       .select(`
+//         *,
+//         product:products (
+//           id,
+//           name,
+//           price
+//         )
+//       `)
+//       .in('order_id', orderIds);
 
-    if (itemsError) throw itemsError;
+//     if (itemsError) throw itemsError;
 
-    // Combine the data
-    const data = orders.map(order => ({
-      ...order,
-      order_items: orderItems.filter(item => item.order_id === order.id)
-    }));
+//     // Combine the data
+//     const data = orders.map(order => ({
+//       ...order,
+//       order_items: orderItems.filter(item => item.order_id === order.id)
+//     }));
 
-    return data as unknown as Order[];
-  } catch (error) {
-    console.error('Error fetching orders:', error);
-    throw error;
-  }
-};
+//     return data as unknown as Order[];
+//   } catch (error) {
+//     console.error('Error fetching orders:', error);
+//     throw error;
+//   }
+// };
 
 // Update the fetchAllOrders hook to use the new function
 export const fetchAllOrders = () => {
   return useQuery({
     queryKey: ['orders'],
-    queryFn: fetchOrdersInBatches,
-    staleTime: 30 * 1000, // 30 seconds
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    queryFn: async () => {
+      // First fetch orders with essential data
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          date,
+          status,
+          total,
+          user_id,
+          driver_id,
+          note,
+          user:profiles!orders_user_id_fkey (
+            id, 
+            full_name, 
+            role,
+            mo_partners,
+            oz
+          ),
+          driver:profiles!orders_driver_id_fkey (
+            id, 
+            full_name, 
+            role
+          )
+        `)
+        .order('date', { ascending: false })
+        .order('user(full_name)', { ascending: true })
+        .limit(500);
+
+      if (error) throw error;
+
+      // Then fetch order items separately
+      const orderIds = orders.map(order => order.id);
+      const { data: orderItems, error: itemsError } = await supabase
+        .from('order_items')
+        .select(`
+          *,
+          product:products (
+            id,
+            name,
+            price
+          )
+        `)
+        .in('order_id', orderIds);
+
+      if (itemsError) throw itemsError;
+
+      // Combine the data
+      const data = orders.map(order => ({
+        ...order,
+        order_items: orderItems.filter(item => item.order_id === order.id)
+      }));
+
+      return data as unknown as Order[];
+    },
+    staleTime: 0,
+    gcTime: 30 * 60 * 1000,
   });
 };
 
 
 
 // all orders
+// export const fetchExpeditionOrders1 = () => {
+
+//   return useQuery({
+//     queryKey: ['orders'],
+//     queryFn: async () => {
+
+//       const { data, error } = await supabase
+//         .from('orders')
+//         .select(`
+//           *,
+//           user:profiles!orders_user_id_fkey (id, full_name, role),
+//           driver:profiles!orders_driver_id_fkey (id, full_name, role),
+//           order_items (*, product:products(*))
+//         `)
+//         .order('date', { ascending: false })
+//         .order('user(full_name)', { ascending: true })
+//         .limit(200);
+
+//       if (error) throw error;
+//       return data as Order[];
+//     },
+//     staleTime: 30 * 1000,
+//     gcTime: 5 * 60 * 1000,
+//   });
+// };
+
 export const fetchExpeditionOrders = () => {
-
   return useQuery({
-    queryKey: ['orders'],
+    queryKey: ['expeditionOrders'],
     queryFn: async () => {
-
-      const { data, error } = await supabase
+      // First fetch orders with essential data
+      const { data: orders, error } = await supabase
         .from('orders')
         .select(`
-          *,
-          user:profiles!orders_user_id_fkey (*),
-          driver:profiles!orders_driver_id_fkey (*),
-          order_items (*, product:products(*))
+          id,
+          date,
+          status,
+          total,
+          user_id,
+          driver_id,
+          note,
+          user:profiles!orders_user_id_fkey (
+            id, 
+            full_name, 
+            role
+          ),
+          driver:profiles!orders_driver_id_fkey (
+            id, 
+            full_name, 
+            role
+          )
         `)
         .order('date', { ascending: false })
         .order('user(full_name)', { ascending: true })
         .limit(200);
 
       if (error) throw error;
-      return data as Order[];
+
+      // Then fetch order items separately
+      const orderIds = orders.map(order => order.id);
+      const { data: orderItems, error: itemsError } = await supabase
+        .from('order_items')
+        .select(`
+          *,
+          product:products (
+            id,
+            name,
+            price
+          )
+        `)
+        .in('order_id', orderIds);
+
+      if (itemsError) throw itemsError;
+
+      // Combine the data
+      const data = orders.map(order => ({
+        ...order,
+        order_items: orderItems.filter(item => item.order_id === order.id)
+      }));
+
+      return data as unknown as Order[];
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
     gcTime: 30 * 60 * 1000,
   });
 };
@@ -454,6 +569,7 @@ export const useUpdateOrderItems = () => {
         }
       }
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["expeditionOrders"] });
     },
   });
 };
