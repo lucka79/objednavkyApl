@@ -340,12 +340,6 @@ const columns: ColumnDef<Order>[] = [
     header: () => <div className=""></div>,
     cell: ({ row }) => {
       const order = row.original;
-      console.log(`Order ${order.id}:`, {
-        hasOrderItems: Boolean(order.order_items),
-        itemsLength: order.order_items?.length,
-        date: order.date,
-        items: order.order_items,
-      });
 
       const checkedItems =
         order.order_items?.filter((item) => item.checked).length || 0;
@@ -355,7 +349,7 @@ const columns: ColumnDef<Order>[] = [
         <div className="w-[220px] text-right flex justify-end gap-2 items-center">
           {totalItems > 0 && (
             <>
-              <Badge variant="outline" className="border-green-500">
+              <Badge variant="outline" className="border-green-500 w-[50px]">
                 {checkedItems}/{totalItems}
               </Badge>
             </>
@@ -363,6 +357,7 @@ const columns: ColumnDef<Order>[] = [
           <Badge
             variant="outline"
             className={cn(
+              "w-[80px] text-center",
               order.status === "Expedice R"
                 ? "bg-orange-600 text-white"
                 : order.status === "Expedice O"
@@ -672,30 +667,35 @@ function PrintSummary({
 }
 
 // 1. Create print function
-const printProductSummary = (orders: Order[]) => {
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) return;
+const printProductSummary = async (orders: Order[]) => {
+  try {
+    const orderIds = orders.map((order) => order.id);
+    const completeOrders = await fetchOrdersForPrinting(orderIds);
 
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Tisk výroby podle abecedy</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-        </style>
-      </head>
-      <body>
-        <div id="print-content">
-          ${ReactDOMServer.renderToString(<ProductSummaryPrint orders={orders} />)}
-        </div>
-      </body>
-    </html>
-  `);
-
-  printWindow.document.close();
-  printWindow.print();
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+        <head>
+          <title>Výroba pekaři</title>
+          <style>
+            @page { size: A4; }
+            body { font-family: Arial, sans-serif; padding: 10px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+          </style>
+        </head>
+          <body>
+            ${ReactDOMServer.renderToString(<ProductSummaryPrint orders={completeOrders} />)}
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  } catch (error) {
+    console.error("Error printing donuts:", error);
+  }
 };
 
 const printCategoryBagets = async (orders: Order[]) => {

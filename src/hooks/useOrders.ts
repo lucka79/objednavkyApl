@@ -182,6 +182,11 @@ export const fetchAllOrders = () => {
           user_id,
           driver_id,
           note,
+          paid_by,
+          crateBig,
+          crateSmall,
+          crateBigReceived,
+          crateSmallReceived,
           user:profiles!orders_user_id_fkey (
             id, 
             full_name, 
@@ -286,6 +291,11 @@ export const fetchExpeditionOrders = () => {
           user_id,
           driver_id,
           note,
+          crateBig,
+          crateSmall,
+          crateBigReceived,
+          crateSmallReceived,
+          
           user:profiles!orders_user_id_fkey (
             id, 
             full_name, 
@@ -299,13 +309,13 @@ export const fetchExpeditionOrders = () => {
         `)
         .order('date', { ascending: false })
         .order('user(full_name)', { ascending: true })
-        .limit(200);
+        .limit(250);
 
       if (error) throw error;
 
       // Fetch items in chunks
       const orderIds = orders.map(order => order.id);
-      const chunkSize = 100;
+      const chunkSize = 50;
       const orderItemsPromises = [];
       
       for (let i = 0; i < orderIds.length; i += chunkSize) {
@@ -322,6 +332,8 @@ export const fetchExpeditionOrders = () => {
               )
             `)
             .in('order_id', chunk)
+            .order('id', { ascending: true })
+
         );
       }
 

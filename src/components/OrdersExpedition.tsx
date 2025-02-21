@@ -375,6 +375,7 @@ const columns: ColumnDef<Order>[] = [
           <Badge
             variant="outline"
             className={cn(
+              "w-[80px] text-center",
               row.original.status === "Expedice R" ||
                 row.original.status === "New"
                 ? "bg-orange-600 text-white"
@@ -685,30 +686,35 @@ function PrintSummary({
 }
 
 // 1. Create print function
-const printProductSummary = (orders: Order[]) => {
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) return;
+const printProductSummary = async (orders: Order[]) => {
+  try {
+    const orderIds = orders.map((order) => order.id);
+    const completeOrders = await fetchOrdersForPrinting(orderIds);
 
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Tisk výroby podle abecedy</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-        </style>
-      </head>
-      <body>
-        <div id="print-content">
-          ${ReactDOMServer.renderToString(<ProductSummaryPrint orders={orders} />)}
-        </div>
-      </body>
-    </html>
-  `);
-
-  printWindow.document.close();
-  printWindow.print();
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+        <head>
+          <title>Výroba pekaři</title>
+          <style>
+            @page { size: A4; }
+            body { font-family: Arial, sans-serif; padding: 10px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+          </style>
+        </head>
+          <body>
+            ${ReactDOMServer.renderToString(<ProductSummaryPrint orders={completeOrders} />)}
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  } catch (error) {
+    console.error("Error printing donuts:", error);
+  }
 };
 
 const printCategoryDonuts = async (orders: Order[]) => {

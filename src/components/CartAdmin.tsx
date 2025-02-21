@@ -31,7 +31,6 @@ import {
 import { useSubsrciberUsers } from "@/hooks/useProfiles";
 import { CartItem } from "types";
 import { useSelectedUser } from "@/hooks/useProfiles";
-import { useUpdateStoredItems } from "@/hooks/useOrders";
 import { useDriverUsers } from "@/hooks/useProfiles";
 import { z } from "zod";
 // import { Command } from "cmdk";
@@ -53,7 +52,6 @@ export default function CartAdmin() {
   const user = useAuthStore((state) => state.user);
   const { mutateAsync: insertOrder } = useInsertOrder();
   const { mutateAsync: insertOrderItems } = useInsertOrderItems();
-  const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
   const {
     items,
     // removeItem,
@@ -363,20 +361,6 @@ export default function CartAdmin() {
                 paid_by,
                 note,
               });
-
-              try {
-                await updateStoredItems({
-                  userId: selectedUserId,
-                  items: items.map((item) => ({
-                    product_id: item.product.id,
-                    quantity: -item.quantity,
-                    increment: true,
-                  })),
-                });
-              } catch (error) {
-                console.error("Error updating stored items:", error);
-                throw new Error("Failed to update stored items");
-              }
 
               try {
                 await checkout(
