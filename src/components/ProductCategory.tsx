@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Search, ShoppingCart } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 // Category badges component
@@ -73,6 +73,13 @@ interface Product {
   category_id: number;
   priceBuyer: number;
   priceMobil: number;
+  code: string;
+  price: number;
+  vat: number;
+  active: boolean;
+  created_at: string;
+  buyer: boolean;
+  store: boolean;
 }
 
 export const ProductCategory: React.FC = () => {
@@ -177,42 +184,77 @@ export const ProductCategory: React.FC = () => {
 
       {/* Products grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6 gap-2 p-2">
-        {filteredProducts?.map((product: Product) => (
-          <Card
-            key={product.id}
-            onClick={() => addItem(product as any)}
-            className="text-center h-36 flex flex-col cursor-pointer"
-          >
-            <div className="flex-1">
-              <CardHeader className="h-full px-1">
-                <CardTitle className="text-sm line-clamp-2 mx-1 hover:line-clamp-3">
-                  {useVietnamese
-                    ? product.nameVi || product.name
-                    : product.name}
-                </CardTitle>
-              </CardHeader>
-            </div>
+        {filteredProducts
+          ?.sort((a, b) => a.name.localeCompare(b.name))
+          .map((product: Product) => (
+            <Card
+              key={product.id}
+              onClick={(e: React.MouseEvent) => {
+                if (e.target === e.currentTarget) {
+                  const input = e.currentTarget.querySelector("input");
+                  const quantity = Number(input?.value || 1);
+                  if (quantity > 0) {
+                    addItem(product, quantity);
+                    if (input) {
+                      (input as HTMLInputElement).value = "1";
+                    }
+                  }
+                }
+              }}
+              className="text-center h-36 flex flex-col"
+            >
+              <div className="flex-1">
+                <CardHeader className="h-full px-1">
+                  <CardTitle className="text-sm line-clamp-2 mx-1 hover:line-clamp-3">
+                    {useVietnamese
+                      ? product.nameVi || product.name
+                      : product.name}
+                  </CardTitle>
+                </CardHeader>
+              </div>
 
-            {/* Second half - Prices and Button */}
-            <div className="flex-1 flex flex-col justify-between">
-              {/* Empty div to push the footer to the bottom */}
-              <div className="flex-grow"></div>
-              {/* <CardContent className="pb-0 text-xs font-semibold"></CardContent> */}
-              <CardFooter className="flex justify-end pb-2">
-                <Badge variant="outline" className="text-xs">
-                  {(user?.role === "admin" || user?.role === "expedition") && (
-                    <div className="flex flex-col gap-1 text-sm text-green-800">
-                      <span>{product.priceBuyer.toFixed(2)} Kč</span>
-                      <span className="italic font-semibold text-orange-600">
-                        {product.priceMobil.toFixed(2)} Kč
-                      </span>
-                    </div>
-                  )}
-                </Badge>
-              </CardFooter>
-            </div>
-          </Card>
-        ))}
+              {/* Second half - Prices and Button */}
+              <div className="flex-1 flex flex-col justify-between">
+                <div className="flex-grow"></div>
+                <CardFooter className="flex justify-end items-center gap-2 pb-2">
+                  <Input
+                    type="number"
+                    min="1"
+                    defaultValue={1}
+                    className="w-16 h-8 text-xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      (e.target as HTMLInputElement).select();
+                    }}
+                  />
+
+                  <Badge
+                    variant="outline"
+                    className="text-xs cursor-pointer bg-orange-500 text-white hover:bg-grey-100 hover:text-gray-400"
+                    onClick={(e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      const input =
+                        e.currentTarget.parentElement?.querySelector("input");
+                      const quantity = Number(input?.value || 1);
+                      if (quantity > 0) {
+                        addItem(product, quantity);
+                        if (input) {
+                          (input as HTMLInputElement).value = "1";
+                        }
+                      }
+                    }}
+                  >
+                    {(user?.role === "admin" ||
+                      user?.role === "expedition") && (
+                      <div className="flex flex-col gap-1 text-sm">
+                        <ShoppingCart size={20} />
+                      </div>
+                    )}
+                  </Badge>
+                </CardFooter>
+              </div>
+            </Card>
+          ))}
       </div>
     </Card>
   );

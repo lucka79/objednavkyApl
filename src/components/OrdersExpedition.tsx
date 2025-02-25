@@ -1603,7 +1603,7 @@ export function OrdersExpeditionTable({
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          const orders =
+                          const selectedOrders =
                             tableInstance.getFilteredSelectedRowModel().rows
                               .length > 0
                               ? tableInstance
@@ -1612,7 +1612,7 @@ export function OrdersExpeditionTable({
                                     (row: { original: Order }) => row.original
                                   )
                               : filteredPeriodOrders;
-                          printProductSummary(orders);
+                          printProductSummary(selectedOrders);
                         }}
                       >
                         <Printer className="h-4 w-4 mr-2" />

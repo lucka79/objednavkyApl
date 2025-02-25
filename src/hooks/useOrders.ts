@@ -202,13 +202,13 @@ export const fetchAllOrders = () => {
         `)
         .order('date', { ascending: false })
         .order('user(full_name)', { ascending: true })
-        .limit(500);
+        .limit(1000);
 
       if (error) throw error;
 
       // Then get all items for these orders in chunks to avoid query size limits
       const orderIds = orders.map(order => order.id);
-      const chunkSize = 100;
+      const chunkSize = 50;
       const orderItemsPromises = [];
       
       for (let i = 0; i < orderIds.length; i += chunkSize) {

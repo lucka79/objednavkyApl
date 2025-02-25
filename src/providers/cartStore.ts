@@ -5,7 +5,7 @@ import { Product, CartItem } from '../../types';
 
 type CartStore = {
   items: CartItem[];
-  addItem: (product: Product) => void;
+  addItem: (product: Product, quantity?: number) => void;
   removeItem: (productId: number) => void;
   updateQuantity: (productId: number, quantity: number) => void;
   clearCart: () => void;
@@ -27,28 +27,26 @@ type CartStore = {
 
 export const useCartStore = create<CartStore>((set, get) => ({
   items: [],
-  addItem: (product) => {
+  addItem: (product, quantity = 1) => {
     set((state) => {
       const existingItem = state.items.find((item) => item.product.id === product.id);
       if (existingItem) {
         return {
           items: state.items.map((item) =>
             item.product.id === product.id
-              ? { ...item, quantity: item.quantity + 1 }
+              ? { ...item, quantity: item.quantity + quantity }
               : item
           ),
         };
       } 
 
-        const newItem: CartItem = {
-          id: Date.now(), // Implement this function to generate a unique ID
-          product_id: product.id,
-          product,
-          quantity: 1
-        };
-        return { items: [...state.items, newItem] };
-      
-    //   return { items: [...state.items, { product, quantity: 1 }] };
+      const newItem: CartItem = {
+        id: Date.now(),
+        product_id: product.id,
+        product,
+        quantity: quantity
+      };
+      return { items: [...state.items, newItem] };
     });
   },
   removeItem: (productId) => {

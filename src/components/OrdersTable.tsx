@@ -341,19 +341,19 @@ const columns: ColumnDef<Order>[] = [
     cell: ({ row }) => {
       const order = row.original;
 
-      const checkedItems =
-        order.order_items?.filter((item) => item.checked).length || 0;
-      const totalItems = order.order_items?.length || 0;
+      // const checkedItems =
+      //   order.order_items?.filter((item) => item.checked).length || 0;
+      // const totalItems = order.order_items?.length || 0;
 
       return (
         <div className="w-[220px] text-right flex justify-end gap-2 items-center">
-          {totalItems > 0 && (
+          {/* {totalItems > 0 && (
             <>
               <Badge variant="outline" className="border-green-500 w-[50px]">
                 {checkedItems}/{totalItems}
               </Badge>
             </>
-          )}
+          )} */}
           <Badge
             variant="outline"
             className={cn(
@@ -694,7 +694,7 @@ const printProductSummary = async (orders: Order[]) => {
       printWindow.print();
     }
   } catch (error) {
-    console.error("Error printing donuts:", error);
+    console.error("Error printing bakery products:", error);
   }
 };
 
