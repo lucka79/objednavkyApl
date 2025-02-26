@@ -990,22 +990,46 @@ export const useUpdateOrderTotal = () => {
 };
 
 // Add this new hook
-export const useOrdersByMonth = (selectedDate?: Date) => {
+export const useOrdersByMonth = (selectedDate?: Date, specificDay?: boolean) => {
   return useQuery({
-    queryKey: ['ordersByMonth', selectedDate?.toISOString()],
+    queryKey: ['ordersByMonth', selectedDate?.toISOString(), specificDay],
     queryFn: async () => {
       if (!selectedDate) return [];
 
-      // Set time to start of day for monthStart and end of day for monthEnd
-      const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1, 0, 0, 0, 0);
-      const monthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0, 23, 59, 59, 999);
+      let startDate, endDate;
+      
+      if (specificDay) {
+        // For specific day, adjust for timezone
+        startDate = new Date(Date.UTC(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth(),
+          selectedDate.getDate()
+        ));
+        endDate = new Date(Date.UTC(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth(),
+          selectedDate.getDate() + 1
+        ));
+      } else {
+        // For month view
+        startDate = new Date(Date.UTC(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth(),
+          1
+        ));
+        endDate = new Date(Date.UTC(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth() + 1,
+          1
+        ));
+      }
 
-      // First, count total orders for the month
+      // Update queries to use the new date range
       const { count, error: countError } = await supabase
         .from('orders')
         .select('*', { count: 'exact', head: true })
-        .gte('date', monthStart.toISOString())
-        .lt('date', new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1).toISOString());
+        .gte('date', startDate.toISOString())
+        .lt('date', endDate.toISOString());
 
       if (countError) throw countError;
 
@@ -1045,8 +1069,8 @@ export const useOrdersByMonth = (selectedDate?: Date) => {
                 role
               )
             `)
-            .gte('date', monthStart.toISOString())
-            .lte('date', monthEnd.toISOString())
+            .gte('date', startDate.toISOString())
+            .lt('date', endDate.toISOString())
             .order('date', { ascending: false })
             .order('user(full_name)', { ascending: true })
             .range(page * pageSize, (page + 1) * pageSize - 1)

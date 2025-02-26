@@ -232,7 +232,7 @@ export const AddProduct: React.FC<AddProductProps> = ({
                         }
                       }}
                     >
-                      Add
+                      Vložit
                     </Button>
                   </CardContent>
                 </div>

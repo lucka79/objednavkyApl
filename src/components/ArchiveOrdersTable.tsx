@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useState, useMemo, useEffect, useRef, forwardRef } from "react";
-import { useOrderStore } from "@/providers/orderStore";
+
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 
@@ -81,6 +81,14 @@ import { PrintReportBuyersSummary } from "./PrintReportBuyersSummary";
 import { PrintCategoryBagets } from "./PrintCategoryBagets";
 
 import { useOrdersByMonth } from "@/hooks/useOrders";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+
+import { useOrderStore } from "@/providers/orderStore";
 
 const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
   ({ orders }, ref) => (
@@ -422,10 +430,6 @@ const columns: ColumnDef<Order>[] = [
     },
   },
 ];
-
-interface OrdersTableProps {
-  selectedProductId: string | null;
-}
 
 // Add this component for the print summary
 function PrintSummary({
@@ -855,23 +859,21 @@ const printOrderTotals = async (orders: Order[]) => {
 };
 
 // Add this helper function at the top level
-const getMonthName = (monthOffset: number) => {
-  const date = new Date();
-  date.setMonth(date.getMonth() + monthOffset);
-  return format(date, "LLLL yyyy", { locale: cs });
-};
+// const getMonthName = (monthOffset: number) => {
+//   const date = new Date();
+//   date.setMonth(date.getMonth() + monthOffset);
+//   return format(date, "LLLL yyyy", { locale: cs });
+// };
 
-export function ArchiveOrdersTable(
-  {
-    //   selectedProductId: initialProductId,
-  }: OrdersTableProps
-) {
-  // const [selectedOrders] = useState<Order[]>([]);
-
+export function ArchiveOrdersTable() {
   const [date, setDate] = useState<Date>(new Date());
-  const { data: orders, error, isLoading } = useOrdersByMonth(date);
+  const [isSpecificDay, setIsSpecificDay] = useState(false);
+  const {
+    data: orders,
+    error,
+    isLoading,
+  } = useOrdersByMonth(date, isSpecificDay);
   const [globalFilter, setGlobalFilter] = useState("");
-  const setSelectedOrderId = useOrderStore((state) => state.setSelectedOrderId);
 
   const [selectedPaidBy, setSelectedPaidBy] = useState<string>("all");
   const [selectedRole, setSelectedRole] = useState<string>("all");
@@ -882,6 +884,7 @@ export function ArchiveOrdersTable(
   const [selectedUser, setSelectedUser] = useState("all");
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [selectedOZ, setSelectedOZ] = useState<string>("all");
+  const setSelectedOrderId = useOrderStore((state) => state.setSelectedOrderId);
 
   // Get unique paid_by values from orders
   const uniquePaidByValues = useMemo(() => {
@@ -976,19 +979,18 @@ export function ArchiveOrdersTable(
     selectedOZ,
   ]);
 
-  //   const getDateFilteredOrders = (
-  //     orders: Order[],
-  //     period:
-  //       | "today"
-  //       | "tomorrow"
-  //       | "afterTomorrow"
-  //       | "week"
-  //       | "nextWeek"
-  //       | "month"
-  //       | "lastMonth"
-  //   ) => {
-  //     return filterOrdersByDate(orders || [], period);
-  //   };
+  // Add calendar component
+  const handleDateSelect = (newDate: Date | undefined) => {
+    if (newDate) {
+      setDate(newDate);
+      setIsSpecificDay(true);
+    }
+  };
+
+  const handleMonthSelect = (newDate: Date) => {
+    setDate(newDate);
+    setIsSpecificDay(false);
+  };
 
   const { user: authUser } = useAuthStore();
 
@@ -1034,30 +1036,6 @@ export function ArchiveOrdersTable(
                   ))}
                 </SelectContent>
               </Select>
-
-              {/* <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "w-[240px] justify-start text-left font-normal",
-                      !date && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? format(date, "PPP") : <span>Vyberte datum</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={setDate}
-                    initialFocus
-                    locale={cs}
-                  />
-                </PopoverContent>
-              </Popover> */}
 
               <Select value={selectedOZ} onValueChange={setSelectedOZ}>
                 <SelectTrigger className="w-[200px]">
@@ -1141,42 +1119,41 @@ export function ArchiveOrdersTable(
           </div>
 
           <div className="w-full">
-            <div className="flex gap-2 mb-4 print:hidden overflow-x-auto">
-              {[-2, -1, 0, 1, 2].map((offset) => {
-                const monthName = getMonthName(offset);
-                const monthStart = new Date();
-                monthStart.setMonth(monthStart.getMonth() + offset);
-                monthStart.setDate(1);
-                monthStart.setHours(0, 0, 0, 0);
+            <div className="flex gap-2 mb-4">
+              {/* Calendar */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline">
+                    {isSpecificDay
+                      ? format(date, "PP", { locale: cs })
+                      : "Vybrat den"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={isSpecificDay ? date : undefined}
+                    onSelect={handleDateSelect}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
 
-                const monthEnd = new Date(monthStart);
-                monthEnd.setMonth(monthEnd.getMonth() + 1);
-                monthEnd.setDate(0);
-                monthEnd.setHours(23, 59, 59, 999);
-
-                const ordersInMonth = filteredOrders.filter((order) => {
-                  const orderDate = new Date(order.date);
-                  return orderDate >= monthStart && orderDate <= monthEnd;
-                });
-
+              {/* Month buttons */}
+              {[-2, -1, 0, 1].map((offset) => {
+                const monthDate = new Date();
+                monthDate.setMonth(monthDate.getMonth() + offset);
                 return (
                   <Button
                     key={offset}
                     variant={
-                      date?.getMonth() === monthStart.getMonth()
-                        ? "secondary"
+                      !isSpecificDay && date.getMonth() === monthDate.getMonth()
+                        ? "default"
                         : "outline"
                     }
-                    onClick={() => {
-                      const newDate = new Date();
-                      newDate.setMonth(newDate.getMonth() + offset);
-                      setDate(newDate);
-                    }}
+                    onClick={() => handleMonthSelect(monthDate)}
                   >
-                    {monthName}
-                    <Badge variant="outline" className="ml-2">
-                      {ordersInMonth.length}
-                    </Badge>
+                    {format(monthDate, "LLLL yyyy", { locale: cs })}
                   </Button>
                 );
               })}
@@ -1397,7 +1374,7 @@ export function ArchiveOrdersTable(
                 </div>
               </div>
 
-              <ArchiveOrderTableContent
+              <OrderTableContent
                 data={filteredOrders}
                 globalFilter={globalFilter}
                 columns={columns}
@@ -1409,17 +1386,19 @@ export function ArchiveOrdersTable(
         </div>
       </Card>
 
-      {/* {isPrinting && (
-        <div style={{ position: "fixed", top: "-9999px", left: "-9999px" }}>
-          <ProductPrintWrapper ref={productPrintRef} orders={selectedOrders} />
-        </div>
-      )} */}
+      <OrderTableContent
+        data={filteredOrders}
+        globalFilter={globalFilter}
+        columns={columns}
+        setSelectedOrderId={setSelectedOrderId}
+        onTableReady={(t) => setTable(t)}
+      />
     </>
   );
 }
 
 // Updated OrderTableContent component
-function ArchiveOrderTableContent({
+function OrderTableContent({
   data,
   globalFilter,
   columns,

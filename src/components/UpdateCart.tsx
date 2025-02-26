@@ -490,6 +490,7 @@ export default function UpdateCart({
                   type="number"
                   min="0"
                   value={item.quantity}
+                  onClick={(e) => (e.target as HTMLInputElement).select()}
                   onChange={(e) => {
                     if (isReadOnly) return;
                     const newItem = {
