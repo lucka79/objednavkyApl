@@ -1385,14 +1385,6 @@ export function ArchiveOrdersTable() {
           </div>
         </div>
       </Card>
-
-      <OrderTableContent
-        data={filteredOrders}
-        globalFilter={globalFilter}
-        columns={columns}
-        setSelectedOrderId={setSelectedOrderId}
-        onTableReady={(t) => setTable(t)}
-      />
     </>
   );
 }

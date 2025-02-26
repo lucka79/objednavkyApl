@@ -201,7 +201,7 @@ export const AddProduct: React.FC<AddProductProps> = ({
                       type="number"
                       min="1"
                       defaultValue={1}
-                      className="w-16 h-8 text-xs"
+                      className="w-16 h-8 text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       onClick={(e) => {
                         e.stopPropagation();
                         (e.target as HTMLInputElement).select();

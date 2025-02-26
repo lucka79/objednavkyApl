@@ -489,6 +489,9 @@ export function OrderDetailsDialog() {
                                 type="number"
                                 min="0"
                                 value={localCrates.crateSmall}
+                                onClick={(e) =>
+                                  (e.target as HTMLInputElement).select()
+                                }
                                 onChange={(e) =>
                                   setLocalCrates({
                                     ...localCrates,
@@ -537,6 +540,9 @@ export function OrderDetailsDialog() {
                                 type="number"
                                 min="0"
                                 value={localCrates.crateBig}
+                                onClick={(e) =>
+                                  (e.target as HTMLInputElement).select()
+                                }
                                 onChange={(e) =>
                                   setLocalCrates({
                                     ...localCrates,
@@ -590,6 +596,9 @@ export function OrderDetailsDialog() {
                                 type="number"
                                 min="0"
                                 value={localCrates.crateSmallReceived}
+                                onClick={(e) =>
+                                  (e.target as HTMLInputElement).select()
+                                }
                                 onChange={(e) =>
                                   setLocalCrates({
                                     ...localCrates,
@@ -637,6 +646,9 @@ export function OrderDetailsDialog() {
                                 type="number"
                                 min="0"
                                 value={localCrates.crateBigReceived}
+                                onClick={(e) =>
+                                  (e.target as HTMLInputElement).select()
+                                }
                                 onChange={(e) =>
                                   setLocalCrates({
                                     ...localCrates,

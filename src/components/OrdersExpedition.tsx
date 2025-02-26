@@ -907,6 +907,7 @@ export function OrdersExpeditionTable({
     initialProductId || ""
   );
   const { data: products } = fetchActiveProducts();
+  // @ts-ignore
   const [activeTab, setActiveTab] = useState("today");
   const [selectedPaidBy, setSelectedPaidBy] = useState<string>("all");
   const [selectedRole, setSelectedRole] = useState<string>("all");
@@ -1025,39 +1026,39 @@ export function OrdersExpeditionTable({
     selectedOZ,
   ]);
 
-  const getDateFilteredOrders = (
-    orders: Order[],
-    period:
-      | "today"
-      | "tomorrow"
-      | "afterTomorrow"
-      | "week"
-      | "nextWeek"
-      | "month"
-      | "lastMonth"
-  ) => {
-    return filterOrdersByDate(orders || [], period);
-  };
+  // const getDateFilteredOrders = (
+  //   orders: Order[],
+  //   period:
+  //     | "today"
+  //     | "tomorrow"
+  //     | "afterTomorrow"
+  //     | "week"
+  //     | "nextWeek"
+  //     | "month"
+  //     | "lastMonth"
+  // ) => {
+  //   return filterOrdersByDate(orders || [], period);
+  // };
 
-  const calculateTotalQuantityForPeriod = (
-    productId: string,
-    period:
-      | "today"
-      | "tomorrow"
-      | "afterTomorrow"
-      | "week"
-      | "nextWeek"
-      | "month"
-      | "lastMonth"
-  ) => {
-    const dateFiltered = getDateFilteredOrders(orders || [], period);
-    return dateFiltered.reduce((total, order) => {
-      const quantity = order.order_items
-        .filter((item) => item.product_id.toString() === productId)
-        .reduce((sum, item) => sum + item.quantity, 0);
-      return total + quantity;
-    }, 0);
-  };
+  // const calculateTotalQuantityForPeriod = (
+  //   productId: string,
+  //   period:
+  //     | "today"
+  //     | "tomorrow"
+  //     | "afterTomorrow"
+  //     | "week"
+  //     | "nextWeek"
+  //     | "month"
+  //     | "lastMonth"
+  // ) => {
+  //   const dateFiltered = getDateFilteredOrders(orders || [], period);
+  //   return dateFiltered.reduce((total, order) => {
+  //     const quantity = order.order_items
+  //       .filter((item) => item.product_id.toString() === productId)
+  //       .reduce((sum, item) => sum + item.quantity, 0);
+  //     return total + quantity;
+  //   }, 0);
+  // };
 
   const printOrderTotals = async (orders: Order[]) => {
     try {
@@ -1312,48 +1313,7 @@ export function OrdersExpeditionTable({
                   <SelectItem value="all">All Products</SelectItem>
                   {filteredProducts?.map((product) => (
                     <SelectItem key={product.id} value={product.id.toString()}>
-                      <div className="flex justify-between items-center w-full">
-                        <span className="mr-2">{product.name}</span>
-                        <div className="flex gap-2">
-                          {" "}
-                          <Badge variant="outline" className="border-green-500">
-                            {calculateTotalQuantityForPeriod(
-                              product.id.toString(),
-                              activeTab as
-                                | "today"
-                                | "tomorrow"
-                                | "afterTomorrow"
-                                | "week"
-                                | "nextWeek"
-                                | "month"
-                                | "lastMonth"
-                            )}{" "}
-                            ks
-                          </Badge>
-                          <Badge variant="outline" className="border-amber-500">
-                            {
-                              getDateFilteredOrders(
-                                orders || [],
-                                activeTab as
-                                  | "today"
-                                  | "tomorrow"
-                                  | "afterTomorrow"
-                                  | "week"
-                                  | "nextWeek"
-                                  | "month"
-                                  | "lastMonth"
-                              ).filter((order) =>
-                                order.order_items.some(
-                                  (item: { product_id: number | string }) =>
-                                    item.product_id.toString() ===
-                                    product.id.toString()
-                                )
-                              ).length
-                            }{" "}
-                            objed.
-                          </Badge>
-                        </div>
-                      </div>
+                      {product.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
