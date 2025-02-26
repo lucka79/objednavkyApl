@@ -989,5 +989,122 @@ export const useUpdateOrderTotal = () => {
   });
 };
 
+// Add this new hook
+export const useOrdersByMonth = (selectedDate?: Date) => {
+  return useQuery({
+    queryKey: ['ordersByMonth', selectedDate?.toISOString()],
+    queryFn: async () => {
+      if (!selectedDate) return [];
+
+      // Set time to start of day for monthStart and end of day for monthEnd
+      const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1, 0, 0, 0, 0);
+      const monthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0, 23, 59, 59, 999);
+
+      // First, count total orders for the month
+      const { count, error: countError } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .gte('date', monthStart.toISOString())
+        .lt('date', new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1).toISOString());
+
+      if (countError) throw countError;
+
+      // Calculate number of pages needed
+      const pageSize = 1000;
+      const pages = Math.ceil((count || 0) / pageSize);
+      const orderPromises = [];
+
+      // Fetch all pages
+      for (let page = 0; page < pages; page++) {
+        orderPromises.push(
+          supabase
+            .from('orders')
+            .select(`
+              id,
+              date,
+              status,
+              total,
+              user_id,
+              driver_id,
+              note,
+              paid_by,
+              crateBig,
+              crateSmall,
+              crateBigReceived,
+              crateSmallReceived,
+              user:profiles!orders_user_id_fkey (
+                id, 
+                full_name, 
+                role,
+                mo_partners,
+                oz
+              ),
+              driver:profiles!orders_driver_id_fkey (
+                id, 
+                full_name, 
+                role
+              )
+            `)
+            .gte('date', monthStart.toISOString())
+            .lte('date', monthEnd.toISOString())
+            .order('date', { ascending: false })
+            .order('user(full_name)', { ascending: true })
+            .range(page * pageSize, (page + 1) * pageSize - 1)
+        );
+      }
+
+      // Wait for all pages to load
+      const results = await Promise.all(orderPromises);
+      const orders = results.reduce<any[]>((acc, { data }) => 
+        acc.concat(data || []), 
+      []);
+
+      // Fetch items for these orders in chunks
+      const orderIds = orders.map(order => order.id);
+      const chunkSize = 50;
+      const orderItemsPromises = [];
+      
+      for (let i = 0; i < orderIds.length; i += chunkSize) {
+        const chunk = orderIds.slice(i, i + chunkSize);
+        orderItemsPromises.push(
+          supabase
+            .from('order_items')
+            .select(`
+              *,
+              product:products (
+                id,
+                name,
+                price
+              )
+            `)
+            .in('order_id', chunk)
+        );
+      }
+
+      const itemsResults = await Promise.all(orderItemsPromises);
+      const allOrderItems = itemsResults.reduce<any[]>((acc, { data }) => 
+        acc.concat(data || []), 
+      []);
+
+      // Combine orders with their items
+      const data = orders.map(order => ({
+        ...order,
+        order_items: allOrderItems.filter(item => 
+          Number(item.order_id) === Number(order.id)
+        )
+      }));
+
+      return data as unknown as Order[];
+    },
+    enabled: !!selectedDate,
+    // Add these options to prevent background updates
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
+};
+
 
 

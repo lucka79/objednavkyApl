@@ -143,6 +143,9 @@ export function Navbar() {
                     <Link to="/admin/reports" className="hover:text-gray-300">
                       Reporty
                     </Link>
+                    <Link to="/admin/archive" className="hover:text-gray-300">
+                      Archiv
+                    </Link>
 
                     {user.email === "l.batelkova@gmail.com" && (
                       <Link

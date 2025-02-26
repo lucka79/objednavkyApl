@@ -228,20 +228,8 @@ export default function UpdateCart({
     }
   };
 
-  const updateOrderQuantity = async (
-    itemId: number,
-    productId: number,
-    newQuantity: number
-  ) => {
-    console.log("Starting quantity update...");
-    // Check both invoice lock and manual lock status
+  const updateOrderQuantity = async (itemId: number, newQuantity: number) => {
     if (isLocked || order.isLocked) {
-      console.log("Order is locked, showing lock toast");
-      toast({
-        title: "Order is locked",
-        description: "This order is locked and cannot be modified.",
-        variant: "destructive",
-      });
       return;
     }
 
@@ -251,45 +239,32 @@ export default function UpdateCart({
       const currentItem = orderItems.find((item) => item.id === itemId);
       if (!currentItem) return;
 
-      console.log("Current item:", currentItem);
-      console.log(
-        `Updating quantity from ${currentItem.quantity} to ${newQuantity}`
+      // Update local state immediately for better UX
+      setOrderItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === itemId ? { ...item, quantity: newQuantity } : item
+        )
       );
 
-      // Update the order item quantity
-      await updateOrderItems({
-        id: itemId,
-        updatedFields: {
-          quantity: newQuantity,
-        },
-      });
+      // Batch database updates
+      await Promise.all([
+        updateOrderItems({
+          id: itemId,
+          updatedFields: { quantity: newQuantity },
+        }),
+        updateOrder({
+          id: orderId,
+          updatedFields: {
+            total: orderItems.reduce(
+              (sum, item) =>
+                sum +
+                (item.id === itemId ? newQuantity : item.quantity) * item.price,
+              0
+            ),
+          },
+        }),
+      ]);
 
-      // Update local state
-      const updatedItems = orderItems.map((item) =>
-        item.product.id === productId
-          ? { ...item, quantity: newQuantity }
-          : item
-      );
-      setOrderItems(updatedItems);
-
-      // Calculate and update order total
-      const newTotal = updatedItems.reduce(
-        (sum, item) => sum + item.quantity * item.price,
-        0
-      );
-
-      // Update order total in database
-      await updateOrder({
-        id: orderId,
-        updatedFields: {
-          total: newTotal,
-        },
-      });
-
-      // Refresh the data
-      await onUpdate();
-
-      // After successful update, recalculate invoice total if order is invoiced
       if (isLocked) {
         const { data: invoice } = await supabase
           .from("invoices")
@@ -302,23 +277,11 @@ export default function UpdateCart({
         }
       }
 
-      // Show success toast
-      console.log("Showing success toast for quantity update");
-      toast({
-        title: "Změna množství",
-        description: `${currentItem.product.name}: ${currentItem.quantity} → ${newQuantity}`,
-      });
-
-      // Add this to ensure OrdersExpedition is updated
       queryClient.invalidateQueries({ queryKey: ["expeditionOrders"] });
     } catch (error) {
+      // Revert local state on error
+      setOrderItems(items);
       console.error("Failed to update quantity:", error);
-      console.log("Showing error toast for quantity update");
-      toast({
-        title: "Chyba",
-        description: "Nepodařilo se upravit množství a celkovou částku",
-        variant: "destructive",
-      });
     }
   };
 
@@ -514,11 +477,7 @@ export default function UpdateCart({
                     onClick={() =>
                       !item.checked &&
                       !isReadOnly &&
-                      updateOrderQuantity(
-                        item.id,
-                        item.product.id,
-                        item.quantity - 1
-                      )
+                      updateOrderQuantity(item.id, item.quantity - 1)
                     }
                     className={`cursor-pointer ${
                       item.checked || isReadOnly
@@ -544,11 +503,7 @@ export default function UpdateCart({
                   onBlur={(e) =>
                     !item.checked &&
                     !isReadOnly &&
-                    updateOrderQuantity(
-                      item.id,
-                      item.product.id,
-                      parseInt(e.target.value) || 0
-                    )
+                    updateOrderQuantity(item.id, parseInt(e.target.value) || 0)
                   }
                   disabled={item.checked || isReadOnly}
                   className={`w-20 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
@@ -559,11 +514,7 @@ export default function UpdateCart({
                   onClick={() =>
                     !item.checked &&
                     !isReadOnly &&
-                    updateOrderQuantity(
-                      item.id,
-                      item.product.id,
-                      item.quantity + 1
-                    )
+                    updateOrderQuantity(item.id, item.quantity + 1)
                   }
                   className={`cursor-pointer ${
                     item.checked || isReadOnly

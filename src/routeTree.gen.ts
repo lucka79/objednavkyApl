@@ -32,6 +32,7 @@ import { Route as AdminProductsImport } from './routes/admin.products'
 import { Route as AdminOrdersImport } from './routes/admin.orders'
 import { Route as AdminInvoicesImport } from './routes/admin.invoices'
 import { Route as AdminCreateImport } from './routes/admin.create'
+import { Route as AdminArchiveImport } from './routes/admin.archive'
 import { Route as AdminProductsProductIdImport } from './routes/admin.products/$productId'
 
 // Create/Update Routes
@@ -141,6 +142,11 @@ const AdminCreateRoute = AdminCreateImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
+const AdminArchiveRoute = AdminArchiveImport.update({
+  path: '/admin/archive',
+  getParentRoute: () => rootRoute,
+} as any)
+
 const AdminProductsProductIdRoute = AdminProductsProductIdImport.update({
   path: '/$productId',
   getParentRoute: () => AdminProductsRoute,
@@ -190,6 +196,13 @@ declare module '@tanstack/react-router' {
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof RegisterImport
+      parentRoute: typeof rootRoute
+    }
+    '/admin/archive': {
+      id: '/admin/archive'
+      path: '/admin/archive'
+      fullPath: '/admin/archive'
+      preLoaderRoute: typeof AdminArchiveImport
       parentRoute: typeof rootRoute
     }
     '/admin/create': {
@@ -328,6 +341,7 @@ export interface FileRoutesByFullPath {
   '/driver': typeof DriverRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/admin/archive': typeof AdminArchiveRoute
   '/admin/create': typeof AdminCreateRoute
   '/admin/invoices': typeof AdminInvoicesRoute
   '/admin/orders': typeof AdminOrdersRoute
@@ -353,6 +367,7 @@ export interface FileRoutesByTo {
   '/driver': typeof DriverRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/admin/archive': typeof AdminArchiveRoute
   '/admin/create': typeof AdminCreateRoute
   '/admin/invoices': typeof AdminInvoicesRoute
   '/admin/orders': typeof AdminOrdersRoute
@@ -379,6 +394,7 @@ export interface FileRoutesById {
   '/driver': typeof DriverRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/admin/archive': typeof AdminArchiveRoute
   '/admin/create': typeof AdminCreateRoute
   '/admin/invoices': typeof AdminInvoicesRoute
   '/admin/orders': typeof AdminOrdersRoute
@@ -406,6 +422,7 @@ export interface FileRouteTypes {
     | '/driver'
     | '/login'
     | '/register'
+    | '/admin/archive'
     | '/admin/create'
     | '/admin/invoices'
     | '/admin/orders'
@@ -430,6 +447,7 @@ export interface FileRouteTypes {
     | '/driver'
     | '/login'
     | '/register'
+    | '/admin/archive'
     | '/admin/create'
     | '/admin/invoices'
     | '/admin/orders'
@@ -454,6 +472,7 @@ export interface FileRouteTypes {
     | '/driver'
     | '/login'
     | '/register'
+    | '/admin/archive'
     | '/admin/create'
     | '/admin/invoices'
     | '/admin/orders'
@@ -480,6 +499,7 @@ export interface RootRouteChildren {
   DriverRoute: typeof DriverRoute
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
+  AdminArchiveRoute: typeof AdminArchiveRoute
   AdminCreateRoute: typeof AdminCreateRoute
   AdminInvoicesRoute: typeof AdminInvoicesRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
@@ -504,6 +524,7 @@ const rootRouteChildren: RootRouteChildren = {
   DriverRoute: DriverRoute,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
+  AdminArchiveRoute: AdminArchiveRoute,
   AdminCreateRoute: AdminCreateRoute,
   AdminInvoicesRoute: AdminInvoicesRoute,
   AdminOrdersRoute: AdminOrdersRoute,
@@ -539,6 +560,7 @@ export const routeTree = rootRoute
         "/driver",
         "/login",
         "/register",
+        "/admin/archive",
         "/admin/create",
         "/admin/invoices",
         "/admin/orders",
@@ -573,6 +595,9 @@ export const routeTree = rootRoute
     },
     "/register": {
       "filePath": "register.tsx"
+    },
+    "/admin/archive": {
+      "filePath": "admin.archive.tsx"
     },
     "/admin/create": {
       "filePath": "admin.create.tsx"

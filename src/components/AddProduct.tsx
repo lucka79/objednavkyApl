@@ -15,6 +15,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { CategoryBadgesVertical } from "./CategoryBadgesVertical";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface AddProductProps {
   orderId: number;
@@ -40,7 +42,7 @@ export const AddProduct: React.FC<AddProductProps> = ({
 
   const { toast } = useToast();
 
-  const handleAddProduct = async (product: any) => {
+  const handleAddProduct = async (product: any, quantity: number = 1) => {
     console.log("Adding product:", product);
     console.log("Selected Order ID:", selectedOrderId);
 
@@ -88,13 +90,13 @@ export const AddProduct: React.FC<AddProductProps> = ({
               ? product.priceBuyer
               : product.price;
 
-        // Insert new item with correct price
+        // Insert new item with correct price and quantity
         const { data: newItem, error } = await supabase
           .from("order_items")
           .insert({
             order_id: selectedOrderId,
             product_id: product.id,
-            quantity: 0,
+            quantity: quantity,
             price: price,
             checked: false,
           })
@@ -108,6 +110,12 @@ export const AddProduct: React.FC<AddProductProps> = ({
           throw error;
         }
 
+        // Show success toast
+        toast({
+          title: "Výrobek přidán",
+          description: `Přidáno ${quantity}x ${product.name}`,
+        });
+
         // Invalidate queries to refresh the data
         await queryClient.invalidateQueries({ queryKey: ["orders"] });
         await queryClient.invalidateQueries({
@@ -119,9 +127,18 @@ export const AddProduct: React.FC<AddProductProps> = ({
         await onUpdate();
       } catch (error) {
         console.error("Failed to add product:", error);
+        toast({
+          title: "Chyba",
+          description: "Nepodařilo se přidat výrobek do objednávky",
+          variant: "destructive",
+        });
       }
     } else {
-      addItem(product);
+      addItem(product, quantity);
+      toast({
+        title: "Výrobek přidán",
+        description: `Přidáno ${quantity}x ${product.name}`,
+      });
     }
   };
 
@@ -167,13 +184,10 @@ export const AddProduct: React.FC<AddProductProps> = ({
             filteredProducts.map((product: any) => (
               <Card
                 key={product.id}
-                onClick={() => handleAddProduct(product)}
-                className="text-center h-32 flex flex-col justify-between relative"
+                className="text-center h-38 flex flex-col justify-between relative"
               >
                 <CardHeader className="px-1">
-                  <CardTitle className="text-sm mx-1 hover:line-clamp-none line-clamp-2 hover:absolute hover:z-10 hover:bg-white hover:w-full hover:left-0">
-                    {product.name}
-                  </CardTitle>
+                  <CardTitle className="text-sm mx-1">{product.name}</CardTitle>
                 </CardHeader>
                 <div className="bg-white/80 backdrop-blur-sm">
                   <CardContent className="pb-0 text-sm font-semibold">
@@ -181,6 +195,45 @@ export const AddProduct: React.FC<AddProductProps> = ({
                   </CardContent>
                   <CardContent className="pb-0 text-sm italic">
                     {product.priceMobil.toFixed(2)} Kč
+                  </CardContent>
+                  <CardContent className="flex justify-end items-center gap-2 pb-2">
+                    <Input
+                      type="number"
+                      min="1"
+                      defaultValue={1}
+                      className="w-16 h-8 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        (e.target as HTMLInputElement).select();
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const input = e.target as HTMLInputElement;
+                          const quantity = Number(input.value || 1);
+                          if (quantity > 0) {
+                            handleAddProduct(product, quantity);
+                            input.value = "1";
+                          }
+                        }
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const input = e.currentTarget
+                          .previousElementSibling as HTMLInputElement;
+                        const quantity = Number(input?.value || 1);
+                        if (quantity > 0) {
+                          handleAddProduct(product, quantity);
+                          input.value = "1";
+                        }
+                      }}
+                    >
+                      Add
+                    </Button>
                   </CardContent>
                 </div>
               </Card>
