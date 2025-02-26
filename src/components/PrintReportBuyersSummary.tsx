@@ -8,16 +8,15 @@ interface PrintReportBuyersSummaryProps {
 export const PrintReportBuyersSummary = ({
   orders,
 }: PrintReportBuyersSummaryProps) => {
-  // Sort orders by date and then by customer name
-  //   const sortedOrders = [...orders].sort((a, b) => {
-  //     const dateCompare = new Date(a.date).getTime() - new Date(b.date).getTime();
-  //     if (dateCompare === 0) {
-  //       return (a.driver?.full_name || "").localeCompare(
-  //         b.driver?.full_name || ""
-  //       );
-  //     }
-  //     return dateCompare;
-  //   });
+  // Get min and max dates from orders
+  const dates = orders.map((order) => new Date(order.date));
+  const minDate = new Date(Math.min(...dates.map((date) => date.getTime())));
+  const maxDate = new Date(Math.max(...dates.map((date) => date.getTime())));
+
+  const dateRange =
+    minDate.toLocaleDateString() === maxDate.toLocaleDateString()
+      ? minDate.toLocaleDateString()
+      : `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
 
   // Calculate total sum
   const totalSum = orders.reduce((sum, order) => sum + order.total, 0);
@@ -51,7 +50,7 @@ export const PrintReportBuyersSummary = ({
   return (
     <div style={{ fontSize: "10px", margin: "0 10px" }}>
       <h2 className="text-2xl font-bold mb-6">
-        Report odběratelů ({uniqueUsersCount})
+        Report odběratelů ({uniqueUsersCount}) ({dateRange})
       </h2>
 
       {/* User totals table */}

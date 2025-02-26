@@ -9,6 +9,16 @@ export const ProductSummaryPrint = forwardRef<
   HTMLDivElement,
   ProductSummaryPrintProps
 >(({ orders }, ref) => {
+  // Get min and max dates from orders
+  const dates = orders.map((order) => new Date(order.date));
+  const minDate = new Date(Math.min(...dates.map((date) => date.getTime())));
+  const maxDate = new Date(Math.max(...dates.map((date) => date.getTime())));
+
+  const dateRange =
+    minDate.toLocaleDateString() === maxDate.toLocaleDateString()
+      ? minDate.toLocaleDateString()
+      : `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
+
   const productSummary = orders.reduce(
     (acc, order) => {
       order.order_items.forEach((item) => {
@@ -41,7 +51,9 @@ export const ProductSummaryPrint = forwardRef<
 
   return (
     <div ref={ref} style={{ fontSize: "12px", margin: "0 10px" }}>
-      <h2 className="text-xl font-bold mb-4">Výroba Pekaři podle kategorii</h2>
+      <h2 className="text-xl font-bold mb-4">
+        Výroba Pekaři podle kategorii ({dateRange})
+      </h2>
       <table className="w-[60%] mb-4">
         <thead>
           <tr className="border-b">

@@ -8,6 +8,16 @@ interface PrintReportBuyerOrdersProps {
 export const PrintReportBuyerOrders = ({
   orders,
 }: PrintReportBuyerOrdersProps) => {
+  // Get min and max dates from orders
+  const dates = orders.map((order) => new Date(order.date));
+  const minDate = new Date(Math.min(...dates.map((date) => date.getTime())));
+  const maxDate = new Date(Math.max(...dates.map((date) => date.getTime())));
+
+  const dateRange =
+    minDate.toLocaleDateString() === maxDate.toLocaleDateString()
+      ? minDate.toLocaleDateString()
+      : `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
+
   // Sort orders by date and then by customer name
   const sortedOrders = [...orders].sort((a, b) => {
     const dateCompare = new Date(a.date).getTime() - new Date(b.date).getTime();
@@ -28,7 +38,7 @@ export const PrintReportBuyerOrders = ({
   return (
     <div style={{ fontSize: "12px", margin: "0 10px" }}>
       <h2 className="text-2xl font-bold mb-6">
-        Report objednávek ({orderCount})
+        Report objednávek ({orderCount}) ({dateRange})
       </h2>
       <table className="w-full">
         <thead>

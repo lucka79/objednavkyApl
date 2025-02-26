@@ -9,6 +9,16 @@ export const PrintSweetSummary = forwardRef<
   HTMLDivElement,
   PrintSweetSummaryProps
 >(({ orders }, ref) => {
+  // Get min and max dates from orders
+  const dates = orders.map((order) => new Date(order.date));
+  const minDate = new Date(Math.min(...dates.map((date) => date.getTime())));
+  const maxDate = new Date(Math.max(...dates.map((date) => date.getTime())));
+
+  const dateRange =
+    minDate.toLocaleDateString() === maxDate.toLocaleDateString()
+      ? minDate.toLocaleDateString()
+      : `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
+
   const productSummary = orders.reduce(
     (acc, order) => {
       order.order_items.forEach((item) => {
@@ -33,7 +43,7 @@ export const PrintSweetSummary = forwardRef<
   return (
     <div ref={ref} style={{ fontSize: "10px", margin: "0 10px" }}>
       <h2 className="text-xl font-bold mb-4">
-        Výroba zákusků a čajových výrobků
+        Výroba zákusků a čajových výrobků ({dateRange})
       </h2>
       <table className="w-[60%] mb-4">
         <thead>
