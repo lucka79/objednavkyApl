@@ -11,6 +11,7 @@ export type Database = {
     Tables: {
       categories: {
         Row: {
+          adminOnly: boolean
           buyer: boolean | null
           created_at: string
           id: number
@@ -18,6 +19,7 @@ export type Database = {
           store: boolean | null
         }
         Insert: {
+          adminOnly?: boolean
           buyer?: boolean | null
           created_at?: string
           id?: number
@@ -25,6 +27,7 @@ export type Database = {
           store?: boolean | null
         }
         Update: {
+          adminOnly?: boolean
           buyer?: boolean | null
           created_at?: string
           id?: number
@@ -407,11 +410,13 @@ export type Database = {
           description: string | null
           id: number
           image: string | null
+          isChild: boolean
           name: string
           nameVi: string | null
           price: number
           priceBuyer: number
           priceMobil: number
+          printId: number
           seller_id: string | null
           store: boolean
           vat: number
@@ -425,11 +430,13 @@ export type Database = {
           description?: string | null
           id?: number
           image?: string | null
+          isChild?: boolean
           name: string
           nameVi?: string | null
           price?: number
           priceBuyer?: number
           priceMobil?: number
+          printId?: number
           seller_id?: string | null
           store?: boolean
           vat?: number
@@ -443,11 +450,13 @@ export type Database = {
           description?: string | null
           id?: number
           image?: string | null
+          isChild?: boolean
           name?: string
           nameVi?: string | null
           price?: number
           priceBuyer?: number
           priceMobil?: number
+          printId?: number
           seller_id?: string | null
           store?: boolean
           vat?: number

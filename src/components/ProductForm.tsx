@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,7 +28,7 @@ import {
 import { fetchCategories } from "@/hooks/useCategories";
 import { useNavigate } from "@tanstack/react-router";
 import { defaultProductImage } from "@/constants/Images";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
 import imageCompression from "browser-image-compression";
@@ -41,6 +41,7 @@ import {
 import { Card, CardContent, CardFooter } from "./ui/card";
 import { Loader2 } from "lucide-react";
 import RemoteImage from "./RemoteImage";
+import { Switch } from "@/components/ui/switch";
 
 const productSchema = z.object({
   name: z.string().min(3, "Product name is required"),
@@ -59,6 +60,9 @@ const productSchema = z.object({
     .string()
     .nullable()
     .transform((val) => val || ""), // Transform null to empty string
+  isChild: z.boolean().default(false),
+
+  printId: z.number().nullable().optional(),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -89,6 +93,17 @@ const updateProduct = async (data: ProductUpdateValues) => {
   return updatedProduct;
 };
 
+const fetchParentProducts = async () => {
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .eq("isChild", false)
+    .order("name");
+
+  if (error) throw error;
+  return data;
+};
+
 export function ProductForm({ onClose, productId }: ProductFormProps) {
   if (!productId) {
     console.error("ProductForm requires a productId");
@@ -105,6 +120,11 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
     }
   );
 
+  const { data: parentProducts } = useQuery({
+    queryKey: ["parentProducts"],
+    queryFn: fetchParentProducts,
+  });
+
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
     defaultValues: {
@@ -119,8 +139,13 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
       active: true,
 
       code: "",
+      isChild: false,
+
+      printId: null,
     },
   });
+
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (product) {
@@ -136,6 +161,9 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
         active: product.active,
 
         code: product.code,
+        isChild: product.isChild ?? false,
+
+        printId: product.printId ?? null,
       });
     }
   }, [product, form]);
@@ -215,7 +243,7 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl" autoFocus={false}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <div tabIndex={-1} />
         <DialogHeader>
           <DialogTitle>
@@ -467,7 +495,115 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
                   )}
                 />
               </CardContent>
-              <CardContent className="grid grid-cols-2 gap-2 py-1"></CardContent>
+              <CardContent className="grid grid-cols-2 gap-2 py-1">
+                <FormField
+                  control={form.control}
+                  name="isChild"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">
+                          Podřízený výrobek
+                        </FormLabel>
+                        <FormDescription>
+                          Označte, pokud má tento výrobek nadřazený výrobek
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch("isChild") && (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="printId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nadřazený výrobek</FormLabel>
+                          <Select
+                            onValueChange={(value) => {
+                              const parentProduct = parentProducts?.find(
+                                (p) => p.id === parseInt(value)
+                              );
+                              const printIdToUse =
+                                parentProduct?.printId ?? field.value;
+                              field.onChange(printIdToUse);
+                            }}
+                            defaultValue={parentProducts
+                              ?.find((p) => p.printId === field.value)
+                              ?.id.toString()}
+                            onOpenChange={() => setSearchQuery("")}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue
+                                  placeholder={
+                                    parentProducts?.find(
+                                      (p) => p.printId === field.value
+                                    )?.name || "Vyberte nadřazený výrobek"
+                                  }
+                                />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <Input
+                                placeholder="Hledat produkt..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="sticky top-0 bg-background z-10 border-orange-600 hover:border-orange-600 focus-visible:ring-orange-600 mx-2 w-[calc(100%-16px)] pr-8"
+                                onKeyDown={(e) => e.stopPropagation()}
+                              />
+                              {searchQuery && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="absolute right-3 top-1.5 h-6 w-6 p-0"
+                                  onClick={() => setSearchQuery("")}
+                                >
+                                  ×
+                                </Button>
+                              )}
+                              {parentProducts
+                                ?.filter((product) =>
+                                  product.name
+                                    .toLowerCase()
+                                    .includes(searchQuery.toLowerCase())
+                                )
+                                .map((product) => (
+                                  <SelectItem
+                                    key={product.id}
+                                    value={product.id.toString()}
+                                  >
+                                    {product.name}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            {parentProducts?.find(
+                              (p) => p.id === Number(field.value)
+                            )
+                              ? `Parent Print ID: ${
+                                  parentProducts.find(
+                                    (p) => p.printId === field.value
+                                  )?.printId ?? field.value
+                                } | New Print ID: ${form.watch("printId")}`
+                              : "Nové Print ID: " + form.watch("printId")}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
+              </CardContent>
 
               <CardFooter>
                 <Button

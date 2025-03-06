@@ -927,7 +927,9 @@ export const fetchOrdersForPrinting = async (orderIds: number[]) => {
             name,
             code,
             price,
-            category_id
+            category_id,
+            printId,
+            isChild
           )
         )
       `)

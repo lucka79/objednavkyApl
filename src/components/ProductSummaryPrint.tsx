@@ -29,24 +29,47 @@ export const ProductSummaryPrint = forwardRef<
           item.product.category_id !== 9 &&
           item.product.category_id !== 17
         ) {
-          if (!acc[item.product_id]) {
-            acc[item.product_id] = {
+          const productId = item.product_id;
+          if (!acc[productId]) {
+            acc[productId] = {
               name: item.product.name,
               quantity: 0,
               total: 0,
               category_id: item.product.category_id || 0,
+              // @ts-ignore
+              printId: item.product.printId,
+              // @ts-ignore
+              isChild: item.product.isChild,
             };
           }
-          acc[item.product_id].quantity += item.quantity;
-          acc[item.product_id].total += item.quantity * item.price;
+          acc[productId].quantity += item.quantity;
+          acc[productId].total += item.quantity * item.price;
         }
       });
       return acc;
     },
     {} as Record<
       string,
-      { name: string; quantity: number; total: number; category_id: number }
+      {
+        name: string;
+        quantity: number;
+        total: number;
+        category_id: number;
+        printId: number;
+        isChild: boolean;
+      }
     >
+  );
+
+  console.log(
+    "Child Products:",
+    Object.values(productSummary)
+      .filter((item) => item.isChild)
+      .map((item) => ({
+        name: item.name,
+        printId: item.printId,
+        isChild: item.isChild,
+      }))
   );
 
   return (
@@ -57,6 +80,7 @@ export const ProductSummaryPrint = forwardRef<
       <table className="w-[60%] mb-4">
         <thead>
           <tr className="border-b">
+            <th className="text-left py-2 bg-gray-50">ID</th>
             <th className="text-left py-2 bg-gray-50">Položka</th>
             <th className="text-right py-2 bg-gray-50">Množství</th>
           </tr>
@@ -75,6 +99,15 @@ export const ProductSummaryPrint = forwardRef<
             .map((item, index) => (
               <tr key={index} className="border-b">
                 <td style={{ fontSize: "10px" }} className="py-2">
+                  {item.printId}
+                </td>
+                <td
+                  style={{
+                    fontSize: "12px",
+                    fontWeight: !item.isChild ? "bold" : "normal",
+                  }}
+                  className="py-2"
+                >
                   {item.name}
                 </td>
                 <td style={{ fontSize: "12px" }} className="text-right py-2">

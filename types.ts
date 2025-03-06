@@ -14,7 +14,7 @@ export type Enums<T extends keyof Database['public']['Enums']> =
 
 
   // types.ts
-export type Product = {
+export interface Product {
   id: number;
   code: string;
   name: string;
@@ -30,7 +30,10 @@ export type Product = {
   created_at?: string;
   description?: string | null;
   image?: string | null;
-};
+  image_url?: string;
+  isChild?: boolean;
+  printId?: number | null;
+}
 
   export type Category = {
     id: number;
