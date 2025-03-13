@@ -885,6 +885,7 @@ export function ArchiveOrdersTable() {
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [selectedOZ, setSelectedOZ] = useState<string>("all");
   const setSelectedOrderId = useOrderStore((state) => state.setSelectedOrderId);
+  const [selectedReport, setSelectedReport] = useState<string>("");
 
   // Get unique paid_by values from orders
   const uniquePaidByValues = useMemo(() => {
@@ -1287,44 +1288,57 @@ export function ArchiveOrdersTable() {
                   </Button>
 
                   {authUser?.role === "admin" && (
-                    <Select
-                      defaultValue=""
-                      onValueChange={(value) => {
-                        const selectedOrders =
-                          table.getFilteredSelectedRowModel().rows.length > 0
-                            ? table
-                                .getFilteredSelectedRowModel()
-                                .rows.map(
-                                  (row: { original: Order }) => row.original
-                                )
-                            : filteredOrders;
+                    <div className="flex gap-2">
+                      <Select
+                        value={selectedReport}
+                        onValueChange={(value) => {
+                          setSelectedReport(value);
+                          const selectedOrders =
+                            table.getFilteredSelectedRowModel().rows.length > 0
+                              ? table
+                                  .getFilteredSelectedRowModel()
+                                  .rows.map(
+                                    (row: { original: Order }) => row.original
+                                  )
+                              : filteredOrders;
 
-                        switch (value) {
-                          case "orders":
-                            printReportBuyerOrders(selectedOrders);
-                            break;
-                          case "products":
-                            printReportProducts(selectedOrders);
-                            break;
-                          case "buyers":
-                            printReportBuyersSummary(selectedOrders);
-                            break;
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Vyberte tisk" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="orders">
-                          Report objednávek
-                        </SelectItem>
-                        <SelectItem value="products">Report výrobků</SelectItem>
-                        <SelectItem value="buyers">
-                          Report odběratelů
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                          switch (value) {
+                            case "orders":
+                              printReportBuyerOrders(selectedOrders);
+                              break;
+                            case "products":
+                              printReportProducts(selectedOrders);
+                              break;
+                            case "buyers":
+                              printReportBuyersSummary(selectedOrders);
+                              break;
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Vyberte tisk" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="orders">
+                            Report objednávek
+                          </SelectItem>
+                          <SelectItem value="products">
+                            Report výrobků
+                          </SelectItem>
+                          <SelectItem value="buyers">
+                            Report odběratelů
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedReport("")}
+                        className="px-2"
+                      >
+                        Reset
+                      </Button>
+                    </div>
                   )}
                   <div className="flex gap-2">
                     <Button

@@ -828,36 +828,92 @@ export const useUpdateStoredItems = () => {
   });
 };
 
-export const useOrdersWithCategory9 = () => {
+export function useOrdersWithCategory9() {
   return useQuery({
-    queryKey: ['ordersCategory9'],
+    queryKey: ['orders-category-9'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          user:profiles!orders_user_id_fkey (*),
-          driver:profiles!orders_driver_id_fkey (*),
-          order_items!inner (
-            *,
-            product:products!inner (
-              *,
-              category_id
+      try {
+        // First get orders with basic relations
+        const { data: orders, error: ordersError } = await supabase
+          .from('orders')
+          .select(`
+            id,
+            date,
+            status,
+            total,
+            user_id,
+            driver_id,
+            note,
+            paid_by,
+            user:profiles!orders_user_id_fkey (
+              id, 
+              full_name, 
+              role
+            ),
+            driver:profiles!orders_driver_id_fkey (
+              id, 
+              full_name, 
+              role
             )
+          `)
+          .order('date', { ascending: false })
+          .gte('date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+          .limit(100);
+
+        if (ordersError) throw ordersError;
+
+        // Then get order items with category 9 products
+        const orderIds = orders.map(order => order.id);
+        const chunkSize = 50;
+        const orderItemsPromises = [];
+
+        for (let i = 0; i < orderIds.length; i += chunkSize) {
+          const chunk = orderIds.slice(i, i + chunkSize);
+          orderItemsPromises.push(
+            supabase
+              .from('order_items')
+              .select(`
+                *,
+                product:products!inner (
+                  id,
+                  name,
+                  price,
+                  category_id
+                )
+              `)
+              .in('order_id', chunk)
+              .eq('product.category_id', 9)
+          );
+        }
+
+        const itemsResults = await Promise.all(orderItemsPromises);
+        const allOrderItems = itemsResults.reduce<any[]>((acc, { data }) => 
+          acc.concat(data || []), 
+        []);
+
+        // Filter orders to only include those with category 9 items
+        // and combine with their items
+        const ordersWithCategory9 = orders
+          .filter(order => 
+            allOrderItems.some(item => item.order_id === order.id)
           )
-        `)
-        .eq('order_items.product.category_id', 9)
-        .order('date', { ascending: false });
+          .map(order => ({
+            ...order,
+            order_items: allOrderItems.filter(item => 
+              item.order_id === order.id
+            )
+          }));
 
-      if (error) {
+        return ordersWithCategory9;
+      } catch (error: any) {
         console.error('Error fetching category 9 orders:', error);
-        throw error;
+        throw new Error('Failed to fetch orders. Please try again later.');
       }
-
-      return data;
-    }
+    },
+    retry: 2,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
-};
+}
 
 export const fetchLastMonthOrders = () => {
   return useQuery({

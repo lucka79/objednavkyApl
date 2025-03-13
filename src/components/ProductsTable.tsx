@@ -27,7 +27,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CreateProductForm } from "./CreateProductForm";
 
 import { Card } from "./ui/card";
-import { CirclePlus, Trash2, FilePenLine } from "lucide-react";
+import { CirclePlus, Trash2, FilePenLine, ArrowRight } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -70,13 +70,15 @@ const ProductRow = memo(
     };
 
     return (
-      <div className="grid grid-cols-[40px_200px_100px_100px_100px_130px_80px_80px_80px_80px_100px] gap-4 py-2 px-4 items-center border-b text-sm">
+      <div className="grid grid-cols-[30px_40px_200px_100px_100px_100px_130px_80px_80px_80px_80px_100px] gap-4 py-2 px-4 items-center border-b text-sm">
+        <div className="flex justify-center">
+          {product.isChild && <ArrowRight className="h-4 w-4 text-gray-400" />}
+        </div>
         <div>{product.code}</div>
-        <div>
+        <div className="flex items-center gap-1">
           {product.name}
           <p className="text-xs text-orange-500">{product.nameVi}</p>
         </div>
-
         <div className="text-right">{product.priceBuyer.toFixed(2)} Kč</div>
         <div className="text-right">{product.priceMobil.toFixed(2)} Kč</div>
         <div className="text-right">{product.price.toFixed(2)} Kč</div>
@@ -267,10 +269,10 @@ export function ProductsTable() {
               className="border rounded-md h-[calc(100vh-140px)] overflow-auto"
             >
               <div className="sticky top-0 bg-white z-10 border-b">
-                <div className="grid grid-cols-[40px_200px_100px_100px_100px_130px_80px_80px_80px_80px_100px] gap-4 py-2 px-4 font-base text-sm">
+                <div className="grid grid-cols-[30px_40px_200px_100px_100px_100px_130px_80px_80px_80px_80px_100px] gap-4 py-2 px-4 font-base text-sm">
+                  <div></div>
                   <div>Kód</div>
                   <div>Name</div>
-
                   <div className="text-right">NákupBez</div>
                   <div className="text-right">Mobil</div>
                   <div className="text-right">Prodej</div>
