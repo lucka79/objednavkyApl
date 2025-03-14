@@ -49,10 +49,17 @@ import { VerticalNav } from "./VerticalNav";
 const ProductRow = memo(
   ({ product, onEdit }: { product: Product; onEdit: (id: number) => void }) => {
     const { data: categories } = fetchCategories();
+    const { data: products } = fetchAllProducts();
     const user = useAuthStore((state) => state.user);
     const { mutateAsync: updateProduct } = useUpdateProduct();
     const categoryName =
       categories?.find((c) => c.id === product.category_id)?.name || "N/A";
+
+    // Calculate count of products with same printId
+    const printIdCount =
+      !product.isChild && product.printId
+        ? products?.filter((p) => p.printId === product.printId).length
+        : null;
 
     const handleCheckboxChange = async (field: string, checked: boolean) => {
       try {
@@ -77,6 +84,11 @@ const ProductRow = memo(
         <div>{product.code}</div>
         <div className="flex items-center gap-1">
           {product.name}
+          {printIdCount && printIdCount > 1 && (
+            <span className="ml-1 px-1.5 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">
+              {printIdCount}
+            </span>
+          )}
           <p className="text-xs text-orange-500">{product.nameVi}</p>
         </div>
         <div className="text-right">{product.priceBuyer.toFixed(2)} Kč</div>

@@ -126,6 +126,36 @@ export type Database = {
           },
         ]
       }
+      ingredients: {
+        Row: {
+          active: boolean
+          created_at: string
+          ean: string | null
+          id: number
+          name: string
+          price: number | null
+          vat: number | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          ean?: string | null
+          id?: number
+          name: string
+          price?: number | null
+          vat?: number | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          ean?: string | null
+          id?: number
+          name?: string
+          price?: number | null
+          vat?: number | null
+        }
+        Relationships: []
+      }
       invoices: {
         Row: {
           created_at: string
@@ -411,6 +441,7 @@ export type Database = {
           id: number
           image: string | null
           isChild: boolean
+          koef: number
           name: string
           nameVi: string | null
           price: number
@@ -431,6 +462,7 @@ export type Database = {
           id?: number
           image?: string | null
           isChild?: boolean
+          koef?: number
           name: string
           nameVi?: string | null
           price?: number
@@ -451,6 +483,7 @@ export type Database = {
           id?: number
           image?: string | null
           isChild?: boolean
+          koef?: number
           name?: string
           nameVi?: string | null
           price?: number

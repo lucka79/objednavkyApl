@@ -702,6 +702,7 @@ const printCategoryBagets = async (orders: Order[]) => {
   try {
     const orderIds = orders.map((order) => order.id);
     const completeOrders = await fetchOrdersForPrinting(orderIds);
+    const currentSelectedDriver = useOrderStore.getState().selectedDriver; // Get current driver from store
 
     const printWindow = window.open("", "_blank");
     if (printWindow) {
@@ -717,7 +718,12 @@ const printCategoryBagets = async (orders: Order[]) => {
           </style>
           </head>
           <body>
-            ${ReactDOMServer.renderToString(<PrintCategoryBagets orders={completeOrders} />)}
+            ${ReactDOMServer.renderToString(
+              <PrintCategoryBagets
+                orders={completeOrders}
+                selectedDriver={currentSelectedDriver} // Pass driver explicitly
+              />
+            )}
           </body>
         </html>
       `);
@@ -924,7 +930,8 @@ export function OrdersTable({
   const [activeTab, setActiveTab] = useState("today");
   const [selectedPaidBy, setSelectedPaidBy] = useState<string>("all");
   const [selectedRole, setSelectedRole] = useState<string>("all");
-  const [selectedDriver, setSelectedDriver] = useState<string>("all");
+  const selectedDriver = useOrderStore((state) => state.selectedDriver);
+  const setSelectedDriver = useOrderStore((state) => state.setSelectedDriver);
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const { data: driverUsers } = useDriverUsers();
   const [table, setTable] = useState<any>(null);
@@ -1004,12 +1011,10 @@ export function OrdersTable({
     }
 
     // Fix driver filtering
-    if (selectedDriver !== "all") {
+    if (selectedDriver?.id !== undefined) {
       filtered = filtered.filter((order) => {
-        if (selectedDriver === "none") {
-          return !order.driver_id;
-        }
-        return order.driver_id === selectedDriver;
+        if (selectedDriver.id === "none") return !order.driver_id;
+        return order.driver_id === selectedDriver.id;
       });
     }
 
@@ -1293,7 +1298,17 @@ export function OrdersTable({
                 </SelectContent>
               </Select>
 
-              <Select value={selectedDriver} onValueChange={setSelectedDriver}>
+              <Select
+                value={selectedDriver?.id || "all"}
+                onValueChange={(value) => {
+                  const driverInfo = driverUsers?.find(
+                    (driver) => driver.id === value
+                  );
+                  setSelectedDriver(
+                    value === "all" ? null : driverInfo || null
+                  );
+                }}
+              >
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Filtrovat řidiče..." />
                 </SelectTrigger>

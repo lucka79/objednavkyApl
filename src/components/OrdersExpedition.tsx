@@ -783,6 +783,7 @@ const printCategoryBagets = async (orders: Order[]) => {
   try {
     const orderIds = orders.map((order) => order.id);
     const completeOrders = await fetchOrdersForPrinting(orderIds);
+    const currentSelectedDriver = useOrderStore.getState().selectedDriver; // Get current driver from store
 
     const printWindow = window.open("", "_blank");
     if (printWindow) {
@@ -790,15 +791,20 @@ const printCategoryBagets = async (orders: Order[]) => {
         <html>
           <head>
             <title>Výroba baget</title>
-          <style>
-            @page { size: A4; }
-            body { font-family: Arial, sans-serif; padding: 10px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-          </style>
+            <style>
+              @page { size: A4; }
+              body { font-family: Arial, sans-serif; padding: 10px; }
+              table { width: 100%; border-collapse: collapse; }
+              th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+            </style>
           </head>
           <body>
-            ${ReactDOMServer.renderToString(<PrintCategoryBagets orders={completeOrders} />)}
+            ${ReactDOMServer.renderToString(
+              <PrintCategoryBagets
+                orders={completeOrders}
+                selectedDriver={currentSelectedDriver} // Pass driver explicitly
+              />
+            )}
           </body>
         </html>
       `);
@@ -911,7 +917,8 @@ export function OrdersExpeditionTable({
   const [activeTab, setActiveTab] = useState("today");
   const [selectedPaidBy, setSelectedPaidBy] = useState<string>("all");
   const [selectedRole, setSelectedRole] = useState<string>("all");
-  const [selectedDriver, setSelectedDriver] = useState<string>("all");
+  const selectedDriver = useOrderStore((state) => state.selectedDriver);
+  const setSelectedDriver = useOrderStore((state) => state.setSelectedDriver);
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const { data: driverUsers } = useDriverUsers();
   const [searchQuery, setSearchQuery] = useState("");
@@ -986,9 +993,12 @@ export function OrdersExpeditionTable({
         if (selectedRole !== "all" && order.user?.role !== selectedRole)
           return false;
 
-        if (selectedDriver !== "all") {
-          if (selectedDriver === "none" && order.driver_id) return false;
-          if (selectedDriver !== "none" && order.driver_id !== selectedDriver)
+        if (selectedDriver?.id !== undefined) {
+          if (selectedDriver.id === "none" && order.driver_id) return false;
+          if (
+            selectedDriver.id !== "none" &&
+            order.driver_id !== selectedDriver.id
+          )
             return false;
         }
 
@@ -1056,7 +1066,6 @@ export function OrdersExpeditionTable({
   //     const quantity = order.order_items
   //       .filter((item) => item.product_id.toString() === productId)
   //       .reduce((sum, item) => sum + item.quantity, 0);
-  //     return total + quantity;
   //   }, 0);
   // };
 
@@ -1347,7 +1356,17 @@ export function OrdersExpeditionTable({
                 </SelectContent>
               </Select>
 
-              <Select value={selectedDriver} onValueChange={setSelectedDriver}>
+              <Select
+                value={selectedDriver?.id || "all"}
+                onValueChange={(value) => {
+                  const driverInfo = driverUsers?.find(
+                    (driver) => driver.id === value
+                  );
+                  setSelectedDriver(
+                    value === "all" ? null : driverInfo || null
+                  );
+                }}
+              >
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Filtrovat řidiče..." />
                 </SelectTrigger>

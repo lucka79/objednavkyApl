@@ -45,7 +45,10 @@ import { Switch } from "@/components/ui/switch";
 
 const productSchema = z.object({
   name: z.string().min(3, "Product name is required"),
-  nameVi: z.string().optional(),
+  nameVi: z
+    .string()
+    .nullable()
+    .transform((val) => val || ""),
   description: z.string().min(0, "Product description is required"),
   price: z.number().min(0, "Cena musí být větší než 0"),
   priceBuyer: z.number().min(0, "Cena musí být větší než 0"),
@@ -63,6 +66,7 @@ const productSchema = z.object({
   isChild: z.boolean().default(false),
 
   printId: z.number().nullable().optional(),
+  koef: z.number().min(0, "Koeficient musí být nezáporný").default(1),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -142,6 +146,7 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
       isChild: false,
 
       printId: null,
+      koef: 1,
     },
   });
 
@@ -164,6 +169,7 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
         isChild: product.isChild ?? false,
 
         printId: product.printId ?? null,
+        koef: product.koef ?? 1,
       });
     }
   }, [product, form]);
@@ -284,22 +290,44 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
                 />
               </CardContent>
               <CardContent className="grid grid-cols-1 gap-2 py-2">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      {/* <FormLabel>Name</FormLabel> */}
-                      <FormControl>
-                        <Input placeholder="Název výrobku" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        Název výrobku i hmotnost v g!!
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-[2fr,1fr] gap-2">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Input placeholder="Název výrobku" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Název výrobku i hmotnost v g!!
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="koef"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.5"
+                            placeholder="Koeficient"
+                            {...field}
+                            onChange={(e) =>
+                              field.onChange(parseFloat(e.target.value))
+                            }
+                          />
+                        </FormControl>
+                        <FormDescription>Koeficient výrobku</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </CardContent>
               <CardContent className="grid grid-cols-1 gap-2 py-2">
                 <FormField
@@ -612,7 +640,7 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
                   disabled={productMutation.isPending}
                   className="w-full bg-orange-500 hover:bg-orange-600 text-white"
                 >
-                  {productMutation.isPending ? "Vkládám..." : "Vložit výrobek"}
+                  {productMutation.isPending ? "Ukládám..." : "Uložit změny"}
                 </Button>
               </CardFooter>
             </form>

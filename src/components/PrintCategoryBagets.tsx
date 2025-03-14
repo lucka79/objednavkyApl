@@ -3,12 +3,13 @@ import { forwardRef } from "react";
 
 interface PrintCategoryBagetsProps {
   orders: Order[];
+  selectedDriver?: { id: string; full_name: string } | null;
 }
 
 export const PrintCategoryBagets = forwardRef<
   HTMLDivElement,
   PrintCategoryBagetsProps
->(({ orders }, ref) => {
+>(({ orders, selectedDriver }, ref) => {
   // Get min and max dates from orders
   const dates = orders.map((order) => new Date(order.date));
   const minDate = new Date(Math.min(...dates.map((date) => date.getTime())));
@@ -45,7 +46,10 @@ export const PrintCategoryBagets = forwardRef<
 
   return (
     <div ref={ref} style={{ fontSize: "12px", margin: "0 10px" }}>
-      <h2 className="text-xl font-bold mb-4">Výroba baget ({dateRange})</h2>
+      <h2 className="text-xl font-bold mb-4">
+        Výroba baget ({dateRange}) -
+        {selectedDriver ? ` ${selectedDriver.full_name}` : "Všichni řidiči"}
+      </h2>
       <table className="w-[60%] mb-4">
         <thead>
           <tr className="border-b">
