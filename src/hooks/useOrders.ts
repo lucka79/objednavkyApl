@@ -983,6 +983,7 @@ export const fetchOrdersForPrinting = async (orderIds: number[]) => {
             name,
             code,
             price,
+            koef,
             category_id,
             category:categories(name),
             printId,

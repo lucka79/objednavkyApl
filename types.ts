@@ -33,6 +33,7 @@ export interface Product {
   image_url?: string;
   isChild?: boolean;
   printId?: number | null;
+  koef?: number;
 }
 
   export type Category = {

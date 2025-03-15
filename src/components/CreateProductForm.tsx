@@ -49,6 +49,7 @@ const productSchema = z.object({
   category_id: z.number().min(1, "Kategorie musí být vybrána"),
   image: z.union([z.instanceof(File), z.string()]).optional(),
   code: z.string().optional(),
+  koef: z.number().min(0, "Koeficient musí být nezáporný"),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -74,6 +75,7 @@ export function CreateProductForm() {
       vat: 12,
       category_id: 1,
       code: "",
+      koef: 1,
       // image: "",
     },
   });
@@ -95,6 +97,7 @@ export function CreateProductForm() {
         vat: 12,
         category_id: 1,
         code: "",
+        koef: 1,
       });
       onClose();
     },
@@ -343,7 +346,6 @@ export function CreateProductForm() {
                 )}
               />
             </CardContent>
-            <CardContent className="grid grid-cols-2 gap-2 py-1"></CardContent>
             <CardContent className="py-2">
               <FormField
                 control={form.control}
