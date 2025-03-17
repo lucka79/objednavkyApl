@@ -24,23 +24,6 @@ export const OrdersTableSummary = ({
   // Calculate total sum
   const totalSum = orders.reduce((sum, order) => sum + order.total, 0);
 
-  // Add these helper functions at the top of the component
-  const countAllItems = (order: Order) => {
-    return order.order_items?.length || 0;
-  };
-
-  const countUncheckedItems = (order: Order) => {
-    return order.order_items?.filter((item) => !item.checked).length || 0;
-  };
-
-  const countZeroItems = (order: Order) => {
-    return order.order_items?.filter((item) => item.quantity === 0).length || 0;
-  };
-
-  const countNonZeroItems = (order: Order) => {
-    return order.order_items?.filter((item) => item.quantity > 0).length || 0;
-  };
-
   // Add order count
   const orderCount = orders.length;
 
@@ -54,11 +37,10 @@ export const OrdersTableSummary = ({
           <tr className="border-b">
             <th style={{ textAlign: "left" }}>Datum</th>
             <th style={{ textAlign: "left" }}>Odběratel</th>
+            <th style={{ textAlign: "left" }}>Adresa</th>
             <th style={{ textAlign: "left" }}>Řidič</th>
             {isAdmin && <th style={{ textAlign: "right" }}>Celkem</th>}
-            <th style={{ textAlign: "left" }}>Pol.</th>
-            <th style={{ textAlign: "left" }}>X</th>
-            <th style={{ textAlign: "left" }}>Status</th>
+
             <th style={{ textAlign: "left" }}>Poznámka</th>
           </tr>
         </thead>
@@ -69,19 +51,13 @@ export const OrdersTableSummary = ({
                 {format(new Date(order.date), "dd.MM.yyyy")}
               </td>
               <td className="py-2">{order.user?.full_name || "-"}</td>
+              <td className="py-2">{order.user?.address || "-"}</td>
               <td className="py-2">{order.driver?.full_name || "-"}</td>
               {isAdmin && (
                 <td className="py-2" style={{ textAlign: "right" }}>
                   {order.total.toFixed(2)} Kč
                 </td>
               )}
-              <td className="py-2" style={{ textAlign: "left" }}>
-                {countUncheckedItems(order)}/{countNonZeroItems(order)}
-              </td>
-              <td className="py-2" style={{ textAlign: "left" }}>
-                {countZeroItems(order)}/{countAllItems(order)}
-              </td>
-              <td className="py-2">{order.status || "-"}</td>
               <td className="py-2">{order.note || "-"}</td>
             </tr>
           ))}

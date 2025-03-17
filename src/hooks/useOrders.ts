@@ -191,6 +191,7 @@ export const fetchAllOrders = () => {
             id, 
             full_name, 
             role,
+            address,
             mo_partners,
             oz
           ),
@@ -299,7 +300,10 @@ export const fetchExpeditionOrders = () => {
           user:profiles!orders_user_id_fkey (
             id, 
             full_name, 
-            role
+            role,
+            address,
+            mo_partners,
+            oz
           ),
           driver:profiles!orders_driver_id_fkey (
             id, 
