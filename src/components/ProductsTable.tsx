@@ -81,15 +81,21 @@ const ProductRow = memo(
         <div className="flex justify-center">
           {product.isChild && <ArrowRight className="h-4 w-4 text-gray-400" />}
         </div>
+        {/* <div>{product.id}</div>
+        <div>{product.printId}</div> */}
         <div>{product.code}</div>
-        <div className="flex items-center gap-1">
-          {product.name}
-          {printIdCount && printIdCount > 1 && (
-            <span className="ml-1 px-1.5 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">
-              {printIdCount}
-            </span>
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1">
+            {product.name}
+            {printIdCount && printIdCount > 1 && (
+              <span className="ml-1 px-1.5 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">
+                {printIdCount}
+              </span>
+            )}
+          </div>
+          {product.nameVi && (
+            <p className="text-xs text-orange-500">{product.nameVi}</p>
           )}
-          <p className="text-xs text-orange-500">{product.nameVi}</p>
         </div>
         <div className="text-right">{product.priceBuyer.toFixed(2)} Kč</div>
         <div className="text-right">{product.priceMobil.toFixed(2)} Kč</div>
@@ -242,7 +248,7 @@ export function ProductsTable() {
 
   return (
     <>
-      <div className="flex gap-2 h-screen py-2">
+      <div className="flex gap-8 h-screen py-2">
         <div className="w-[200px]">
           <VerticalNav
             onCategorySelect={handleCategorySelect}
@@ -250,7 +256,7 @@ export function ProductsTable() {
           />
         </div>
 
-        <div className="flex-1">
+        <div className="flex-1 pl-[120px]">
           <Card className="h-full p-4">
             <div className="flex justify-start gap-2 items-center mb-2">
               <Input
@@ -283,6 +289,8 @@ export function ProductsTable() {
               <div className="sticky top-0 bg-white z-10 border-b">
                 <div className="grid grid-cols-[30px_40px_200px_100px_100px_100px_130px_80px_80px_80px_80px_100px] gap-4 py-2 px-4 font-base text-sm">
                   <div></div>
+                  {/* <div>ID</div>
+                  <div>Print ID</div> */}
                   <div>Kód</div>
                   <div>Name</div>
                   <div className="text-right">NákupBez</div>

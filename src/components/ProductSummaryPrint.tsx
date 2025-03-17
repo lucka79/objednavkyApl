@@ -22,12 +22,6 @@ export const ProductSummaryPrint = forwardRef<
   const productSummary = orders.reduce(
     (acc, order) => {
       order.order_items.forEach((item) => {
-        console.log("Product ID 208:", {
-          id: item.product_id,
-          name: item.product.name,
-          koef: item.product.koef,
-          rawProduct: item.product,
-        });
         // Skip products from categories 4, 5, and 17
         if (
           item.product.category_id !== 4 &&
@@ -140,7 +134,7 @@ export const ProductSummaryPrint = forwardRef<
               </colgroup>
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-2 bg-gray-50">ID</th>
+                  <th className="text-left py-2 bg-gray-50">PrintID</th>
                   <th className="text-left py-2 bg-gray-50">Položka</th>
                   <th className="text-right py-2 bg-gray-50">Množství</th>
                   <th className="text-right py-2 bg-gray-50">Celkem</th>
@@ -214,8 +208,8 @@ export const ProductSummaryPrint = forwardRef<
                             style={{ fontSize: "14px", fontWeight: "bold" }}
                             className="text-right py-2"
                           >
-                            {!item.isChild && totalQuantity > item.quantity
-                              ? totalQuantity
+                            {!item.isChild || (!hasParent && isFirstChild)
+                              ? totalQuantity || item.quantity
                               : ""}
                           </td>
                         </tr>

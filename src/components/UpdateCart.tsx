@@ -390,179 +390,194 @@ export default function UpdateCart({
   return (
     <Card>
       <CardContent>
-        <div className="flex gap-2 mb-4 pt-2 print:hidden">
-          {isLocked && canUnlock && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleLock}
-              className={
-                isOrderUnlocked(orderId)
-                  ? "text-red-600"
-                  : "text-muted-foreground"
-              }
-            >
-              {isOrderUnlocked(orderId) ? (
-                <Unlock className="h-4 w-4" />
-              ) : (
-                <Lock className="h-4 w-4" />
-              )}
-            </Button>
-          )}
-          <Badge variant="outline" className="border-green-500">
-            Hotovo {getCheckboxCounts().checked}
-          </Badge>
-          <Badge variant="outline" className="border-amber-500">
-            Připravit {getCheckboxCounts().unchecked}
-          </Badge>
-          <div className="flex gap-2 ml-auto">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" disabled={isReadOnly}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Položka
-                </Button>
-              </DialogTrigger>
-              <DialogContent
-                className="max-w-6xl max-h-[90vh] overflow-y-auto"
-                aria-describedby="dialog-description"
-              >
-                <DialogTitle>Add Product to Order</DialogTitle>
-                <div id="dialog-description" className="sr-only">
-                  Select products to add to the order
-                </div>
-                <AddProduct orderId={orderId} onUpdate={onUpdate} />
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-        {!orderItems || orderItems.length === 0 ? (
-          <p>No items in order.</p>
-        ) : (
-          orderItems.map((item) => (
-            <div
-              key={item.id}
-              className={`flex flex-row items-center pt-2 mb-2 ${
-                item.quantity === 0 ? "text-gray-400 scale-95 print:hidden" : ""
-              }`}
-            >
-              {(user?.role === "admin" ||
-                user?.role === "expedition" ||
-                (user?.role === "store" && order?.status === "Přeprava")) && (
+        <div className="flex flex-col">
+          {/* Sticky header */}
+          <div className="sticky top-0 z-10 bg-white pb-2 border-b mb-4">
+            <div className="flex gap-2 pt-2 print:hidden">
+              {isLocked && canUnlock && (
                 <Button
                   variant="ghost"
-                  onClick={() => handleCheckChange(item.id, !item.checked)}
-                  disabled={isReadOnly}
-                  className={`mr-2 h-6 w-6 min-w-[1.5rem] min-h-[1.5rem] p-0 print:hidden ${
-                    item.checked
-                      ? "bg-green-500 hover:bg-green-600 text-white"
-                      : "border-2 border-amber-500 hover:bg-amber-50"
-                  }`}
+                  size="sm"
+                  onClick={toggleLock}
+                  className={
+                    isOrderUnlocked(orderId)
+                      ? "text-red-600"
+                      : "text-muted-foreground"
+                  }
                 >
-                  {item.checked ? "✓" : ""}
+                  {isOrderUnlocked(orderId) ? (
+                    <Unlock className="h-4 w-4" />
+                  ) : (
+                    <Lock className="h-4 w-4" />
+                  )}
                 </Button>
               )}
-              <div className="text-xs w-10 text-left inline-block text-slate-500">
-                {item.product.code || "\u00A0"}
-              </div>
-              <div className="text-sm w-120 inline-block text-left mr-2">
-                {item.product.name}
-              </div>
-              <div className="text-sm flex-1 mr-2 text-end">
-                {item.price.toFixed(2)} Kč
-              </div>
-              <div className="flex items-center">
-                {(item.quantity || 0) > 0 && (
-                  <SquareMinus
-                    onClick={() =>
-                      !item.checked &&
-                      !isReadOnly &&
-                      updateOrderQuantity(item.id, item.quantity - 1)
-                    }
-                    className={`cursor-pointer ${
-                      item.checked || isReadOnly
-                        ? "text-gray-200 cursor-not-allowed"
-                        : "text-stone-300 hover:text-stone-400"
-                    }`}
-                  />
-                )}
-                <Input
-                  type="number"
-                  min="0"
-                  value={item.quantity}
-                  onClick={(e) => (e.target as HTMLInputElement).select()}
-                  onChange={(e) => {
-                    if (isReadOnly) return;
-                    const newItem = {
-                      ...item,
-                      quantity: parseInt(e.target.value) || 0,
-                    };
-                    setOrderItems((prev) =>
-                      prev.map((i) => (i.id === item.id ? newItem : i))
-                    );
-                  }}
-                  onBlur={(e) =>
-                    !item.checked &&
-                    !isReadOnly &&
-                    updateOrderQuantity(item.id, parseInt(e.target.value) || 0)
-                  }
-                  disabled={item.checked || isReadOnly}
-                  className={`w-20 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
-                    item.quantity === 0 ? "text-gray-600" : ""
-                  }`}
-                />
-                <SquarePlus
-                  onClick={() =>
-                    !item.checked &&
-                    !isReadOnly &&
-                    updateOrderQuantity(item.id, item.quantity + 1)
-                  }
-                  className={`cursor-pointer ${
-                    item.checked || isReadOnly
-                      ? "text-gray-200 cursor-not-allowed"
-                      : "text-stone-300 hover:text-stone-400"
-                  }`}
-                />
-                <Label className="w-20 inline-block text-left mx-2">
-                  {(item.price * item.quantity).toFixed(2)} Kč
-                </Label>
+              <Badge variant="outline" className="border-green-500">
+                Hotovo {getCheckboxCounts().checked}
+              </Badge>
+              <Badge variant="outline" className="border-amber-500">
+                Připravit {getCheckboxCounts().unchecked}
+              </Badge>
+              <div className="flex gap-2 ml-auto">
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={!allHistoryData?.includes(item.id)}
-                      className={`ml-2 ${
-                        !allHistoryData?.includes(item.id)
-                          ? "opacity-30 cursor-not-allowed"
-                          : "hover:bg-slate-50 text-orange-500"
-                      }`}
-                      onClick={() => setSelectedItemId(item.id)}
-                    >
-                      <History className="h-4 w-4" />
+                    <Button variant="outline" size="sm" disabled={isReadOnly}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Položka
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Historie položky</DialogTitle>
-                    </DialogHeader>
-                    <HistoryDialog itemId={item.id} />
+                  <DialogContent
+                    className="max-w-6xl max-h-[90vh] overflow-y-auto"
+                    aria-describedby="dialog-description"
+                  >
+                    <DialogTitle>Add Product to Order</DialogTitle>
+                    <div id="dialog-description" className="sr-only">
+                      Select products to add to the order
+                    </div>
+                    <AddProduct orderId={orderId} onUpdate={onUpdate} />
                   </DialogContent>
                 </Dialog>
-                {user?.role === "admin" && (
-                  <Trash2
-                    onClick={() => !isReadOnly && handleDeleteItem(item.id)}
-                    className={`h-4 w-4 cursor-pointer ml-2 ${
-                      isReadOnly
-                        ? "text-gray-200 cursor-not-allowed"
-                        : "text-stone-300 hover:text-red-500"
-                    }`}
-                  />
-                )}
               </div>
             </div>
-          ))
-        )}
+          </div>
+
+          {/* Content */}
+          <div>
+            {!orderItems || orderItems.length === 0 ? (
+              <p>No items in order.</p>
+            ) : (
+              orderItems.map((item) => (
+                <div
+                  key={item.id}
+                  className={`flex flex-row items-center pt-2 mb-2 ${
+                    item.quantity === 0
+                      ? "text-gray-400 scale-95 print:hidden"
+                      : ""
+                  }`}
+                >
+                  {(user?.role === "admin" ||
+                    user?.role === "expedition" ||
+                    (user?.role === "store" &&
+                      order?.status === "Přeprava")) && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleCheckChange(item.id, !item.checked)}
+                      disabled={isReadOnly}
+                      className={`mr-2 h-6 w-6 min-w-[1.5rem] min-h-[1.5rem] p-0 print:hidden ${
+                        item.checked
+                          ? "bg-green-500 hover:bg-green-600 text-white"
+                          : "border-2 border-amber-500 hover:bg-amber-50"
+                      }`}
+                    >
+                      {item.checked ? "✓" : ""}
+                    </Button>
+                  )}
+                  <div className="text-xs w-10 text-left inline-block text-slate-500">
+                    {item.product.code || "\u00A0"}
+                  </div>
+                  <div className="text-sm w-120 inline-block text-left mr-2">
+                    {item.product.name}
+                  </div>
+                  <div className="text-sm flex-1 mr-2 text-end">
+                    {item.price.toFixed(2)} Kč
+                  </div>
+                  <div className="flex items-center">
+                    {(item.quantity || 0) > 0 && (
+                      <SquareMinus
+                        onClick={() =>
+                          !item.checked &&
+                          !isReadOnly &&
+                          updateOrderQuantity(item.id, item.quantity - 1)
+                        }
+                        className={`cursor-pointer ${
+                          item.checked || isReadOnly
+                            ? "text-gray-200 cursor-not-allowed"
+                            : "text-stone-300 hover:text-stone-400"
+                        }`}
+                      />
+                    )}
+                    <Input
+                      type="number"
+                      min="0"
+                      value={item.quantity}
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      onChange={(e) => {
+                        if (isReadOnly) return;
+                        const newItem = {
+                          ...item,
+                          quantity: parseInt(e.target.value) || 0,
+                        };
+                        setOrderItems((prev) =>
+                          prev.map((i) => (i.id === item.id ? newItem : i))
+                        );
+                      }}
+                      onBlur={(e) =>
+                        !item.checked &&
+                        !isReadOnly &&
+                        updateOrderQuantity(
+                          item.id,
+                          parseInt(e.target.value) || 0
+                        )
+                      }
+                      disabled={item.checked || isReadOnly}
+                      className={`w-20 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                        item.quantity === 0 ? "text-gray-600" : ""
+                      }`}
+                    />
+                    <SquarePlus
+                      onClick={() =>
+                        !item.checked &&
+                        !isReadOnly &&
+                        updateOrderQuantity(item.id, item.quantity + 1)
+                      }
+                      className={`cursor-pointer ${
+                        item.checked || isReadOnly
+                          ? "text-gray-200 cursor-not-allowed"
+                          : "text-stone-300 hover:text-stone-400"
+                      }`}
+                    />
+                    <Label className="w-20 inline-block text-left mx-2">
+                      {(item.price * item.quantity).toFixed(2)} Kč
+                    </Label>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={!allHistoryData?.includes(item.id)}
+                          className={`ml-2 ${
+                            !allHistoryData?.includes(item.id)
+                              ? "opacity-30 cursor-not-allowed"
+                              : "hover:bg-slate-50 text-orange-500"
+                          }`}
+                          onClick={() => setSelectedItemId(item.id)}
+                        >
+                          <History className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Historie položky</DialogTitle>
+                        </DialogHeader>
+                        <HistoryDialog itemId={item.id} />
+                      </DialogContent>
+                    </Dialog>
+                    {user?.role === "admin" && (
+                      <Trash2
+                        onClick={() => !isReadOnly && handleDeleteItem(item.id)}
+                        className={`h-4 w-4 cursor-pointer ml-2 ${
+                          isReadOnly
+                            ? "text-gray-200 cursor-not-allowed"
+                            : "text-stone-300 hover:text-red-500"
+                        }`}
+                      />
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
         <div className="flex flex-row justify-end font-bold text-slate-600 w-full mt-4">
           <span className="text-base">{total.toFixed(2)} Kč</span>
         </div>
