@@ -194,7 +194,7 @@ export const ProductCategory: React.FC = () => {
                   const input = e.currentTarget.querySelector("input");
                   const quantity = Number(input?.value || 1);
                   if (quantity > 0) {
-                    addItem(product, quantity);
+                    addItem({ ...product, isAdmin: false }, quantity);
                     if (input) {
                       (input as HTMLInputElement).value = "1";
                     }
@@ -237,7 +237,7 @@ export const ProductCategory: React.FC = () => {
                         e.currentTarget.parentElement?.querySelector("input");
                       const quantity = Number(input?.value || 1);
                       if (quantity > 0) {
-                        addItem(product, quantity);
+                        addItem({ ...product, isAdmin: false }, quantity);
                         if (input) {
                           (input as HTMLInputElement).value = "1";
                         }

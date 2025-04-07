@@ -29,6 +29,7 @@ export const AddProduct: React.FC<AddProductProps> = ({
 }) => {
   const { data: products, isLoading, error } = fetchActiveProducts();
   const { data: categories, isLoading: categoriesLoading } = fetchCategories();
+  const [orderUserRole, setOrderUserRole] = useState<string | null>(null);
 
   const addItem = useCartStore((state) => state.addItem);
 
@@ -41,6 +42,32 @@ export const AddProduct: React.FC<AddProductProps> = ({
   const queryClient = useQueryClient();
 
   const { toast } = useToast();
+
+  // Fetch order user role when selectedOrderId changes
+  React.useEffect(() => {
+    const fetchOrderUserRole = async () => {
+      if (selectedOrderId) {
+        const { data: orderData } = await supabase
+          .from("orders")
+          .select(
+            `
+            users:user_id (
+              role
+            )
+          `
+          )
+          .eq("id", selectedOrderId)
+          .single();
+
+        // @ts-ignore
+        setOrderUserRole(orderData?.users?.role || null);
+      } else {
+        setOrderUserRole(null);
+      }
+    };
+
+    fetchOrderUserRole();
+  }, [selectedOrderId]);
 
   const handleAddProduct = async (product: any, quantity: number = 1) => {
     console.log("Adding product:", product);
@@ -86,7 +113,9 @@ export const AddProduct: React.FC<AddProductProps> = ({
             : // @ts-ignore
               orderData?.users?.role === "store" ||
                 // @ts-ignore
-                orderData?.users?.role === "buyer"
+                orderData?.users?.role === "buyer" ||
+                // @ts-ignore
+                orderData?.users?.role === "admin"
               ? product.priceBuyer
               : product.price;
 
@@ -163,8 +192,17 @@ export const AddProduct: React.FC<AddProductProps> = ({
   }
 
   const filteredProducts = selectedCategory
-    ? products.filter((product) => product.category_id === selectedCategory)
-    : products;
+    ? products.filter(
+        (product) =>
+          product.category_id === selectedCategory &&
+          // Filter out admin products for store users
+          !(orderUserRole === "store" && product.isAdmin === true)
+      )
+    : products.filter(
+        (product) =>
+          // Filter out admin products for store users
+          !(orderUserRole === "store" && product.isAdmin === true)
+      );
 
   // Use filteredProducts instead of products when rendering
   return (

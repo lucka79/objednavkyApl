@@ -77,12 +77,15 @@ const ProductRow = memo(
     };
 
     return (
-      <div className="grid grid-cols-[30px_40px_200px_100px_100px_100px_130px_80px_80px_80px_80px_100px] gap-4 py-2 px-4 items-center border-b text-sm">
+      <div
+        className="grid grid-cols-[30px_40px_40px_40px_200px_100px_100px_100px_80px_50px_50px_50px_50px_50px_100px] gap-4 py-2 px-4 items-center border-b text-sm cursor-pointer hover:bg-gray-50"
+        onClick={() => onEdit(product.id)}
+      >
         <div className="flex justify-center">
           {product.isChild && <ArrowRight className="h-4 w-4 text-gray-400" />}
         </div>
-        {/* <div>{product.id}</div>
-        <div>{product.printId}</div> */}
+        <div className="text-center">{product.id}</div>
+        <div className="text-center">{product.printId}</div>
         <div>{product.code}</div>
         <div className="flex flex-col">
           <div className="flex items-center gap-1">
@@ -105,32 +108,56 @@ const ProductRow = memo(
         <div className="flex justify-center">
           <Checkbox
             checked={product.active}
-            onCheckedChange={(checked) =>
-              handleCheckboxChange("active", checked as boolean)
-            }
+            onCheckedChange={(checked) => {
+              event?.stopPropagation();
+              handleCheckboxChange("active", checked as boolean);
+            }}
             className="border-amber-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500 data-[state=checked]:text-white"
+            onClick={(e) => e.stopPropagation()}
           />
         </div>
         <div className="flex justify-center">
           <Checkbox
             checked={product.buyer}
-            onCheckedChange={(checked) =>
-              handleCheckboxChange("buyer", checked as boolean)
-            }
+            onCheckedChange={(checked) => {
+              event?.stopPropagation();
+              handleCheckboxChange("buyer", checked as boolean);
+            }}
             className="border-orange-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 data-[state=checked]:text-white"
+            onClick={(e) => e.stopPropagation()}
           />
         </div>
         <div className="flex justify-center">
           <Checkbox
             checked={product.store}
-            onCheckedChange={(checked) =>
-              handleCheckboxChange("store", checked as boolean)
-            }
+            onCheckedChange={(checked) => {
+              event?.stopPropagation();
+              handleCheckboxChange("store", checked as boolean);
+            }}
             className="border-blue-500 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 data-[state=checked]:text-white"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+        <div className="flex justify-center">
+          <Checkbox
+            checked={product.isAdmin}
+            onCheckedChange={(checked) => {
+              event?.stopPropagation();
+              handleCheckboxChange("isAdmin", checked as boolean);
+            }}
+            className="border-purple-500 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500 data-[state=checked]:text-white"
+            onClick={(e) => e.stopPropagation()}
           />
         </div>
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={() => onEdit(product.id)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent row click event
+              onEdit(product.id);
+            }}
+          >
             <FilePenLine className="h-4 w-4" />
           </Button>
           {user?.role === "admin" && (
@@ -140,6 +167,7 @@ const ProductRow = memo(
                   variant="ghost"
                   size="sm"
                   className="hover:text-destructive"
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -154,9 +182,14 @@ const ProductRow = memo(
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Zrušit</AlertDialogCancel>
+                  <AlertDialogCancel onClick={(e) => e.stopPropagation()}>
+                    Zrušit
+                  </AlertDialogCancel>
                   <AlertDialogAction
-                    onClick={() => deleteProduct(product.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteProduct(product.id);
+                    }}
                     className="bg-red-600 hover:bg-red-700"
                   >
                     Smazat
@@ -287,10 +320,10 @@ export function ProductsTable() {
               className="border rounded-md h-[calc(100vh-140px)] overflow-auto"
             >
               <div className="sticky top-0 bg-white z-10 border-b">
-                <div className="grid grid-cols-[30px_40px_200px_100px_100px_100px_130px_80px_80px_80px_80px_100px] gap-4 py-2 px-4 font-base text-sm">
+                <div className="grid grid-cols-[30px_40px_40px_40px_200px_100px_100px_100px_80px_50px_50px_50px_50px_50px_100px] gap-4 py-2 px-4 font-base text-sm">
                   <div></div>
-                  {/* <div>ID</div>
-                  <div>Print ID</div> */}
+                  <div className="text-center">ID</div>
+                  <div className="text-center">Print ID</div>
                   <div>Kód</div>
                   <div>Name</div>
                   <div className="text-right">NákupBez</div>
@@ -301,6 +334,7 @@ export function ProductsTable() {
                   <div className="text-center">Active</div>
                   <div className="text-center">Odběr</div>
                   <div className="text-center">Store</div>
+                  <div className="text-center">Admin</div>
                   <div className="text-right">Actions</div>
                 </div>
               </div>

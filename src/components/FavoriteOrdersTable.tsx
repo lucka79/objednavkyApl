@@ -75,6 +75,7 @@ const ROLES = [
   "store",
   "mobil",
   "expedition",
+  "admin",
 ] as const;
 
 const columns: ColumnDef<FavoriteOrder>[] = [
@@ -530,7 +531,9 @@ export function FavoriteOrdersTable({
             const price =
               userRole === "mobil"
                 ? item.product.priceMobil
-                : userRole === "store" || userRole === "buyer"
+                : userRole === "store" ||
+                    userRole === "buyer" ||
+                    userRole === "admin"
                   ? item.product.priceBuyer
                   : item.product.price;
             return sum + item.quantity * price;
@@ -558,7 +561,9 @@ export function FavoriteOrdersTable({
                 ? item.price
                 : userRole === "mobil"
                   ? item.product.priceMobil
-                  : userRole === "store" || userRole === "buyer"
+                  : userRole === "store" ||
+                      userRole === "buyer" ||
+                      userRole === "admin"
                     ? item.product.priceBuyer
                     : item.product.price,
           })

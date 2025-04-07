@@ -10,6 +10,14 @@ export const OrdersTableSummary = ({
   orders,
   isAdmin = false,
 }: OrdersTableSummaryProps) => {
+  const dates = orders.map((order) => new Date(order.date));
+  const minDate = new Date(Math.min(...dates.map((date) => date.getTime())));
+  const maxDate = new Date(Math.max(...dates.map((date) => date.getTime())));
+
+  const dateRange =
+    minDate.toLocaleDateString() === maxDate.toLocaleDateString()
+      ? minDate.toLocaleDateString()
+      : `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
   // Sort orders by date and then by customer name
   const sortedOrders = [...orders].sort((a, b) => {
     const dateCompare = new Date(a.date).getTime() - new Date(b.date).getTime();
@@ -30,7 +38,7 @@ export const OrdersTableSummary = ({
   return (
     <div style={{ fontSize: "12px", margin: "0 10px" }}>
       <h2 className="text-2xl font-bold mb-6">
-        Přehled objednávek ({orderCount})
+        Přehled objednávek ({orderCount}) - {dateRange}
       </h2>
       <table className="w-full">
         <thead>

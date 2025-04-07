@@ -34,6 +34,7 @@ export interface Product {
   isChild?: boolean;
   printId?: number | null;
   koef?: number;
+  isAdmin: boolean;
 }
 
   export type Category = {

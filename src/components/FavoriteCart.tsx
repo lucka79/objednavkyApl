@@ -66,7 +66,7 @@ export default function FavoriteCart({
     }
     return userRole === "mobil"
       ? item.product.priceMobil
-      : userRole === "store" || userRole === "buyer"
+      : userRole === "store" || userRole === "buyer" || userRole === "admin"
         ? item.product.priceBuyer
         : item.product.price;
   };

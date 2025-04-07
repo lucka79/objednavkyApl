@@ -86,7 +86,8 @@ const updateProduct = async (data: ProductUpdateValues) => {
     .from("products")
     .update(data)
     .eq("id", data.id)
-    .single();
+    .select()
+    .maybeSingle();
 
   if (error) {
     console.error("Error updating product:", error);
@@ -109,8 +110,9 @@ const fetchParentProducts = async () => {
 };
 
 export function ProductForm({ onClose, productId }: ProductFormProps) {
-  if (!productId) {
-    console.error("ProductForm requires a productId");
+  if (!productId || isNaN(Number(productId))) {
+    console.error("ProductForm requires a valid productId");
+    onClose();
     return null;
   }
 
@@ -201,6 +203,12 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
 
   const onSubmit = async (data: ProductFormValues) => {
     try {
+      // Set printId to productId if isChild is false
+      const updatedData = {
+        ...data,
+        printId: data.isChild ? data.printId : productId,
+      };
+
       if (data.image instanceof File) {
         // Compression of image
         const compressedImage = await imageCompression(data.image, {
@@ -222,13 +230,13 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
         if (uploadError) throw uploadError;
         if (dataImage) {
           productMutation.mutate({
-            ...data,
+            ...updatedData,
             id: productId,
             image: dataImage.path,
           });
         }
       } else {
-        productMutation.mutate({ ...data, id: productId });
+        productMutation.mutate({ ...updatedData, id: productId });
       }
     } catch (error) {
       console.error("Error uploading image:", error);
@@ -454,7 +462,7 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
                       <FormControl>
                         <Input
                           type="number"
-                          step="0.1"
+                          step="0.01"
                           placeholder="Enter product price"
                           {...field}
                           onChange={(e) =>

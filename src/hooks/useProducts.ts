@@ -61,7 +61,11 @@ export const fetchAllProducts = () => {
       if (error) {
         throw new Error(error.message);
       }
-      return data;
+      
+      // Sort with Czech collation
+      return data.sort((a, b) => 
+        new Intl.Collator('cs').compare(a.name, b.name)
+      );
     },
   });
 };
@@ -78,12 +82,14 @@ export const fetchActiveProducts = () => {
       if (error) {
         throw new Error(error.message);
       }
-      return data;
+      
+      // Sort with Czech collation
+      return data.sort((a, b) => 
+        new Intl.Collator('cs').compare(a.name, b.name)
+      );
     },
   });
 };
-
-
 
 export const fetchStoreProducts = () => {
   return useQuery({
@@ -92,13 +98,17 @@ export const fetchStoreProducts = () => {
       const { data, error } = await supabase
         .from("products")
         .select("*")
-        .eq("store", true) // Add this line to filter products where store is true
+        .eq("store", true)
         .eq("active", true)
         .order("name", { ascending: true });
       if (error) {
         throw new Error(error.message);
       }
-      return data;
+      
+      // Sort with Czech collation
+      return data.sort((a, b) => 
+        new Intl.Collator('cs').compare(a.name, b.name)
+      );
     },
   });
 };
@@ -191,11 +201,15 @@ export const useProducts = () => {
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('active', true)  // Only fetch active products
-        .order('name');      // Order by name
+        .eq('active', true)
+        .order('name');
       
       if (error) throw error;
-      return data;
+      
+      // Sort with Czech collation
+      return data.sort((a, b) => 
+        new Intl.Collator('cs').compare(a.name, b.name)
+      );
     },
   });
 };

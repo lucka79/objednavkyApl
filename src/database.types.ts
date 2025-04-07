@@ -9,6 +9,102 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      baker_production_items: {
+        Row: {
+          actual_quantity: number | null
+          created_at: string
+          id: number
+          is_completed: boolean
+          planned_quantity: number
+          product_id: number
+          production_id: number
+          updated_at: string | null
+        }
+        Insert: {
+          actual_quantity?: number | null
+          created_at?: string
+          id?: number
+          is_completed?: boolean
+          planned_quantity: number
+          product_id: number
+          production_id: number
+          updated_at?: string | null
+        }
+        Update: {
+          actual_quantity?: number | null
+          created_at?: string
+          id?: number
+          is_completed?: boolean
+          planned_quantity?: number
+          product_id?: number
+          production_id?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "baker_production_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "baker_production_items_production_id_fkey"
+            columns: ["production_id"]
+            isOneToOne: false
+            referencedRelation: "baker_productions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      baker_productions: {
+        Row: {
+          created_at: string
+          date: string
+          id: number
+          notes: string | null
+          recipe_id: number
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: number
+          notes?: string | null
+          recipe_id: number
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: number
+          notes?: string | null
+          recipe_id?: number
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "baker_productions_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recepts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "baker_productions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           adminOnly: boolean
@@ -16,6 +112,7 @@ export type Database = {
           created_at: string
           id: number
           name: string
+          recept: boolean
           store: boolean | null
         }
         Insert: {
@@ -24,6 +121,7 @@ export type Database = {
           created_at?: string
           id?: number
           name: string
+          recept?: boolean
           store?: boolean | null
         }
         Update: {
@@ -32,6 +130,7 @@ export type Database = {
           created_at?: string
           id?: number
           name?: string
+          recept?: boolean
           store?: boolean | null
         }
         Relationships: []
@@ -126,35 +225,76 @@ export type Database = {
           },
         ]
       }
+      ingredient_categories: {
+        Row: {
+          created_at: string
+          id: number
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          name?: string
+        }
+        Relationships: []
+      }
       ingredients: {
         Row: {
           active: boolean
+          category_id: number | null
           created_at: string
           ean: string | null
           id: number
+          kiloPerUnit: number
           name: string
+          package: number | null
           price: number | null
+          storeOnly: boolean
+          unit: string
           vat: number | null
         }
         Insert: {
           active?: boolean
+          category_id?: number | null
           created_at?: string
           ean?: string | null
           id?: number
+          kiloPerUnit?: number
           name: string
+          package?: number | null
           price?: number | null
+          storeOnly?: boolean
+          unit?: string
           vat?: number | null
         }
         Update: {
           active?: boolean
+          category_id?: number | null
           created_at?: string
           ean?: string | null
           id?: number
+          kiloPerUnit?: number
           name?: string
+          package?: number | null
           price?: number | null
+          storeOnly?: boolean
+          unit?: string
           vat?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ingredients_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "ingredient_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invoices: {
         Row: {
@@ -356,6 +496,65 @@ export type Database = {
           },
         ]
       }
+      product_parts: {
+        Row: {
+          created_at: string
+          id: number
+          ingredient_id: number | null
+          pastry_id: number | null
+          product_id: number
+          quantity: number
+          recept_id: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          ingredient_id?: number | null
+          pastry_id?: number | null
+          product_id: number
+          quantity?: number
+          recept_id?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          ingredient_id?: number | null
+          pastry_id?: number | null
+          product_id?: number
+          quantity?: number
+          recept_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_parts_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_parts_pastry_id_fkey"
+            columns: ["pastry_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_parts_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_parts_recept_id_fkey"
+            columns: ["recept_id"]
+            isOneToOne: false
+            referencedRelation: "recepts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       production_items: {
         Row: {
           created_at: string
@@ -442,6 +641,7 @@ export type Database = {
           image: string | null
           isChild: boolean
           koef: number
+          mobil: boolean
           name: string
           nameVi: string | null
           price: number
@@ -462,7 +662,8 @@ export type Database = {
           id?: number
           image?: string | null
           isChild?: boolean
-          koef?: number
+          koef: number
+          mobil?: boolean
           name: string
           nameVi?: string | null
           price?: number
@@ -484,6 +685,7 @@ export type Database = {
           image?: string | null
           isChild?: boolean
           koef?: number
+          mobil?: boolean
           name?: string
           nameVi?: string | null
           price?: number
@@ -675,6 +877,83 @@ export type Database = {
             columns: ["seller_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recept_ingredients: {
+        Row: {
+          created_at: string
+          id: number
+          ingredient_id: number
+          quantity: number
+          recept_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          ingredient_id: number
+          quantity?: number
+          recept_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          ingredient_id?: number
+          quantity?: number
+          recept_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recept_ingredients_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recept_ingredients_recept_id_fkey"
+            columns: ["recept_id"]
+            isOneToOne: false
+            referencedRelation: "recepts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recepts: {
+        Row: {
+          category_id: number
+          created_at: string
+          id: number
+          name: string
+          price: number
+          pricePerKilo: number
+          quantity: number
+        }
+        Insert: {
+          category_id?: number
+          created_at?: string
+          id?: number
+          name: string
+          price?: number
+          pricePerKilo?: number
+          quantity?: number
+        }
+        Update: {
+          category_id?: number
+          created_at?: string
+          id?: number
+          name?: string
+          price?: number
+          pricePerKilo?: number
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recepts_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
             referencedColumns: ["id"]
           },
         ]

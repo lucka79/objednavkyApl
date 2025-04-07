@@ -399,6 +399,7 @@ const columns: ColumnDef<Order>[] = [
                   size="sm"
                   className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                   disabled={order.isLocked}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -414,9 +415,14 @@ const columns: ColumnDef<Order>[] = [
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Zrušit</AlertDialogCancel>
+                  <AlertDialogCancel onClick={(e) => e.stopPropagation()}>
+                    Zrušit
+                  </AlertDialogCancel>
                   <AlertDialogAction
-                    onClick={handleDelete}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete();
+                    }}
                     className="bg-red-700 hover:bg-red-800"
                   >
                     Smazat
@@ -1143,12 +1149,19 @@ export function ArchiveOrdersTable() {
               {/* Month buttons */}
               {[-2, -1, 0, 1].map((offset) => {
                 const monthDate = new Date();
+                // Set to first day of the month to avoid month boundary issues
+                monthDate.setDate(1);
                 monthDate.setMonth(monthDate.getMonth() + offset);
+                const buttonMonth = monthDate.getMonth();
+                const buttonYear = monthDate.getFullYear();
+
                 return (
                   <Button
                     key={offset}
                     variant={
-                      !isSpecificDay && date.getMonth() === monthDate.getMonth()
+                      !isSpecificDay &&
+                      date.getMonth() === buttonMonth &&
+                      date.getFullYear() === buttonYear
                         ? "default"
                         : "outline"
                     }

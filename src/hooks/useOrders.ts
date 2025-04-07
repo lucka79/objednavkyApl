@@ -454,9 +454,14 @@ export const useUpdateOrder = () => {
       return updatedOrder;
     },
     async onSuccess(_, { id }) {
+      // More comprehensive query invalidation
       await queryClient.invalidateQueries({ queryKey: ["orders"] });
       await queryClient.invalidateQueries({ queryKey: ["order", id] });
       await queryClient.invalidateQueries({ queryKey: ["orderItems", id] });
+      await queryClient.invalidateQueries({ queryKey: ["expeditionOrders"] });
+      await queryClient.invalidateQueries({ queryKey: ["allOrderItemsHistory"] });
+      await queryClient.invalidateQueries({ queryKey: ["ordersByMonth"] });
+      await queryClient.invalidateQueries({ queryKey: ["storedItems"] });
     },
   });
 };
@@ -655,16 +660,13 @@ export const useDeleteOrder = () => {
     mutationFn: async (orderId: number) => {
       console.log('Starting order deletion process for orderId:', orderId);
 
-      // First get the order details
+      // First get the order details for order_items_history deletion
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .select(`
           id,
-          user_id,
           order_items (
-            id,
-            product_id,
-            quantity
+            id
           )
         `)
         .eq("id", orderId)
@@ -673,59 +675,6 @@ export const useDeleteOrder = () => {
       if (orderError) {
         console.error('Error fetching order details:', orderError);
         throw orderError;
-      }
-
-      console.log('Fetched order details:', order);
-
-      // Update stored items one by one
-      for (const item of order.order_items) {
-        console.log('Processing order item:', item);
-
-        // First try to get existing stored item
-        const { data: existingItem, error: fetchError } = await supabase
-          .from('stored_items')
-          .select('quantity')
-          .eq('user_id', order.user_id)
-          .eq('product_id', item.product_id)
-          .single();
-
-        if (fetchError) {
-          console.log('No existing stored item found:', fetchError);
-        }
-
-        console.log('Existing stored item:', existingItem);
-
-        if (existingItem) {
-          // Update existing item
-          console.log('Updating existing stored item. New quantity will be:', existingItem.quantity + item.quantity);
-          const { error: updateError } = await supabase
-            .from('stored_items')
-            .update({ 
-              quantity: existingItem.quantity - item.quantity 
-            })
-            .eq('user_id', order.user_id)
-            .eq('product_id', item.product_id);
-
-          if (updateError) {
-            console.error('Error updating stored item:', updateError);
-            throw updateError;
-          }
-        } else {
-          // Insert new item
-          console.log('Inserting new stored item with quantity:', item.quantity);
-          const { error: insertError } = await supabase
-            .from('stored_items')
-            .insert({
-              user_id: order.user_id,
-              product_id: item.product_id,
-              quantity: item.quantity
-            });
-
-          if (insertError) {
-            console.error('Error inserting stored item:', insertError);
-            throw insertError;
-          }
-        }
       }
 
       // First delete order_items_history records
@@ -773,6 +722,10 @@ export const useDeleteOrder = () => {
       console.log('Mutation succeeded, invalidating queries');
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["storedItems"] });
+      queryClient.invalidateQueries({ queryKey: ["expeditionOrders"] });
+      queryClient.invalidateQueries({ queryKey: ["allOrderItemsHistory"] });
+      queryClient.invalidateQueries({ queryKey: ["ordersByMonth"] });
+      queryClient.invalidateQueries({ queryKey: ["orderItemHistory"] });
     },
     onError: (error) => {
       console.error('Mutation failed:', error);
