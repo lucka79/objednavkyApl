@@ -9,7 +9,7 @@ import { Badge } from "./ui/badge";
 import {
   useFetchOrderById,
   useUpdateOrderItems,
-  useUpdateStoredItems,
+  // useUpdateStoredItems,
   useUpdateOrder,
 } from "@/hooks/useOrders";
 import { OrderItem } from "../../types";
@@ -77,7 +77,7 @@ export function Category9OrderDetails({
   const queryClient = useQueryClient();
   const { data: orderData, isLoading } = useFetchOrderById(orderId);
   const { mutate: updateOrderItems } = useUpdateOrderItems();
-  const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
+  // const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
   const { toast } = useToast();
   // @ts-ignore
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
@@ -122,14 +122,14 @@ export function Category9OrderDetails({
 
   const updateOrderQuantity = async (
     itemId: number,
-    productId: number,
+    // productId: number,
     newQuantity: number,
     currentQuantity: number
   ) => {
     if (newQuantity < 0) return;
 
     try {
-      const quantityDifference = newQuantity - currentQuantity;
+      // const quantityDifference = newQuantity - currentQuantity;
 
       // Notify parent of quantity change
       onQuantityChange(itemId, currentQuantity, newQuantity);
@@ -143,17 +143,17 @@ export function Category9OrderDetails({
       });
 
       // Update stored items if quantity changed
-      if (quantityDifference !== 0) {
-        await updateStoredItems({
-          userId: order.user_id,
-          items: [
-            {
-              product_id: productId,
-              quantity: -quantityDifference,
-            },
-          ],
-        });
-      }
+      // if (quantityDifference !== 0) {
+      //   await updateStoredItems({
+      //     userId: order.user_id,
+      //     items: [
+      //       {
+      //         product_id: productId,
+      //         quantity: -quantityDifference,
+      //       },
+      //     ],
+      //   });
+      // }
 
       // Invalidate queries to refresh data everywhere
       queryClient.invalidateQueries({ queryKey: ["ordersCategory9"] });
@@ -295,7 +295,7 @@ export function Category9OrderDetails({
                           });
                           updateOrderQuantity(
                             item.id,
-                            item.product.id,
+                            // item.product.id,
                             newQuantity,
                             item.quantity
                           );
@@ -324,7 +324,7 @@ export function Category9OrderDetails({
                           const newQuantity = parseInt(e.target.value) || 0;
                           updateOrderQuantity(
                             item.id,
-                            item.product.id,
+                            // item.product.id,
                             newQuantity,
                             item.quantity
                           );
@@ -346,7 +346,7 @@ export function Category9OrderDetails({
                           });
                           updateOrderQuantity(
                             item.id,
-                            item.product.id,
+                            // item.product.id,
                             newQuantity,
                             item.quantity
                           );

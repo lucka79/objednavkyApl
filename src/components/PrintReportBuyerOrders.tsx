@@ -29,8 +29,24 @@ export const PrintReportBuyerOrders = ({
     return dateCompare;
   });
 
-  // Calculate total sum
-  const totalSum = orders.reduce((sum, order) => sum + order.total, 0);
+  // Calculate totals from line items instead of using order.total
+  const getOrderItemTotal = (order: Order) => {
+    return order.order_items
+      .filter((item) => item.price > 0)
+      .reduce((sum, item) => sum + item.quantity * item.price, 0);
+  };
+
+  // Apply this calculation to each order and the grand total
+  const ordersWithCalculatedTotals = sortedOrders.map((order) => ({
+    ...order,
+    calculatedTotal: getOrderItemTotal(order),
+  }));
+
+  // Calculate total sum from line items
+  const totalSum = orders.reduce(
+    (sum, order) => sum + getOrderItemTotal(order),
+    0
+  );
 
   // Add order count
   const orderCount = orders.length;
@@ -50,7 +66,7 @@ export const PrintReportBuyerOrders = ({
           </tr>
         </thead>
         <tbody style={{ textAlign: "left", fontSize: "12px" }}>
-          {sortedOrders.map((order) => (
+          {ordersWithCalculatedTotals.map((order) => (
             <tr key={order.id} className="border-b">
               <td className="py-2">
                 {format(new Date(order.date), "dd.MM.yyyy")}
@@ -59,7 +75,7 @@ export const PrintReportBuyerOrders = ({
               <td className="py-2">{order.driver?.full_name || "-"}</td>
 
               <td className="py-2" style={{ textAlign: "right" }}>
-                {order.total.toFixed(2)} Kč
+                {order.calculatedTotal.toFixed(2)} Kč
               </td>
             </tr>
           ))}

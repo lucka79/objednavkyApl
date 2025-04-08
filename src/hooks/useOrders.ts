@@ -721,7 +721,7 @@ export const useDeleteOrder = () => {
     onSuccess: () => {
       console.log('Mutation succeeded, invalidating queries');
       queryClient.invalidateQueries({ queryKey: ["orders"] });
-      queryClient.invalidateQueries({ queryKey: ["storedItems"] });
+      // queryClient.invalidateQueries({ queryKey: ["storedItems"] });
       queryClient.invalidateQueries({ queryKey: ["expeditionOrders"] });
       queryClient.invalidateQueries({ queryKey: ["allOrderItemsHistory"] });
       queryClient.invalidateQueries({ queryKey: ["ordersByMonth"] });
@@ -733,57 +733,57 @@ export const useDeleteOrder = () => {
   });
 };
 
-export const useUpdateStoredItems = () => {
-  const queryClient = useQueryClient();
-  // const { user } = useAuthStore.getState();
+// export const useUpdateStoredItems = () => {
+//   const queryClient = useQueryClient();
+//   // const { user } = useAuthStore.getState();
   
-  return useMutation({
-    async mutationFn({ userId, items }: { 
-      userId: string, 
-      items: { product_id: number, quantity: number }[] 
-    }) {
-      // For each item, update or insert into stored_items
-      const promises = items.map(async (item) => {
-        // First try to get existing stored item
-        const { data: existingItem } = await supabase
-          .from('stored_items')
-          .select('quantity')
-          .eq('user_id', userId)
-          .eq('product_id', item.product_id)
-          .single();
+//   return useMutation({
+//     async mutationFn({ userId, items }: { 
+//       userId: string, 
+//       items: { product_id: number, quantity: number }[] 
+//     }) {
+//       // For each item, update or insert into stored_items
+//       const promises = items.map(async (item) => {
+//         // First try to get existing stored item
+//         const { data: existingItem } = await supabase
+//           .from('stored_items')
+//           .select('quantity')
+//           .eq('user_id', userId)
+//           .eq('product_id', item.product_id)
+//           .single();
 
-        if (existingItem) {
-          // Update existing item
-          const { error } = await supabase
-            .from('stored_items')
-            .update({ 
-              quantity: existingItem.quantity - item.quantity 
-            })
-            .eq('user_id', userId)
-            .eq('product_id', item.product_id);
+//         if (existingItem) {
+//           // Update existing item
+//           const { error } = await supabase
+//             .from('stored_items')
+//             .update({ 
+//               quantity: existingItem.quantity - item.quantity 
+//             })
+//             .eq('user_id', userId)
+//             .eq('product_id', item.product_id);
 
-          if (error) throw error;
-        } else {
-          // Insert new item with negative quantity
-          const { error } = await supabase
-            .from('stored_items')
-            .insert({
-              user_id: userId,
-              product_id: item.product_id,
-              quantity: -item.quantity
-            });
+//           if (error) throw error;
+//         } else {
+//           // Insert new item with negative quantity
+//           const { error } = await supabase
+//             .from('stored_items')
+//             .insert({
+//               user_id: userId,
+//               product_id: item.product_id,
+//               quantity: -item.quantity
+//             });
 
-          if (error) throw error;
-        }
-      });
+//           if (error) throw error;
+//         }
+//       });
 
-      await Promise.all(promises);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stored_items'] });
-    },
-  });
-};
+//       await Promise.all(promises);
+//     },
+//     onSuccess: () => {
+//       queryClient.invalidateQueries({ queryKey: ['stored_items'] });
+//     },
+//   });
+// };
 
 export function useOrdersWithCategory9() {
   return useQuery({

@@ -4,7 +4,7 @@ import { Card, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
 import { Trash2, PlusSquare, MinusSquare, Plus } from "lucide-react";
 import { useUpdateReturnItems } from "@/hooks/useReturns";
-import { useUpdateStoredItems } from "@/hooks/useOrders";
+// import { useUpdateStoredItems } from "@/hooks/useOrders";
 import { useDeleteReturnItem } from "@/hooks/useReturns";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "./ui/dialog";
@@ -23,13 +23,13 @@ export default function UpdateReturnCart({
   items,
   returnId,
   onUpdate,
-  selectedUserId,
+  // selectedUserId,
   selectedUserRole,
 }: UpdateReturnCartProps) {
   const [returnItems, setReturnItems] = useState<ReturnItem[]>(items);
   const { mutate: updateReturnItems } = useUpdateReturnItems();
   // const { mutate: updateReturn } = useUpdateReturn();
-  const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
+  // const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
   const { mutateAsync: deleteReturnItem } = useDeleteReturnItem();
   // const { toast } = useToast();
 
@@ -49,15 +49,15 @@ export default function UpdateReturnCart({
       await deleteReturnItem({ itemId, returnId });
 
       // Increase stored quantity by the deleted item's quantity
-      await updateStoredItems({
-        userId: selectedUserId,
-        items: [
-          {
-            product_id: itemToDelete.product_id,
-            quantity: -itemToDelete.quantity || 0,
-          },
-        ],
-      });
+      // await updateStoredItems({
+      //   userId: selectedUserId,
+      //   items: [
+      //     {
+      //       product_id: itemToDelete.product_id,
+      //       quantity: -itemToDelete.quantity || 0,
+      //     },
+      //   ],
+      // });
 
       await onUpdate();
     } catch (error) {
@@ -75,7 +75,7 @@ export default function UpdateReturnCart({
         return;
       }
 
-      const quantityDifference = newQuantity - currentItem.quantity;
+      // const quantityDifference = newQuantity - currentItem.quantity;
 
       // Update local state immediately to prevent UI flicker
       setReturnItems((prevItems) =>
@@ -93,17 +93,17 @@ export default function UpdateReturnCart({
       });
 
       // Update stored items if quantity changed
-      if (quantityDifference !== 0) {
-        await updateStoredItems({
-          userId: selectedUserId,
-          items: [
-            {
-              product_id: currentItem.product_id,
-              quantity: quantityDifference,
-            },
-          ],
-        });
-      }
+      // if (quantityDifference !== 0) {
+      //   await updateStoredItems({
+      //     userId: selectedUserId,
+      //     items: [
+      //       {
+      //         product_id: currentItem.product_id,
+      //         quantity: quantityDifference,
+      //       },
+      //     ],
+      //   });
+      // }
 
       await onUpdate();
     } catch (error) {

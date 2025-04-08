@@ -196,49 +196,49 @@ export const useDeleteFavoriteOrder = () => {
   });
 };
 
-interface UpdateStoredItemsParams {
-  userId: string;
-  items: {
-    product_id: number;
-    quantity: number;
-    increment?: boolean;
-  }[];
-}
+// interface UpdateStoredItemsParams {
+//   userId: string;
+//   items: {
+//     product_id: number;
+//     quantity: number;
+//     increment?: boolean;
+//   }[];
+// }
 
-export const useUpdateStoredItems = () => {
-  return useMutation({
-    mutationFn: async ({ userId, items }: UpdateStoredItemsParams) => {
-      for (const item of items) {
-        // Check if item exists
-        const { data: existingItem } = await supabase
-          .from('stored_items')
-          .select('quantity')
-          .eq('user_id', userId)
-          .eq('product_id', item.product_id)
-          .single();
+// export const useUpdateStoredItems = () => {
+//   return useMutation({
+//     mutationFn: async ({ userId, items }: UpdateStoredItemsParams) => {
+//       for (const item of items) {
+//         // Check if item exists
+//         const { data: existingItem } = await supabase
+//           .from('stored_items')
+//           .select('quantity')
+//           .eq('user_id', userId)
+//           .eq('product_id', item.product_id)
+//           .single();
 
-        if (existingItem) {
-          // Update existing item
-          await supabase
-            .from('stored_items')
-            .update({
-              quantity: item.increment 
-                ? existingItem.quantity + item.quantity 
-                : item.quantity
-            })
-            .eq('user_id', userId)
-            .eq('product_id', item.product_id);
-        } else {
-          // Insert new item
-          await supabase
-            .from('stored_items')
-            .insert({
-              user_id: userId,
-              product_id: item.product_id,
-              quantity: item.quantity
-            });
-        }
-      }
-    }
-  });
-};
+//         if (existingItem) {
+//           // Update existing item
+//           await supabase
+//             .from('stored_items')
+//             .update({
+//               quantity: item.increment 
+//                 ? existingItem.quantity + item.quantity 
+//                 : item.quantity
+//             })
+//             .eq('user_id', userId)
+//             .eq('product_id', item.product_id);
+//         } else {
+//           // Insert new item
+//           await supabase
+//             .from('stored_items')
+//             .insert({
+//               user_id: userId,
+//               product_id: item.product_id,
+//               quantity: item.quantity
+//             });
+//         }
+//       }
+//     }
+//   });
+// };

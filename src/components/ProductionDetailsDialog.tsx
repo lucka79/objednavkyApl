@@ -81,7 +81,6 @@ export function ProductionDetailsDialog({
               <UpdateProductionCart
                 items={productionItem.production_items}
                 productionId={productionItem.id}
-                selectedUserId={productionItem.user?.id}
                 onUpdate={() => refetch().then(() => {})}
               />
             </CardContent>

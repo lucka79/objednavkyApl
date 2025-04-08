@@ -17,7 +17,7 @@ import { useReceiptStore } from "@/providers/receiptStore";
 import {
   useInsertReceipt,
   useInsertReceiptItems,
-  useUpdateStoredItems,
+  // useUpdateStoredItems,
 } from "@/hooks/useReceipts";
 import { useState } from "react";
 import { generateReceiptNumber } from "@/lib/generateNumbers";
@@ -29,7 +29,7 @@ export default function CartStore() {
   const user = useAuthStore((state) => state.user);
   const { mutateAsync: insertReceipt } = useInsertReceipt();
   const { mutateAsync: insertReceiptItems } = useInsertReceiptItems();
-  const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
+  // const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
   const {
     items,
     // removeItem,
@@ -148,7 +148,8 @@ export default function CartStore() {
         insertReceiptItems,
         new Date(formattedDate),
         orderTotal,
-        updateStoredItems,
+        null,
+        // updateStoredItems,
         receiptNo
       );
 

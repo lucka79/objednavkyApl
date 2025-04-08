@@ -1,5 +1,6 @@
 import { Order } from "../../types";
 import { forwardRef } from "react";
+// import { format } from "date-fns";
 
 interface PrintReportProductsProps {
   orders: Order[];
@@ -63,6 +64,11 @@ export const PrintReportProducts = forwardRef<
     }),
     { quantity: 0, total: 0 }
   );
+
+  // Sort orders by date
+  // const sortedOrders = [...orders].sort(
+  //   (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  // );
 
   return (
     <div ref={ref} style={{ fontSize: "12px", margin: "0 10px" }}>
@@ -142,6 +148,63 @@ export const PrintReportProducts = forwardRef<
           </tr>
         </tbody>
       </table>
+
+      {/* Orders used for this report */}
+      {/* <h3 className="text-lg font-bold mt-6 mb-2">
+        Použité objednávky ({orders.length})
+      </h3>
+      <table className="w-full mb-4 print:hidden">
+        <thead>
+          <tr className="border-b">
+            <th style={{ fontSize: "12px", textAlign: "left" }}>Datum</th>
+            <th style={{ fontSize: "12px", textAlign: "left" }}>ID</th>
+            <th style={{ fontSize: "12px", textAlign: "left" }}>Zákazník</th>
+            <th style={{ fontSize: "12px", textAlign: "right" }}>
+              Celkem položek
+            </th>
+            <th style={{ fontSize: "12px", textAlign: "right" }}>Celkem Kč</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sortedOrders.map((order) => {
+            const orderTotal = order.order_items.reduce(
+              (sum, item) => sum + item.quantity * item.price,
+              0
+            );
+            const itemCount = order.order_items.reduce(
+              (sum, item) => sum + item.quantity,
+              0
+            );
+
+            return (
+              <tr key={order.id} className="border-b">
+                <td style={{ fontSize: "12px" }} className="py-1">
+                  {format(new Date(order.date), "dd.MM.yyyy")}
+                </td>
+                <td style={{ fontSize: "12px" }} className="py-1">
+                  {order.id}
+                </td>
+                <td style={{ fontSize: "12px" }} className="py-1">
+                  {order.user?.full_name || "-"}
+                </td>
+                <td
+                  style={{ fontSize: "12px", textAlign: "right" }}
+                  className="py-1"
+                >
+                  {itemCount}
+                </td>
+                <td
+                  style={{ fontSize: "12px", textAlign: "right" }}
+                  className="py-1"
+                >
+                  {orderTotal.toFixed(2)}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table> */}
+
       <div className="text-right text-gray-600 mt-4 text-xs">
         Vytištěno: {new Date().toLocaleString()}
       </div>
