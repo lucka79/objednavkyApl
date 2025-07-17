@@ -14,11 +14,16 @@ import {
   DialogDescription,
   DialogHeader,
 } from "@/components/ui/dialog";
-import { useState, Suspense } from "react";
+import { useState, Suspense, lazy } from "react";
 
 import { CreateUserEmailForm } from "@/components/CreateUserEmailForm";
 
-import { AdminTable } from "@/components/AdminTable";
+// Lazy load the AdminTable for better performance
+const AdminTable = lazy(() =>
+  import("@/components/AdminTable").then((module) => ({
+    default: module.AdminTable,
+  }))
+);
 
 export const Route = createFileRoute("/admin/")({
   component: AdminDashboard,
@@ -33,8 +38,6 @@ function AdminDashboard() {
   if (user?.role !== "admin") {
     return <div>Access denied. Admin only.</div>;
   }
-
-  // if (isLoading) return <div>Loading...</div>;
 
   return (
     <>
@@ -96,7 +99,15 @@ function AdminDashboard() {
         </div>
 
         <CardContent className="flex-1 p-0 min-h-0">
-          <AdminTable />
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center h-64">
+                Loading admin table...
+              </div>
+            }
+          >
+            <AdminTable />
+          </Suspense>
         </CardContent>
       </Card>
     </>

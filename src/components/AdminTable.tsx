@@ -1,8 +1,6 @@
 import { useAuthStore } from "../lib/supabase";
-
-import { TableCell } from "@/components/ui/table";
-
-import { useState, useMemo, memo, useRef } from "react";
+import { useUsers } from "@/hooks/useProfiles";
+import { useState, useMemo, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -11,24 +9,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { UserRole } from "../../types";
+import { Button } from "@/components/ui/button";
+import { Edit, Trash2 } from "lucide-react";
 import {
-  useUsers,
-  updateProfile,
-  updateRole,
-  updatePaidBy,
-  updateActive,
-  deleteUser,
-  updateCrateBig,
-  updateCrateSmall,
-  // updateNote,
-  // updatePhone,
-  updateOZ,
-  updateMoPartners,
-} from "@/hooks/useProfiles";
-
-import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2 } from "lucide-react";
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogHeader,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,191 +29,22 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-// import { useToast } from "@/hooks/use-toast";
-import { useVirtualizer } from "@tanstack/react-virtual";
-// import { ChevronRight, ChevronDown } from "lucide-react";
-// import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { deleteUser } from "@/hooks/useProfiles";
+import { EditUserForm } from "./EditUserForm";
 import { useDebounce } from "@/hooks/useDebounce";
-import { AdminTablePrint } from "./AdminTablePrint";
 
-// 1. Memoize cell components more efficiently
-const EditableCell = memo(
-  ({
-    user,
-    getValue,
-    fieldName,
-  }: {
-    user: any;
-    getValue: () => string;
-    fieldName: string;
-  }) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [value, setLocalValue] = useState(getValue() || "");
-    const updateProfileMutation = updateProfile();
-
-    const onBlur = () => {
-      setIsEditing(false);
-      if (value !== (getValue() || "")) {
-        updateProfileMutation.mutate({
-          id: user.id,
-          [fieldName]: value,
-        });
-      }
-    };
-
-    return isEditing ? (
-      <Input
-        value={value}
-        onChange={(e) => setLocalValue(e.target.value)}
-        onBlur={onBlur}
-        autoFocus
-      />
-    ) : (
-      <div onDoubleClick={() => setIsEditing(true)}>{getValue() || "—"}</div>
-    );
-  }
-);
-
-// 2. Memoize filters
-interface FilterSectionProps {
-  searchQuery: string;
-  setSearchQuery: (value: string) => void;
-  roleFilter: string;
-  setRoleFilter: (value: string) => void;
-  paidByFilter: string;
-  setPaidByFilter: (value: string) => void;
-  activeFilter: string;
-  setActiveFilter: (value: string) => void;
-}
-
-const FilterSection = memo(
-  ({
-    searchQuery,
-    setSearchQuery,
-    roleFilter,
-    setRoleFilter,
-    paidByFilter,
-    setPaidByFilter,
-    activeFilter,
-    setActiveFilter,
-  }: FilterSectionProps) => (
-    <div className="flex items-center gap-4 py-4">
-      <Input
-        placeholder="Search users..."
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        className="max-w-sm"
-      />
-
-      <Select value={roleFilter} onValueChange={setRoleFilter}>
-        <SelectTrigger className="w-[150px]">
-          <SelectValue placeholder="Filter by role" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All roles</SelectItem>
-          {[
-            "user",
-            "buyer",
-            "driver",
-            "store",
-            "mobil",
-            "expedition",
-            "admin",
-          ].map((role) => (
-            <SelectItem key={role} value={role}>
-              {role.charAt(0).toUpperCase() + role.slice(1)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Select value={paidByFilter} onValueChange={setPaidByFilter}>
-        <SelectTrigger className="w-[150px]">
-          <SelectValue placeholder="Filter by payment" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All payments</SelectItem>
-          {["Hotově", "Příkazem", "-"].map((type) => (
-            <SelectItem key={type} value={type}>
-              {type}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Select value={activeFilter} onValueChange={setActiveFilter}>
-        <SelectTrigger className="w-[150px]">
-          <SelectValue placeholder="Filter by status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All status</SelectItem>
-          <SelectItem value="true">Active</SelectItem>
-          <SelectItem value="false">Inactive</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  )
-);
-
-const CrateCell = memo(
-  ({
-    user,
-    getValue,
-    fieldName,
-  }: {
-    user: any;
-    getValue: () => number;
-    fieldName: string;
-  }) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [value, setValue] = useState(getValue());
-    const updateCrateBigMutation = updateCrateBig();
-    const updateCrateSmallMutation = updateCrateSmall();
-
-    const onBlur = () => {
-      setIsEditing(false);
-      if (value !== getValue()) {
-        if (fieldName === "crateBig") {
-          updateCrateBigMutation.mutate({
-            id: user.id,
-            crateBig: value || 0,
-          });
-        } else {
-          updateCrateSmallMutation.mutate({
-            id: user.id,
-            crateSmall: value || 0,
-          });
-        }
-      }
-    };
-
-    return isEditing ? (
-      <Input
-        type="number"
-        min="0"
-        value={value}
-        onChange={(e) => setValue(Number(e.target.value))}
-        onBlur={onBlur}
-        autoFocus
-      />
-    ) : (
-      <div onDoubleClick={() => setIsEditing(true)}>{getValue() ?? 0}</div>
-    );
-  }
-);
+// Function to remove diacritics from text
+const removeDiacritics = (text: string | null | undefined): string => {
+  if (!text) return "";
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+};
 
 export function AdminTable() {
   const user = useAuthStore((state) => state.user);
-  const { data: users } = useUsers();
-  // const { toast } = useToast();
-
-  // Move mutation hooks inside component
-  const updateOZMutation = updateOZ();
-  const updateMoPartnersMutation = updateMoPartners();
-  const updateActiveMutation = updateActive();
-  const updatePaidByMutation = updatePaidBy();
-  const updateRoleMutation = updateRole();
+  const { data: users, isLoading } = useUsers();
   const deleteUserMutation = deleteUser();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -232,24 +52,38 @@ export function AdminTable() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [paidByFilter, setPaidByFilter] = useState("all");
   const [activeFilter, setActiveFilter] = useState("all");
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
 
-  // Filter users without react-table
-  const filteredUsers = useMemo(
-    () =>
-      (users ?? []).filter((user: any) => {
-        if (debouncedSearch) {
-          const searchTerm = debouncedSearch.toLowerCase();
-          const matchesSearch = [
-            user.full_name,
-            user.ico,
-            user.email,
-            user.phone,
-            user.address,
-          ].some((field) => field?.toLowerCase().includes(searchTerm));
+  // Memoized search function for better performance
+  const searchUsers = useCallback((users: any[], searchTerm: string) => {
+    if (!searchTerm) return users;
 
-          if (!matchesSearch) return false;
-        }
+    const normalizedSearch = removeDiacritics(searchTerm);
+    return users.filter((user: any) => {
+      const searchableFields = [
+        user.full_name,
+        user.ico,
+        user.email,
+        user.phone,
+        user.address,
+      ];
 
+      return searchableFields.some((field) =>
+        removeDiacritics(field).includes(normalizedSearch)
+      );
+    });
+  }, []);
+
+  // Memoized filter function
+  const filterUsers = useCallback(
+    (
+      users: any[],
+      roleFilter: string,
+      paidByFilter: string,
+      activeFilter: string
+    ) => {
+      return users.filter((user: any) => {
         if (roleFilter !== "all" && user.role !== roleFilter) return false;
         if (paidByFilter !== "all" && user.paid_by !== paidByFilter)
           return false;
@@ -257,270 +91,221 @@ export function AdminTable() {
           const isActive = activeFilter === "true";
           if (user.active !== isActive) return false;
         }
-
         return true;
-      }),
-    [users, debouncedSearch, roleFilter, paidByFilter, activeFilter]
+      });
+    },
+    []
   );
 
-  // Set up virtualizer
-  const parentRef = useRef<HTMLDivElement>(null);
-  const rowVirtualizer = useVirtualizer({
-    count: filteredUsers.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 35,
-    overscan: 5,
-  });
+  // Filter users with optimized logic
+  const filteredUsers = useMemo(() => {
+    if (!users) return [];
 
-  const gridClassName =
-    "grid grid-cols-[200px_80px_190px_85px_80px_150px_60px_60px_100px_100px_60px_60px_60px_60px] gap-2 py-2 px-4 items-center";
+    let result = users;
+
+    // Apply search first
+    if (debouncedSearch) {
+      result = searchUsers(result, debouncedSearch);
+    }
+
+    // Apply filters
+    result = filterUsers(result, roleFilter, paidByFilter, activeFilter);
+
+    return result;
+  }, [
+    users,
+    debouncedSearch,
+    roleFilter,
+    paidByFilter,
+    activeFilter,
+    searchUsers,
+    filterUsers,
+  ]);
 
   if (user?.role !== "admin") {
     return <div>Access denied. Admin only.</div>;
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        Loading users...
+      </div>
+    );
+  }
+
   return (
     <>
-      <div className="hidden print:block">
-        <AdminTablePrint users={filteredUsers} currentUser={user} />
-      </div>
+      <div className="h-full flex flex-col">
+        {/* Filters */}
+        <div className="flex items-center gap-4 py-4">
+          <Input
+            placeholder="Search users..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="max-w-sm"
+          />
 
-      <div className="h-full flex flex-col print:hidden">
-        <FilterSection
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          roleFilter={roleFilter}
-          setRoleFilter={setRoleFilter}
-          paidByFilter={paidByFilter}
-          setPaidByFilter={setPaidByFilter}
-          activeFilter={activeFilter}
-          setActiveFilter={setActiveFilter}
-        />
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Filter by role" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All roles</SelectItem>
+              {[
+                "user",
+                "buyer",
+                "driver",
+                "store",
+                "mobil",
+                "expedition",
+                "admin",
+              ].map((role) => (
+                <SelectItem key={role} value={role}>
+                  {role.charAt(0).toUpperCase() + role.slice(1)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <div className="border rounded-md flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-auto">
-            {/* Header */}
-            <div className="border-b bg-white sticky top-0 z-10">
-              <div className={`${gridClassName} border-b min-w-max`}>
-                <div>Name</div>
-                <div>IČO</div>
-                <div>Email</div>
-                <div>Phone</div>
-                <div>Note</div>
-                <div>Address</div>
-                <div>Crates Big</div>
-                <div>Crates Small</div>
-                <div>Typ platby</div>
-                <div>Role</div>
-                <div>OZ</div>
-                <div>MO_P</div>
-                <div>Active</div>
-                <div>Actions</div>
-              </div>
-            </div>
+          <Select value={paidByFilter} onValueChange={setPaidByFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Filter by payment" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All payments</SelectItem>
+              {["Hotově", "Příkazem", "-"].map((type) => (
+                <SelectItem key={type} value={type}>
+                  {type}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-            {/* Scrollable Content */}
-            <div ref={parentRef} className="relative">
-              <div
-                style={{
-                  height: `${rowVirtualizer.getTotalSize()}px`,
-                  width: "100%",
-                  position: "relative",
-                }}
-              >
-                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                  const user = filteredUsers[virtualRow.index];
-                  return (
-                    <div
-                      key={user.id}
-                      data-index={virtualRow.index}
-                      ref={rowVirtualizer.measureElement}
-                      className={`${gridClassName} border-b min-w-max`}
-                      style={{
-                        position: "absolute",
-                        top: `${virtualRow.start}px`,
-                        left: 0,
-                        width: "100%",
-                      }}
+          <Select value={activeFilter} onValueChange={setActiveFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All status</SelectItem>
+              <SelectItem value="true">Active</SelectItem>
+              <SelectItem value="false">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Table */}
+        <div className="border rounded-md flex-1 overflow-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 sticky top-0">
+              <tr>
+                <th className="text-left p-3 font-medium">Name</th>
+                <th className="text-left p-3 font-medium">IČO</th>
+                <th className="text-left p-3 font-medium">Email</th>
+                <th className="text-left p-3 font-medium">Phone</th>
+                <th className="text-left p-3 font-medium">Address</th>
+                <th className="text-left p-3 font-medium">Payment</th>
+                <th className="text-left p-3 font-medium">Role</th>
+                <th className="text-left p-3 font-medium">Active</th>
+                <th className="text-left p-3 font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredUsers.map((user) => (
+                <tr key={user.id} className="border-b hover:bg-gray-50">
+                  <td className="p-3">{user.full_name || "-"}</td>
+                  <td className="p-3">{user.ico || "-"}</td>
+                  <td className="p-3">{user.email || "-"}</td>
+                  <td className="p-3">{user.phone || "-"}</td>
+                  <td className="p-3">{user.address || "-"}</td>
+                  <td className="p-3">{user.paid_by || "-"}</td>
+                  <td className="p-3">
+                    {user.role
+                      ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
+                      : "-"}
+                  </td>
+                  <td className="p-3">
+                    <span
+                      className={`px-2 py-1 rounded text-xs ${user.active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}
                     >
-                      <TableCell>
-                        <EditableCell
-                          user={user}
-                          getValue={() => user.full_name}
-                          fieldName="full_name"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <EditableCell
-                          user={user}
-                          getValue={() => user.ico}
-                          fieldName="ico"
-                        />
-                      </TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>
-                        <EditableCell
-                          user={user}
-                          getValue={() => user.phone}
-                          fieldName="phone"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <EditableCell
-                          user={user}
-                          getValue={() => user.note}
-                          fieldName="note"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <EditableCell
-                          user={user}
-                          getValue={() => user.address}
-                          fieldName="address"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <CrateCell
-                          user={user}
-                          getValue={() => user.crateBig}
-                          fieldName="crateBig"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <CrateCell
-                          user={user}
-                          getValue={() => user.crateSmall}
-                          fieldName="crateSmall"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={user.paid_by}
-                          onValueChange={(newValue: string) => {
-                            updatePaidByMutation.mutate({
-                              id: user.id,
-                              paid_by: newValue,
-                            });
-                          }}
-                        >
-                          <SelectTrigger className="w-[100px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {["Hotově", "Příkazem", "-"].map((type) => (
-                              <SelectItem key={type} value={type}>
-                                {type}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={user.role}
-                          onValueChange={(newValue: UserRole) => {
-                            updateRoleMutation.mutate({
-                              id: user.id,
-                              role: newValue,
-                            });
-                          }}
-                        >
-                          <SelectTrigger className="w-[100px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {[
-                              "user",
-                              "buyer",
-                              "driver",
-                              "store",
-                              "mobil",
-                              "expedition",
-                            ].map((role) => (
-                              <SelectItem key={role} value={role}>
-                                {role.charAt(0).toUpperCase() + role.slice(1)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Checkbox
-                          checked={user.oz}
-                          onCheckedChange={(checked) => {
-                            updateOZMutation.mutate({
-                              id: user.id,
-                              oz: checked as boolean,
-                            });
-                          }}
-                          className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Checkbox
-                          checked={user.mo_partners}
-                          onCheckedChange={(checked) => {
-                            updateMoPartnersMutation.mutate({
-                              id: user.id,
-                              mo_partners: checked as boolean,
-                            });
-                          }}
-                          className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Checkbox
-                          checked={user.active}
-                          onCheckedChange={(checked) => {
-                            updateActiveMutation.mutate({
-                              id: user.id,
-                              active: checked as boolean,
-                            });
-                          }}
-                          className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="hover:text-destructive"
-                              disabled={user.role === "admin"}
+                      {user.active ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="hover:text-blue-600"
+                        onClick={() => {
+                          setSelectedUser(user);
+                          setEditModalOpen(true);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="hover:text-destructive"
+                            disabled={user.role === "admin"}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() =>
+                                deleteUserMutation.mutate({ id: user.id })
+                              }
+                              className="bg-red-600 hover:bg-red-700"
                             >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() =>
-                                  deleteUserMutation.mutate({ id: user.id })
-                                }
-                                className="bg-red-600 hover:bg-red-700"
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </TableCell>
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
+
+      {/* Edit User Modal */}
+      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle>Edit User - {selectedUser?.full_name}</DialogTitle>
+            <DialogDescription>
+              Update user information and settings.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto pr-2">
+            {selectedUser && (
+              <EditUserForm
+                user={selectedUser}
+                onSuccess={() => {
+                  setEditModalOpen(false);
+                  setSelectedUser(null);
+                }}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
