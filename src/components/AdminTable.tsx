@@ -110,7 +110,8 @@ export function AdminTable() {
   const deleteUserMutation = deleteUser();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const debouncedSearch = useDebounce(searchQuery, 300);
+  const [appliedSearchQuery, setAppliedSearchQuery] = useState("");
+  const debouncedSearch = useDebounce(appliedSearchQuery, 300);
   const [roleFilter, setRoleFilter] = useState("mobil");
   const [paidByFilter, setPaidByFilter] = useState("Hotově");
   const [activeFilter, setActiveFilter] = useState("true");
@@ -119,6 +120,15 @@ export function AdminTable() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showEmail, setShowEmail] = useState(false);
+
+  const handleSearch = () => {
+    setAppliedSearchQuery(searchQuery);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    setAppliedSearchQuery("");
+  };
 
   // Memoized search function for better performance
   const searchUsers = useCallback((users: any[], searchTerm: string) => {
@@ -254,12 +264,37 @@ export function AdminTable() {
       <div className="h-full flex flex-col">
         {/* Filters */}
         <div className="flex items-center gap-4 py-4">
-          <Input
-            placeholder="Search users..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="max-w-sm"
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Search users..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleSearch();
+                }
+              }}
+              className="max-w-sm"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSearch}
+              className="bg-orange-600 text-white hover:bg-orange-700"
+            >
+              Vyhledej
+            </Button>
+            {appliedSearchQuery && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClearSearch}
+                className="text-gray-600"
+              >
+                Vymazat
+              </Button>
+            )}
+          </div>
 
           <Select value={roleFilter} onValueChange={setRoleFilter}>
             <SelectTrigger className="w-[150px]">

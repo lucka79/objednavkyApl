@@ -30,6 +30,7 @@ import {
   StickyNote,
   Lock,
   Unlock,
+  Download,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -89,6 +90,8 @@ import { Calendar } from "@/components/ui/calendar";
 
 import { useOrderStore } from "@/providers/orderStore";
 import { PrintReportDaily } from "./PrintReportDaily";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 
 const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
   ({ orders }, ref) => (
@@ -900,22 +903,80 @@ const printReportDaily = (orders: Order[]) => {
 export function ArchiveOrdersTable() {
   const [date, setDate] = useState<Date>(new Date());
   const [isSpecificDay, setIsSpecificDay] = useState(false);
-  const {
-    data: orders,
-    error,
-    isLoading,
-  } = useOrdersByMonth(date, isSpecificDay);
+  const [isComparisonMode, setIsComparisonMode] = useState(false);
+  const [isComparisonActive, setIsComparisonActive] = useState(false);
+
+  // Calculate current week number
+  const getCurrentWeek = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 1);
+    const days = Math.floor(
+      (now.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)
+    );
+    return Math.ceil((days + start.getDay() + 1) / 7);
+  };
+
+  const currentWeek = getCurrentWeek();
+  const currentYear = new Date().getFullYear();
+
+  // Calculate last week
+  const lastWeek = currentWeek === 1 ? 52 : currentWeek - 1;
+  const lastWeekYear = currentWeek === 1 ? currentYear - 1 : currentYear;
+
+  // Calculate current and last month
+  const currentMonth = new Date().getMonth() + 1; // 1-12
+  const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+  const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+
+  const [comparisonWeek1, setComparisonWeek1] = useState<number>(lastWeek);
+  const [comparisonWeek2, setComparisonWeek2] = useState<number>(currentWeek);
+  const [comparisonYear1, setComparisonYear1] = useState<number>(lastWeekYear);
+  const [comparisonYear2, setComparisonYear2] = useState<number>(currentYear);
+  const [comparisonType, setComparisonType] = useState<"week" | "month">(
+    "week"
+  );
   const [globalFilter, setGlobalFilter] = useState("");
 
   const [selectedRole, setSelectedRole] = useState<string>("all");
   const [selectedDriver, setSelectedDriver] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
-  const { data: driverUsers } = useDriverUsers();
-  const [table, setTable] = useState<any>(null);
   const [selectedAllUsers, setSelectedAllUsers] = useState("all");
   const [selectedAllOZ, setSelectedAllOZ] = useState("all");
   const setSelectedOrderId = useOrderStore((state) => state.setSelectedOrderId);
   const [selectedReport, setSelectedReport] = useState<string>("");
+  const { data: driverUsers } = useDriverUsers();
+  const [table, setTable] = useState<any>(null);
+
+  const handleStartComparison = () => {
+    setIsComparisonActive(true);
+  };
+
+  const handleStopComparison = () => {
+    setIsComparisonActive(false);
+    setIsComparisonMode(false);
+  };
+
+  // Update comparison values when type changes
+  const handleComparisonTypeChange = (type: "week" | "month") => {
+    setComparisonType(type);
+    if (type === "week") {
+      setComparisonWeek1(lastWeek);
+      setComparisonWeek2(currentWeek);
+      setComparisonYear1(lastWeekYear);
+      setComparisonYear2(currentYear);
+    } else {
+      setComparisonWeek1(lastMonth);
+      setComparisonWeek2(currentMonth);
+      setComparisonYear1(lastMonthYear);
+      setComparisonYear2(currentYear);
+    }
+  };
+
+  const {
+    data: orders,
+    error,
+    isLoading,
+  } = useOrdersByMonth(date, isSpecificDay);
 
   const uniqueStatusValues = useMemo(() => {
     if (!orders) return [];
@@ -1012,6 +1073,389 @@ export function ArchiveOrdersTable() {
     selectedAllUsers,
     selectedAllOZ,
   ]);
+
+  // Custom hook for comparison orders
+  const useComparisonOrders = (
+    week1: number,
+    year1: number,
+    week2: number,
+    year2: number,
+    type: "week" | "month"
+  ) => {
+    return useQuery({
+      queryKey: [
+        "comparisonOrders",
+        week1,
+        year1,
+        week2,
+        year2,
+        type,
+        selectedRole,
+        selectedDriver,
+        selectedStatus,
+        selectedAllUsers,
+        selectedAllOZ,
+      ],
+      queryFn: async () => {
+        try {
+          // Calculate week start and end dates
+          const getWeekDates = (weekNum: number, year: number) => {
+            const firstDayOfYear = new Date(year, 0, 1);
+            const daysToAdd = (weekNum - 1) * 7;
+            const weekStart = new Date(firstDayOfYear);
+            weekStart.setDate(
+              firstDayOfYear.getDate() + daysToAdd - firstDayOfYear.getDay()
+            );
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
+            return { start: weekStart, end: weekEnd };
+          };
+
+          const week1Dates = getWeekDates(week1, year1);
+          const week2Dates = getWeekDates(week2, year2);
+
+          let startDate: Date;
+          let endDate: Date;
+
+          // Apply date filters
+          if (type === "week") {
+            // For week comparison, get data for both weeks
+            startDate =
+              week1Dates.start < week2Dates.start
+                ? week1Dates.start
+                : week2Dates.start;
+            endDate =
+              week1Dates.end > week2Dates.end ? week1Dates.end : week2Dates.end;
+          } else {
+            // For month comparison, use the month numbers directly
+            const month1Start = new Date(year1, week1 - 1, 1);
+            const month1End = new Date(year1, week1, 0);
+            const month2Start = new Date(year2, week2 - 1, 1);
+            const month2End = new Date(year2, week2, 0);
+
+            startDate = month1Start < month2Start ? month1Start : month2Start;
+            endDate = month1End > month2End ? month1End : month2End;
+          }
+
+          // Format dates for Supabase
+          const startDateStr = startDate.toISOString().split("T")[0];
+          const endDateStr = endDate.toISOString().split("T")[0];
+
+          console.log(
+            "Fetching orders for date range:",
+            startDateStr,
+            "to",
+            endDateStr
+          );
+
+          // Fetch all orders using pagination to handle large datasets
+          let allOrders: any[] = [];
+          let hasMore = true;
+          let page = 0;
+          const pageSize = 1000;
+
+          while (hasMore) {
+            const { data: pageData, error } = await supabase
+              .from("orders")
+              .select(
+                `
+                id,
+                date,
+                total,
+                status,
+                driver_id,
+                user_id,
+                user:profiles!orders_user_id_fkey(
+                  id,
+                  full_name,
+                  oz,
+                  oz_new,
+                  mo_partners,
+                  role
+                )
+              `
+              )
+              .gte("date", startDateStr)
+              .lte("date", endDateStr)
+              .order("date", { ascending: true })
+              .range(page * pageSize, (page + 1) * pageSize - 1);
+
+            if (error) {
+              console.error("Supabase query error:", error);
+              throw error;
+            }
+
+            if (pageData && pageData.length > 0) {
+              allOrders = [...allOrders, ...pageData];
+              page++;
+            } else {
+              hasMore = false;
+            }
+
+            // Safety check to prevent infinite loops
+            if (page > 10) {
+              console.warn("Reached maximum page limit, stopping pagination");
+              break;
+            }
+          }
+
+          console.log("Fetched orders:", allOrders.length);
+
+          let filteredData = allOrders;
+
+          // Apply existing filters
+          if (selectedRole !== "all") {
+            filteredData = filteredData.filter((order) => {
+              const user = Array.isArray(order.user)
+                ? order.user[0]
+                : order.user;
+              return user?.role === selectedRole;
+            });
+          }
+
+          if (selectedDriver !== "all") {
+            if (selectedDriver === "none") {
+              filteredData = filteredData.filter((order) => !order.driver_id);
+            } else {
+              filteredData = filteredData.filter(
+                (order) => order.driver_id === selectedDriver
+              );
+            }
+          }
+
+          if (selectedStatus !== "all") {
+            filteredData = filteredData.filter(
+              (order) => order.status === selectedStatus
+            );
+          }
+
+          if (selectedAllUsers !== "all") {
+            filteredData = filteredData.filter((order) => {
+              const user = Array.isArray(order.user)
+                ? order.user[0]
+                : order.user;
+              return user?.full_name === selectedAllUsers;
+            });
+          }
+
+          if (selectedAllOZ !== "all") {
+            if (selectedAllOZ === "oz") {
+              filteredData = filteredData.filter((order) => {
+                const user = Array.isArray(order.user)
+                  ? order.user[0]
+                  : order.user;
+                return user?.oz === true;
+              });
+            } else if (selectedAllOZ === "mo_partners") {
+              filteredData = filteredData.filter((order) => {
+                const user = Array.isArray(order.user)
+                  ? order.user[0]
+                  : order.user;
+                return user?.mo_partners === true;
+              });
+            } else if (selectedAllOZ === "oz_new") {
+              filteredData = filteredData.filter((order) => {
+                const user = Array.isArray(order.user)
+                  ? order.user[0]
+                  : order.user;
+                return user?.oz_new === true;
+              });
+            } else if (selectedAllOZ === "no_oz_both") {
+              filteredData = filteredData.filter((order) => {
+                const user = Array.isArray(order.user)
+                  ? order.user[0]
+                  : order.user;
+                return user?.oz === false && user?.oz_new === false;
+              });
+            }
+          }
+
+          return filteredData;
+        } catch (error) {
+          console.error("Error in comparison query:", error);
+          throw error;
+        }
+      },
+      enabled: isComparisonActive,
+      retry: 2,
+      retryDelay: 1000,
+    });
+  };
+
+  const { data: comparisonOrders, isLoading: isLoadingComparison } =
+    useComparisonOrders(
+      comparisonWeek1,
+      comparisonYear1,
+      comparisonWeek2,
+      comparisonYear2,
+      comparisonType
+    );
+
+  // Calculate comparison data
+  const comparisonData = useMemo(() => {
+    if (!comparisonOrders) return [];
+
+    const calculatePeriodData = (
+      orders: any[],
+      targetWeek: number,
+      targetYear: number,
+      type: "week" | "month"
+    ) => {
+      const userData = new Map();
+
+      // Filter orders for the specific period
+      const filteredOrders = orders.filter((order) => {
+        const orderDate = new Date(order.date);
+
+        if (type === "week") {
+          // Calculate week number for the order date
+          const start = new Date(orderDate.getFullYear(), 0, 1);
+          const days = Math.floor(
+            (orderDate.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)
+          );
+          const orderWeek = Math.ceil((days + start.getDay() + 1) / 7);
+
+          return (
+            orderWeek === targetWeek && orderDate.getFullYear() === targetYear
+          );
+        } else {
+          // For month comparison, check if order is in the target month
+          return (
+            orderDate.getMonth() + 1 === targetWeek &&
+            orderDate.getFullYear() === targetYear
+          );
+        }
+      });
+
+      filteredOrders.forEach((order) => {
+        const userName = order.user?.full_name || "Unknown";
+        const currentData = userData.get(userName) || {
+          name: userName,
+          orderCount: 0,
+          totalSum: 0,
+        };
+
+        currentData.orderCount += 1;
+        currentData.totalSum += order.total || 0;
+
+        userData.set(userName, currentData);
+      });
+
+      return Array.from(userData.values()).sort(
+        (a, b) => b.totalSum - a.totalSum
+      );
+    };
+
+    const period1Data = calculatePeriodData(
+      comparisonOrders,
+      comparisonWeek1,
+      comparisonYear1,
+      comparisonType
+    );
+    const period2Data = calculatePeriodData(
+      comparisonOrders,
+      comparisonWeek2,
+      comparisonYear2,
+      comparisonType
+    );
+
+    // Combine data for comparison
+    const allUsers = new Set([
+      ...period1Data.map((d) => d.name),
+      ...period2Data.map((d) => d.name),
+    ]);
+
+    const combinedData = Array.from(allUsers).map((userName) => {
+      const period1 = period1Data.find((d) => d.name === userName) || {
+        orderCount: 0,
+        totalSum: 0,
+      };
+      const period2 = period2Data.find((d) => d.name === userName) || {
+        orderCount: 0,
+        totalSum: 0,
+      };
+
+      return {
+        userName,
+        period1: {
+          orderCount: period1.orderCount,
+          totalSum: period1.totalSum,
+        },
+        period2: {
+          orderCount: period2.orderCount,
+          totalSum: period2.totalSum,
+        },
+        difference: {
+          orderCount: period2.orderCount - period1.orderCount,
+          totalSum: period2.totalSum - period1.totalSum,
+        },
+      };
+    });
+
+    // Sort by user name using Czech locale
+    return combinedData.sort((a, b) =>
+      a.userName.localeCompare(b.userName, "cs")
+    );
+  }, [
+    comparisonOrders,
+    comparisonWeek1,
+    comparisonYear1,
+    comparisonWeek2,
+    comparisonYear2,
+    comparisonType,
+  ]);
+
+  // CSV export function for comparison data
+  const exportComparisonToCSV = () => {
+    if (!comparisonData.length) return;
+
+    const period1Label =
+      comparisonType === "week"
+        ? `Týden ${comparisonWeek1}, ${comparisonYear1}`
+        : `Měsíc ${comparisonWeek1}, ${comparisonYear1}`;
+
+    const period2Label =
+      comparisonType === "week"
+        ? `Týden ${comparisonWeek2}, ${comparisonYear2}`
+        : `Měsíc ${comparisonWeek2}, ${comparisonYear2}`;
+
+    const headers = [
+      "Uživatel",
+      `${period1Label} - Počet objednávek`,
+      `${period1Label} - Celková suma (Kč)`,
+      `${period2Label} - Počet objednávek`,
+      `${period2Label} - Celková suma (Kč)`,
+      "Rozdíl - Počet objednávek",
+      "Rozdíl - Celková suma (Kč)",
+    ];
+
+    const csvRows = comparisonData.map((item) => [
+      item.userName,
+      item.period1.orderCount,
+      item.period1.totalSum.toFixed(2),
+      item.period2.orderCount,
+      item.period2.totalSum.toFixed(2),
+      item.difference.orderCount,
+      item.difference.totalSum.toFixed(2),
+    ]);
+
+    const csvContent = [headers, ...csvRows]
+      .map((row) => row.map((field) => `"${field}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `porovnani_${comparisonType}_${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Add calendar component
   const handleDateSelect = (newDate: Date | undefined) => {
@@ -1227,8 +1671,432 @@ export function ArchiveOrdersTable() {
                     </Button>
                   );
                 })}
+
+                {/* Comparison Mode Toggle */}
+                <Button
+                  variant={isComparisonMode ? "default" : "outline"}
+                  onClick={() => setIsComparisonMode(!isComparisonMode)}
+                  className="ml-4"
+                >
+                  {isComparisonMode ? "Zavřít porovnání" : "Porovnání období"}
+                </Button>
               </div>
             </div>
+
+            {/* Comparison Mode UI */}
+            {isComparisonMode && (
+              <div className="mb-4 p-4 border rounded-lg bg-gray-50">
+                <div className="flex flex-wrap gap-4 items-center mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Typ porovnání:</span>
+                    <Select
+                      value={comparisonType}
+                      onValueChange={(value: "week" | "month") =>
+                        handleComparisonTypeChange(value)
+                      }
+                    >
+                      <SelectTrigger className="w-[120px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="week">Týden</SelectItem>
+                        <SelectItem value="month">Měsíc</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {comparisonType === "week" ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">Týden 1:</span>
+                        <Select
+                          value={comparisonWeek1.toString()}
+                          onValueChange={(value) =>
+                            setComparisonWeek1(parseInt(value))
+                          }
+                        >
+                          <SelectTrigger className="w-[100px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 52 }, (_, i) => i + 1).map(
+                              (week) => (
+                                <SelectItem key={week} value={week.toString()}>
+                                  {week}
+                                </SelectItem>
+                              )
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={comparisonYear1.toString()}
+                          onValueChange={(value) =>
+                            setComparisonYear1(parseInt(value))
+                          }
+                        >
+                          <SelectTrigger className="w-[100px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[2023, 2024, 2025].map((year) => (
+                              <SelectItem key={year} value={year.toString()}>
+                                {year}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">Týden 2:</span>
+                        <Select
+                          value={comparisonWeek2.toString()}
+                          onValueChange={(value) =>
+                            setComparisonWeek2(parseInt(value))
+                          }
+                        >
+                          <SelectTrigger className="w-[100px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 52 }, (_, i) => i + 1).map(
+                              (week) => (
+                                <SelectItem key={week} value={week.toString()}>
+                                  {week}
+                                </SelectItem>
+                              )
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={comparisonYear2.toString()}
+                          onValueChange={(value) =>
+                            setComparisonYear2(parseInt(value))
+                          }
+                        >
+                          <SelectTrigger className="w-[100px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[2023, 2024, 2025].map((year) => (
+                              <SelectItem key={year} value={year.toString()}>
+                                {year}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">Měsíc 1:</span>
+                        <Select
+                          value={comparisonWeek1.toString()}
+                          onValueChange={(value) =>
+                            setComparisonWeek1(parseInt(value))
+                          }
+                        >
+                          <SelectTrigger className="w-[120px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 12 }, (_, i) => i + 1).map(
+                              (month) => (
+                                <SelectItem
+                                  key={month}
+                                  value={month.toString()}
+                                >
+                                  {new Date(
+                                    comparisonYear1,
+                                    month - 1,
+                                    1
+                                  ).toLocaleDateString("cs-CZ", {
+                                    month: "long",
+                                  })}
+                                </SelectItem>
+                              )
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={comparisonYear1.toString()}
+                          onValueChange={(value) =>
+                            setComparisonYear1(parseInt(value))
+                          }
+                        >
+                          <SelectTrigger className="w-[100px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[2023, 2024, 2025, 2026, 2027].map((year) => (
+                              <SelectItem key={year} value={year.toString()}>
+                                {year}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">Měsíc 2:</span>
+                        <Select
+                          value={comparisonWeek2.toString()}
+                          onValueChange={(value) =>
+                            setComparisonWeek2(parseInt(value))
+                          }
+                        >
+                          <SelectTrigger className="w-[120px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 12 }, (_, i) => i + 1).map(
+                              (month) => (
+                                <SelectItem
+                                  key={month}
+                                  value={month.toString()}
+                                >
+                                  {new Date(
+                                    comparisonYear2,
+                                    month - 1,
+                                    1
+                                  ).toLocaleDateString("cs-CZ", {
+                                    month: "long",
+                                  })}
+                                </SelectItem>
+                              )
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={comparisonYear2.toString()}
+                          onValueChange={(value) =>
+                            setComparisonYear2(parseInt(value))
+                          }
+                        >
+                          <SelectTrigger className="w-[100px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[2023, 2024, 2025, 2026, 2027].map((year) => (
+                              <SelectItem key={year} value={year.toString()}>
+                                {year}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
+                  )}
+
+                  {/* CSV Export Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={exportComparisonToCSV}
+                    className="flex items-center gap-1 bg-green-50 hover:bg-green-100 border-green-200 text-green-700 ml-auto"
+                    disabled={!comparisonData.length}
+                  >
+                    <Download className="h-4 w-4" />
+                    Export CSV
+                  </Button>
+
+                  {/* Start Comparison Button */}
+                  {!isComparisonActive && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleStartComparison}
+                      className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      Porovnej
+                    </Button>
+                  )}
+
+                  {/* Stop Comparison Button */}
+                  {isComparisonActive && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleStopComparison}
+                      className="flex items-center gap-1 text-red-600 border-red-600 hover:bg-red-50"
+                    >
+                      Zastavit porovnání
+                    </Button>
+                  )}
+                </div>
+
+                {/* Week Range Display */}
+                {comparisonType === "week" && isComparisonActive && (
+                  <div className="mb-4 text-sm text-gray-600">
+                    <div className="flex gap-8">
+                      <div>
+                        <strong>
+                          Týden {comparisonWeek1}, {comparisonYear1}:
+                        </strong>{" "}
+                        {(() => {
+                          const firstDayOfYear = new Date(
+                            comparisonYear1,
+                            0,
+                            1
+                          );
+                          const daysToAdd = (comparisonWeek1 - 1) * 7;
+                          const weekStart = new Date(firstDayOfYear);
+                          weekStart.setDate(
+                            firstDayOfYear.getDate() +
+                              daysToAdd -
+                              firstDayOfYear.getDay()
+                          );
+                          const weekEnd = new Date(weekStart);
+                          weekEnd.setDate(weekStart.getDate() + 6);
+                          return `${format(weekStart, "dd.MM.yyyy", { locale: cs })} - ${format(weekEnd, "dd.MM.yyyy", { locale: cs })}`;
+                        })()}
+                      </div>
+                      <div>
+                        <strong>
+                          Týden {comparisonWeek2}, {comparisonYear2}:
+                        </strong>{" "}
+                        {(() => {
+                          const firstDayOfYear = new Date(
+                            comparisonYear2,
+                            0,
+                            1
+                          );
+                          const daysToAdd = (comparisonWeek2 - 1) * 7;
+                          const weekStart = new Date(firstDayOfYear);
+                          weekStart.setDate(
+                            firstDayOfYear.getDate() +
+                              daysToAdd -
+                              firstDayOfYear.getDay()
+                          );
+                          const weekEnd = new Date(weekStart);
+                          weekEnd.setDate(weekStart.getDate() + 6);
+                          return `${format(weekStart, "dd.MM.yyyy", { locale: cs })} - ${format(weekEnd, "dd.MM.yyyy", { locale: cs })}`;
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Comparison Results */}
+                {isComparisonActive && (
+                  <>
+                    {isLoadingComparison ? (
+                      <div className="text-center py-4">
+                        Načítání dat pro porovnání...
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse border border-gray-300">
+                          <thead className="bg-gray-100">
+                            <tr>
+                              <th className="border border-gray-300 p-2 text-left">
+                                Uživatel
+                              </th>
+                              <th
+                                className="border border-gray-300 p-2 text-center"
+                                colSpan={2}
+                              >
+                                {comparisonType === "week"
+                                  ? `Týden ${comparisonWeek1}`
+                                  : "Měsíc 1"}
+                              </th>
+                              <th
+                                className="border border-gray-300 p-2 text-center"
+                                colSpan={2}
+                              >
+                                {comparisonType === "week"
+                                  ? `Týden ${comparisonWeek2}`
+                                  : "Měsíc 2"}
+                              </th>
+                              <th
+                                className="border border-gray-300 p-2 text-center"
+                                colSpan={2}
+                              >
+                                Rozdíl
+                              </th>
+                            </tr>
+                            <tr>
+                              <th className="border border-gray-300 p-2 text-left">
+                                Jméno
+                              </th>
+                              <th className="border border-gray-300 p-2 text-center">
+                                Počet objednávek
+                              </th>
+                              <th className="border border-gray-300 p-2 text-center">
+                                Celková suma (Kč)
+                              </th>
+                              <th className="border border-gray-300 p-2 text-center">
+                                Počet objednávek
+                              </th>
+                              <th className="border border-gray-300 p-2 text-center">
+                                Celková suma (Kč)
+                              </th>
+                              <th className="border border-gray-300 p-2 text-center">
+                                Počet objednávek
+                              </th>
+                              <th className="border border-gray-300 p-2 text-center">
+                                Celková suma (Kč)
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {comparisonData.map((item, index) => (
+                              <tr
+                                key={index}
+                                className={
+                                  index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                                }
+                              >
+                                <td className="border border-gray-300 p-2 font-medium">
+                                  {item.userName}
+                                </td>
+                                <td className="border border-gray-300 p-2 text-center">
+                                  {item.period1.orderCount}
+                                </td>
+                                <td className="border border-gray-300 p-2 text-center">
+                                  {item.period1.totalSum.toFixed(2)}
+                                </td>
+                                <td className="border border-gray-300 p-2 text-center">
+                                  {item.period2.orderCount}
+                                </td>
+                                <td className="border border-gray-300 p-2 text-center">
+                                  {item.period2.totalSum.toFixed(2)}
+                                </td>
+                                <td
+                                  className={`border border-gray-300 p-2 text-center ${
+                                    item.difference.orderCount > 0
+                                      ? "text-green-600"
+                                      : item.difference.orderCount < 0
+                                        ? "text-red-600"
+                                        : ""
+                                  }`}
+                                >
+                                  {item.difference.orderCount > 0 ? "+" : ""}
+                                  {item.difference.orderCount}
+                                </td>
+                                <td
+                                  className={`border border-gray-300 p-2 text-center ${
+                                    item.difference.totalSum > 0
+                                      ? "text-green-600"
+                                      : item.difference.totalSum < 0
+                                        ? "text-red-600"
+                                        : ""
+                                  }`}
+                                >
+                                  {item.difference.totalSum > 0 ? "+" : ""}
+                                  {item.difference.totalSum.toFixed(2)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
 
             <div className="w-full">
               <PrintSummary
