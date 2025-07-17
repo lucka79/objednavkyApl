@@ -20,6 +20,16 @@ export const useUsers = () => {
         .order('full_name', { ascending: true });
       
       if (error) throw error;
+      
+      // Sort by name using Czech locale for proper diacritic handling
+      if (data) {
+        return data.sort((a, b) => {
+          const nameA = (a.full_name || '').toLowerCase();
+          const nameB = (b.full_name || '').toLowerCase();
+          return nameA.localeCompare(nameB, 'cs');
+        });
+      }
+      
       return data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -245,6 +255,22 @@ export const updateOZ = () => {
       const { error } = await supabase
         .from("profiles")
         .update({ oz })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+};
+
+export const updateOZNew = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, oz_new }: { id: string; oz_new: boolean }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ oz_new })
         .eq("id", id);
       if (error) throw error;
     },

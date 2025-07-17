@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Trash2, ChevronDown } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -52,8 +52,10 @@ export function AdminTable() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [paidByFilter, setPaidByFilter] = useState("all");
   const [activeFilter, setActiveFilter] = useState("all");
+  const [checkboxFilter, setCheckboxFilter] = useState("all");
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [showEmail, setShowEmail] = useState(false);
 
   // Memoized search function for better performance
   const searchUsers = useCallback((users: any[], searchTerm: string) => {
@@ -81,7 +83,8 @@ export function AdminTable() {
       users: any[],
       roleFilter: string,
       paidByFilter: string,
-      activeFilter: string
+      activeFilter: string,
+      checkboxFilter: string
     ) => {
       return users.filter((user: any) => {
         if (roleFilter !== "all" && user.role !== roleFilter) return false;
@@ -90,6 +93,28 @@ export function AdminTable() {
         if (activeFilter !== "all") {
           const isActive = activeFilter === "true";
           if (user.active !== isActive) return false;
+        }
+        if (checkboxFilter !== "all") {
+          switch (checkboxFilter) {
+            case "oz_true":
+              if (!user.oz) return false;
+              break;
+            case "oz_false":
+              if (user.oz) return false;
+              break;
+            case "oz_new_true":
+              if (!user.oz_new) return false;
+              break;
+            case "oz_new_false":
+              if (user.oz_new) return false;
+              break;
+            case "mo_partners_true":
+              if (!user.mo_partners) return false;
+              break;
+            case "mo_partners_false":
+              if (user.mo_partners) return false;
+              break;
+          }
         }
         return true;
       });
@@ -109,7 +134,13 @@ export function AdminTable() {
     }
 
     // Apply filters
-    result = filterUsers(result, roleFilter, paidByFilter, activeFilter);
+    result = filterUsers(
+      result,
+      roleFilter,
+      paidByFilter,
+      activeFilter,
+      checkboxFilter
+    );
 
     return result;
   }, [
@@ -118,6 +149,7 @@ export function AdminTable() {
     roleFilter,
     paidByFilter,
     activeFilter,
+    checkboxFilter,
     searchUsers,
     filterUsers,
   ]);
@@ -192,6 +224,30 @@ export function AdminTable() {
               <SelectItem value="false">Inactive</SelectItem>
             </SelectContent>
           </Select>
+
+          <Select value={checkboxFilter} onValueChange={setCheckboxFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by checkbox" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All checkboxes</SelectItem>
+              <SelectItem value="oz_true">OZ</SelectItem>
+              <SelectItem value="oz_new_true">OZ Nový </SelectItem>
+              <SelectItem value="mo_partners_true">MO Partners</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowEmail(!showEmail)}
+            className="flex items-center gap-1"
+          >
+            Email
+            <ChevronDown
+              className={`h-4 w-4 transition-transform ${showEmail ? "rotate-180" : ""}`}
+            />
+          </Button>
         </div>
 
         {/* Table */}
@@ -201,10 +257,14 @@ export function AdminTable() {
               <tr>
                 <th className="text-left p-3 font-medium">Name</th>
                 <th className="text-left p-3 font-medium">IČO</th>
-                <th className="text-left p-3 font-medium">Email</th>
+                {showEmail && (
+                  <th className="text-left p-3 font-medium">Email</th>
+                )}
                 <th className="text-left p-3 font-medium">Phone</th>
                 <th className="text-left p-3 font-medium">Address</th>
-                <th className="text-left p-3 font-medium">Payment</th>
+                <th className="text-left p-3 font-medium">OZ</th>
+                <th className="text-left p-3 font-medium">OZ New</th>
+                <th className="text-left p-3 font-medium">MO Partners</th>
                 <th className="text-left p-3 font-medium">Role</th>
                 <th className="text-left p-3 font-medium">Active</th>
                 <th className="text-left p-3 font-medium">Actions</th>
@@ -212,13 +272,40 @@ export function AdminTable() {
             </thead>
             <tbody>
               {filteredUsers.map((user) => (
-                <tr key={user.id} className="border-b hover:bg-gray-50">
+                <tr
+                  key={user.id}
+                  className="border-b hover:bg-gray-50 cursor-pointer"
+                  onClick={() => {
+                    setSelectedUser(user);
+                    setEditModalOpen(true);
+                  }}
+                >
                   <td className="p-3">{user.full_name || "-"}</td>
                   <td className="p-3">{user.ico || "-"}</td>
-                  <td className="p-3">{user.email || "-"}</td>
+                  {showEmail && <td className="p-3">{user.email || "-"}</td>}
                   <td className="p-3">{user.phone || "-"}</td>
                   <td className="p-3">{user.address || "-"}</td>
-                  <td className="p-3">{user.paid_by || "-"}</td>
+                  <td className="p-3">
+                    <span
+                      className={`px-2 py-1 rounded text-xs ${user.oz ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}
+                    >
+                      {user.oz ? "Yes" : "No"}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <span
+                      className={`px-2 py-1 rounded text-xs ${user.oz_new ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}
+                    >
+                      {user.oz_new ? "Yes" : "No"}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <span
+                      className={`px-2 py-1 rounded text-xs ${user.mo_partners ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}
+                    >
+                      {user.mo_partners ? "Yes" : "No"}
+                    </span>
+                  </td>
                   <td className="p-3">
                     {user.role
                       ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
@@ -232,7 +319,10 @@ export function AdminTable() {
                     </span>
                   </td>
                   <td className="p-3">
-                    <div className="flex items-center gap-1">
+                    <div
+                      className="flex items-center gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Button
                         variant="ghost"
                         size="sm"

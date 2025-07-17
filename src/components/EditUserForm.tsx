@@ -28,6 +28,7 @@ import {
   updatePaidBy,
   updateActive,
   updateOZ,
+  updateOZNew,
   updateMoPartners,
   updatePhone,
   updateCrateBig,
@@ -64,6 +65,7 @@ const formSchema = z.object({
   }),
   active: z.boolean(),
   oz: z.boolean(),
+  oz_new: z.boolean(),
   mo_partners: z.boolean(),
   crateBig: z.number().min(0),
   crateSmall: z.number().min(0),
@@ -78,6 +80,7 @@ export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
   const updatePaidByMutation = updatePaidBy();
   const updateActiveMutation = updateActive();
   const updateOZMutation = updateOZ();
+  const updateOZNewMutation = updateOZNew();
   const updateMoPartnersMutation = updateMoPartners();
   const updatePhoneMutation = updatePhone();
   const updateCrateBigMutation = updateCrateBig();
@@ -97,6 +100,7 @@ export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
       paid_by: user.paid_by || "-",
       active: user.active || false,
       oz: user.oz || false,
+      oz_new: user.oz_new || false,
       mo_partners: user.mo_partners || false,
       crateBig: user.crateBig || 0,
       crateSmall: user.crateSmall || 0,
@@ -162,6 +166,12 @@ export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
         oz: values.oz,
       });
 
+      // Update OZ New status
+      await updateOZNewMutation.mutateAsync({
+        id: user.id,
+        oz_new: values.oz_new,
+      });
+
       // Update MO Partners status
       await updateMoPartnersMutation.mutateAsync({
         id: user.id,
@@ -189,6 +199,78 @@ export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
         className="space-y-4"
         autoComplete="off"
       >
+        <div className="flex items-center space-x-6">
+          <FormField
+            control={form.control}
+            name="active"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center space-x-2">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    className="data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
+                  />
+                </FormControl>
+                <FormLabel className="text-sm font-normal">Active</FormLabel>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="oz"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center space-x-2">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    className="data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
+                  />
+                </FormControl>
+                <FormLabel className="text-sm font-normal">OZ</FormLabel>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="oz_new"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center space-x-2">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    className="data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
+                  />
+                </FormControl>
+                <FormLabel className="text-sm font-normal">OZ New</FormLabel>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="mo_partners"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center space-x-2">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    className="data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
+                  />
+                </FormControl>
+                <FormLabel className="text-sm font-normal">
+                  MO Partners
+                </FormLabel>
+              </FormItem>
+            )}
+          />
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -370,58 +452,6 @@ export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
                   />
                 </FormControl>
                 <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="flex items-center space-x-6">
-          <FormField
-            control={form.control}
-            name="active"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-center space-x-2">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <FormLabel className="text-sm font-normal">Active</FormLabel>
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="oz"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-center space-x-2">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <FormLabel className="text-sm font-normal">OZ</FormLabel>
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="mo_partners"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-center space-x-2">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <FormLabel className="text-sm font-normal">
-                  MO Partners
-                </FormLabel>
               </FormItem>
             )}
           />
