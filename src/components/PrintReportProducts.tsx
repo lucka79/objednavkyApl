@@ -11,14 +11,37 @@ export const PrintReportProducts = forwardRef<
   PrintReportProductsProps
 >(({ orders }, ref) => {
   // Get min and max dates from orders
-  const dates = orders.map((order) => new Date(order.date));
-  const minDate = new Date(Math.min(...dates.map((date) => date.getTime())));
-  const maxDate = new Date(Math.max(...dates.map((date) => date.getTime())));
+  const dates = orders.map((order) => {
+    // Create date with time set to noon to avoid timezone issues
+    const orderDate = new Date(order.date);
+    // Ensure we're working with UTC dates to avoid timezone issues
+    return new Date(
+      Date.UTC(
+        orderDate.getFullYear(),
+        orderDate.getMonth(),
+        orderDate.getDate(),
+        12,
+        0,
+        0
+      )
+    );
+  });
+  const minDate = dates.length
+    ? new Date(Math.min(...dates.map((date) => date.getTime())))
+    : new Date();
+  const maxDate = dates.length
+    ? new Date(Math.max(...dates.map((date) => date.getTime())))
+    : new Date();
+
+  // Format dates to ensure consistent display
+  const formatDate = (date: Date) => {
+    return `${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()}`;
+  };
 
   const dateRange =
-    minDate.toLocaleDateString() === maxDate.toLocaleDateString()
-      ? minDate.toLocaleDateString()
-      : `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
+    formatDate(minDate) === formatDate(maxDate)
+      ? formatDate(minDate)
+      : `${formatDate(minDate)} - ${formatDate(maxDate)}`;
 
   const productSummary = orders.reduce(
     (acc, order) => {

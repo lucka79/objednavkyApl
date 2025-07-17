@@ -7,37 +7,48 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instanciate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "12.2.3 (519615d)"
+  }
   public: {
     Tables: {
-      baker_production_items: {
+      baker_items: {
         Row: {
           actual_quantity: number | null
+          completed_quantity: number | null
           created_at: string
           id: number
           is_completed: boolean
           planned_quantity: number
           product_id: number
           production_id: number
+          recipe_quantity: number
           updated_at: string | null
         }
         Insert: {
           actual_quantity?: number | null
+          completed_quantity?: number | null
           created_at?: string
           id?: number
           is_completed?: boolean
-          planned_quantity: number
+          planned_quantity?: number
           product_id: number
           production_id: number
+          recipe_quantity?: number
           updated_at?: string | null
         }
         Update: {
           actual_quantity?: number | null
+          completed_quantity?: number | null
           created_at?: string
           id?: number
           is_completed?: boolean
           planned_quantity?: number
           product_id?: number
           production_id?: number
+          recipe_quantity?: number
           updated_at?: string | null
         }
         Relationships: [
@@ -52,12 +63,12 @@ export type Database = {
             foreignKeyName: "baker_production_items_production_id_fkey"
             columns: ["production_id"]
             isOneToOne: false
-            referencedRelation: "baker_productions"
+            referencedRelation: "bakers"
             referencedColumns: ["id"]
           },
         ]
       }
-      baker_productions: {
+      bakers: {
         Row: {
           created_at: string
           date: string
@@ -93,7 +104,7 @@ export type Database = {
             foreignKeyName: "baker_productions_recipe_id_fkey"
             columns: ["recipe_id"]
             isOneToOne: false
-            referencedRelation: "recepts"
+            referencedRelation: "recipes"
             referencedColumns: ["id"]
           },
           {
@@ -132,6 +143,51 @@ export type Database = {
           name?: string
           recept?: boolean
           store?: boolean | null
+        }
+        Relationships: []
+      }
+      device_printer_settings: {
+        Row: {
+          created_at: string | null
+          device_id: string
+          id: number
+          ip_address: string | null
+          is_connected: boolean
+          last_connected: string | null
+          mac_address: string | null
+          port: number | null
+          printer_name: string
+          printer_type: string
+          settings: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          device_id: string
+          id?: number
+          ip_address?: string | null
+          is_connected?: boolean
+          last_connected?: string | null
+          mac_address?: string | null
+          port?: number | null
+          printer_name: string
+          printer_type?: string
+          settings?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          device_id?: string
+          id?: number
+          ip_address?: string | null
+          is_connected?: boolean
+          last_connected?: string | null
+          mac_address?: string | null
+          port?: number | null
+          printer_name?: string
+          printer_type?: string
+          settings?: Json | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -296,6 +352,102 @@ export type Database = {
           },
         ]
       }
+      inventories: {
+        Row: {
+          created_at: string
+          date: string
+          id: number
+          ingredient_total: number | null
+          note: string | null
+          product_total: number | null
+          total: number | null
+          type: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: number
+          ingredient_total?: number | null
+          note?: string | null
+          product_total?: number | null
+          total?: number | null
+          type?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: number
+          ingredient_total?: number | null
+          note?: string | null
+          product_total?: number | null
+          total?: number | null
+          type?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventories_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_items: {
+        Row: {
+          created_at: string
+          id: number
+          ingredient_id: number | null
+          inventory_id: number
+          price: number | null
+          product_id: number | null
+          quantity: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          ingredient_id?: number | null
+          inventory_id: number
+          price?: number | null
+          product_id?: number | null
+          quantity?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          ingredient_id?: number | null
+          inventory_id?: number
+          price?: number | null
+          product_id?: number | null
+          quantity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_items_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_inventory_id_fkey"
+            columns: ["inventory_id"]
+            isOneToOne: false
+            referencedRelation: "inventories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           created_at: string
@@ -330,6 +482,97 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "invoices_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      network_monitoring_devices: {
+        Row: {
+          created_at: string | null
+          device_id: string
+          device_info: Json | null
+          id: string
+          is_active: boolean | null
+          last_seen: string | null
+          push_token: string | null
+          updated_at: string | null
+          user_id: string | null
+          user_role: string
+        }
+        Insert: {
+          created_at?: string | null
+          device_id: string
+          device_info?: Json | null
+          id?: string
+          is_active?: boolean | null
+          last_seen?: string | null
+          push_token?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          user_role?: string
+        }
+        Update: {
+          created_at?: string | null
+          device_id?: string
+          device_info?: Json | null
+          id?: string
+          is_active?: boolean | null
+          last_seen?: string | null
+          push_token?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          user_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_monitoring_devices_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      network_status_log: {
+        Row: {
+          connection_type: string | null
+          created_at: string | null
+          device_id: string
+          id: string
+          is_connected: boolean
+          is_internet_reachable: boolean
+          timestamp: string
+          user_id: string | null
+          user_role: string
+        }
+        Insert: {
+          connection_type?: string | null
+          created_at?: string | null
+          device_id: string
+          id?: string
+          is_connected: boolean
+          is_internet_reachable: boolean
+          timestamp: string
+          user_id?: string | null
+          user_role?: string
+        }
+        Update: {
+          connection_type?: string | null
+          created_at?: string | null
+          device_id?: string
+          id?: string
+          is_connected?: boolean
+          is_internet_reachable?: boolean
+          timestamp?: string
+          user_id?: string | null
+          user_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_status_log_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -503,8 +746,9 @@ export type Database = {
           ingredient_id: number | null
           pastry_id: number | null
           product_id: number
+          productOnly: boolean | null
           quantity: number
-          recept_id: number | null
+          recipe_id: number | null
         }
         Insert: {
           created_at?: string
@@ -512,8 +756,9 @@ export type Database = {
           ingredient_id?: number | null
           pastry_id?: number | null
           product_id: number
+          productOnly?: boolean | null
           quantity?: number
-          recept_id?: number | null
+          recipe_id?: number | null
         }
         Update: {
           created_at?: string
@@ -521,8 +766,9 @@ export type Database = {
           ingredient_id?: number | null
           pastry_id?: number | null
           product_id?: number
+          productOnly?: boolean | null
           quantity?: number
-          recept_id?: number | null
+          recipe_id?: number | null
         }
         Relationships: [
           {
@@ -548,9 +794,9 @@ export type Database = {
           },
           {
             foreignKeyName: "product_parts_recept_id_fkey"
-            columns: ["recept_id"]
+            columns: ["recipe_id"]
             isOneToOne: false
-            referencedRelation: "recepts"
+            referencedRelation: "recipes"
             referencedColumns: ["id"]
           },
         ]
@@ -632,6 +878,7 @@ export type Database = {
       products: {
         Row: {
           active: boolean
+          allergens: string | null
           buyer: boolean
           category_id: number
           code: string | null
@@ -639,11 +886,13 @@ export type Database = {
           description: string | null
           id: number
           image: string | null
+          isAdmin: boolean
           isChild: boolean
           koef: number
-          mobil: boolean
+          limit: number | null
           name: string
           nameVi: string | null
+          parts: string | null
           price: number
           priceBuyer: number
           priceMobil: number
@@ -654,6 +903,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          allergens?: string | null
           buyer?: boolean
           category_id?: number
           code?: string | null
@@ -661,11 +911,13 @@ export type Database = {
           description?: string | null
           id?: number
           image?: string | null
+          isAdmin?: boolean
           isChild?: boolean
           koef: number
-          mobil?: boolean
+          limit?: number | null
           name: string
           nameVi?: string | null
+          parts?: string | null
           price?: number
           priceBuyer?: number
           priceMobil?: number
@@ -676,6 +928,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          allergens?: string | null
           buyer?: boolean
           category_id?: number
           code?: string | null
@@ -683,11 +936,13 @@ export type Database = {
           description?: string | null
           id?: number
           image?: string | null
+          isAdmin?: boolean
           isChild?: boolean
           koef?: number
-          mobil?: boolean
+          limit?: number | null
           name?: string
           nameVi?: string | null
+          parts?: string | null
           price?: number
           priceBuyer?: number
           priceMobil?: number
@@ -729,6 +984,7 @@ export type Database = {
           mo_partners: boolean | null
           note: string | null
           oz: boolean
+          oz_new: boolean
           paid_by: Database["public"]["Enums"]["paidByType"] | null
           phone: string | null
           role: Database["public"]["Enums"]["groupUser"]
@@ -752,6 +1008,7 @@ export type Database = {
           mo_partners?: boolean | null
           note?: string | null
           oz?: boolean
+          oz_new?: boolean
           paid_by?: Database["public"]["Enums"]["paidByType"] | null
           phone?: string | null
           role?: Database["public"]["Enums"]["groupUser"]
@@ -775,6 +1032,7 @@ export type Database = {
           mo_partners?: boolean | null
           note?: string | null
           oz?: boolean
+          oz_new?: boolean
           paid_by?: Database["public"]["Enums"]["paidByType"] | null
           phone?: string | null
           role?: Database["public"]["Enums"]["groupUser"]
@@ -832,7 +1090,6 @@ export type Database = {
       }
       receipts: {
         Row: {
-          buyer_id: string | null
           created_at: string
           date: string | null
           id: number
@@ -843,7 +1100,6 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          buyer_id?: string | null
           created_at?: string
           date?: string | null
           id?: number
@@ -854,7 +1110,6 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          buyer_id?: string | null
           created_at?: string
           date?: string | null
           id?: number
@@ -866,14 +1121,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "receipts_buyer_id_fkey"
-            columns: ["buyer_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "receipts_user_id_fkey"
+            foreignKeyName: "receipts_seller_id_fkey"
             columns: ["seller_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -881,27 +1129,27 @@ export type Database = {
           },
         ]
       }
-      recept_ingredients: {
+      recipe_ingredients: {
         Row: {
           created_at: string
           id: number
           ingredient_id: number
           quantity: number
-          recept_id: number
+          recipe_id: number
         }
         Insert: {
           created_at?: string
           id?: number
           ingredient_id: number
           quantity?: number
-          recept_id: number
+          recipe_id: number
         }
         Update: {
           created_at?: string
           id?: number
           ingredient_id?: number
           quantity?: number
-          recept_id?: number
+          recipe_id?: number
         }
         Relationships: [
           {
@@ -913,40 +1161,55 @@ export type Database = {
           },
           {
             foreignKeyName: "recept_ingredients_recept_id_fkey"
-            columns: ["recept_id"]
+            columns: ["recipe_id"]
             isOneToOne: false
-            referencedRelation: "recepts"
+            referencedRelation: "recipes"
             referencedColumns: ["id"]
           },
         ]
       }
-      recepts: {
+      recipes: {
         Row: {
+          baking: string | null
           category_id: number
           created_at: string
+          dough: string | null
           id: number
           name: string
+          note: string | null
           price: number
           pricePerKilo: number
           quantity: number
+          stir: string | null
+          water: string | null
         }
         Insert: {
+          baking?: string | null
           category_id?: number
           created_at?: string
+          dough?: string | null
           id?: number
           name: string
+          note?: string | null
           price?: number
           pricePerKilo?: number
           quantity?: number
+          stir?: string | null
+          water?: string | null
         }
         Update: {
+          baking?: string | null
           category_id?: number
           created_at?: string
+          dough?: string | null
           id?: number
           name?: string
+          note?: string | null
           price?: number
           pricePerKilo?: number
           quantity?: number
+          stir?: string | null
+          water?: string | null
         }
         Relationships: [
           {
@@ -1076,7 +1339,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cleanup_existing_duplicate_receipts: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          cleaned_receipts: number
+          cleaned_receipt_items: number
+        }[]
+      }
+      cleanup_expired_device_triggers: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      create_device_printer_settings_table: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      deactivate_device: {
+        Args: { device_id: string }
+        Returns: undefined
+      }
+      log_network_status: {
+        Args: { status_data: Json }
+        Returns: undefined
+      }
+      register_device: {
+        Args: { device_data: Json }
+        Returns: undefined
+      }
+      update_device_heartbeat: {
+        Args: { device_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       groupUser:
@@ -1095,27 +1388,33 @@ export type Database = {
   }
 }
 
-type PublicSchema = Database[Extract<keyof Database, "public">]
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
-  PublicTableNameOrOptions extends
-    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-        PublicSchema["Views"])
-    ? (PublicSchema["Tables"] &
-        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -1123,20 +1422,24 @@ export type Tables<
     : never
 
 export type TablesInsert<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -1144,20 +1447,24 @@ export type TablesInsert<
     : never
 
 export type TablesUpdate<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -1165,29 +1472,52 @@ export type TablesUpdate<
     : never
 
 export type Enums<
-  PublicEnumNameOrOptions extends
-    | keyof PublicSchema["Enums"]
-    | { schema: keyof Database },
-  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof PublicSchema["CompositeTypes"]
-    | { schema: keyof Database },
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
-    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      groupUser: [
+        "admin",
+        "user",
+        "driver",
+        "expedition",
+        "store",
+        "mobil",
+        "buyer",
+      ],
+      paidByType: ["Hotov─Ť", "Kartou", "P┼Ö├şkazem", "-"],
+    },
+  },
+} as const

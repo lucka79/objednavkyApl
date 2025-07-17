@@ -89,6 +89,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 
 import { useOrderStore } from "@/providers/orderStore";
+import { PrintReportDaily } from "./PrintReportDaily";
 
 const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
   ({ orders }, ref) => (
@@ -864,6 +865,32 @@ const printOrderTotals = async (orders: Order[]) => {
   }
 };
 
+const printReportDaily = (orders: Order[]) => {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return;
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Denní přehled objednávek</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        </style>
+      </head>
+      <body>
+        <div id="print-content">
+          ${ReactDOMServer.renderToString(<PrintReportDaily orders={orders} />)}
+        </div>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+  printWindow.print();
+};
+
 // Add this helper function at the top level
 // const getMonthName = (monthOffset: number) => {
 //   const date = new Date();
@@ -1325,6 +1352,9 @@ export function ArchiveOrdersTable() {
                             case "buyers":
                               printReportBuyersSummary(selectedOrders);
                               break;
+                            case "daily":
+                              printReportDaily(selectedOrders);
+                              break;
                           }
                         }}
                       >
@@ -1340,6 +1370,9 @@ export function ArchiveOrdersTable() {
                           </SelectItem>
                           <SelectItem value="buyers">
                             Report odběratelů
+                          </SelectItem>
+                          <SelectItem value="daily">
+                            Denní přehled objednávek
                           </SelectItem>
                         </SelectContent>
                       </Select>
