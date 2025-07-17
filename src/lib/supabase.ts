@@ -30,7 +30,20 @@ interface Profile {
   full_name: string
   avatar_url: string
   role: UserRole
-
+  email?: string
+  phone?: string
+  address?: string
+  ico?: string
+  active?: boolean
+  oz?: boolean
+  oz_new?: boolean
+  mo_partners?: boolean
+  paid_by?: string
+  note?: string
+  crateBig?: number
+  crateSmall?: number
+  created_at?: string
+  updated_at?: string
 }
 
 interface UserData {
@@ -226,6 +239,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           role: userData.role,
           paid_by: 'Hotově', // Add this default value
           address: userData.address, // Add this line
+          created_at: authData.user.created_at, // Copy created_at from auth user
         }, {
           onConflict: 'id'
         });
@@ -270,6 +284,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           avatar_url: '',
           role: userData.role,
           paid_by: 'Hotově', // Add this default value
+          created_at: authData.user.created_at, // Copy created_at from auth user
         }, {
           onConflict: 'id'
         });

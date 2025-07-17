@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, ChevronDown } from "lucide-react";
+import { Edit, Trash2, ChevronDown, Download } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +42,68 @@ const removeDiacritics = (text: string | null | undefined): string => {
     .toLowerCase();
 };
 
+// Function to export users to CSV
+const exportToCSV = (users: any[], showEmail: boolean) => {
+  // Define headers based on visible columns
+  const headers = [
+    "Name",
+    "IČO",
+    ...(showEmail ? ["Email"] : []),
+    "Phone",
+    "Address",
+    "OZ",
+    "OZ New",
+    "MO Partners",
+    "Role",
+    "Active",
+    "Created At",
+    "Payment Type",
+    "Note",
+    "Big Crates",
+    "Small Crates",
+  ];
+
+  // Convert users to CSV rows
+  const csvRows = users.map((user) => [
+    user.full_name || "",
+    user.ico || "",
+    ...(showEmail ? [user.email || ""] : []),
+    user.phone || "",
+    user.address || "",
+    user.oz ? "✅" : "❌",
+    user.oz_new ? "✅" : "❌",
+    user.mo_partners ? "✅" : "❌",
+    user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "",
+    user.active ? "✅" : "❌",
+    user.created_at
+      ? new Date(user.created_at).toLocaleDateString("cs-CZ")
+      : "",
+    user.paid_by || "",
+    user.note || "",
+    user.crateBig || 0,
+    user.crateSmall || 0,
+  ]);
+
+  // Combine headers and rows
+  const csvContent = [headers, ...csvRows]
+    .map((row) => row.map((field) => `"${field}"`).join(","))
+    .join("\n");
+
+  // Create and download file
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.setAttribute("href", url);
+  link.setAttribute(
+    "download",
+    `users_export_${new Date().toISOString().split("T")[0]}.csv`
+  );
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
 export function AdminTable() {
   const user = useAuthStore((state) => state.user);
   const { data: users, isLoading } = useUsers();
@@ -49,10 +111,11 @@ export function AdminTable() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebounce(searchQuery, 300);
-  const [roleFilter, setRoleFilter] = useState("all");
-  const [paidByFilter, setPaidByFilter] = useState("all");
-  const [activeFilter, setActiveFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState("mobil");
+  const [paidByFilter, setPaidByFilter] = useState("Hotově");
+  const [activeFilter, setActiveFilter] = useState("true");
   const [checkboxFilter, setCheckboxFilter] = useState("all");
+  const [createdAtFilter, setCreatedAtFilter] = useState("all");
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showEmail, setShowEmail] = useState(false);
@@ -84,7 +147,8 @@ export function AdminTable() {
       roleFilter: string,
       paidByFilter: string,
       activeFilter: string,
-      checkboxFilter: string
+      checkboxFilter: string,
+      createdAtFilter: string
     ) => {
       return users.filter((user: any) => {
         if (roleFilter !== "all" && user.role !== roleFilter) return false;
@@ -116,6 +180,17 @@ export function AdminTable() {
               break;
           }
         }
+        if (createdAtFilter !== "all" && user.created_at) {
+          const userDate = new Date(user.created_at);
+          const userMonth = userDate.getMonth() + 1; // getMonth() returns 0-11
+          const userYear = userDate.getFullYear();
+          const [filterYear, filterMonth] = createdAtFilter
+            .split("-")
+            .map(Number);
+
+          if (userYear !== filterYear || userMonth !== filterMonth)
+            return false;
+        }
         return true;
       });
     },
@@ -125,6 +200,12 @@ export function AdminTable() {
   // Filter users with optimized logic
   const filteredUsers = useMemo(() => {
     if (!users) return [];
+
+    // Debug: Log the first user to see what fields are available
+    if (users.length > 0) {
+      console.log("First user data:", users[0]);
+      console.log("Created at field:", users[0].created_at);
+    }
 
     let result = users;
 
@@ -139,7 +220,8 @@ export function AdminTable() {
       roleFilter,
       paidByFilter,
       activeFilter,
-      checkboxFilter
+      checkboxFilter,
+      createdAtFilter
     );
 
     return result;
@@ -150,6 +232,7 @@ export function AdminTable() {
     paidByFilter,
     activeFilter,
     checkboxFilter,
+    createdAtFilter,
     searchUsers,
     filterUsers,
   ]);
@@ -230,10 +313,45 @@ export function AdminTable() {
               <SelectValue placeholder="Filter by checkbox" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All checkboxes</SelectItem>
+              <SelectItem value="all">OZ/OZ Nový/MO Partners</SelectItem>
               <SelectItem value="oz_true">OZ</SelectItem>
               <SelectItem value="oz_new_true">OZ Nový </SelectItem>
               <SelectItem value="mo_partners_true">MO Partners</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={createdAtFilter} onValueChange={setCreatedAtFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Filter by month" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All months</SelectItem>
+              {(() => {
+                const months = [];
+                const currentDate = new Date();
+                const currentYear = currentDate.getFullYear();
+                const currentMonth = currentDate.getMonth();
+
+                // Generate last 12 months
+                for (let i = 0; i < 12; i++) {
+                  const date = new Date(currentYear, currentMonth - i, 1);
+                  const year = date.getFullYear();
+                  const month = date.getMonth() + 1;
+                  const monthName = date.toLocaleDateString("cs-CZ", {
+                    month: "long",
+                    year: "numeric",
+                  });
+                  months.push(
+                    <SelectItem
+                      key={`${year}-${month}`}
+                      value={`${year}-${month}`}
+                    >
+                      {monthName}
+                    </SelectItem>
+                  );
+                }
+                return months;
+              })()}
             </SelectContent>
           </Select>
 
@@ -247,6 +365,16 @@ export function AdminTable() {
             <ChevronDown
               className={`h-4 w-4 transition-transform ${showEmail ? "rotate-180" : ""}`}
             />
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => exportToCSV(filteredUsers, showEmail)}
+            className="flex items-center gap-1 bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
           </Button>
         </div>
 
@@ -267,6 +395,7 @@ export function AdminTable() {
                 <th className="text-left p-3 font-medium">MO Partners</th>
                 <th className="text-left p-3 font-medium">Role</th>
                 <th className="text-left p-3 font-medium">Active</th>
+                <th className="text-left p-3 font-medium">Created At</th>
                 <th className="text-left p-3 font-medium">Actions</th>
               </tr>
             </thead>
@@ -317,6 +446,11 @@ export function AdminTable() {
                     >
                       {user.active ? "Active" : "Inactive"}
                     </span>
+                  </td>
+                  <td className="p-3">
+                    {user.created_at
+                      ? new Date(user.created_at).toLocaleDateString("cs-CZ")
+                      : "-"}
                   </td>
                   <td className="p-3">
                     <div

@@ -140,6 +140,7 @@ export interface Product {
     note?: string;
     address?: string; 
     oz: boolean;
+    oz_new: boolean;
     mo_partners: boolean;
     ico?: string;
   };

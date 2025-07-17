@@ -13,24 +13,24 @@ export const useUsers = () => {
   return useQuery({
     queryKey: ["users"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("*")
         .order('active', { ascending: false })
         .order('full_name', { ascending: true });
       
-      if (error) throw error;
+      if (profilesError) throw profilesError;
       
       // Sort by name using Czech locale for proper diacritic handling
-      if (data) {
-        return data.sort((a, b) => {
+      if (profiles) {
+        return profiles.sort((a, b) => {
           const nameA = (a.full_name || '').toLowerCase();
           const nameB = (b.full_name || '').toLowerCase();
           return nameA.localeCompare(nameB, 'cs');
         });
       }
       
-      return data;
+      return profiles;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)

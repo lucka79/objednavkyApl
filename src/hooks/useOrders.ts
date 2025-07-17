@@ -1078,7 +1078,8 @@ export const useOrdersByMonth = (selectedDate?: Date, specificDay?: boolean) => 
                 full_name, 
                 role,
                 mo_partners,
-                oz
+                oz,
+                oz_new
               ),
               driver:profiles!orders_driver_id_fkey (
                 id, 

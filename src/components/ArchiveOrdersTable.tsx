@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useState, useMemo, useEffect, useRef, forwardRef } from "react";
+import { useState, useMemo, useEffect, forwardRef } from "react";
 
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -74,7 +74,6 @@ import { useOrderLockStore } from "@/providers/orderLockStore";
 import { PrintDonutSummary } from "./PrintDonutSummary";
 import { PrintSweetSummary } from "./PrintSweetSummary";
 
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { PrintReportBuyerOrders } from "./PrintReportBuyerOrders";
 import { PrintReportProducts } from "./PrintReportProducts";
 import { PrintReportBuyersSummary } from "./PrintReportBuyersSummary";
@@ -908,26 +907,15 @@ export function ArchiveOrdersTable() {
   } = useOrdersByMonth(date, isSpecificDay);
   const [globalFilter, setGlobalFilter] = useState("");
 
-  const [selectedPaidBy, setSelectedPaidBy] = useState<string>("all");
   const [selectedRole, setSelectedRole] = useState<string>("all");
   const [selectedDriver, setSelectedDriver] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const { data: driverUsers } = useDriverUsers();
   const [table, setTable] = useState<any>(null);
-  const [selectedUser, setSelectedUser] = useState("all");
-  const [userSearchQuery, setUserSearchQuery] = useState("");
-  const [selectedOZ, setSelectedOZ] = useState<string>("all");
+  const [selectedAllUsers, setSelectedAllUsers] = useState("all");
+  const [selectedAllOZ, setSelectedAllOZ] = useState("all");
   const setSelectedOrderId = useOrderStore((state) => state.setSelectedOrderId);
   const [selectedReport, setSelectedReport] = useState<string>("");
-
-  // Get unique paid_by values from orders
-  const uniquePaidByValues = useMemo(() => {
-    if (!orders) return [];
-    const values = new Set(
-      orders.map((order) => order.paid_by).filter(Boolean)
-    );
-    return Array.from(values).sort();
-  }, [orders]);
 
   const uniqueStatusValues = useMemo(() => {
     if (!orders) return [];
@@ -953,20 +941,9 @@ export function ArchiveOrdersTable() {
     return Array.from(names).sort();
   }, [orders]);
 
-  const filteredUserNames = useMemo(() => {
-    if (!userSearchQuery) return uniqueUserNames;
-    return uniqueUserNames.filter((name) =>
-      name.toLowerCase().includes(userSearchQuery.toLowerCase())
-    );
-  }, [uniqueUserNames, userSearchQuery]);
-
   // Update filteredOrders to include role filtering
   const filteredOrders = useMemo(() => {
     let filtered = orders || [];
-
-    if (selectedPaidBy !== "all") {
-      filtered = filtered.filter((order) => order.paid_by === selectedPaidBy);
-    }
 
     if (selectedStatus !== "all") {
       filtered = filtered.filter((order) => order.status === selectedStatus);
@@ -979,38 +956,61 @@ export function ArchiveOrdersTable() {
 
     // Fix driver filtering
     if (selectedDriver !== "all") {
-      filtered = filtered.filter((order) => {
-        if (selectedDriver === "none") {
-          return !order.driver_id;
-        }
-        return order.driver_id === selectedDriver;
-      });
-    }
-
-    if (selectedUser !== "all") {
-      filtered = filtered.filter(
-        (order) => order.user.full_name === selectedUser
-      );
+      if (selectedDriver === "none") {
+        filtered = filtered.filter((order) => !order.driver_id);
+      } else {
+        filtered = filtered.filter(
+          (order) => order.driver_id === selectedDriver
+        );
+      }
     }
 
     // Update OZ filter to include "no OZ" option
-    if (selectedOZ === "oz") {
+    if (selectedAllOZ === "oz") {
       filtered = filtered.filter((order) => order.user?.oz === true);
-    } else if (selectedOZ === "mo_partners") {
+    } else if (selectedAllOZ === "mo_partners") {
       filtered = filtered.filter((order) => order.user?.mo_partners === true);
-    } else if (selectedOZ === "no_oz") {
+    } else if (selectedAllOZ === "oz_new") {
+      filtered = filtered.filter((order) => order.user?.oz_new === true);
+    } else if (selectedAllOZ === "no_oz") {
       filtered = filtered.filter((order) => order.user?.oz === false);
+    } else if (selectedAllOZ === "oz_new_false") {
+      filtered = filtered.filter((order) => order.user?.oz_new === false);
+    } else if (selectedAllOZ === "no_oz_both") {
+      filtered = filtered.filter(
+        (order) => order.user?.oz === false && order.user?.oz_new === false
+      );
+    }
+
+    // Add filtering for the new dropdowns
+    if (selectedAllUsers !== "all") {
+      filtered = filtered.filter(
+        (order) => order.user.full_name === selectedAllUsers
+      );
+    }
+
+    if (selectedAllOZ !== "all") {
+      if (selectedAllOZ === "oz") {
+        filtered = filtered.filter((order) => order.user?.oz === true);
+      } else if (selectedAllOZ === "mo_partners") {
+        filtered = filtered.filter((order) => order.user?.mo_partners === true);
+      } else if (selectedAllOZ === "oz_new") {
+        filtered = filtered.filter((order) => order.user?.oz_new === true);
+      } else if (selectedAllOZ === "no_oz_both") {
+        filtered = filtered.filter(
+          (order) => order.user?.oz === false && order.user?.oz_new === false
+        );
+      }
     }
 
     return filtered;
   }, [
     orders,
-    selectedPaidBy,
     selectedRole,
     selectedDriver,
     selectedStatus,
-    selectedUser,
-    selectedOZ,
+    selectedAllUsers,
+    selectedAllOZ,
   ]);
 
   // Add calendar component
@@ -1033,23 +1033,23 @@ export function ArchiveOrdersTable() {
 
   return (
     <>
-      <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible print:transform-none">
-        <div className="space-y-4 overflow-x-auto print:!m-0">
-          <div className="space-y-2 print:hidden">
-            <div className="flex justify-start items-center gap-2">
+      <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible print:transform-none w-full">
+        <div className="space-y-4 w-full print:!m-0">
+          <div className="space-y-2 print:hidden w-full">
+            <div className="flex flex-col sm:flex-row justify-start items-start sm:items-center gap-2 w-full">
               <Input
                 placeholder="Search orders..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
-                className="max-w-sm"
+                className="max-w-sm w-full sm:w-auto"
               />
 
-              <Select
+              {/* <Select
                 value={selectedUser}
                 onValueChange={setSelectedUser}
                 onOpenChange={() => setUserSearchQuery("")}
               >
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue placeholder="Odběratel..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -1062,27 +1062,38 @@ export function ArchiveOrdersTable() {
                       onKeyDown={(e) => e.stopPropagation()}
                     />
                   </div>
-                  <SelectItem value="all">Všichni odběratelé</SelectItem>
                   {filteredUserNames.map((name) => (
                     <SelectItem key={name} value={name}>
                       {name}
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </Select>
+              </Select> */}
 
-              <Select value={selectedOZ} onValueChange={setSelectedOZ}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Obchodní zástupce..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Všichni</SelectItem>
-                  <SelectItem value="oz">Obchodní zástupce</SelectItem>
-                  <SelectItem value="mo_partners">Mo Partners</SelectItem>
-                  <SelectItem value="no_oz">Bez Obchod.zástupce</SelectItem>
-                </SelectContent>
-              </Select>
-
+              <div className="flex flex-wrap gap-2 print:hidden">
+                <span className="text-muted-foreground text-sm font-semibold">
+                  Vydáno:
+                </span>
+                <Badge variant="outline" className="text-yellow-700 ">
+                  {calculateCrateSums(filteredOrders).crateSmall}
+                  <Container size={16} className="mx-1" />
+                </Badge>
+                <Badge variant="outline" className="text-red-800">
+                  {calculateCrateSums(filteredOrders).crateBig}
+                  <Container size={20} className="mx-1" />
+                </Badge>
+                <span className="text-muted-foreground text-sm font-semibold">
+                  Přijato:
+                </span>
+                <Badge variant="secondary" className="text-yellow-700">
+                  {calculateCrateSums(filteredOrders).crateSmallReceived}
+                  <Container size={16} className="mx-1" />
+                </Badge>
+                <Badge variant="secondary" className="text-red-800">
+                  {calculateCrateSums(filteredOrders).crateBigReceived}
+                  <Container size={20} className="mx-1" />
+                </Badge>
+              </div>
               <Badge
                 variant="secondary"
                 className="flex items-center gap-2 ml-auto"
@@ -1092,23 +1103,9 @@ export function ArchiveOrdersTable() {
                   : `${filteredOrders.length} total orders`}
               </Badge>
             </div>
-            <div className="flex flex-row gap-2">
-              <Select value={selectedPaidBy} onValueChange={setSelectedPaidBy}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Typ platby..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Typ platby</SelectItem>
-                  {uniquePaidByValues.map((paidBy) => (
-                    <SelectItem key={paidBy} value={paidBy}>
-                      {paidBy}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
+            <div className="flex flex-col sm:flex-row gap-2 w-full">
               <Select value={selectedRole} onValueChange={setSelectedRole}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue placeholder="Typ odběratele..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -1122,7 +1119,7 @@ export function ArchiveOrdersTable() {
               </Select>
 
               <Select value={selectedDriver} onValueChange={setSelectedDriver}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue placeholder="Filtrovat řidiče..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -1137,7 +1134,7 @@ export function ArchiveOrdersTable() {
               </Select>
 
               <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue placeholder="Stav objednávky..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -1149,58 +1146,91 @@ export function ArchiveOrdersTable() {
                   ))}
                 </SelectContent>
               </Select>
+
+              <Select
+                value={selectedAllUsers}
+                onValueChange={setSelectedAllUsers}
+              >
+                <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectValue placeholder="Všichni odběratelé..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Všichni odběratelé</SelectItem>
+                  {uniqueUserNames.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedAllOZ} onValueChange={setSelectedAllOZ}>
+                <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectValue placeholder="Všichni..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Vyber OZ/Mo Partners</SelectItem>
+                  <SelectItem value="oz">Obchodní zást. původní</SelectItem>
+                  <SelectItem value="oz_new">ObchZást (Hanka)</SelectItem>
+                  <SelectItem value="mo_partners">Mo Partners</SelectItem>
+
+                  <SelectItem value="no_oz_both">Bez OZ i Hanky</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
           <div className="w-full">
-            <div className="flex gap-2 mb-4">
-              {/* Calendar */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline">
-                    {isSpecificDay
-                      ? format(date, "PP", { locale: cs })
-                      : "Vybrat den"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={isSpecificDay ? date : undefined}
-                    onSelect={handleDateSelect}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+            <div className="flex flex-wrap gap-2 mb-4 items-center justify-between">
+              <div className="flex flex-wrap gap-2">
+                {/* Calendar */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline">
+                      {isSpecificDay
+                        ? format(date, "PP", { locale: cs })
+                        : "Vybrat den"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={isSpecificDay ? date : undefined}
+                      onSelect={handleDateSelect}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
 
-              {/* Month buttons */}
-              {[-2, -1, 0, 1].map((offset) => {
-                const monthDate = new Date();
-                // Set to first day of the month to avoid month boundary issues
-                monthDate.setDate(1);
-                monthDate.setMonth(monthDate.getMonth() + offset);
-                const buttonMonth = monthDate.getMonth();
-                const buttonYear = monthDate.getFullYear();
+                {/* Month buttons */}
+                {[-2, -1, 0, 1].map((offset) => {
+                  const monthDate = new Date();
+                  // Set to first day of the month to avoid month boundary issues
+                  monthDate.setDate(1);
+                  monthDate.setMonth(monthDate.getMonth() + offset);
+                  const buttonMonth = monthDate.getMonth();
+                  const buttonYear = monthDate.getFullYear();
 
-                return (
-                  <Button
-                    key={offset}
-                    variant={
-                      !isSpecificDay &&
-                      date.getMonth() === buttonMonth &&
-                      date.getFullYear() === buttonYear
-                        ? "default"
-                        : "outline"
-                    }
-                    onClick={() => handleMonthSelect(monthDate)}
-                  >
-                    {format(monthDate, "LLLL yyyy", { locale: cs })}
-                  </Button>
-                );
-              })}
+                  return (
+                    <Button
+                      key={offset}
+                      variant={
+                        !isSpecificDay &&
+                        date.getMonth() === buttonMonth &&
+                        date.getFullYear() === buttonYear
+                          ? "default"
+                          : "outline"
+                      }
+                      onClick={() => handleMonthSelect(monthDate)}
+                    >
+                      {format(monthDate, "LLLL yyyy", { locale: cs })}
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div>
+            <div className="w-full">
               <PrintSummary
                 orders={filteredOrders}
                 period={
@@ -1209,33 +1239,8 @@ export function ArchiveOrdersTable() {
                 globalFilter={globalFilter}
               />
 
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex gap-2 print:hidden">
-                  <span className="text-muted-foreground text-sm font-semibold">
-                    Vydáno celkem:
-                  </span>
-                  <Badge variant="outline" className="text-yellow-700 ">
-                    {calculateCrateSums(filteredOrders).crateSmall}
-                    <Container size={16} className="mx-1" />
-                  </Badge>
-                  <Badge variant="outline" className="text-red-800">
-                    {calculateCrateSums(filteredOrders).crateBig}
-                    <Container size={20} className="mx-1" />
-                  </Badge>
-                  <span className="text-muted-foreground text-sm font-semibold">
-                    Přijato celkem:
-                  </span>
-                  <Badge variant="secondary" className="text-yellow-700">
-                    {calculateCrateSums(filteredOrders).crateSmallReceived}
-                    <Container size={16} className="mx-1" />
-                  </Badge>
-                  <Badge variant="secondary" className="text-red-800">
-                    {calculateCrateSums(filteredOrders).crateBigReceived}
-                    <Container size={20} className="mx-1" />
-                  </Badge>
-                </div>
-
-                <div className="flex gap-2 print:hidden">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4 w-full">
+                <div className="flex flex-wrap gap-2 print:hidden w-full lg:w-auto">
                   <Button
                     variant="outline"
                     size="sm"
@@ -1464,7 +1469,6 @@ function OrderTableContent({
   onTableReady: (table: any) => void;
 }) {
   const [rowSelection, setRowSelection] = useState({});
-  const tableContainerRef = useRef<HTMLDivElement>(null);
 
   const table = useReactTable({
     data,
@@ -1479,28 +1483,19 @@ function OrderTableContent({
     onRowSelectionChange: setRowSelection,
   });
 
-  const { rows } = table.getRowModel();
-
-  const rowVirtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => tableContainerRef.current,
-    estimateSize: () => 45, // Approximate height of each row
-    overscan: 10, // Number of items to render outside of the visible area
-  });
-
   useEffect(() => {
     onTableReady(table);
   }, [table, onTableReady]);
 
   return (
-    <div className="border rounded-md print:hidden">
-      <div ref={tableContainerRef} className="max-h-[800px] overflow-auto">
-        <Table className="relative table-fixed w-full">
+    <div className="border rounded-md print:hidden w-full">
+      <div className="w-full overflow-x-auto">
+        <Table className="w-full">
           <TableHeader className="sticky top-0 bg-background z-10">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="px-2">
+                  <TableHead key={header.id} className="px-2 whitespace-nowrap">
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -1512,35 +1507,20 @@ function OrderTableContent({
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody
-            className="relative"
-            style={{
-              height: `${rowVirtualizer.getTotalSize()}px`,
-            }}
-          >
-            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-              const row = rows[virtualRow.index];
-              return (
-                <TableRow
-                  key={row.id}
-                  onClick={() => setSelectedOrderId(row.original.id)}
-                  className="cursor-pointer hover:bg-muted/50 absolute w-full"
-                  style={{
-                    height: `${virtualRow.size}px`,
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="px-2">
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              );
-            })}
+          <TableBody>
+            {table.getRowModel().rows.map((row) => (
+              <TableRow
+                key={row.id}
+                onClick={() => setSelectedOrderId(row.original.id)}
+                className="cursor-pointer hover:bg-muted/50"
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id} className="px-2 whitespace-nowrap">
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </div>
