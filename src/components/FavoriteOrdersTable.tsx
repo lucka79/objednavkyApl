@@ -431,7 +431,7 @@ export function FavoriteOrdersTable({
   const [selectedDay, setSelectedDay] = useState<string>("all");
   const [userNameFilter, setUserNameFilter] = useState("");
   const [selectedOrders, setSelectedOrders] = useState<Set<number>>(new Set());
-  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [roleFilter, setRoleFilter] = useState<string>("store_admin");
   const [driverFilter, setDriverFilter] = useState<string>("all");
   const [isCreating, setIsCreating] = useState(false);
 
@@ -449,7 +449,12 @@ export function FavoriteOrdersTable({
       return false;
 
     // Then filter by role
-    if (roleFilter !== "all" && order.user?.role !== roleFilter) return false;
+    if (roleFilter !== "all" && roleFilter !== "store_admin") {
+      if (order.user?.role !== roleFilter) return false;
+    } else if (roleFilter === "store_admin") {
+      if (order.user?.role !== "store" && order.user?.role !== "admin")
+        return false;
+    }
 
     // Then filter by selected product
     if (selectedProductId && selectedProductId !== "all") {
@@ -599,7 +604,7 @@ export function FavoriteOrdersTable({
       <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible print:transform-none">
         <div className="space-y-4 overflow-x-auto print:!m-0">
           <div className="space-y-2">
-            <div>
+            <div className="flex items-center gap-2">
               {user?.role === "admin" && (
                 <Dialog>
                   <DialogTrigger asChild>
@@ -611,6 +616,11 @@ export function FavoriteOrdersTable({
                   <AddFavoriteOrderDialog />
                 </Dialog>
               )}
+              <Badge variant="secondary">
+                {date
+                  ? `${filteredOrders.length} orders`
+                  : `${filteredOrders.length} total orders`}
+              </Badge>
             </div>
             <Tabs defaultValue="all" onValueChange={setSelectedDay}>
               <TabsList className="grid grid-cols-9">
@@ -625,6 +635,104 @@ export function FavoriteOrdersTable({
 
             <div className="flex justify-between items-center gap-2">
               <div className="flex gap-2 flex-1">
+                <div className="flex gap-1">
+                  <Button
+                    variant={roleFilter === "mobil" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() =>
+                      setRoleFilter(roleFilter === "mobil" ? "all" : "mobil")
+                    }
+                    className={
+                      roleFilter === "mobil"
+                        ? "bg-orange-600 text-white hover:bg-orange-700"
+                        : ""
+                    }
+                  >
+                    Mobil
+                  </Button>
+                  <Button
+                    variant={
+                      roleFilter === "store_admin" ? "default" : "outline"
+                    }
+                    size="sm"
+                    onClick={() =>
+                      setRoleFilter(
+                        roleFilter === "store_admin" ? "all" : "store_admin"
+                      )
+                    }
+                    className={
+                      roleFilter === "store_admin"
+                        ? "bg-orange-600 text-white hover:bg-orange-700"
+                        : ""
+                    }
+                  >
+                    Store/Admin
+                  </Button>
+                </div>
+                <div className="flex gap-2 items-center">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-[240px] justify-start text-left font-normal",
+                          !date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {date ? (
+                          format(date, "PPP")
+                        ) : (
+                          <span>Datum objednávky</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={date}
+                        onSelect={(date) => date && setDate(date)}
+                        disabled={(date) => {
+                          const yesterday = new Date();
+                          yesterday.setDate(yesterday.getDate() - 4);
+
+                          const twoMonthsFromNow = new Date();
+                          twoMonthsFromNow.setMonth(
+                            twoMonthsFromNow.getMonth() + 2
+                          );
+
+                          return date < yesterday || date > twoMonthsFromNow;
+                        }}
+                        initialFocus
+                        className="rounded-md border"
+                        classNames={{
+                          day_selected:
+                            "bg-orange-800 text-white hover:bg-orange-700 focus:bg-orange-700",
+                        }}
+                        locale={cs}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Input
+                    placeholder="Filter by name or phone..."
+                    value={userNameFilter}
+                    onChange={(e) => setUserNameFilter(e.target.value)}
+                    className="max-w-xs"
+                  />
+                  <Button
+                    onClick={createOrdersFromFavorites}
+                    disabled={!date || selectedOrders.size === 0 || isCreating}
+                    className="gap-2 bg-orange-600 text-white"
+                    variant="outline"
+                  >
+                    <CirclePlus
+                      className={`h-4 w-4 ${isCreating ? "animate-spin" : ""}`}
+                    />
+                    {isCreating
+                      ? "Creating..."
+                      : `Create Orders (${selectedOrders.size})`}
+                  </Button>
+                </div>
                 <Select
                   value={selectedProductId}
                   onValueChange={setSelectedProductId}
@@ -658,12 +766,7 @@ export function FavoriteOrdersTable({
                     ))}
                   </SelectContent>
                 </Select>
-                <Input
-                  placeholder="Filter by name or phone..."
-                  value={userNameFilter}
-                  onChange={(e) => setUserNameFilter(e.target.value)}
-                  className="max-w-xs"
-                />
+
                 <Select value={roleFilter} onValueChange={setRoleFilter}>
                   <SelectTrigger className="w-[150px]">
                     <SelectValue placeholder="Filter by role" />
@@ -678,6 +781,7 @@ export function FavoriteOrdersTable({
                     ))}
                   </SelectContent>
                 </Select>
+
                 <Select value={driverFilter} onValueChange={setDriverFilter}>
                   <SelectTrigger className="w-[150px]">
                     <SelectValue placeholder="Filter by driver" />
@@ -701,69 +805,6 @@ export function FavoriteOrdersTable({
                     })}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="flex gap-2 items-center">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-[240px] justify-start text-left font-normal",
-                        !date && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {date ? (
-                        format(date, "PPP")
-                      ) : (
-                        <span>Datum objednávky</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={date}
-                      onSelect={(date) => date && setDate(date)}
-                      disabled={(date) => {
-                        const yesterday = new Date();
-                        yesterday.setDate(yesterday.getDate() - 4);
-
-                        const twoMonthsFromNow = new Date();
-                        twoMonthsFromNow.setMonth(
-                          twoMonthsFromNow.getMonth() + 2
-                        );
-
-                        return date < yesterday || date > twoMonthsFromNow;
-                      }}
-                      initialFocus
-                      className="rounded-md border"
-                      classNames={{
-                        day_selected:
-                          "bg-orange-800 text-white hover:bg-orange-700 focus:bg-orange-700",
-                      }}
-                      locale={cs}
-                    />
-                  </PopoverContent>
-                </Popover>
-                <Button
-                  onClick={createOrdersFromFavorites}
-                  disabled={!date || selectedOrders.size === 0 || isCreating}
-                  className="gap-2 bg-orange-600 text-white"
-                  variant="outline"
-                >
-                  <CirclePlus
-                    className={`h-4 w-4 ${isCreating ? "animate-spin" : ""}`}
-                  />
-                  {isCreating
-                    ? "Creating..."
-                    : `Create Orders (${selectedOrders.size})`}
-                </Button>
-                <Badge variant="secondary">
-                  {date
-                    ? `${filteredOrders.length} orders`
-                    : `${filteredOrders.length} total orders`}
-                </Badge>
               </div>
             </div>
           </div>
