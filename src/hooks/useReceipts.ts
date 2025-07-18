@@ -115,8 +115,7 @@ export const useInsertReceipt = () => {
       async mutationFn(data: InsertTables<"receipts">) {
         const receiptData = {
           ...data,
-          seller_id: data.seller_id || user?.id,
-          buyer_id: data.buyer_id || null
+          seller_id: data.seller_id || user?.id
         };
   
         const { error, data: newReceipt } = await supabase

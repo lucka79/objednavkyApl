@@ -1419,16 +1419,28 @@ export function ArchiveOrdersTable() {
         ? `Týden ${comparisonWeek2}, ${comparisonYear2}`
         : `Měsíc ${comparisonWeek2}, ${comparisonYear2}`;
 
-    const headers = [
+    // Create multi-row header
+    const headerRow1 = [
       "Uživatel",
-      `${period1Label} - Počet objednávek`,
-      `${period1Label} - Celková suma (Kč)`,
-      `${period2Label} - Počet objednávek`,
-      `${period2Label} - Celková suma (Kč)`,
-      "Rozdíl - Počet objednávek",
-      "Rozdíl - Celková suma (Kč)",
+      period1Label,
+      "",
+      period2Label,
+      "",
+      "Rozdíl",
+      "",
     ];
 
+    const headerRow2 = [
+      "Jméno",
+      "Počet objednávek",
+      "Celková suma (Kč)",
+      "Počet objednávek",
+      "Celková suma (Kč)",
+      "Počet objednávek",
+      "Celková suma (Kč)",
+    ];
+
+    // Convert users to CSV rows
     const csvRows = comparisonData.map((item) => [
       item.userName,
       item.period1.orderCount,
@@ -1439,10 +1451,12 @@ export function ArchiveOrdersTable() {
       item.difference.totalSum.toFixed(2),
     ]);
 
-    const csvContent = [headers, ...csvRows]
+    // Combine headers and rows
+    const csvContent = [headerRow1, headerRow2, ...csvRows]
       .map((row) => row.map((field) => `"${field}"`).join(","))
       .join("\n");
 
+    // Create and download file
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -1907,7 +1921,7 @@ export function ArchiveOrdersTable() {
                       variant="default"
                       size="sm"
                       onClick={handleStartComparison}
-                      className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white"
+                      className="flex items-center gap-1 bg-orange-500 hover:bg-orange-600 text-white"
                     >
                       Porovnej
                     </Button>
@@ -1951,6 +1965,15 @@ export function ArchiveOrdersTable() {
                           weekEnd.setDate(weekStart.getDate() + 6);
                           return `${format(weekStart, "dd.MM.yyyy", { locale: cs })} - ${format(weekEnd, "dd.MM.yyyy", { locale: cs })}`;
                         })()}
+                        <span className="ml-2 text-orange-500 font-medium">
+                          (
+                          {
+                            comparisonData.filter(
+                              (item) => item.period1.orderCount > 0
+                            ).length
+                          }{" "}
+                          uživatelů)
+                        </span>
                       </div>
                       <div>
                         <strong>
@@ -1973,6 +1996,67 @@ export function ArchiveOrdersTable() {
                           weekEnd.setDate(weekStart.getDate() + 6);
                           return `${format(weekStart, "dd.MM.yyyy", { locale: cs })} - ${format(weekEnd, "dd.MM.yyyy", { locale: cs })}`;
                         })()}
+                        <span className="ml-2 text-orange-500 font-medium">
+                          (
+                          {
+                            comparisonData.filter(
+                              (item) => item.period2.orderCount > 0
+                            ).length
+                          }{" "}
+                          uživatelů)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Month Range Display */}
+                {comparisonType === "month" && isComparisonActive && (
+                  <div className="mb-4 text-sm text-gray-600">
+                    <div className="flex gap-8">
+                      <div>
+                        <strong>
+                          Měsíc {comparisonWeek1}, {comparisonYear1}:
+                        </strong>{" "}
+                        {new Date(
+                          comparisonYear1,
+                          comparisonWeek1 - 1,
+                          1
+                        ).toLocaleDateString("cs-CZ", {
+                          month: "long",
+                          year: "numeric",
+                        })}
+                        <span className="ml-2 text-orange-500 font-medium">
+                          (
+                          {
+                            comparisonData.filter(
+                              (item) => item.period1.orderCount > 0
+                            ).length
+                          }{" "}
+                          uživatelů)
+                        </span>
+                      </div>
+                      <div>
+                        <strong>
+                          Měsíc {comparisonWeek2}, {comparisonYear2}:
+                        </strong>{" "}
+                        {new Date(
+                          comparisonYear2,
+                          comparisonWeek2 - 1,
+                          1
+                        ).toLocaleDateString("cs-CZ", {
+                          month: "long",
+                          year: "numeric",
+                        })}
+                        <span className="ml-2 text-orange-500 font-medium">
+                          (
+                          {
+                            comparisonData.filter(
+                              (item) => item.period2.orderCount > 0
+                            ).length
+                          }{" "}
+                          uživatelů)
+                        </span>
                       </div>
                     </div>
                   </div>

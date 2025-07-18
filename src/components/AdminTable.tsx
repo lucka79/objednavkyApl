@@ -31,7 +31,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { deleteUser } from "@/hooks/useProfiles";
 import { EditUserForm } from "./EditUserForm";
-import { useDebounce } from "@/hooks/useDebounce";
 
 // Function to remove diacritics from text
 const removeDiacritics = (text: string | null | undefined): string => {
@@ -110,8 +109,6 @@ export function AdminTable() {
   const deleteUserMutation = deleteUser();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [appliedSearchQuery, setAppliedSearchQuery] = useState("");
-  const debouncedSearch = useDebounce(appliedSearchQuery, 300);
   const [roleFilter, setRoleFilter] = useState("mobil");
   const [paidByFilter, setPaidByFilter] = useState("Hotově");
   const [activeFilter, setActiveFilter] = useState("true");
@@ -120,15 +117,6 @@ export function AdminTable() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showEmail, setShowEmail] = useState(false);
-
-  const handleSearch = () => {
-    setAppliedSearchQuery(searchQuery);
-  };
-
-  const handleClearSearch = () => {
-    setSearchQuery("");
-    setAppliedSearchQuery("");
-  };
 
   // Memoized search function for better performance
   const searchUsers = useCallback((users: any[], searchTerm: string) => {
@@ -220,8 +208,8 @@ export function AdminTable() {
     let result = users;
 
     // Apply search first
-    if (debouncedSearch) {
-      result = searchUsers(result, debouncedSearch);
+    if (searchQuery) {
+      result = searchUsers(result, searchQuery);
     }
 
     // Apply filters
@@ -237,7 +225,7 @@ export function AdminTable() {
     return result;
   }, [
     users,
-    debouncedSearch,
+    searchQuery,
     roleFilter,
     paidByFilter,
     activeFilter,
@@ -271,20 +259,13 @@ export function AdminTable() {
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  handleSearch();
+                  // handleSearch(); // Removed as per edit hint
                 }
               }}
               className="max-w-sm"
             />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSearch}
-              className="bg-orange-600 text-white hover:bg-orange-700"
-            >
-              Vyhledej
-            </Button>
-            {appliedSearchQuery && (
+            {/* Removed Search button */}
+            {/* {appliedSearchQuery && (
               <Button
                 variant="outline"
                 size="sm"
@@ -293,7 +274,7 @@ export function AdminTable() {
               >
                 Vymazat
               </Button>
-            )}
+            )} */}
           </div>
 
           <Select value={roleFilter} onValueChange={setRoleFilter}>
