@@ -1,4 +1,5 @@
 import ReactDOMServer from "react-dom/server";
+import React from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -31,7 +32,7 @@ import {
   StickyNote,
   Lock,
   Unlock,
-  Download,
+  // Download,
   BarChart3,
   CheckCircle,
   XCircle,
@@ -1212,6 +1213,10 @@ export function ArchiveOrdersTable() {
                   oz_new,
                   mo_partners,
                   role
+                ),
+                driver:profiles!orders_driver_id_fkey(
+                  id,
+                  full_name
                 )
               `
               )
@@ -1444,70 +1449,6 @@ export function ArchiveOrdersTable() {
     comparisonYear2,
     comparisonType,
   ]);
-
-  // CSV export function for comparison data
-  const exportComparisonToCSV = () => {
-    if (!comparisonData.length) return;
-
-    // Create header row with day names
-    const headerRow = [
-      "Uživatel",
-      "Telefon",
-      "Po",
-      "Út",
-      "St",
-      "Čt",
-      "Pá",
-      "So",
-      "Ne",
-    ];
-
-    // Convert comparison data to CSV rows
-    const csvRows = comparisonData.map((user: any) => {
-      const row = [user.userName || "", user.userPhone || ""];
-
-      // Add data for each day
-      ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"].forEach((day) => {
-        const dayData = user.days?.[day];
-        if (dayData?.status === "scheduled") {
-          row.push(
-            `✅ Scheduled (ID: ${dayData.orderId}, ${dayData.actualTotal.toFixed(2)} Kč)`
-          );
-        } else if (dayData?.status === "unscheduled") {
-          row.push(
-            `⚠️ Unscheduled (ID: ${dayData.orderId}, ${dayData.actualTotal.toFixed(2)} Kč)`
-          );
-        } else if (dayData?.scheduledTotal > 0) {
-          row.push(
-            `❌ Not Created (Scheduled: ${dayData.scheduledTotal.toFixed(2)} Kč)`
-          );
-        } else {
-          row.push("➖ No Favorite");
-        }
-      });
-
-      return row;
-    });
-
-    // Combine headers and rows
-    const csvContent = [headerRow, ...csvRows]
-      .map((row) => row.map((field: any) => `"${field}"`).join(","))
-      .join("\n");
-
-    // Create and download file
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `porovnani_stalych_objednavek_${new Date().toISOString().split("T")[0]}.csv`
-    );
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   // Add calendar component
   const handleDateSelect = (newDate: Date | undefined) => {
@@ -1927,18 +1868,6 @@ export function ArchiveOrdersTable() {
                       </div>
                     </>
                   )}
-
-                  {/* CSV Export Button */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={exportComparisonToCSV}
-                    className="flex items-center gap-1 bg-green-50 hover:bg-green-100 border-green-200 text-green-700 ml-auto"
-                    disabled={!comparisonData.length}
-                  >
-                    <Download className="h-4 w-4" />
-                    Export CSV
-                  </Button>
 
                   {/* Start Comparison Button */}
                   {!isComparisonActive && (
@@ -2423,7 +2352,7 @@ export function ArchiveOrdersTable() {
                     <div className="flex items-center gap-2">
                       <BarChart3 className="h-5 w-5 text-orange-600" />
                       <h3 className="text-lg font-semibold text-orange-800">
-                        Porovnání stálých objednávek
+                        Porovnání (stálých) objednávek
                       </h3>
                     </div>
                     <div className="flex items-center gap-2">
@@ -2676,6 +2605,7 @@ const useOrdersComparison = (
           `
           *,
           user:profiles!orders_user_id_fkey(*),
+          driver:profiles!orders_driver_id_fkey(*),
           order_items (
             *,
             product:products(*)
@@ -2861,6 +2791,7 @@ const useOrdersComparison = (
               orderId: actualOrder.id,
               actualTotal: actualOrder.total || 0,
               scheduledTotal: userData.days[dayCode].scheduledTotal,
+              driverName: actualOrder.driver?.full_name || "Bez řidiče",
             };
           } else {
             // Order was created but not scheduled
@@ -2869,6 +2800,7 @@ const useOrdersComparison = (
               orderId: actualOrder.id,
               actualTotal: actualOrder.total || 0,
               scheduledTotal: 0,
+              driverName: actualOrder.driver?.full_name || "Bez řidiče",
             };
           }
         }
@@ -2909,6 +2841,8 @@ function ArchiveOrdersComparisonTable({
 }: {
   comparisonData: any[];
 }) {
+  const [groupByDriver, setGroupByDriver] = useState(false);
+
   if (!comparisonData.length) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -2917,76 +2851,48 @@ function ArchiveOrdersComparisonTable({
     );
   }
 
-  const exportComparisonToCSV = () => {
-    if (!comparisonData.length) return;
+  // Group data by driver if enabled
+  const groupedData = useMemo(() => {
+    if (!groupByDriver) return comparisonData;
 
-    // Create header row with day names
-    const headerRow = [
-      "Uživatel",
-      "Telefon",
-      "Po",
-      "Út",
-      "St",
-      "Čt",
-      "Pá",
-      "So",
-      "Ne",
-    ];
+    const groups = new Map<string, any[]>();
 
-    // Convert comparison data to CSV rows
-    const csvRows = comparisonData.map((user: any) => {
-      const row = [user.userName || "", user.userPhone || ""];
+    comparisonData.forEach((user) => {
+      // Find the most common driver from actual orders for this user
+      let driverName = "Bez řidiče";
 
-      // Add data for each day
-      ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"].forEach((day) => {
-        const dayData = user.days?.[day];
-        if (dayData?.status === "scheduled") {
-          row.push(
-            `✅ Scheduled (ID: ${dayData.orderId}, ${dayData.actualTotal.toFixed(2)} Kč)`
-          );
-        } else if (dayData?.status === "unscheduled") {
-          row.push(
-            `⚠️ Unscheduled (ID: ${dayData.orderId}, ${dayData.actualTotal.toFixed(2)} Kč)`
-          );
-        } else if (dayData?.scheduledTotal > 0) {
-          row.push(
-            `❌ Not Created (Scheduled: ${dayData.scheduledTotal.toFixed(2)} Kč)`
-          );
-        } else {
-          row.push("➖ No Favorite");
-        }
-      });
+      // Check if user has any actual orders to get the driver
+      const actualOrderDays = Object.values(user.days).filter(
+        (day: any) => day.status === "scheduled" || day.status === "unscheduled"
+      );
 
-      return row;
+      if (actualOrderDays.length > 0) {
+        // Use driver from the first actual order
+        const firstActualOrder = actualOrderDays[0] as any;
+        driverName = firstActualOrder.driverName || "Bez řidiče";
+      }
+
+      if (!groups.has(driverName)) {
+        groups.set(driverName, []);
+      }
+      groups.get(driverName)!.push(user);
     });
 
-    // Combine headers and rows
-    const csvContent = [headerRow, ...csvRows]
-      .map((row) => row.map((field: any) => `"${field}"`).join(","))
-      .join("\n");
+    return Array.from(groups.entries()).map(([driverName, users]) => ({
+      driverName,
+      users: users.sort((a: any, b: any) =>
+        (a.userName || "").localeCompare(b.userName || "", "cs")
+      ),
+    }));
+  }, [comparisonData, groupByDriver]);
 
-    // Create and download file
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `porovnani_stalych_objednavek_${new Date().toISOString().split("T")[0]}.csv`
-    );
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const scheduledCount = comparisonData.reduce((total, user) => {
-    return (
-      total +
-      Object.values(user.days).filter((day: any) => day.status === "scheduled")
-        .length
-    );
-  }, 0);
+  // const scheduledCount = comparisonData.reduce((total, user) => {
+  //   return (
+  //     total +
+  //     Object.values(user.days).filter((day: any) => day.status === "scheduled")
+  //       .length
+  //   );
+  // }, 0);
 
   const unscheduledCount = comparisonData.reduce((total, user) => {
     return (
@@ -3073,6 +2979,38 @@ function ArchiveOrdersComparisonTable({
     ),
   };
 
+  // Calculate total sums for each day
+  const dayTotalSums = {
+    Po: comparisonData.reduce(
+      (sum, user) => sum + (user.days.Po.actualTotal || 0),
+      0
+    ),
+    Út: comparisonData.reduce(
+      (sum, user) => sum + (user.days.Út.actualTotal || 0),
+      0
+    ),
+    St: comparisonData.reduce(
+      (sum, user) => sum + (user.days.St.actualTotal || 0),
+      0
+    ),
+    Čt: comparisonData.reduce(
+      (sum, user) => sum + (user.days.Čt.actualTotal || 0),
+      0
+    ),
+    Pá: comparisonData.reduce(
+      (sum, user) => sum + (user.days.Pá.actualTotal || 0),
+      0
+    ),
+    So: comparisonData.reduce(
+      (sum, user) => sum + (user.days.So.actualTotal || 0),
+      0
+    ),
+    Ne: comparisonData.reduce(
+      (sum, user) => sum + (user.days.Ne.actualTotal || 0),
+      0
+    ),
+  };
+
   const renderDayCell = (dayData: any) => {
     if (dayData.status === "scheduled") {
       return (
@@ -3084,7 +3022,6 @@ function ArchiveOrdersComparisonTable({
             <CheckCircle className="h-3 w-3 mr-1" />
             Scheduled
           </Badge>
-          <div className="text-xs text-gray-600">ID: {dayData.orderId}</div>
           <div className="text-xs font-medium">
             {dayData.actualTotal.toFixed(2)} Kč
           </div>
@@ -3100,7 +3037,6 @@ function ArchiveOrdersComparisonTable({
             <AlertCircle className="h-3 w-3 mr-1" />
             Unscheduled
           </Badge>
-          <div className="text-xs text-gray-600">ID: {dayData.orderId}</div>
           <div className="text-xs font-medium">
             {dayData.actualTotal.toFixed(2)} Kč
           </div>
@@ -3116,9 +3052,6 @@ function ArchiveOrdersComparisonTable({
             <XCircle className="h-3 w-3 mr-1" />
             Not Created
           </Badge>
-          <div className="text-xs text-gray-600">
-            Scheduled: {dayData.scheduledTotal.toFixed(2)} Kč
-          </div>
         </div>
       );
     } else {
@@ -3134,6 +3067,112 @@ function ArchiveOrdersComparisonTable({
       );
     }
   };
+
+  const exportComparisonToCSV = () => {
+    if (!comparisonData.length) return;
+
+    // Create header row with day names
+    const headerRow = [
+      "Uživatel",
+      "Telefon",
+      "Po",
+      "Út",
+      "St",
+      "Čt",
+      "Pá",
+      "So",
+      "Ne",
+    ];
+
+    let csvRows: any[] = [];
+
+    if (groupByDriver) {
+      // Export grouped data
+      groupedData.forEach((group) => {
+        // Add driver header row
+        csvRows.push([
+          `🚗 ${group.driverName} (${group.users.length} users)`,
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+        ]);
+
+        // Add user rows for this driver
+        group.users.forEach((user: any) => {
+          const row = [user.userName || "", user.userPhone || ""];
+
+          // Add data for each day
+          ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"].forEach((day) => {
+            const dayData = user.days?.[day];
+            if (dayData?.status === "scheduled") {
+              row.push(`✅ (${dayData.actualTotal.toFixed(2)} Kč)`);
+            } else if (dayData?.status === "unscheduled") {
+              row.push(`⚠️ (${dayData.actualTotal.toFixed(2)} Kč)`);
+            } else if (dayData?.scheduledTotal > 0) {
+              row.push(`❌`);
+            } else {
+              row.push("➖");
+            }
+          });
+
+          csvRows.push(row);
+        });
+      });
+    } else {
+      // Export ungrouped data
+      csvRows = comparisonData.map((user: any) => {
+        const row = [user.userName || "", user.userPhone || ""];
+
+        // Add data for each day
+        ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"].forEach((day) => {
+          const dayData = user.days?.[day];
+          if (dayData?.status === "scheduled") {
+            row.push(`✅ (${dayData.actualTotal.toFixed(2)} Kč)`);
+          } else if (dayData?.status === "unscheduled") {
+            row.push(`⚠️ (${dayData.actualTotal.toFixed(2)} Kč)`);
+          } else if (dayData?.scheduledTotal > 0) {
+            row.push(`❌`);
+          } else {
+            row.push("➖");
+          }
+        });
+
+        return row;
+      });
+    }
+
+    // Combine headers and rows
+    const csvContent = [headerRow, ...csvRows]
+      .map((row) => row.map((field: any) => `"${field}"`).join(","))
+      .join("\n");
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `porovnani_stalych_objednavek_${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const scheduledCount = comparisonData.reduce((total, user) => {
+    return (
+      total +
+      Object.values(user.days).filter((day: any) => day.status === "scheduled")
+        .length
+    );
+  }, 0);
 
   return (
     <div className="space-y-4">
@@ -3169,15 +3208,27 @@ function ArchiveOrdersComparisonTable({
           </Badge>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={exportComparisonToCSV}
-          className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-        >
-          <FileText className="h-4 w-4 mr-2" />
-          Export CSV
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant={groupByDriver ? "default" : "outline"}
+            size="sm"
+            onClick={() => setGroupByDriver(!groupByDriver)}
+            className={groupByDriver ? "bg-blue-600 hover:bg-blue-700" : ""}
+          >
+            <BarChart3 className="h-4 w-4 mr-2" />
+            {groupByDriver ? "Ungroup" : "Group by Driver"}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportComparisonToCSV}
+            className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       <div className="border rounded-md overflow-x-auto">
@@ -3189,61 +3240,95 @@ function ArchiveOrdersComparisonTable({
               <TableHead className="text-center">
                 <div>Po</div>
                 <div className="text-xs text-gray-500">
-                  ({dayOrderCounts.Po})
+                  ({dayOrderCounts.Po}) {dayTotalSums.Po.toFixed(0)} Kč
                 </div>
               </TableHead>
               <TableHead className="text-center">
                 <div>Út</div>
                 <div className="text-xs text-gray-500">
-                  ({dayOrderCounts.Út})
+                  ({dayOrderCounts.Út}) {dayTotalSums.Út.toFixed(0)} Kč
                 </div>
               </TableHead>
               <TableHead className="text-center">
                 <div>St</div>
                 <div className="text-xs text-gray-500">
-                  ({dayOrderCounts.St})
+                  ({dayOrderCounts.St}) {dayTotalSums.St.toFixed(0)} Kč
                 </div>
               </TableHead>
               <TableHead className="text-center">
                 <div>Čt</div>
                 <div className="text-xs text-gray-500">
-                  ({dayOrderCounts.Čt})
+                  ({dayOrderCounts.Čt}) {dayTotalSums.Čt.toFixed(0)} Kč
                 </div>
               </TableHead>
               <TableHead className="text-center">
                 <div>Pá</div>
                 <div className="text-xs text-gray-500">
-                  ({dayOrderCounts.Pá})
+                  ({dayOrderCounts.Pá}) {dayTotalSums.Pá.toFixed(0)} Kč
                 </div>
               </TableHead>
               <TableHead className="text-center">
                 <div>So</div>
                 <div className="text-xs text-gray-500">
-                  ({dayOrderCounts.So})
+                  ({dayOrderCounts.So}) {dayTotalSums.So.toFixed(0)} Kč
                 </div>
               </TableHead>
               <TableHead className="text-center">
                 <div>Ne</div>
                 <div className="text-xs text-gray-500">
-                  ({dayOrderCounts.Ne})
+                  ({dayOrderCounts.Ne}) {dayTotalSums.Ne.toFixed(0)} Kč
                 </div>
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {comparisonData.map((user) => (
-              <TableRow key={user.userId}>
-                <TableCell className="font-medium">{user.userName}</TableCell>
-                <TableCell>{user.userPhone}</TableCell>
-                <TableCell>{renderDayCell(user.days.Po)}</TableCell>
-                <TableCell>{renderDayCell(user.days.Út)}</TableCell>
-                <TableCell>{renderDayCell(user.days.St)}</TableCell>
-                <TableCell>{renderDayCell(user.days.Čt)}</TableCell>
-                <TableCell>{renderDayCell(user.days.Pá)}</TableCell>
-                <TableCell>{renderDayCell(user.days.So)}</TableCell>
-                <TableCell>{renderDayCell(user.days.Ne)}</TableCell>
-              </TableRow>
-            ))}
+            {groupByDriver
+              ? // Grouped by driver
+                groupedData.map((group) => (
+                  <React.Fragment key={group.driverName}>
+                    {/* Driver header row */}
+                    <TableRow className="bg-blue-50">
+                      <TableCell
+                        colSpan={9}
+                        className="font-semibold text-blue-800"
+                      >
+                        🚗 {group.driverName} ({group.users.length} users)
+                      </TableCell>
+                    </TableRow>
+                    {/* User rows for this driver */}
+                    {group.users.map((user: any) => (
+                      <TableRow key={user.userId} className="bg-blue-25">
+                        <TableCell className="font-medium pl-8">
+                          {user.userName}
+                        </TableCell>
+                        <TableCell>{user.userPhone}</TableCell>
+                        <TableCell>{renderDayCell(user.days.Po)}</TableCell>
+                        <TableCell>{renderDayCell(user.days.Út)}</TableCell>
+                        <TableCell>{renderDayCell(user.days.St)}</TableCell>
+                        <TableCell>{renderDayCell(user.days.Čt)}</TableCell>
+                        <TableCell>{renderDayCell(user.days.Pá)}</TableCell>
+                        <TableCell>{renderDayCell(user.days.So)}</TableCell>
+                        <TableCell>{renderDayCell(user.days.Ne)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </React.Fragment>
+                ))
+              : // Regular ungrouped display
+                comparisonData.map((user) => (
+                  <TableRow key={user.userId}>
+                    <TableCell className="font-medium">
+                      {user.userName}
+                    </TableCell>
+                    <TableCell>{user.userPhone}</TableCell>
+                    <TableCell>{renderDayCell(user.days.Po)}</TableCell>
+                    <TableCell>{renderDayCell(user.days.Út)}</TableCell>
+                    <TableCell>{renderDayCell(user.days.St)}</TableCell>
+                    <TableCell>{renderDayCell(user.days.Čt)}</TableCell>
+                    <TableCell>{renderDayCell(user.days.Pá)}</TableCell>
+                    <TableCell>{renderDayCell(user.days.So)}</TableCell>
+                    <TableCell>{renderDayCell(user.days.Ne)}</TableCell>
+                  </TableRow>
+                ))}
           </TableBody>
         </Table>
       </div>
