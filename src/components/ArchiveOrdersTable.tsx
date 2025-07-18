@@ -997,6 +997,70 @@ export function ArchiveOrdersTable() {
     setIsComparisonMode(false);
   };
 
+  // CSV export function for period comparison data
+  const exportPeriodComparisonToCSV = () => {
+    if (!comparisonData?.length) return;
+
+    // Create header rows with merged columns
+    const headerRow1 = [
+      "Jméno",
+      comparisonType === "week"
+        ? `Týden ${comparisonWeek1}`
+        : `Měsíc ${comparisonWeek1}`,
+      "",
+      comparisonType === "week"
+        ? `Týden ${comparisonWeek2}`
+        : `Měsíc ${comparisonWeek2}`,
+      "",
+      "Rozdíl",
+      "",
+    ];
+
+    const headerRow2 = [
+      "",
+      "Počet objednávek",
+      "Celková suma",
+      "Počet objednávek",
+      "Celková suma",
+      "Počet objednávek",
+      "Celková suma",
+    ];
+
+    // Convert comparison data to CSV rows
+    const csvRows = comparisonData.map((item: any) => {
+      const row = [
+        item.userName || "",
+        item.period1.orderCount || 0,
+        item.period1.totalSum?.toFixed(2) || "0.00",
+        item.period2.orderCount || 0,
+        item.period2.totalSum?.toFixed(2) || "0.00",
+        item.difference.orderCount || 0,
+        item.difference.totalSum?.toFixed(2) || "0.00",
+      ];
+
+      return row;
+    });
+
+    // Combine headers and rows
+    const csvContent = [headerRow1, headerRow2, ...csvRows]
+      .map((row) => row.map((field: any) => `"${field}"`).join(","))
+      .join("\n");
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `porovnani_obdobi_${comparisonType}_${comparisonWeek1}_${comparisonYear1}_vs_${comparisonWeek2}_${comparisonYear2}_${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Update comparison values when type changes
   const handleComparisonTypeChange = (type: "week" | "month") => {
     setComparisonType(type);
@@ -1658,7 +1722,7 @@ export function ArchiveOrdersTable() {
                   onClick={() => setIsComparisonMode(!isComparisonMode)}
                   className="ml-4"
                 >
-                  {isComparisonMode ? "Zavřít porovnání" : "Porovnání období"}
+                  {isComparisonMode ? "Zavřít porovnání" : "Porovnání 2 období"}
                 </Button>
               </div>
             </div>
@@ -1878,6 +1942,19 @@ export function ArchiveOrdersTable() {
                       className="flex items-center gap-1 bg-orange-500 hover:bg-orange-600 text-white"
                     >
                       Porovnej
+                    </Button>
+                  )}
+
+                  {/* CSV Export Button */}
+                  {isComparisonActive && comparisonData?.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={exportPeriodComparisonToCSV}
+                      className="flex items-center gap-1 bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
+                    >
+                      <FileText className="h-4 w-4" />
+                      Export CSV
                     </Button>
                   )}
 
