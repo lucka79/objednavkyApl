@@ -35,7 +35,16 @@ import { FavoriteDetailsDialog } from "./FavoriteDetailsDialog";
 import { useInsertOrder, useInsertOrderItems } from "@/hooks/useOrders";
 import { format } from "date-fns";
 
-import { CirclePlus, Trash2, Lock, Copy } from "lucide-react";
+import {
+  CirclePlus,
+  Trash2,
+  Lock,
+  Copy,
+  BarChart3,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -65,6 +74,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cs } from "date-fns/locale";
+import { useQuery } from "@tanstack/react-query";
 
 const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne", "X"] as const;
 const ROLES = [
@@ -414,6 +424,226 @@ function FavoriteOrderTableContent({
   );
 }
 
+// Add comparison hook
+const useOrdersComparison = (
+  selectedDate: Date | undefined,
+  selectedDay: string
+) => {
+  return useQuery({
+    queryKey: ["ordersComparison", selectedDate, selectedDay],
+    queryFn: async () => {
+      if (!selectedDate || selectedDay === "all") return [];
+
+      // Get the day of week for the selected date
+      const dayOfWeek = format(selectedDate, "EEEE", { locale: cs });
+      const dayMapping: Record<string, string> = {
+        pondělí: "Po",
+        úterý: "Út",
+        středa: "St",
+        čtvrtek: "Čt",
+        pátek: "Pá",
+        sobota: "So",
+        neděle: "Ne",
+      };
+      const dayCode = dayMapping[dayOfWeek.toLowerCase()];
+
+      // Fetch favorite orders for mobile users on this day
+      const { data: favoriteOrders, error: favError } = await supabase
+        .from("favorite_orders")
+        .select(
+          `
+          *,
+          user:profiles!favorite_orders_user_id_fkey(*),
+          favorite_items (
+            *,
+            product:products(*)
+          )
+        `
+        )
+        .eq("user.role", "mobil")
+        .contains("days", [dayCode])
+        .eq("status", "active");
+
+      if (favError) throw favError;
+
+      // Fetch actual orders for the selected date
+      const { data: actualOrders, error: actError } = await supabase
+        .from("orders")
+        .select(
+          `
+          *,
+          user:profiles!orders_user_id_fkey(*),
+          order_items (
+            *,
+            product:products(*)
+          )
+        `
+        )
+        .eq("date", format(selectedDate, "yyyy-MM-dd"))
+        .eq("user.role", "mobil");
+
+      if (actError) throw actError;
+
+      // Create comparison data
+      const comparison =
+        favoriteOrders?.map((favOrder) => {
+          const actualOrder = actualOrders?.find(
+            (actOrder) => actOrder.user_id === favOrder.user_id
+          );
+
+          return {
+            userId: favOrder.user_id,
+            userName: favOrder.user?.full_name,
+            userPhone: favOrder.user?.phone,
+            scheduled: favOrder,
+            actual: actualOrder,
+            status: actualOrder ? "created" : "missing",
+            scheduledItems: favOrder.favorite_items || [],
+            actualItems: actualOrder?.order_items || [],
+            scheduledTotal:
+              favOrder.favorite_items?.reduce(
+                (sum: number, item: FavoriteItem) => {
+                  const price =
+                    item.price && item.price > 0
+                      ? item.price
+                      : item.product.priceMobil;
+                  return sum + item.quantity * price;
+                },
+                0
+              ) || 0,
+            actualTotal: actualOrder?.total || 0,
+          };
+        }) || [];
+
+      return comparison;
+    },
+    enabled: !!selectedDate && selectedDay !== "all",
+  });
+};
+
+// Comparison component
+function OrdersComparisonTable({ comparisonData }: { comparisonData: any[] }) {
+  if (!comparisonData.length) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        No comparison data available for the selected date and day.
+      </div>
+    );
+  }
+
+  const createdCount = comparisonData.filter(
+    (item) => item.status === "created"
+  ).length;
+  const missingCount = comparisonData.filter(
+    (item) => item.status === "missing"
+  ).length;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-4 items-center">
+        <Badge
+          variant="outline"
+          className="bg-green-50 text-green-700 border-green-200"
+        >
+          <CheckCircle className="h-4 w-4 mr-1" />
+          {createdCount} Created
+        </Badge>
+        <Badge
+          variant="outline"
+          className="bg-red-50 text-red-700 border-red-200"
+        >
+          <XCircle className="h-4 w-4 mr-1" />
+          {missingCount} Missing
+        </Badge>
+        <Badge
+          variant="outline"
+          className="bg-orange-50 text-orange-700 border-orange-200"
+        >
+          <AlertCircle className="h-4 w-4 mr-1" />
+          {comparisonData.length} Total Scheduled
+        </Badge>
+      </div>
+
+      <div className="border rounded-md">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>User</TableHead>
+              <TableHead>Phone</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Scheduled Items</TableHead>
+              <TableHead>Actual Items</TableHead>
+              <TableHead>Scheduled Total</TableHead>
+              <TableHead>Actual Total</TableHead>
+              <TableHead>Difference</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {comparisonData.map((item) => (
+              <TableRow key={item.userId}>
+                <TableCell className="font-medium">{item.userName}</TableCell>
+                <TableCell>{item.userPhone}</TableCell>
+                <TableCell>
+                  <Badge
+                    variant={
+                      item.status === "created" ? "default" : "destructive"
+                    }
+                    className={
+                      item.status === "created" ? "bg-green-600" : "bg-red-600"
+                    }
+                  >
+                    {item.status === "created" ? (
+                      <>
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Created
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Missing
+                      </>
+                    )}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm">
+                    {item.scheduledItems.length} items
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm">{item.actualItems.length} items</div>
+                </TableCell>
+                <TableCell className="text-right">
+                  {item.scheduledTotal.toFixed(2)} Kč
+                </TableCell>
+                <TableCell className="text-right">
+                  {item.actualTotal.toFixed(2)} Kč
+                </TableCell>
+                <TableCell className="text-right">
+                  <span
+                    className={cn(
+                      "font-medium",
+                      item.actualTotal > item.scheduledTotal
+                        ? "text-green-600"
+                        : item.actualTotal < item.scheduledTotal
+                          ? "text-red-600"
+                          : "text-gray-600"
+                    )}
+                  >
+                    {item.status === "created"
+                      ? `${(item.actualTotal - item.scheduledTotal).toFixed(2)} Kč`
+                      : "-"}
+                  </span>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
 export function FavoriteOrdersTable({
   selectedProductId: initialProductId,
 }: FavoriteOrdersTableProps) {
@@ -434,10 +664,14 @@ export function FavoriteOrdersTable({
   const [roleFilter, setRoleFilter] = useState<string>("store_admin");
   const [driverFilter, setDriverFilter] = useState<string>("all");
   const [isCreating, setIsCreating] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
 
   const { mutateAsync: insertOrder } = useInsertOrder();
   const { mutateAsync: insertOrderItems } = useInsertOrderItems();
-  // const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
+
+  // Use the comparison hook
+  const { data: comparisonData, isLoading: isLoadingComparison } =
+    useOrdersComparison(date, selectedDay);
 
   if (isLoading) return <div>Loading orders...</div>;
   if (error) return <div>Error loading orders: {error.message}</div>;
@@ -604,13 +838,16 @@ export function FavoriteOrdersTable({
       <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible print:transform-none">
         <div className="space-y-4 overflow-x-auto print:!m-0">
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {user?.role === "admin" && (
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm">
                       <CirclePlus className="h-4 w-4 mr-2" />
-                      Nová stálá objednávka
+                      <span className="hidden sm:inline">
+                        Nová stálá objednávka
+                      </span>
+                      <span className="sm:hidden">Nová</span>
                     </Button>
                   </DialogTrigger>
                   <AddFavoriteOrderDialog />
@@ -621,7 +858,23 @@ export function FavoriteOrdersTable({
                   ? `${filteredOrders.length} orders`
                   : `${filteredOrders.length} total orders`}
               </Badge>
+
+              {/* Comparison Toggle Button */}
+              {roleFilter === "mobil" && (
+                <Button
+                  variant={showComparison ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowComparison(!showComparison)}
+                  className={
+                    showComparison ? "bg-orange-600 hover:bg-orange-700" : ""
+                  }
+                >
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  {showComparison ? "Hide" : "Show"} Comparison
+                </Button>
+              )}
             </div>
+
             <Tabs defaultValue="all" onValueChange={setSelectedDay}>
               <TabsList className="grid grid-cols-9">
                 <TabsTrigger value="all">All</TabsTrigger>
@@ -633,8 +886,8 @@ export function FavoriteOrdersTable({
               </TabsList>
             </Tabs>
 
-            <div className="flex justify-between items-center gap-2">
-              <div className="flex gap-2 flex-1">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+              <div className="flex flex-wrap gap-2 flex-1 min-w-0">
                 <div className="flex gap-1">
                   <Button
                     variant={roleFilter === "mobil" ? "default" : "outline"}
@@ -648,7 +901,8 @@ export function FavoriteOrdersTable({
                         : ""
                     }
                   >
-                    Mobil
+                    <span className="hidden sm:inline">Mobil</span>
+                    <span className="sm:hidden">M</span>
                   </Button>
                   <Button
                     variant={
@@ -666,148 +920,188 @@ export function FavoriteOrdersTable({
                         : ""
                     }
                   >
-                    Store/Admin
+                    <span className="hidden sm:inline">Store/Admin</span>
+                    <span className="sm:hidden">S/A</span>
                   </Button>
                 </div>
-                <div className="flex gap-2 items-center">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-[240px] justify-start text-left font-normal",
-                          !date && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {date ? (
-                          format(date, "PPP")
-                        ) : (
-                          <span>Datum objednávky</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={date}
-                        onSelect={(date) => date && setDate(date)}
-                        disabled={(date) => {
-                          const yesterday = new Date();
-                          yesterday.setDate(yesterday.getDate() - 4);
+              </div>
 
-                          const twoMonthsFromNow = new Date();
-                          twoMonthsFromNow.setMonth(
-                            twoMonthsFromNow.getMonth() + 2
-                          );
+              <div className="flex flex-wrap gap-2 items-center w-full lg:w-auto">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full sm:w-[200px] lg:w-[240px] justify-start text-left font-normal",
+                        !date && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {date ? (
+                        <span className="hidden sm:inline">
+                          {format(date, "PPP")}
+                        </span>
+                      ) : (
+                        <span className="hidden sm:inline">
+                          Datum objednávky
+                        </span>
+                      )}
+                      {date ? (
+                        <span className="sm:hidden">
+                          {format(date, "dd.MM")}
+                        </span>
+                      ) : (
+                        <span className="sm:hidden">Datum</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={(date) => date && setDate(date)}
+                      disabled={(date) => {
+                        const yesterday = new Date();
+                        yesterday.setDate(yesterday.getDate() - 4);
 
-                          return date < yesterday || date > twoMonthsFromNow;
-                        }}
-                        initialFocus
-                        className="rounded-md border"
-                        classNames={{
-                          day_selected:
-                            "bg-orange-800 text-white hover:bg-orange-700 focus:bg-orange-700",
-                        }}
-                        locale={cs}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <Input
-                    placeholder="Filter by name or phone..."
-                    value={userNameFilter}
-                    onChange={(e) => setUserNameFilter(e.target.value)}
-                    className="max-w-xs"
-                  />
-                  <Button
-                    onClick={createOrdersFromFavorites}
-                    disabled={!date || selectedOrders.size === 0 || isCreating}
-                    className="gap-2 bg-orange-600 text-white"
-                    variant="outline"
-                  >
-                    <CirclePlus
-                      className={`h-4 w-4 ${isCreating ? "animate-spin" : ""}`}
+                        const twoMonthsFromNow = new Date();
+                        twoMonthsFromNow.setMonth(
+                          twoMonthsFromNow.getMonth() + 2
+                        );
+
+                        return date < yesterday || date > twoMonthsFromNow;
+                      }}
+                      initialFocus
+                      className="rounded-md border"
+                      classNames={{
+                        day_selected:
+                          "bg-orange-800 text-white hover:bg-orange-700 focus:bg-orange-700",
+                      }}
+                      locale={cs}
                     />
+                  </PopoverContent>
+                </Popover>
+
+                <Input
+                  placeholder="Filter by name or phone..."
+                  value={userNameFilter}
+                  onChange={(e) => setUserNameFilter(e.target.value)}
+                  className="w-full sm:w-auto min-w-[200px]"
+                />
+
+                <Button
+                  onClick={createOrdersFromFavorites}
+                  disabled={!date || selectedOrders.size === 0 || isCreating}
+                  className="gap-2 bg-orange-600 text-white w-full sm:w-auto"
+                  variant="outline"
+                >
+                  <CirclePlus
+                    className={`h-4 w-4 ${isCreating ? "animate-spin" : ""}`}
+                  />
+                  <span className="hidden sm:inline">
                     {isCreating
                       ? "Creating..."
                       : `Create Orders (${selectedOrders.size})`}
-                  </Button>
-                </div>
-                <Select
-                  value={selectedProductId}
-                  onValueChange={setSelectedProductId}
-                >
-                  <SelectTrigger className="w-full max-w-sm">
-                    <SelectValue placeholder="Filter by product..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Products</SelectItem>
-                    {products?.map((product) => (
-                      <SelectItem
-                        key={product.id}
-                        value={product.id.toString()}
-                      >
-                        <div className="flex justify-between items-center w-full">
-                          <span className="mr-2">{product.name}</span>
-                          <Badge variant="outline">
-                            {
-                              filteredOrders.filter((order) =>
-                                order.favorite_items?.some(
-                                  (item: FavoriteItem) =>
-                                    item.product_id.toString() ===
-                                    product.id.toString()
-                                )
-                              ).length
-                            }{" "}
-                            orders
-                          </Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={roleFilter} onValueChange={setRoleFilter}>
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="Filter by role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROLES.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {role === "all"
-                          ? "All roles"
-                          : role.charAt(0).toUpperCase() + role.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={driverFilter} onValueChange={setDriverFilter}>
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="Filter by driver" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All drivers</SelectItem>
-                    <SelectItem value="none">No driver</SelectItem>
-                    {Array.from(
-                      new Set(
-                        orders?.map((order) => order.driver?.id).filter(Boolean)
-                      )
-                    ).map((driverId) => {
-                      const driver = orders?.find(
-                        (o) => o.driver?.id === driverId
-                      )?.driver;
-                      return (
-                        <SelectItem key={driverId} value={driverId}>
-                          {driver?.full_name}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
+                  </span>
+                  <span className="sm:hidden">
+                    {isCreating ? "..." : `${selectedOrders.size}`}
+                  </span>
+                </Button>
               </div>
             </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Select
+                value={selectedProductId}
+                onValueChange={setSelectedProductId}
+              >
+                <SelectTrigger className="w-full sm:w-[200px] lg:w-[300px]">
+                  <SelectValue placeholder="Filter by product..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Products</SelectItem>
+                  {products?.map((product) => (
+                    <SelectItem key={product.id} value={product.id.toString()}>
+                      <div className="flex justify-between items-center w-full">
+                        <span className="mr-2 truncate">{product.name}</span>
+                        <Badge variant="outline">
+                          {
+                            filteredOrders.filter((order) =>
+                              order.favorite_items?.some(
+                                (item: FavoriteItem) =>
+                                  item.product_id.toString() ===
+                                  product.id.toString()
+                              )
+                            ).length
+                          }{" "}
+                          orders
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger className="w-full sm:w-[150px]">
+                  <SelectValue placeholder="Filter by role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLES.map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {role === "all"
+                        ? "All roles"
+                        : role.charAt(0).toUpperCase() + role.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={driverFilter} onValueChange={setDriverFilter}>
+                <SelectTrigger className="w-full sm:w-[150px]">
+                  <SelectValue placeholder="Filter by driver" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All drivers</SelectItem>
+                  <SelectItem value="none">No driver</SelectItem>
+                  {Array.from(
+                    new Set(
+                      orders?.map((order) => order.driver?.id).filter(Boolean)
+                    )
+                  ).map((driverId) => {
+                    const driver = orders?.find(
+                      (o) => o.driver?.id === driverId
+                    )?.driver;
+                    return (
+                      <SelectItem key={driverId} value={driverId}>
+                        {driver?.full_name}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
+          {/* Comparison Table */}
+          {showComparison && roleFilter === "mobil" && (
+            <Card className="p-4 border-orange-200 bg-orange-50">
+              <div className="flex items-center gap-2 mb-4">
+                <BarChart3 className="h-5 w-5 text-orange-600" />
+                <h3 className="text-lg font-semibold text-orange-800">
+                  Orders Comparison -{" "}
+                  {date ? format(date, "PP", { locale: cs }) : "Select Date"}
+                </h3>
+              </div>
+              {isLoadingComparison ? (
+                <div className="text-center py-4">
+                  Loading comparison data...
+                </div>
+              ) : (
+                <OrdersComparisonTable comparisonData={comparisonData || []} />
+              )}
+            </Card>
+          )}
 
           <FavoriteOrderTableContent
             data={filteredOrders}

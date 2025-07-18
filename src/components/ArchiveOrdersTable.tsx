@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-table";
 import { useDeleteOrder, fetchOrdersForPrinting } from "@/hooks/useOrders";
 import { Order } from "../../types";
+import { FavoriteItem } from "../../types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +32,10 @@ import {
   Lock,
   Unlock,
   Download,
+  BarChart3,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -92,6 +97,9 @@ import { useOrderStore } from "@/providers/orderStore";
 import { PrintReportDaily } from "./PrintReportDaily";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+// import { useOrdersComparison } from "@/hooks/useOrdersComparison";
+
+import { CalendarIcon } from "lucide-react";
 
 const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
   ({ orders }, ref) => (
@@ -905,6 +913,7 @@ export function ArchiveOrdersTable() {
   const [isSpecificDay, setIsSpecificDay] = useState(false);
   const [isComparisonMode, setIsComparisonMode] = useState(false);
   const [isComparisonActive, setIsComparisonActive] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
 
   // Calculate current week number
   const getCurrentWeek = () => {
@@ -946,6 +955,37 @@ export function ArchiveOrdersTable() {
   const [selectedReport, setSelectedReport] = useState<string>("");
   const { data: driverUsers } = useDriverUsers();
   const [table, setTable] = useState<any>(null);
+  const [selectedWeek, setSelectedWeek] = useState<Date>(new Date());
+
+  // Helper function to get week number and date range
+  const getWeekInfo = (date: Date) => {
+    const startOfYear = new Date(date.getFullYear(), 0, 1);
+    const days = Math.floor(
+      (date.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000)
+    );
+    const weekNumber = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+
+    // Get the Monday of the selected week
+    const dayOfWeek = date.getDay();
+    const monday = new Date(date);
+    monday.setDate(date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
+
+    // Get the Sunday of the selected week
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    return {
+      weekNumber,
+      fromDate: monday,
+      toDate: sunday,
+    };
+  };
+
+  // Use the comparison hook
+  const {
+    data: favoriteComparisonData,
+    isLoading: isLoadingFavoriteComparison,
+  } = useOrdersComparison(selectedWeek, selectedRole);
 
   const handleStartComparison = () => {
     setIsComparisonActive(true);
@@ -1409,51 +1449,49 @@ export function ArchiveOrdersTable() {
   const exportComparisonToCSV = () => {
     if (!comparisonData.length) return;
 
-    const period1Label =
-      comparisonType === "week"
-        ? `Týden ${comparisonWeek1}, ${comparisonYear1}`
-        : `Měsíc ${comparisonWeek1}, ${comparisonYear1}`;
-
-    const period2Label =
-      comparisonType === "week"
-        ? `Týden ${comparisonWeek2}, ${comparisonYear2}`
-        : `Měsíc ${comparisonWeek2}, ${comparisonYear2}`;
-
-    // Create multi-row header
-    const headerRow1 = [
+    // Create header row with day names
+    const headerRow = [
       "Uživatel",
-      period1Label,
-      "",
-      period2Label,
-      "",
-      "Rozdíl",
-      "",
+      "Telefon",
+      "Po",
+      "Út",
+      "St",
+      "Čt",
+      "Pá",
+      "So",
+      "Ne",
     ];
 
-    const headerRow2 = [
-      "Jméno",
-      "Počet objednávek",
-      "Celková suma (Kč)",
-      "Počet objednávek",
-      "Celková suma (Kč)",
-      "Počet objednávek",
-      "Celková suma (Kč)",
-    ];
+    // Convert comparison data to CSV rows
+    const csvRows = comparisonData.map((user: any) => {
+      const row = [user.userName || "", user.userPhone || ""];
 
-    // Convert users to CSV rows
-    const csvRows = comparisonData.map((item) => [
-      item.userName,
-      item.period1.orderCount,
-      item.period1.totalSum.toFixed(2),
-      item.period2.orderCount,
-      item.period2.totalSum.toFixed(2),
-      item.difference.orderCount,
-      item.difference.totalSum.toFixed(2),
-    ]);
+      // Add data for each day
+      ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"].forEach((day) => {
+        const dayData = user.days?.[day];
+        if (dayData?.status === "scheduled") {
+          row.push(
+            `✅ Scheduled (ID: ${dayData.orderId}, ${dayData.actualTotal.toFixed(2)} Kč)`
+          );
+        } else if (dayData?.status === "unscheduled") {
+          row.push(
+            `⚠️ Unscheduled (ID: ${dayData.orderId}, ${dayData.actualTotal.toFixed(2)} Kč)`
+          );
+        } else if (dayData?.scheduledTotal > 0) {
+          row.push(
+            `❌ Not Created (Scheduled: ${dayData.scheduledTotal.toFixed(2)} Kč)`
+          );
+        } else {
+          row.push("➖ No Favorite");
+        }
+      });
+
+      return row;
+    });
 
     // Combine headers and rows
-    const csvContent = [headerRow1, headerRow2, ...csvRows]
-      .map((row) => row.map((field) => `"${field}"`).join(","))
+    const csvContent = [headerRow, ...csvRows]
+      .map((row) => row.map((field: any) => `"${field}"`).join(","))
       .join("\n");
 
     // Create and download file
@@ -1463,7 +1501,7 @@ export function ArchiveOrdersTable() {
     link.setAttribute("href", url);
     link.setAttribute(
       "download",
-      `porovnani_${comparisonType}_${new Date().toISOString().split("T")[0]}.csv`
+      `porovnani_stalych_objednavek_${new Date().toISOString().split("T")[0]}.csv`
     );
     link.style.visibility = "hidden";
     document.body.appendChild(link);
@@ -1502,31 +1540,18 @@ export function ArchiveOrdersTable() {
                 className="max-w-sm w-full sm:w-auto"
               />
 
-              {/* <Select
-                value={selectedUser}
-                onValueChange={setSelectedUser}
-                onOpenChange={() => setUserSearchQuery("")}
+              {/* Comparison Toggle Button */}
+              <Button
+                variant={showComparison ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowComparison(!showComparison)}
+                className={
+                  showComparison ? "bg-orange-600 hover:bg-orange-700" : ""
+                }
               >
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue placeholder="Odběratel..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <div className="sticky top-0 z-50 bg-white p-2">
-                    <Input
-                      placeholder="Hledat odběratele..."
-                      value={userSearchQuery}
-                      onChange={(e) => setUserSearchQuery(e.target.value)}
-                      className="border-orange-600 hover:border-orange-600 focus-visible:ring-orange-600 w-full"
-                      onKeyDown={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                  {filteredUserNames.map((name) => (
-                    <SelectItem key={name} value={name}>
-                      {name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select> */}
+                <BarChart3 className="h-4 w-4 mr-2" />
+                {showComparison ? "Hide" : "Show"} Favorite Orders Comparison
+              </Button>
 
               <div className="flex flex-wrap gap-2 print:hidden">
                 <span className="text-muted-foreground text-sm font-semibold">
@@ -1969,7 +1994,7 @@ export function ArchiveOrdersTable() {
                           (
                           {
                             comparisonData.filter(
-                              (item) => item.period1.orderCount > 0
+                              (item: any) => item.period1.orderCount > 0
                             ).length
                           }{" "}
                           uživatelů)
@@ -2000,7 +2025,7 @@ export function ArchiveOrdersTable() {
                           (
                           {
                             comparisonData.filter(
-                              (item) => item.period2.orderCount > 0
+                              (item: any) => item.period2.orderCount > 0
                             ).length
                           }{" "}
                           uživatelů)
@@ -2030,7 +2055,7 @@ export function ArchiveOrdersTable() {
                           (
                           {
                             comparisonData.filter(
-                              (item) => item.period1.orderCount > 0
+                              (item: any) => item.period1.orderCount > 0
                             ).length
                           }{" "}
                           uživatelů)
@@ -2052,7 +2077,7 @@ export function ArchiveOrdersTable() {
                           (
                           {
                             comparisonData.filter(
-                              (item) => item.period2.orderCount > 0
+                              (item: any) => item.period2.orderCount > 0
                             ).length
                           }{" "}
                           uživatelů)
@@ -2125,9 +2150,9 @@ export function ArchiveOrdersTable() {
                             </tr>
                           </thead>
                           <tbody>
-                            {comparisonData.map((item, index) => (
+                            {comparisonData.map((item: any, index: number) => (
                               <tr
-                                key={index}
+                                key={`${item.userId}-${item.orderId || "no-order"}-${index}`}
                                 className={
                                   index % 2 === 0 ? "bg-white" : "bg-gray-50"
                                 }
@@ -2391,17 +2416,103 @@ export function ArchiveOrdersTable() {
                 </div>
               </div>
 
+              {/* Comparison Table */}
+              {showComparison && (
+                <Card className="p-4 border-orange-200 bg-orange-50">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5 text-orange-600" />
+                      <h3 className="text-lg font-semibold text-orange-800">
+                        Porovnání stálých objednávek
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-[200px] justify-start text-left font-normal",
+                              !selectedWeek && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {selectedWeek ? (
+                              <span>
+                                Týden {getWeekInfo(selectedWeek).weekNumber} (
+                                {format(
+                                  getWeekInfo(selectedWeek).fromDate,
+                                  "dd.MM",
+                                  { locale: cs }
+                                )}{" "}
+                                -{" "}
+                                {format(
+                                  getWeekInfo(selectedWeek).toDate,
+                                  "dd.MM.yyyy",
+                                  { locale: cs }
+                                )}
+                                )
+                              </span>
+                            ) : (
+                              <span>Select week</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <Calendar
+                            mode="single"
+                            selected={selectedWeek}
+                            onSelect={(date) => date && setSelectedWeek(date)}
+                            disabled={(date) => {
+                              const twoYearsAgo = new Date();
+                              twoYearsAgo.setFullYear(
+                                twoYearsAgo.getFullYear() - 2
+                              );
+                              const twoYearsFromNow = new Date();
+                              twoYearsFromNow.setFullYear(
+                                twoYearsFromNow.getFullYear() + 2
+                              );
+                              return (
+                                date < twoYearsAgo || date > twoYearsFromNow
+                              );
+                            }}
+                            initialFocus
+                            className="rounded-md border"
+                            classNames={{
+                              day_selected:
+                                "bg-orange-800 text-white hover:bg-orange-700 focus:bg-orange-700",
+                            }}
+                            locale={cs}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                  {isLoadingFavoriteComparison ? (
+                    <div className="text-center py-4">
+                      Loading comparison data...
+                    </div>
+                  ) : (
+                    <ArchiveOrdersComparisonTable
+                      comparisonData={favoriteComparisonData || []}
+                    />
+                  )}
+                </Card>
+              )}
+
               <OrderTableContent
                 data={filteredOrders}
                 globalFilter={globalFilter}
                 columns={columns}
                 setSelectedOrderId={setSelectedOrderId}
-                onTableReady={(t) => setTable(t)}
+                onTableReady={(t: any) => setTable(t)}
               />
             </div>
           </div>
         </div>
       </Card>
+
+      <div className="w-full"></div>
     </>
   );
 }
@@ -2471,6 +2582,666 @@ function OrderTableContent({
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+// Add comparison hook for ArchiveOrdersTable
+const useOrdersComparison = (
+  selectedDate: Date | undefined,
+  selectedRole: string
+) => {
+  return useQuery({
+    queryKey: ["archiveOrdersComparison", selectedDate, selectedRole],
+    queryFn: async () => {
+      if (!selectedDate) return [];
+
+      // Get the current week start and end dates
+      const weekStart = new Date(selectedDate);
+      weekStart.setDate(selectedDate.getDate() - selectedDate.getDay() + 1); // Monday
+      weekStart.setHours(0, 0, 0, 0);
+
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6); // Sunday
+      weekEnd.setHours(23, 59, 59, 999);
+
+      // Get day codes for the week
+      const dayMapping: Record<string, string> = {
+        pondělí: "Po",
+        úterý: "Út",
+        středa: "St",
+        čtvrtek: "Čt",
+        pátek: "Pá",
+        sobota: "So",
+        neděle: "Ne",
+      };
+
+      // Fetch favorite orders for the week
+      const { data: favoriteOrders, error: favError } = await supabase
+        .from("favorite_orders")
+        .select(
+          `
+          *,
+          user:profiles!favorite_orders_user_id_fkey(*),
+          favorite_items (
+            *,
+            product:products(*)
+          )
+        `
+        )
+        .eq("status", "active")
+        .or(
+          `days.cs.{Po},days.cs.{Út},days.cs.{St},days.cs.{Čt},days.cs.{Pá},days.cs.{So},days.cs.{Ne}`
+        );
+
+      if (favError) throw favError;
+
+      // Fetch all mobile users
+      const { data: allMobileUsers, error: mobileUsersError } = await supabase
+        .from("profiles")
+        .select("id, full_name, phone, role")
+        .eq("role", "mobil")
+        .eq("active", true);
+
+      if (mobileUsersError) throw mobileUsersError;
+
+      // Filter by role if specified
+      let filteredFavorites = favoriteOrders || [];
+      let filteredMobileUsers = allMobileUsers || [];
+
+      if (selectedRole !== "all") {
+        filteredFavorites = filteredFavorites.filter(
+          (order) => order.user?.role === selectedRole
+        );
+        filteredMobileUsers = filteredMobileUsers.filter(
+          (user) => user.role === selectedRole
+        );
+      } else {
+        // Default to mobile users only for comparison
+        filteredFavorites = filteredFavorites.filter(
+          (order) => order.user?.role === "mobil"
+        );
+        // filteredMobileUsers already contains only mobile users
+      }
+
+      // Fetch actual orders for the week
+      const { data: actualOrders, error: actError } = await supabase
+        .from("orders")
+        .select(
+          `
+          *,
+          user:profiles!orders_user_id_fkey(*),
+          order_items (
+            *,
+            product:products(*)
+          )
+        `
+        )
+        .gte("date", format(weekStart, "yyyy-MM-dd"))
+        .lte("date", format(weekEnd, "yyyy-MM-dd"));
+
+      if (actError) throw actError;
+
+      // Filter by role if specified
+      let filteredActual = actualOrders || [];
+      if (selectedRole !== "all") {
+        filteredActual = filteredActual.filter(
+          (order) => order.user?.role === selectedRole
+        );
+      } else {
+        // Default to mobile users only for comparison
+        filteredActual = filteredActual.filter(
+          (order) => order.user?.role === "mobil"
+        );
+      }
+
+      // Create comparison data
+      const comparison = [];
+
+      // Group by user and day
+      const userDayData = new Map();
+
+      // Initialize data structure for users with favorite orders in the selected week
+      for (const favoriteOrder of filteredFavorites) {
+        const userId = favoriteOrder.user_id;
+        const userName = favoriteOrder.user?.full_name;
+
+        if (!userDayData.has(userId)) {
+          userDayData.set(userId, {
+            userId,
+            userName,
+            userPhone: favoriteOrder.user?.phone,
+            userRole: favoriteOrder.user?.role,
+            days: {
+              Po: {
+                status: "not_created",
+                orderId: null,
+                actualTotal: 0,
+                scheduledTotal: 0,
+              },
+              Út: {
+                status: "not_created",
+                orderId: null,
+                actualTotal: 0,
+                scheduledTotal: 0,
+              },
+              St: {
+                status: "not_created",
+                orderId: null,
+                actualTotal: 0,
+                scheduledTotal: 0,
+              },
+              Čt: {
+                status: "not_created",
+                orderId: null,
+                actualTotal: 0,
+                scheduledTotal: 0,
+              },
+              Pá: {
+                status: "not_created",
+                orderId: null,
+                actualTotal: 0,
+                scheduledTotal: 0,
+              },
+              So: {
+                status: "not_created",
+                orderId: null,
+                actualTotal: 0,
+                scheduledTotal: 0,
+              },
+              Ne: {
+                status: "not_created",
+                orderId: null,
+                actualTotal: 0,
+                scheduledTotal: 0,
+              },
+            },
+          });
+        }
+
+        // Set scheduled days
+        favoriteOrder.days?.forEach((day: string) => {
+          if (userDayData.get(userId).days[day]) {
+            userDayData.get(userId).days[day].scheduledTotal =
+              favoriteOrder.favorite_items?.reduce(
+                (sum: number, item: FavoriteItem) => {
+                  const price =
+                    item.price && item.price > 0
+                      ? item.price
+                      : favoriteOrder.user?.role === "mobil"
+                        ? item.product.priceMobil
+                        : item.product.priceBuyer;
+                  return sum + item.quantity * price;
+                },
+                0
+              ) || 0;
+          }
+        });
+      }
+
+      // Add users who have actual orders but no favorite orders
+      for (const actualOrder of filteredActual) {
+        const userId = actualOrder.user_id;
+
+        if (!userDayData.has(userId)) {
+          userDayData.set(userId, {
+            userId,
+            userName: actualOrder.user?.full_name,
+            userPhone: actualOrder.user?.phone,
+            userRole: actualOrder.user?.role,
+            days: {
+              Po: {
+                status: "not_created",
+                orderId: null,
+                actualTotal: 0,
+                scheduledTotal: 0,
+              },
+              Út: {
+                status: "not_created",
+                orderId: null,
+                actualTotal: 0,
+                scheduledTotal: 0,
+              },
+              St: {
+                status: "not_created",
+                orderId: null,
+                actualTotal: 0,
+                scheduledTotal: 0,
+              },
+              Čt: {
+                status: "not_created",
+                orderId: null,
+                actualTotal: 0,
+                scheduledTotal: 0,
+              },
+              Pá: {
+                status: "not_created",
+                orderId: null,
+                actualTotal: 0,
+                scheduledTotal: 0,
+              },
+              So: {
+                status: "not_created",
+                orderId: null,
+                actualTotal: 0,
+                scheduledTotal: 0,
+              },
+              Ne: {
+                status: "not_created",
+                orderId: null,
+                actualTotal: 0,
+                scheduledTotal: 0,
+              },
+            },
+          });
+        }
+      }
+
+      // Check which actual orders were created from favorites
+      for (const actualOrder of filteredActual) {
+        const orderDate = new Date(actualOrder.date);
+        const dayOfWeek = format(orderDate, "EEEE", { locale: cs });
+        const dayCode = dayMapping[dayOfWeek.toLowerCase()];
+
+        const userData = userDayData.get(actualOrder.user_id);
+        if (userData && userData.days[dayCode]) {
+          const matchingFavorite = filteredFavorites.find(
+            (fav) => fav.user_id === actualOrder.user_id
+          );
+
+          if (matchingFavorite && matchingFavorite.days?.includes(dayCode)) {
+            // Scheduled order was created
+            userData.days[dayCode] = {
+              status: "scheduled",
+              orderId: actualOrder.id,
+              actualTotal: actualOrder.total || 0,
+              scheduledTotal: userData.days[dayCode].scheduledTotal,
+            };
+          } else {
+            // Order was created but not scheduled
+            userData.days[dayCode] = {
+              status: "unscheduled",
+              orderId: actualOrder.id,
+              actualTotal: actualOrder.total || 0,
+              scheduledTotal: 0,
+            };
+          }
+        }
+      }
+
+      // Convert to array format
+      for (const [, userData] of userDayData) {
+        comparison.push(userData);
+      }
+
+      return comparison.sort((a, b) => {
+        // Sort by user name, then by status
+        const nameCompare = (a.userName || "").localeCompare(
+          b.userName || "",
+          "cs"
+        );
+        if (nameCompare !== 0) return nameCompare;
+
+        const statusOrder = {
+          scheduled: 1,
+          unscheduled: 2,
+          no_favorite: 3,
+          not_created: 4,
+        };
+        return (
+          (statusOrder[a.status as keyof typeof statusOrder] || 0) -
+          (statusOrder[b.status as keyof typeof statusOrder] || 0)
+        );
+      });
+    },
+    enabled: !!selectedDate,
+  });
+};
+
+// Comparison component for ArchiveOrdersTable
+function ArchiveOrdersComparisonTable({
+  comparisonData,
+}: {
+  comparisonData: any[];
+}) {
+  if (!comparisonData.length) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        No comparison data available for the selected period.
+      </div>
+    );
+  }
+
+  const exportComparisonToCSV = () => {
+    if (!comparisonData.length) return;
+
+    // Create header row with day names
+    const headerRow = [
+      "Uživatel",
+      "Telefon",
+      "Po",
+      "Út",
+      "St",
+      "Čt",
+      "Pá",
+      "So",
+      "Ne",
+    ];
+
+    // Convert comparison data to CSV rows
+    const csvRows = comparisonData.map((user: any) => {
+      const row = [user.userName || "", user.userPhone || ""];
+
+      // Add data for each day
+      ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"].forEach((day) => {
+        const dayData = user.days?.[day];
+        if (dayData?.status === "scheduled") {
+          row.push(
+            `✅ Scheduled (ID: ${dayData.orderId}, ${dayData.actualTotal.toFixed(2)} Kč)`
+          );
+        } else if (dayData?.status === "unscheduled") {
+          row.push(
+            `⚠️ Unscheduled (ID: ${dayData.orderId}, ${dayData.actualTotal.toFixed(2)} Kč)`
+          );
+        } else if (dayData?.scheduledTotal > 0) {
+          row.push(
+            `❌ Not Created (Scheduled: ${dayData.scheduledTotal.toFixed(2)} Kč)`
+          );
+        } else {
+          row.push("➖ No Favorite");
+        }
+      });
+
+      return row;
+    });
+
+    // Combine headers and rows
+    const csvContent = [headerRow, ...csvRows]
+      .map((row) => row.map((field: any) => `"${field}"`).join(","))
+      .join("\n");
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `porovnani_stalych_objednavek_${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const scheduledCount = comparisonData.reduce((total, user) => {
+    return (
+      total +
+      Object.values(user.days).filter((day: any) => day.status === "scheduled")
+        .length
+    );
+  }, 0);
+
+  const unscheduledCount = comparisonData.reduce((total, user) => {
+    return (
+      total +
+      Object.values(user.days).filter(
+        (day: any) => day.status === "unscheduled"
+      ).length
+    );
+  }, 0);
+
+  const notCreatedCount = comparisonData.reduce((total, user) => {
+    return (
+      total +
+      Object.values(user.days).filter(
+        (day: any) => day.status === "not_created"
+      ).length
+    );
+  }, 0);
+
+  // Calculate order counts for each day
+  const dayOrderCounts = {
+    Po: comparisonData.reduce(
+      (count, user) =>
+        count +
+        (user.days.Po.status !== "not_created" ||
+        user.days.Po.scheduledTotal > 0
+          ? 1
+          : 0),
+      0
+    ),
+    Út: comparisonData.reduce(
+      (count, user) =>
+        count +
+        (user.days.Út.status !== "not_created" ||
+        user.days.Út.scheduledTotal > 0
+          ? 1
+          : 0),
+      0
+    ),
+    St: comparisonData.reduce(
+      (count, user) =>
+        count +
+        (user.days.St.status !== "not_created" ||
+        user.days.St.scheduledTotal > 0
+          ? 1
+          : 0),
+      0
+    ),
+    Čt: comparisonData.reduce(
+      (count, user) =>
+        count +
+        (user.days.Čt.status !== "not_created" ||
+        user.days.Čt.scheduledTotal > 0
+          ? 1
+          : 0),
+      0
+    ),
+    Pá: comparisonData.reduce(
+      (count, user) =>
+        count +
+        (user.days.Pá.status !== "not_created" ||
+        user.days.Pá.scheduledTotal > 0
+          ? 1
+          : 0),
+      0
+    ),
+    So: comparisonData.reduce(
+      (count, user) =>
+        count +
+        (user.days.So.status !== "not_created" ||
+        user.days.So.scheduledTotal > 0
+          ? 1
+          : 0),
+      0
+    ),
+    Ne: comparisonData.reduce(
+      (count, user) =>
+        count +
+        (user.days.Ne.status !== "not_created" ||
+        user.days.Ne.scheduledTotal > 0
+          ? 1
+          : 0),
+      0
+    ),
+  };
+
+  const renderDayCell = (dayData: any) => {
+    if (dayData.status === "scheduled") {
+      return (
+        <div className="text-center">
+          <Badge
+            variant="outline"
+            className="bg-green-100 text-green-800 border-green-300 mb-1"
+          >
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Scheduled
+          </Badge>
+          <div className="text-xs text-gray-600">ID: {dayData.orderId}</div>
+          <div className="text-xs font-medium">
+            {dayData.actualTotal.toFixed(2)} Kč
+          </div>
+        </div>
+      );
+    } else if (dayData.status === "unscheduled") {
+      return (
+        <div className="text-center">
+          <Badge
+            variant="outline"
+            className="bg-yellow-100 text-yellow-800 border-yellow-300 mb-1"
+          >
+            <AlertCircle className="h-3 w-3 mr-1" />
+            Unscheduled
+          </Badge>
+          <div className="text-xs text-gray-600">ID: {dayData.orderId}</div>
+          <div className="text-xs font-medium">
+            {dayData.actualTotal.toFixed(2)} Kč
+          </div>
+        </div>
+      );
+    } else if (dayData.scheduledTotal > 0) {
+      return (
+        <div className="text-center">
+          <Badge
+            variant="outline"
+            className="bg-red-100 text-red-800 border-red-300 mb-1"
+          >
+            <XCircle className="h-3 w-3 mr-1" />
+            Not Created
+          </Badge>
+          <div className="text-xs text-gray-600">
+            Scheduled: {dayData.scheduledTotal.toFixed(2)} Kč
+          </div>
+        </div>
+      );
+    } else {
+      return (
+        <div className="text-center">
+          <Badge
+            variant="outline"
+            className="bg-gray-100 text-gray-600 border-gray-300"
+          >
+            No Favorite
+          </Badge>
+        </div>
+      );
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-4 items-center justify-between">
+        <div className="flex flex-wrap gap-4 items-center">
+          <Badge
+            variant="outline"
+            className="bg-green-50 text-green-700 border-green-200"
+          >
+            <CheckCircle className="h-4 w-4 mr-1" />
+            {scheduledCount} Scheduled
+          </Badge>
+          <Badge
+            variant="outline"
+            className="bg-yellow-50 text-yellow-700 border-yellow-200"
+          >
+            <AlertCircle className="h-4 w-4 mr-1" />
+            {unscheduledCount} Unscheduled
+          </Badge>
+          <Badge
+            variant="outline"
+            className="bg-red-50 text-red-700 border-red-200"
+          >
+            <XCircle className="h-4 w-4 mr-1" />
+            {notCreatedCount} Not Created
+          </Badge>
+          <Badge
+            variant="outline"
+            className="bg-orange-50 text-orange-700 border-orange-200"
+          >
+            <AlertCircle className="h-4 w-4 mr-1" />
+            {comparisonData.length} Users
+          </Badge>
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={exportComparisonToCSV}
+          className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+        >
+          <FileText className="h-4 w-4 mr-2" />
+          Export CSV
+        </Button>
+      </div>
+
+      <div className="border rounded-md overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>User</TableHead>
+              <TableHead>Phone</TableHead>
+              <TableHead className="text-center">
+                <div>Po</div>
+                <div className="text-xs text-gray-500">
+                  ({dayOrderCounts.Po})
+                </div>
+              </TableHead>
+              <TableHead className="text-center">
+                <div>Út</div>
+                <div className="text-xs text-gray-500">
+                  ({dayOrderCounts.Út})
+                </div>
+              </TableHead>
+              <TableHead className="text-center">
+                <div>St</div>
+                <div className="text-xs text-gray-500">
+                  ({dayOrderCounts.St})
+                </div>
+              </TableHead>
+              <TableHead className="text-center">
+                <div>Čt</div>
+                <div className="text-xs text-gray-500">
+                  ({dayOrderCounts.Čt})
+                </div>
+              </TableHead>
+              <TableHead className="text-center">
+                <div>Pá</div>
+                <div className="text-xs text-gray-500">
+                  ({dayOrderCounts.Pá})
+                </div>
+              </TableHead>
+              <TableHead className="text-center">
+                <div>So</div>
+                <div className="text-xs text-gray-500">
+                  ({dayOrderCounts.So})
+                </div>
+              </TableHead>
+              <TableHead className="text-center">
+                <div>Ne</div>
+                <div className="text-xs text-gray-500">
+                  ({dayOrderCounts.Ne})
+                </div>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {comparisonData.map((user) => (
+              <TableRow key={user.userId}>
+                <TableCell className="font-medium">{user.userName}</TableCell>
+                <TableCell>{user.userPhone}</TableCell>
+                <TableCell>{renderDayCell(user.days.Po)}</TableCell>
+                <TableCell>{renderDayCell(user.days.Út)}</TableCell>
+                <TableCell>{renderDayCell(user.days.St)}</TableCell>
+                <TableCell>{renderDayCell(user.days.Čt)}</TableCell>
+                <TableCell>{renderDayCell(user.days.Pá)}</TableCell>
+                <TableCell>{renderDayCell(user.days.So)}</TableCell>
+                <TableCell>{renderDayCell(user.days.Ne)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
