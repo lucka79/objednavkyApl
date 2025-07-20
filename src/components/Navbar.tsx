@@ -146,6 +146,12 @@ export function Navbar() {
                     <Link to="/admin/archive" className="hover:text-gray-300">
                       Archiv
                     </Link>
+                    <Link
+                      to="/admin/ingredients"
+                      className="hover:text-gray-300"
+                    >
+                      Suroviny
+                    </Link>
 
                     {user.email === "l.batelkova@gmail.com" && (
                       <Link
