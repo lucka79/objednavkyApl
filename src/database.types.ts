@@ -302,43 +302,73 @@ export type Database = {
       ingredients: {
         Row: {
           active: boolean
+          carbohydrate: number
           category_id: number | null
           created_at: string
           ean: string | null
+          element: string | null
+          fat: number
+          fibre: number
           id: number
+          kcal: number
           kiloPerUnit: number
+          kJ: number
           name: string
           package: number | null
           price: number | null
+          protein: number
+          salt: number
+          saturates: number
           storeOnly: boolean
+          sugars: number
           unit: string
           vat: number | null
         }
         Insert: {
           active?: boolean
+          carbohydrate?: number
           category_id?: number | null
           created_at?: string
           ean?: string | null
+          element?: string | null
+          fat?: number
+          fibre?: number
           id?: number
+          kcal?: number
           kiloPerUnit?: number
+          kJ?: number
           name: string
           package?: number | null
           price?: number | null
+          protein?: number
+          salt?: number
+          saturates?: number
           storeOnly?: boolean
+          sugars?: number
           unit?: string
           vat?: number | null
         }
         Update: {
           active?: boolean
+          carbohydrate?: number
           category_id?: number | null
           created_at?: string
           ean?: string | null
+          element?: string | null
+          fat?: number
+          fibre?: number
           id?: number
+          kcal?: number
           kiloPerUnit?: number
+          kJ?: number
           name?: string
           package?: number | null
           price?: number | null
+          protein?: number
+          salt?: number
+          saturates?: number
           storeOnly?: boolean
+          sugars?: number
           unit?: string
           vat?: number | null
         }
@@ -976,6 +1006,7 @@ export type Database = {
           company: string | null
           crateBig: number | null
           crateSmall: number | null
+          created_at: string | null
           dic: string | null
           email: string | null
           full_name: string | null
@@ -1000,6 +1031,7 @@ export type Database = {
           company?: string | null
           crateBig?: number | null
           crateSmall?: number | null
+          created_at?: string | null
           dic?: string | null
           email?: string | null
           full_name?: string | null
@@ -1024,6 +1056,7 @@ export type Database = {
           company?: string | null
           crateBig?: number | null
           crateSmall?: number | null
+          created_at?: string | null
           dic?: string | null
           email?: string | null
           full_name?: string | null

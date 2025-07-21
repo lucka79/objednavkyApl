@@ -14,6 +14,17 @@ export interface Ingredient {
   unit: string;
   vat: number | null;
   created_at: string;
+  // Nutritional fields
+  kJ: number;
+  kcal: number;
+  fat: number;
+  saturates: number;
+  carbohydrate: number;
+  sugars: number;
+  protein: number;
+  fibre: number;
+  salt: number;
+  element: string | null;
 }
 
 export interface IngredientCategory {
