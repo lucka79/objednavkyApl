@@ -869,72 +869,89 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
           {/* Energetic Information Section */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Energetické údaje</CardTitle>
+              <CardTitle className="text-lg">
+                Energetické údaje (na 100g)
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 bg-blue-50/50 rounded-lg p-4 border border-blue-100">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">
-                    Celkové energetické hodnoty:
+                    Energie na 100g:
                   </span>
                   <div className="font-semibold">
-                    {nutritionalTotals.totalKJ.toFixed(0)} KJ /{" "}
-                    {nutritionalTotals.totalKcal.toFixed(0)} Kcal
+                    {nutritionalTotals.totalWeightKg > 0
+                      ? `${((nutritionalTotals.totalKJ / nutritionalTotals.totalWeightKg) * 0.1).toFixed(0)} KJ / ${((nutritionalTotals.totalKcal / nutritionalTotals.totalWeightKg) * 0.1).toFixed(0)} Kcal`
+                      : "0 KJ / 0 Kcal"}
                   </div>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Celkové tuky:</span>
+                  <span className="text-muted-foreground">Tuky na 100g:</span>
                   <div className="font-semibold">
-                    {nutritionalTotals.totalFat.toFixed(1)} g
+                    {nutritionalTotals.totalWeightKg > 0
+                      ? `${((nutritionalTotals.totalFat / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
+                      : "0.0 g"}
                   </div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">
-                    Celkové nasycené mastné kyseliny:
+                    Nasycené mastné kyseliny na 100g:
                   </span>
                   <div className="font-semibold">
-                    {nutritionalTotals.totalSaturates.toFixed(1)} g
+                    {nutritionalTotals.totalWeightKg > 0
+                      ? `${((nutritionalTotals.totalSaturates / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
+                      : "0.0 g"}
                   </div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">
-                    Celkové sacharidy:
+                    Sacharidy na 100g:
                   </span>
                   <div className="font-semibold">
-                    {nutritionalTotals.totalCarbohydrate.toFixed(1)} g
+                    {nutritionalTotals.totalWeightKg > 0
+                      ? `${((nutritionalTotals.totalCarbohydrate / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
+                      : "0.0 g"}
                   </div>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Celkové cukry:</span>
+                  <span className="text-muted-foreground">Cukry na 100g:</span>
                   <div className="font-semibold">
-                    {nutritionalTotals.totalSugars.toFixed(1)} g
+                    {nutritionalTotals.totalWeightKg > 0
+                      ? `${((nutritionalTotals.totalSugars / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
+                      : "0.0 g"}
                   </div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">
-                    Celkový bílkoviny:
+                    Bílkoviny na 100g:
                   </span>
                   <div className="font-semibold">
-                    {nutritionalTotals.totalProtein.toFixed(1)} g
+                    {nutritionalTotals.totalWeightKg > 0
+                      ? `${((nutritionalTotals.totalProtein / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
+                      : "0.0 g"}
                   </div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">
-                    Celková vláknina:
+                    Vláknina na 100g:
                   </span>
                   <div className="font-semibold">
-                    {nutritionalTotals.totalFibre.toFixed(1)} g
+                    {nutritionalTotals.totalWeightKg > 0
+                      ? `${((nutritionalTotals.totalFibre / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
+                      : "0.0 g"}
                   </div>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Celková sůl:</span>
+                  <span className="text-muted-foreground">Sůl na 100g:</span>
                   <div className="font-semibold">
-                    {nutritionalTotals.totalSalt.toFixed(1)} g
+                    {nutritionalTotals.totalWeightKg > 0
+                      ? `${((nutritionalTotals.totalSalt / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
+                      : "0.0 g"}
                   </div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">
-                    Celková hmotnost:
+                    Celková hmotnost receptu:
                   </span>
                   <div className="font-semibold">
                     {nutritionalTotals.totalWeightKg.toFixed(3)} kg

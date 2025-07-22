@@ -27,7 +27,13 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CreateProductForm } from "./CreateProductForm";
 
 import { Card } from "./ui/card";
-import { CirclePlus, Trash2, FilePenLine, ArrowRight } from "lucide-react";
+import {
+  CirclePlus,
+  Trash2,
+  FilePenLine,
+  ArrowRight,
+  Package,
+} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,9 +51,18 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { memo } from "react";
 import { useAuthStore } from "@/lib/supabase";
 import { VerticalNav } from "./VerticalNav";
+import { ProductPartsModal } from "./ProductPartsModal";
 
 const ProductRow = memo(
-  ({ product, onEdit }: { product: Product; onEdit: (id: number) => void }) => {
+  ({
+    product,
+    onEdit,
+    onOpenParts,
+  }: {
+    product: Product;
+    onEdit: (id: number) => void;
+    onOpenParts: (id: number, name: string) => void;
+  }) => {
     const { data: categories } = fetchCategories();
     const { data: products } = fetchAllProducts();
     const user = useAuthStore((state) => state.user);
@@ -78,7 +93,7 @@ const ProductRow = memo(
 
     return (
       <div
-        className="grid grid-cols-[30px_40px_40px_40px_200px_100px_100px_100px_80px_50px_50px_50px_50px_50px_100px] gap-4 py-2 px-4 items-center border-b text-sm cursor-pointer hover:bg-gray-50"
+        className="grid grid-cols-[30px_40px_40px_40px_200px_100px_100px_100px_80px_50px_50px_50px_50px_50px_120px] gap-4 py-2 px-4 items-center border-b text-sm cursor-pointer hover:bg-gray-50"
         onClick={() => onEdit(product.id)}
       >
         <div className="flex justify-center">
@@ -149,7 +164,18 @@ const ProductRow = memo(
             onClick={(e) => e.stopPropagation()}
           />
         </div>
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenParts(product.id, product.name);
+            }}
+            title="Části produktu"
+          >
+            <Package className="h-4 w-4" />
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -227,6 +253,13 @@ export function ProductsTable() {
     undefined
   );
 
+  // Product Parts Modal state
+  const [showPartsDialog, setShowPartsDialog] = useState(false);
+  const [partsProductId, setPartsProductId] = useState<number | undefined>(
+    undefined
+  );
+  const [partsProductName, setPartsProductName] = useState<string>("");
+
   const handleCreateProduct = () => {
     setShowCreateDialog(true);
   };
@@ -276,6 +309,18 @@ export function ProductsTable() {
     setShowEditDialog(true);
   };
 
+  const handleOpenParts = (id: number, name: string) => {
+    setPartsProductId(id);
+    setPartsProductName(name);
+    setShowPartsDialog(true);
+  };
+
+  const handleClosePartsDialog = () => {
+    setShowPartsDialog(false);
+    setPartsProductId(undefined);
+    setPartsProductName("");
+  };
+
   if (isLoading) return <div>Loading products...</div>;
   if (error) return <div>Error loading products</div>;
 
@@ -320,7 +365,7 @@ export function ProductsTable() {
               className="border rounded-md h-[calc(100vh-140px)] overflow-auto"
             >
               <div className="sticky top-0 bg-white z-10 border-b">
-                <div className="grid grid-cols-[30px_40px_40px_40px_200px_100px_100px_100px_80px_50px_50px_50px_50px_50px_100px] gap-4 py-2 px-4 font-base text-sm">
+                <div className="grid grid-cols-[30px_40px_40px_40px_200px_100px_100px_100px_80px_50px_50px_50px_50px_50px_120px] gap-4 py-2 px-4 font-base text-sm">
                   <div></div>
                   <div className="text-center">ID</div>
                   <div className="text-center">Print ID</div>
@@ -361,7 +406,11 @@ export function ProductsTable() {
                         transform: `translateY(${virtualRow.start}px)`,
                       }}
                     >
-                      <ProductRow product={product} onEdit={handleEdit} />
+                      <ProductRow
+                        product={product}
+                        onEdit={handleEdit}
+                        onOpenParts={handleOpenParts}
+                      />
                     </div>
                   );
                 })}
@@ -386,6 +435,13 @@ export function ProductsTable() {
                 />
               </DialogContent>
             </Dialog>
+
+            <ProductPartsModal
+              open={showPartsDialog}
+              onClose={handleClosePartsDialog}
+              productId={partsProductId || 0}
+              productName={partsProductName}
+            />
           </Card>
         </div>
       </div>
