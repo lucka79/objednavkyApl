@@ -24,13 +24,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Trash2, Save, Package } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Save,
+  Package,
+  List,
+  Copy,
+  AlertTriangle,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { useRecipes } from "@/hooks/useRecipes";
 import { useIngredients } from "@/hooks/useIngredients";
 import { fetchAllProducts } from "@/hooks/useProducts";
 import { useQueryClient } from "@tanstack/react-query";
+import { detectAllergens } from "@/utils/allergenDetection";
 
 interface ProductPart {
   id?: number;
@@ -229,7 +238,13 @@ export function ProductPartsModal({
   const getPartUnit = (part: ProductPart) => {
     if (part.ingredient_id) {
       const ingredient = ingredients.find((i) => i.id === part.ingredient_id);
-      return ingredient?.unit || "";
+      return ingredient?.unit || "kg";
+    }
+    if (part.recipe_id) {
+      return "kg";
+    }
+    if (part.pastry_id) {
+      return "ks";
     }
     return "ks";
   };
@@ -237,11 +252,34 @@ export function ProductPartsModal({
   const getPartPrice = (part: ProductPart) => {
     if (part.ingredient_id) {
       const ingredient = ingredients.find((i) => i.id === part.ingredient_id);
-      return ingredient?.price ? ingredient.price * part.quantity : 0;
+      if (ingredient?.price) {
+        // Convert quantity to kg using kiloPerUnit, then multiply by price per kg
+        const weightInKg = part.quantity * ingredient.kiloPerUnit;
+        return weightInKg * ingredient.price;
+      }
+      return 0;
     }
     if (part.recipe_id) {
       const recipe = recipes.find((r) => r.id === part.recipe_id);
-      return recipe?.price ? recipe.price * part.quantity : 0;
+      if (recipe && recipe.recipe_ingredients) {
+        // Calculate the total weight of the recipe
+        let recipeWeightKg = 0;
+        recipe.recipe_ingredients.forEach((recipeIng: any) => {
+          if (recipeIng.ingredient) {
+            const ingredient = recipeIng.ingredient;
+            const weightInKg = recipeIng.quantity * ingredient.kiloPerUnit;
+            recipeWeightKg += weightInKg;
+          }
+        });
+
+        // Calculate price per kg of the recipe
+        const recipePricePerKg =
+          recipeWeightKg > 0 ? recipe.price / recipeWeightKg : 0;
+
+        // Calculate price for the actual quantity being used
+        return recipePricePerKg * part.quantity;
+      }
+      return 0;
     }
     if (part.pastry_id) {
       const product = products.find((p) => p.id === part.pastry_id);
@@ -505,6 +543,405 @@ export function ProductPartsModal({
             )}
           </CardContent>
         </Card>
+
+        {/* Ingredients Elements Summary Section */}
+        {productParts.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <List className="h-5 w-5" />
+                Složení všech surovin produktu
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="bg-blue-50/50 rounded-lg p-4 border border-blue-100">
+              {(() => {
+                // Collect all ingredients with elements from all parts (excluding productOnly parts)
+                const ingredientsWithElements: Array<{
+                  ingredient: any;
+                  quantity: number;
+                }> = [];
+
+                productParts.forEach((part) => {
+                  // Skip parts marked as productOnly
+                  if (part.productOnly) return;
+
+                  // Handle direct ingredients
+                  if (part.ingredient_id) {
+                    const ingredient = ingredients.find(
+                      (i) => i.id === part.ingredient_id
+                    );
+                    if (
+                      ingredient &&
+                      ingredient.element &&
+                      ingredient.element.trim() !== ""
+                    ) {
+                      ingredientsWithElements.push({
+                        ingredient,
+                        quantity: part.quantity,
+                      });
+                    }
+                  }
+
+                  // Handle ingredients from recipes
+                  if (part.recipe_id) {
+                    const recipe = recipes.find((r) => r.id === part.recipe_id);
+                    if (recipe && recipe.recipe_ingredients) {
+                      recipe.recipe_ingredients.forEach((recipeIng: any) => {
+                        if (
+                          recipeIng.ingredient &&
+                          recipeIng.ingredient.element &&
+                          recipeIng.ingredient.element.trim() !== ""
+                        ) {
+                          const usedQuantity =
+                            recipeIng.quantity * part.quantity;
+                          ingredientsWithElements.push({
+                            ingredient: recipeIng.ingredient,
+                            quantity: usedQuantity,
+                          });
+                        }
+                      });
+                    }
+                  }
+                });
+
+                // Sort by quantity (descending) and merge elements
+                const sortedIngredients = ingredientsWithElements.sort(
+                  (a, b) => b.quantity - a.quantity
+                );
+
+                if (sortedIngredients.length === 0) {
+                  return (
+                    <p className="text-muted-foreground text-center py-4">
+                      Žádná ze surovin nemá definované složení.
+                    </p>
+                  );
+                }
+
+                // Merge all elements into a single text
+                const mergedElements = sortedIngredients
+                  .map(({ ingredient }) => ingredient.element.trim())
+                  .join(", ");
+
+                const allergens = detectAllergens(mergedElements);
+
+                return (
+                  <div className="bg-white/80 rounded border border-blue-200 p-4">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="text-sm text-gray-700 leading-relaxed flex-1">
+                        {mergedElements}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(mergedElements);
+                          toast({
+                            title: "Zkopírováno",
+                            description: "Složení bylo zkopírováno do schránky",
+                          });
+                        }}
+                        className="flex-shrink-0"
+                        title="Kopírovat složení"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="text-xs text-blue-600 mt-2">
+                      Složení z {sortedIngredients.length} surovin (seřazeno
+                      podle množství)
+                    </div>
+                    {allergens.length > 0 && (
+                      <div className="mt-3">
+                        <div className="text-xs font-semibold text-red-800 mb-2 flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Detekované alergeny:
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {allergens.map((allergen, index) => {
+                            const IconComponent = allergen.icon;
+                            return (
+                              <span
+                                key={index}
+                                className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${allergen.color}`}
+                              >
+                                <IconComponent className="h-3 w-3" />
+                                {allergen.name}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Product Energy Calculation Section */}
+        {productParts.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-green-600" />
+                Energetické údaje produktu
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="bg-green-50/50 rounded-lg p-4 border border-green-100">
+              {(() => {
+                let totalKJ = 0;
+                let totalKcal = 0;
+                let totalWeightKg = 0;
+                let totalFat = 0;
+                let totalSaturates = 0;
+                let totalCarbohydrate = 0;
+                let totalSugars = 0;
+                let totalProtein = 0;
+                let totalFibre = 0;
+                let totalSalt = 0;
+                let partsCount = 0;
+
+                // Calculate nutritional values from all parts (excluding productOnly)
+                productParts.forEach((part) => {
+                  if (part.productOnly) return; // Skip productOnly parts
+
+                  partsCount++;
+
+                  // Handle recipe parts
+                  if (part.recipe_id) {
+                    const recipe = recipes.find((r) => r.id === part.recipe_id);
+                    if (recipe && recipe.recipe_ingredients) {
+                      // Calculate total weight and nutritional values for the full recipe
+                      let recipeWeightKg = 0;
+                      let recipeKJ = 0;
+                      let recipeKcal = 0;
+                      let recipeFat = 0;
+                      let recipeSaturates = 0;
+                      let recipeCarbohydrate = 0;
+                      let recipeSugars = 0;
+                      let recipeProtein = 0;
+                      let recipeFibre = 0;
+                      let recipeSalt = 0;
+
+                      recipe.recipe_ingredients.forEach((recipeIng: any) => {
+                        if (recipeIng.ingredient) {
+                          const ingredient = recipeIng.ingredient;
+                          // Properly convert ingredient quantity to kg using kiloPerUnit
+                          const weightInKg =
+                            recipeIng.quantity * ingredient.kiloPerUnit;
+                          recipeWeightKg += weightInKg;
+
+                          // Calculate nutritional values per 100g basis
+                          const factor = weightInKg * 10; // Convert kg to 100g units
+                          recipeKJ += ingredient.kJ * factor;
+                          recipeKcal += ingredient.kcal * factor;
+                          recipeFat += ingredient.fat * factor;
+                          recipeSaturates += ingredient.saturates * factor;
+                          recipeCarbohydrate +=
+                            ingredient.carbohydrate * factor;
+                          recipeSugars += ingredient.sugars * factor;
+                          recipeProtein += ingredient.protein * factor;
+                          recipeFibre += ingredient.fibre * factor;
+                          recipeSalt += ingredient.salt * factor;
+                        }
+                      });
+
+                      // For recipe parts, part.quantity represents the actual weight in kg being used
+                      // Calculate proportional nutritional values based on the portion being used
+                      if (recipeWeightKg > 0) {
+                        const proportion = part.quantity / recipeWeightKg;
+
+                        totalWeightKg += part.quantity; // Use actual weight, not multiplied
+                        totalKJ += recipeKJ * proportion;
+                        totalKcal += recipeKcal * proportion;
+                        totalFat += recipeFat * proportion;
+                        totalSaturates += recipeSaturates * proportion;
+                        totalCarbohydrate += recipeCarbohydrate * proportion;
+                        totalSugars += recipeSugars * proportion;
+                        totalProtein += recipeProtein * proportion;
+                        totalFibre += recipeFibre * proportion;
+                        totalSalt += recipeSalt * proportion;
+                      }
+                    }
+                  }
+
+                  // Handle ingredient parts
+                  if (part.ingredient_id) {
+                    const ingredient = ingredients.find(
+                      (i) => i.id === part.ingredient_id
+                    );
+                    if (ingredient) {
+                      const weightInKg = part.quantity * ingredient.kiloPerUnit;
+                      totalWeightKg += weightInKg;
+
+                      // Calculate nutritional values per 100g basis
+                      const factor = weightInKg * 10; // Convert kg to 100g units
+                      totalKJ += ingredient.kJ * factor;
+                      totalKcal += ingredient.kcal * factor;
+                      totalFat += ingredient.fat * factor;
+                      totalSaturates += ingredient.saturates * factor;
+                      totalCarbohydrate += ingredient.carbohydrate * factor;
+                      totalSugars += ingredient.sugars * factor;
+                      totalProtein += ingredient.protein * factor;
+                      totalFibre += ingredient.fibre * factor;
+                      totalSalt += ingredient.salt * factor;
+                    }
+                  }
+
+                  // Handle pastry/product parts (weight only, no nutritional data typically)
+                  if (part.pastry_id) {
+                    const product = products.find(
+                      (p) => p.id === part.pastry_id
+                    );
+                    if (product) {
+                      // Use the actual quantity from the part setup (in kg units for recipes/ingredients)
+                      // For pastry products, the quantity represents the actual amount used
+                      totalWeightKg += part.quantity;
+
+                      // If products had nutritional data, we would calculate it here similar to ingredients
+                      // For now, pastry products only contribute to weight
+                    }
+                  }
+                });
+
+                if (partsCount === 0) {
+                  return (
+                    <p className="text-muted-foreground text-center py-4">
+                      Žádné části produktu pro výpočet výživových hodnot.
+                    </p>
+                  );
+                }
+
+                // Calculate per 100g values
+                const energyPer100gKJ =
+                  totalWeightKg > 0 ? (totalKJ / totalWeightKg) * 0.1 : 0;
+                const energyPer100gKcal =
+                  totalWeightKg > 0 ? (totalKcal / totalWeightKg) * 0.1 : 0;
+                const fatPer100g =
+                  totalWeightKg > 0 ? (totalFat / totalWeightKg) * 0.1 : 0;
+                const saturatesPer100g =
+                  totalWeightKg > 0
+                    ? (totalSaturates / totalWeightKg) * 0.1
+                    : 0;
+                const carbohydratePer100g =
+                  totalWeightKg > 0
+                    ? (totalCarbohydrate / totalWeightKg) * 0.1
+                    : 0;
+                const sugarsPer100g =
+                  totalWeightKg > 0 ? (totalSugars / totalWeightKg) * 0.1 : 0;
+                const proteinPer100g =
+                  totalWeightKg > 0 ? (totalProtein / totalWeightKg) * 0.1 : 0;
+                const fibrePer100g =
+                  totalWeightKg > 0 ? (totalFibre / totalWeightKg) * 0.1 : 0;
+                const saltPer100g =
+                  totalWeightKg > 0 ? (totalSalt / totalWeightKg) * 0.1 : 0;
+
+                return (
+                  <div className="bg-white/80 rounded border border-green-200 p-4">
+                    <div className="space-y-4">
+                      {/* Basic Info */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">
+                            Celková hmotnost:
+                          </span>
+                          <div className="font-semibold text-green-800">
+                            {totalWeightKg.toFixed(3)} kg
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">
+                            Celková energie:
+                          </span>
+                          <div className="font-semibold text-green-800">
+                            {totalKJ.toFixed(0)} KJ / {totalKcal.toFixed(0)}{" "}
+                            Kcal
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">
+                            Energie na 100g:
+                          </span>
+                          <div className="font-semibold text-green-800">
+                            {energyPer100gKJ.toFixed(0)} KJ /{" "}
+                            {energyPer100gKcal.toFixed(0)} Kcal
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Nutritional Values per 100g */}
+                      <div className="border-t pt-3">
+                        <h4 className="font-semibold text-green-800 mb-2 text-sm">
+                          Výživové hodnoty na 100g:
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Tuky:</span>
+                            <div className="font-medium text-green-700">
+                              {fatPer100g.toFixed(1)} g
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">
+                              Nasycené mastné kyseliny:
+                            </span>
+                            <div className="font-medium text-green-700">
+                              {saturatesPer100g.toFixed(1)} g
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">
+                              Sacharidy:
+                            </span>
+                            <div className="font-medium text-green-700">
+                              {carbohydratePer100g.toFixed(1)} g
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">
+                              Z toho cukry:
+                            </span>
+                            <div className="font-medium text-green-700">
+                              {sugarsPer100g.toFixed(1)} g
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">
+                              Bílkoviny:
+                            </span>
+                            <div className="font-medium text-green-700">
+                              {proteinPer100g.toFixed(1)} g
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">
+                              Vláknina:
+                            </span>
+                            <div className="font-medium text-green-700">
+                              {fibrePer100g.toFixed(1)} g
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Sůl:</span>
+                            <div className="font-medium text-green-700">
+                              {saltPer100g.toFixed(1)} g
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-green-600 mt-3 pt-2 border-t">
+                      Vypočítáno z {partsCount} částí produktu (bez produktů
+                      prodejny)
+                    </div>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        )}
 
         <div className="flex justify-end gap-3 pt-4">
           <Button variant="outline" onClick={onClose} disabled={isSaving}>

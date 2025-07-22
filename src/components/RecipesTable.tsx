@@ -22,21 +22,7 @@ import {
   RecipeWithCategoryAndIngredients,
   useRecipes,
 } from "@/hooks/useRecipes";
-import {
-  Plus,
-  Search,
-  Scale,
-  Edit,
-  Trash2,
-  ChefHat,
-  Wheat,
-  Milk,
-  Egg,
-  AlertTriangle,
-  Nut,
-  Fish,
-  Shell,
-} from "lucide-react";
+import { Plus, Search, Scale, Edit, Trash2, ChefHat } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,6 +37,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { RecipeForm } from "@/components/RecipeForm";
 import { removeDiacritics } from "@/utils/removeDiacritics";
+import { detectAllergens } from "@/utils/allergenDetection";
 
 export function RecipesTable() {
   const { data, isLoading, error } = useRecipes();
@@ -172,132 +159,6 @@ export function RecipesTable() {
       </div>
     );
   }
-
-  // Allergen detection function with icon mapping
-  const detectAllergens = (
-    element: string | null
-  ): Array<{ name: string; icon: any; color: string }> => {
-    if (!element) return [];
-    const allergenKeywords = [
-      {
-        keywords: [
-          "gluten",
-          "pšenice",
-          "pšen.mouka",
-          "žito",
-          "žit.mouka",
-          "ječmen",
-          "oves",
-          "špalda",
-        ],
-        name: "Lepek",
-        icon: Wheat,
-        color: "bg-amber-100 text-amber-800",
-      },
-      {
-        keywords: ["mléko", "laktóza", "sýr", "máslo", "smetana"],
-        name: "Mléko",
-        icon: Milk,
-        color: "bg-blue-100 text-blue-800",
-      },
-      {
-        keywords: ["vejce", "vaječný", "vaječná"],
-        name: "Vejce",
-        icon: Egg,
-        color: "bg-yellow-100 text-yellow-800",
-      },
-      {
-        keywords: ["sója", "soj.", "sójový", "sójová"],
-        name: "Sója",
-        icon: AlertTriangle,
-        color: "bg-green-100 text-green-800",
-      },
-      {
-        keywords: [
-          "ořechy",
-          "mandle",
-          "lískové",
-          "vlašské",
-          "pekanové",
-          "kešu",
-          "pistácie",
-        ],
-        name: "Ořechy",
-        icon: Nut,
-        color: "bg-orange-100 text-orange-800",
-      },
-      {
-        keywords: ["arašídy", "burské ořechy"],
-        name: "Arašídy",
-        icon: Nut,
-        color: "bg-red-100 text-red-800",
-      },
-      {
-        keywords: ["sezam", "sezamové"],
-        name: "Sezam",
-        icon: AlertTriangle,
-        color: "bg-purple-100 text-purple-800",
-      },
-      {
-        keywords: ["ryby", "rybí"],
-        name: "Ryby",
-        icon: Fish,
-        color: "bg-cyan-100 text-cyan-800",
-      },
-      {
-        keywords: ["korýši", "krevety", "kraby"],
-        name: "Korýši",
-        icon: Shell,
-        color: "bg-pink-100 text-pink-800",
-      },
-      {
-        keywords: ["měkkýši", "slávky", "škeble"],
-        name: "Měkkýši",
-        icon: Shell,
-        color: "bg-indigo-100 text-indigo-800",
-      },
-      {
-        keywords: ["celer", "celerový"],
-        name: "Celer",
-        icon: AlertTriangle,
-        color: "bg-lime-100 text-lime-800",
-      },
-      {
-        keywords: ["hořčice", "hořčičné"],
-        name: "Hořčice",
-        icon: AlertTriangle,
-        color: "bg-yellow-100 text-yellow-800",
-      },
-      {
-        keywords: ["oxid siřičitý", "siřičitany", "sulfity"],
-        name: "Siřičitany",
-        icon: AlertTriangle,
-        color: "bg-gray-100 text-gray-800",
-      },
-      {
-        keywords: ["lupin", "vlčí bob"],
-        name: "Lupin",
-        icon: AlertTriangle,
-        color: "bg-violet-100 text-violet-800",
-      },
-    ];
-    const foundAllergens: Array<{ name: string; icon: any; color: string }> =
-      [];
-    const elementLower = element.toLowerCase();
-    allergenKeywords.forEach((allergenGroup) => {
-      const found = allergenGroup.keywords.some((keyword) =>
-        elementLower.includes(keyword.toLowerCase())
-      );
-      if (found && !foundAllergens.find((a) => a.name === allergenGroup.name)) {
-        foundAllergens.push({
-          name: allergenGroup.name,
-          icon: allergenGroup.icon,
-          color: allergenGroup.color,
-        });
-      }
-    });
-    return foundAllergens;
-  };
 
   // Helper to aggregate unique allergens for a recipe
   const getRecipeAllergens = (recipe: RecipeWithCategoryAndIngredients) => {

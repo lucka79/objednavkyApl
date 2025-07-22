@@ -23,23 +23,12 @@ import {
   RecipeWithCategoryAndIngredients,
 } from "@/hooks/useRecipes";
 import { Ingredient, useIngredients } from "@/hooks/useIngredients";
-import {
-  Save,
-  X,
-  Plus,
-  Trash2,
-  AlertTriangle,
-  Wheat,
-  Milk,
-  Egg,
-  Fish,
-  Shell,
-  Nut,
-} from "lucide-react";
+import { Save, X, Plus, Trash2, FileText, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { useRef } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { detectAllergens } from "@/utils/allergenDetection";
 
 interface RecipeFormProps {
   open: boolean;
@@ -279,7 +268,8 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
           totalWeight += weightInKg;
 
           if (ingredient.price) {
-            totalPrice += recipeIng.quantity * ingredient.price;
+            // Use weightInKg for price calculation since price is per kilogram
+            totalPrice += weightInKg * ingredient.price;
           }
         }
       }
@@ -337,137 +327,6 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
       totalSalt,
       totalWeightKg,
     };
-  };
-
-  // Allergen detection function with icon mapping
-  const detectAllergens = (
-    element: string | null
-  ): Array<{ name: string; icon: any; color: string }> => {
-    if (!element) return [];
-
-    const allergenKeywords = [
-      {
-        keywords: [
-          "gluten",
-          "pšenice",
-          "pšen.mouka",
-          "žito",
-          "žit.mouka",
-          "ječmen",
-          "oves",
-          "špalda",
-        ],
-        name: "Lepek",
-        icon: Wheat,
-        color: "bg-amber-100 text-amber-800",
-      },
-      {
-        keywords: ["mléko", "laktóza", "sýr", "máslo", "smetana"],
-        name: "Mléko",
-        icon: Milk,
-        color: "bg-blue-100 text-blue-800",
-      },
-      {
-        keywords: ["vejce", "vaječný", "vaječná"],
-        name: "Vejce",
-        icon: Egg,
-        color: "bg-yellow-100 text-yellow-800",
-      },
-      {
-        keywords: ["sója", "soj.", "sójový", "sójová"],
-        name: "Sója",
-        icon: AlertTriangle,
-        color: "bg-green-100 text-green-800",
-      },
-      {
-        keywords: [
-          "ořechy",
-          "mandle",
-          "lískové",
-          "vlašské",
-          "pekanové",
-          "kešu",
-          "pistácie",
-        ],
-        name: "Ořechy",
-        icon: Nut,
-        color: "bg-orange-100 text-orange-800",
-      },
-      {
-        keywords: ["arašídy", "burské ořechy"],
-        name: "Arašídy",
-        icon: Nut,
-        color: "bg-red-100 text-red-800",
-      },
-      {
-        keywords: ["sezam", "sezamové"],
-        name: "Sezam",
-        icon: AlertTriangle,
-        color: "bg-purple-100 text-purple-800",
-      },
-      {
-        keywords: ["ryby", "rybí"],
-        name: "Ryby",
-        icon: Fish,
-        color: "bg-cyan-100 text-cyan-800",
-      },
-      {
-        keywords: ["korýši", "krevety", "kraby"],
-        name: "Korýši",
-        icon: Shell,
-        color: "bg-pink-100 text-pink-800",
-      },
-      {
-        keywords: ["měkkýši", "slávky", "škeble"],
-        name: "Měkkýši",
-        icon: Shell,
-        color: "bg-indigo-100 text-indigo-800",
-      },
-      {
-        keywords: ["celer", "celerový"],
-        name: "Celer",
-        icon: AlertTriangle,
-        color: "bg-lime-100 text-lime-800",
-      },
-      {
-        keywords: ["hořčice", "hořčičné"],
-        name: "Hořčice",
-        icon: AlertTriangle,
-        color: "bg-yellow-100 text-yellow-800",
-      },
-      {
-        keywords: ["oxid siřičitý", "siřičitany", "sulfity"],
-        name: "Siřičitany",
-        icon: AlertTriangle,
-        color: "bg-gray-100 text-gray-800",
-      },
-      {
-        keywords: ["lupin", "vlčí bob"],
-        name: "Lupin",
-        icon: AlertTriangle,
-        color: "bg-violet-100 text-violet-800",
-      },
-    ];
-
-    const foundAllergens: Array<{ name: string; icon: any; color: string }> =
-      [];
-    const elementLower = element.toLowerCase();
-
-    allergenKeywords.forEach((allergenGroup) => {
-      const found = allergenGroup.keywords.some((keyword) => {
-        const match = elementLower.includes(keyword.toLowerCase());
-        return match;
-      });
-      if (found && !foundAllergens.find((a) => a.name === allergenGroup.name)) {
-        foundAllergens.push({
-          name: allergenGroup.name,
-          icon: allergenGroup.icon,
-          color: allergenGroup.color,
-        });
-      }
-    });
-
-    return foundAllergens;
   };
 
   // Calculate recipe allergens from all ingredients
@@ -703,97 +562,128 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
                     <div className="col-span-1">Akce</div>
                   </div>
                   <div className="space-y-2">
-                    {recipeIngredients.map((recipeIng) => {
-                      const selectedIngredient = ingredients.find(
-                        (ing) => ing.id === recipeIng.ingredient_id
-                      );
-                      const allergens = selectedIngredient
-                        ? detectAllergens(selectedIngredient.element)
-                        : [];
+                    {recipeIngredients
+                      .slice() // Create a copy to avoid mutating the original array
+                      .sort((a, b) => {
+                        const ingredientA = ingredients.find(
+                          (ing) => ing.id === a.ingredient_id
+                        );
+                        const ingredientB = ingredients.find(
+                          (ing) => ing.id === b.ingredient_id
+                        );
 
-                      return (
-                        <div
-                          key={recipeIng.id}
-                          className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center bg-white/80 rounded border border-orange-100 px-2 py-2 shadow-sm"
-                        >
-                          <div className="md:col-span-3 font-medium truncate">
-                            {selectedIngredient ? (
-                              selectedIngredient.name
-                            ) : (
-                              <span className="text-muted-foreground">
-                                (neznámá surovina)
-                              </span>
-                            )}
+                        // Move ingredients with unit "L" or "l" to bottom
+                        const isLiterA =
+                          ingredientA?.unit?.toLowerCase() === "l";
+                        const isLiterB =
+                          ingredientB?.unit?.toLowerCase() === "l";
+
+                        if (isLiterA && !isLiterB) return 1;
+                        if (!isLiterA && isLiterB) return -1;
+
+                        // Sort by quantity (descending) within the same unit type
+                        return b.quantity - a.quantity;
+                      })
+                      .map((recipeIng) => {
+                        const selectedIngredient = ingredients.find(
+                          (ing) => ing.id === recipeIng.ingredient_id
+                        );
+                        const allergens = selectedIngredient
+                          ? detectAllergens(selectedIngredient.element)
+                          : [];
+
+                        return (
+                          <div
+                            key={recipeIng.id}
+                            className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center bg-white/80 rounded border border-orange-100 px-2 py-2 shadow-sm"
+                          >
+                            <div className="md:col-span-3 font-medium truncate">
+                              {selectedIngredient ? (
+                                <div className="flex items-center gap-2">
+                                  <span>{selectedIngredient.name}</span>
+                                  {selectedIngredient.element &&
+                                    selectedIngredient.element.trim() !==
+                                      "" && (
+                                      <FileText className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                                    )}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">
+                                  (neznámá surovina)
+                                </span>
+                              )}
+                            </div>
+                            <div className="md:col-span-2 flex items-center gap-2">
+                              <Input
+                                type="number"
+                                step="0.001"
+                                value={recipeIng.quantity}
+                                onChange={(e) =>
+                                  updateIngredient(
+                                    recipeIng.id,
+                                    "quantity",
+                                    parseFloat(e.target.value) || 0
+                                  )
+                                }
+                                className="mt-1 w-24 appearance-none no-spinner"
+                                placeholder="0"
+                              />
+                            </div>
+                            <div className="md:col-span-1 text-sm text-muted-foreground">
+                              {selectedIngredient
+                                ? selectedIngredient.unit
+                                : ""}
+                            </div>
+                            <div className="md:col-span-2 text-right text-sm text-orange-900/80 font-semibold">
+                              {selectedIngredient &&
+                              selectedIngredient.price &&
+                              recipeIng.quantity > 0
+                                ? `${(recipeIng.quantity * selectedIngredient.kiloPerUnit * selectedIngredient.price).toFixed(2)} Kč`
+                                : "0.00 Kč"}
+                            </div>
+                            <div className="md:col-span-3">
+                              {allergens.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {allergens
+                                    .slice(0, 2)
+                                    .map((allergen, index) => {
+                                      const IconComponent = allergen.icon;
+                                      return (
+                                        <span
+                                          key={index}
+                                          className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${allergen.color}`}
+                                        >
+                                          <IconComponent className="h-3 w-3" />
+                                          {allergen.name}
+                                        </span>
+                                      );
+                                    })}
+                                  {allergens.length > 2 && (
+                                    <span className="text-xs text-muted-foreground">
+                                      +{allergens.length - 2} další
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">
+                                  Bez alergenů
+                                </span>
+                              )}
+                            </div>
+                            <div className="md:col-span-1 flex justify-end items-center">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeIngredient(recipeIng.id)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
-                          <div className="md:col-span-2 flex items-center gap-2">
-                            <Input
-                              type="number"
-                              step="0.001"
-                              value={recipeIng.quantity}
-                              onChange={(e) =>
-                                updateIngredient(
-                                  recipeIng.id,
-                                  "quantity",
-                                  parseFloat(e.target.value) || 0
-                                )
-                              }
-                              className="mt-1 w-24 appearance-none no-spinner"
-                              placeholder="0"
-                            />
-                          </div>
-                          <div className="md:col-span-1 text-sm text-muted-foreground">
-                            {selectedIngredient ? selectedIngredient.unit : ""}
-                          </div>
-                          <div className="md:col-span-2 text-right text-sm text-orange-900/80 font-semibold">
-                            {selectedIngredient &&
-                            selectedIngredient.price &&
-                            recipeIng.quantity > 0
-                              ? `${(recipeIng.quantity * selectedIngredient.price).toFixed(2)} Kč`
-                              : "0.00 Kč"}
-                          </div>
-                          <div className="md:col-span-3">
-                            {allergens.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {allergens
-                                  .slice(0, 2)
-                                  .map((allergen, index) => {
-                                    const IconComponent = allergen.icon;
-                                    return (
-                                      <span
-                                        key={index}
-                                        className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${allergen.color}`}
-                                      >
-                                        <IconComponent className="h-3 w-3" />
-                                        {allergen.name}
-                                      </span>
-                                    );
-                                  })}
-                                {allergens.length > 2 && (
-                                  <span className="text-xs text-muted-foreground">
-                                    +{allergens.length - 2} další
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">
-                                Bez alergenů
-                              </span>
-                            )}
-                          </div>
-                          <div className="md:col-span-1 flex justify-end items-center">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeIngredient(recipeIng.id)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
                   </div>
                 </div>
               )}
@@ -865,6 +755,86 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
               )}
             </CardContent>
           </Card>
+
+          {/* Recipe Elements Section */}
+          {recipeIngredients.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Složení surovin v receptu
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 bg-green-50/50 rounded-lg p-4 border border-green-100">
+                {(() => {
+                  // Get all ingredients with elements, sorted by quantity (descending)
+                  const ingredientsWithElements = recipeIngredients
+                    .map((recipeIng) => {
+                      const ingredient = ingredients.find(
+                        (ing) => ing.id === recipeIng.ingredient_id
+                      );
+                      return ingredient &&
+                        ingredient.element &&
+                        ingredient.element.trim() !== ""
+                        ? { ingredient, quantity: recipeIng.quantity }
+                        : null;
+                    })
+                    .filter(
+                      (item): item is { ingredient: any; quantity: number } =>
+                        item !== null
+                    )
+                    .sort((a, b) => b.quantity - a.quantity); // Sort by quantity descending
+
+                  if (ingredientsWithElements.length === 0) {
+                    return (
+                      <p className="text-muted-foreground text-center py-4">
+                        Žádná ze surovin nemá definované složení.
+                      </p>
+                    );
+                  }
+
+                  // Merge all elements into a single text
+                  const mergedElements = ingredientsWithElements
+                    .map(({ ingredient }) => ingredient.element.trim())
+                    .join(", ");
+
+                  return (
+                    <div className="bg-white/80 rounded border border-green-200 p-4">
+                      {/* <h4 className="font-semibold text-green-800 mb-3 flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Celkové složení receptu
+                        <span className="text-sm font-normal text-green-600">
+                          ({ingredientsWithElements.length} surovin se složením)
+                        </span>
+                      </h4> */}
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="text-sm text-gray-700 leading-relaxed flex-1">
+                          {mergedElements}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(mergedElements);
+                            toast({
+                              title: "Zkopírováno",
+                              description:
+                                "Složení bylo zkopírováno do schránky",
+                            });
+                          }}
+                          className="flex-shrink-0"
+                          title="Kopírovat složení"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Energetic Information Section */}
           <Card>
