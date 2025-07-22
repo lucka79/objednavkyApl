@@ -30,6 +30,7 @@ import {
   Nut,
   Fish,
   Shell,
+  Type,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -90,8 +91,10 @@ const detectAllergens = (
       keywords: [
         "gluten",
         "pšenice",
+        "pšeničný lepek",
         "pšen.mouka",
         "žito",
+        "žitný",
         "žit.mouka",
         "ječmen",
         "oves",
@@ -102,7 +105,7 @@ const detectAllergens = (
       color: "bg-amber-100 text-amber-800",
     },
     {
-      keywords: ["mléko", "laktóza", "sýr", "máslo", "smetana"],
+      keywords: ["mléko", "laktóza", "sýr", "máslo", "smetana", "syrovátka"],
       name: "Mléko",
       icon: Milk,
       color: "bg-blue-100 text-blue-800",
@@ -114,7 +117,7 @@ const detectAllergens = (
       color: "bg-yellow-100 text-yellow-800",
     },
     {
-      keywords: ["sója", "soj.", "sójový", "sójová"],
+      keywords: ["sója", "soj.", "sójový", "sójová", "sojová"],
       name: "Sója",
       icon: AlertTriangle,
       color: "bg-green-100 text-green-800",
@@ -134,7 +137,7 @@ const detectAllergens = (
       color: "bg-orange-100 text-orange-800",
     },
     {
-      keywords: ["arašídy", "burské ořechy"],
+      keywords: ["arašídy", "burské ořechy", "podzemnice olejná", "podzemnice"],
       name: "Arašídy",
       icon: Nut,
       color: "bg-red-100 text-red-800",
@@ -348,6 +351,27 @@ export function IngredientForm() {
 
   const handleClose = () => {
     closeForm();
+  };
+
+  const formatText = () => {
+    if (!formData.element) return;
+
+    let formatted = formData.element
+      // Remove extra spaces
+      .replace(/\s+/g, " ")
+      // Remove spaces before punctuation
+      .replace(/\s+([,.;:])/g, "$1")
+      // Add space after punctuation if missing
+      .replace(/([,.;:])([^\s])/g, "$1 $2")
+      // Remove spaces at beginning and end
+      .trim()
+      // Normalize multiple punctuation
+      .replace(/[,]+/g, ",")
+      .replace(/[.]+/g, ".")
+      // Remove trailing punctuation duplicates
+      .replace(/([,.;:])\s*([,.;:])/g, "$1");
+
+    handleInputChange("element", formatted);
   };
 
   const allergens = detectAllergens(formData.element);
@@ -794,7 +818,22 @@ export function IngredientForm() {
 
               {/* Složení ingredience */}
               <div className="space-y-2">
-                <Label htmlFor="element">Složení ingredience</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="element">Složení ingredience</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={formatText}
+                    disabled={
+                      !formData.element || formData.element.trim() === ""
+                    }
+                    className="flex items-center gap-1 text-xs"
+                  >
+                    <Type className="h-3 w-3" />
+                    Formátovat text
+                  </Button>
+                </div>
                 <textarea
                   id="element"
                   value={formData.element || ""}

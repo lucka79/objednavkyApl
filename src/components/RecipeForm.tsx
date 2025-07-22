@@ -832,7 +832,7 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
                     </div>
                   </div>
                   <div className="mt-3 flex gap-2">
-                    <Button
+                    {/* <Button
                       type="button"
                       variant="outline"
                       size="sm"
@@ -859,7 +859,7 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
                       disabled={totalPrice === 0}
                     >
                       Použít cenu ({totalPrice.toFixed(2)} Kč)
-                    </Button>
+                    </Button> */}
                   </div>
                 </div>
               )}
