@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useMemo } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -50,18 +50,60 @@ import { ProductForm } from "./ProductForm";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { memo } from "react";
 import { useAuthStore } from "@/lib/supabase";
-import { VerticalNav } from "./VerticalNav";
 import { ProductPartsModal } from "./ProductPartsModal";
+import { removeDiacritics } from "@/utils/removeDiacritics";
+import { useProductPartsCount } from "@/hooks/useProductParts";
+
+// Horizontal Category Navigation Component
+const HorizontalCategoryNav = ({
+  onCategorySelect,
+  selectedCategory,
+}: {
+  onCategorySelect: (categoryId: number | null) => void;
+  selectedCategory: number | null;
+}) => {
+  const { data: categories } = fetchCategories();
+
+  return (
+    <div className="flex flex-wrap gap-2 mb-4">
+      <Button
+        variant="outline"
+        size="sm"
+        className={`cursor-pointer hover:bg-orange-500 hover:text-white transition-colors text-xs ${
+          selectedCategory === null ? "bg-orange-500 text-white" : ""
+        }`}
+        onClick={() => onCategorySelect(null)}
+      >
+        Vše
+      </Button>
+      {categories?.map((category) => (
+        <Button
+          key={category.id}
+          variant="outline"
+          size="sm"
+          className={`cursor-pointer hover:bg-orange-500 hover:text-white transition-colors text-xs ${
+            selectedCategory === category.id ? "bg-orange-500 text-white" : ""
+          }`}
+          onClick={() => onCategorySelect(category.id)}
+        >
+          {category.name}
+        </Button>
+      ))}
+    </div>
+  );
+};
 
 const ProductRow = memo(
   ({
     product,
     onEdit,
     onOpenParts,
+    hasProductParts,
   }: {
     product: Product;
     onEdit: (id: number) => void;
     onOpenParts: (id: number, name: string) => void;
+    hasProductParts: boolean;
   }) => {
     const { data: categories } = fetchCategories();
     const { data: products } = fetchAllProducts();
@@ -92,146 +134,284 @@ const ProductRow = memo(
     };
 
     return (
-      <div
-        className="grid grid-cols-[30px_40px_40px_40px_200px_100px_100px_100px_80px_50px_50px_50px_50px_50px_120px] gap-4 py-2 px-4 items-center border-b text-sm cursor-pointer hover:bg-gray-50"
-        onClick={() => onEdit(product.id)}
-      >
-        <div className="flex justify-center">
-          {product.isChild && <ArrowRight className="h-4 w-4 text-gray-400" />}
-        </div>
-        <div className="text-center">{product.id}</div>
-        <div className="text-center">{product.printId}</div>
-        <div>{product.code}</div>
-        <div className="flex flex-col">
-          <div className="flex items-center gap-1">
-            {product.name}
-            {printIdCount && printIdCount > 1 && (
-              <span className="ml-1 px-1.5 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">
-                {printIdCount}
-              </span>
+      <>
+        {/* Desktop Layout (lg and up) */}
+        <div
+          className="hidden lg:grid lg:grid-cols-[30px_40px_40px_40px_200px_100px_100px_100px_80px_50px_50px_50px_50px_50px_120px] gap-4 py-2 px-4 items-center border-b text-sm cursor-pointer hover:bg-gray-50"
+          onClick={() => onEdit(product.id)}
+        >
+          <div className="flex justify-center">
+            {product.isChild && (
+              <ArrowRight className="h-4 w-4 text-gray-400" />
             )}
           </div>
-          {product.nameVi && (
-            <p className="text-xs text-orange-500">{product.nameVi}</p>
-          )}
-        </div>
-        <div className="text-right">{product.priceBuyer.toFixed(2)} Kč</div>
-        <div className="text-right">{product.priceMobil.toFixed(2)} Kč</div>
-        <div className="text-right">{product.price.toFixed(2)} Kč</div>
-        <div>{categoryName}</div>
-        <div className="text-right">{product.vat}%</div>
-        <div className="flex justify-center">
-          <Checkbox
-            checked={product.active}
-            onCheckedChange={(checked) => {
-              event?.stopPropagation();
-              handleCheckboxChange("active", checked as boolean);
-            }}
-            className="border-amber-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500 data-[state=checked]:text-white"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-        <div className="flex justify-center">
-          <Checkbox
-            checked={product.buyer}
-            onCheckedChange={(checked) => {
-              event?.stopPropagation();
-              handleCheckboxChange("buyer", checked as boolean);
-            }}
-            className="border-orange-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 data-[state=checked]:text-white"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-        <div className="flex justify-center">
-          <Checkbox
-            checked={product.store}
-            onCheckedChange={(checked) => {
-              event?.stopPropagation();
-              handleCheckboxChange("store", checked as boolean);
-            }}
-            className="border-blue-500 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 data-[state=checked]:text-white"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-        <div className="flex justify-center">
-          <Checkbox
-            checked={product.isAdmin}
-            onCheckedChange={(checked) => {
-              event?.stopPropagation();
-              handleCheckboxChange("isAdmin", checked as boolean);
-            }}
-            className="border-purple-500 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500 data-[state=checked]:text-white"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-        <div className="flex justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenParts(product.id, product.name);
-            }}
-            title="Části produktu"
-          >
-            <Package className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation(); // Prevent row click event
-              onEdit(product.id);
-            }}
-          >
-            <FilePenLine className="h-4 w-4" />
-          </Button>
-          {user?.role === "admin" && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="hover:text-destructive"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>
-                    Opravdu smazat tento výrobek?
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Tato akce je nevratná. Výrobek bude trvale odstraněn.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel onClick={(e) => e.stopPropagation()}>
-                    Zrušit
-                  </AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteProduct(product.id);
-                    }}
-                    className="bg-red-600 hover:bg-red-700"
+          <div className="text-center">{product.id}</div>
+          <div className="text-center">{product.printId}</div>
+          <div>{product.code}</div>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1">
+              {product.name}
+              {printIdCount && printIdCount > 1 && (
+                <span className="ml-1 px-1.5 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">
+                  {printIdCount}
+                </span>
+              )}
+            </div>
+            {product.nameVi && (
+              <p className="text-xs text-orange-500">{product.nameVi}</p>
+            )}
+          </div>
+          <div className="text-right">{product.priceBuyer.toFixed(2)} Kč</div>
+          <div className="text-right">{product.priceMobil.toFixed(2)} Kč</div>
+          <div className="text-right">{product.price.toFixed(2)} Kč</div>
+          <div>{categoryName}</div>
+          <div className="text-right">{product.vat}%</div>
+          <div className="flex justify-center">
+            <Checkbox
+              checked={product.active}
+              onCheckedChange={(checked) => {
+                event?.stopPropagation();
+                handleCheckboxChange("active", checked as boolean);
+              }}
+              className="border-amber-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500 data-[state=checked]:text-white"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="flex justify-center">
+            <Checkbox
+              checked={product.buyer}
+              onCheckedChange={(checked) => {
+                event?.stopPropagation();
+                handleCheckboxChange("buyer", checked as boolean);
+              }}
+              className="border-orange-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 data-[state=checked]:text-white"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="flex justify-center">
+            <Checkbox
+              checked={product.store}
+              onCheckedChange={(checked) => {
+                event?.stopPropagation();
+                handleCheckboxChange("store", checked as boolean);
+              }}
+              className="border-blue-500 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 data-[state=checked]:text-white"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="flex justify-center">
+            <Checkbox
+              checked={product.isAdmin}
+              onCheckedChange={(checked) => {
+                event?.stopPropagation();
+                handleCheckboxChange("isAdmin", checked as boolean);
+              }}
+              className="border-purple-500 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500 data-[state=checked]:text-white"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="flex justify-end gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenParts(product.id, product.name);
+              }}
+              title="Části produktu"
+            >
+              {hasProductParts ? (
+                <Package className="h-4 w-4 text-orange-500" />
+              ) : (
+                <Package className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(product.id);
+              }}
+            >
+              <FilePenLine className="h-4 w-4" />
+            </Button>
+            {user?.role === "admin" && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="hover:text-destructive"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    Smazat
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Opravdu smazat tento výrobek?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Tato akce je nevratná. Výrobek bude trvale odstraněn.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={(e) => e.stopPropagation()}>
+                      Zrušit
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteProduct(product.id);
+                      }}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      Smazat
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
         </div>
-      </div>
+
+        {/* Tablet Layout (md to lg) */}
+        <div
+          className="hidden md:grid lg:hidden md:grid-cols-[40px_150px_80px_80px_80px_60px_80px] gap-2 py-2 px-3 items-center border-b text-sm cursor-pointer hover:bg-gray-50"
+          onClick={() => onEdit(product.id)}
+        >
+          <div className="text-center">{product.id}</div>
+          <div className="flex flex-col">
+            <div className="font-medium truncate">{product.name}</div>
+            <div className="text-xs text-gray-500">{categoryName}</div>
+          </div>
+          <div className="text-right text-xs">
+            {product.priceBuyer.toFixed(2)}
+          </div>
+          <div className="text-right text-xs">
+            {product.priceMobil.toFixed(2)}
+          </div>
+          <div className="text-right text-xs">{product.price.toFixed(2)}</div>
+          <div className="flex justify-center gap-1">
+            <Checkbox
+              checked={product.active}
+              onCheckedChange={(checked) => {
+                event?.stopPropagation();
+                handleCheckboxChange("active", checked as boolean);
+              }}
+              className="h-3 w-3 border-amber-500 data-[state=checked]:bg-green-500"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <Checkbox
+              checked={product.buyer}
+              onCheckedChange={(checked) => {
+                event?.stopPropagation();
+                handleCheckboxChange("buyer", checked as boolean);
+              }}
+              className="h-3 w-3 border-orange-500 data-[state=checked]:bg-orange-500"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="flex justify-end gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenParts(product.id, product.name);
+              }}
+              className="h-6 w-6 p-0"
+            >
+              {hasProductParts ? (
+                <Package className="h-3 w-3 text-orange-500" />
+              ) : (
+                <Package className="h-3 w-3" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(product.id);
+              }}
+              className="h-6 w-6 p-0"
+            >
+              <FilePenLine className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Mobile Layout (sm and below) */}
+        <div
+          className="block md:hidden p-3 border-b cursor-pointer hover:bg-gray-50"
+          onClick={() => onEdit(product.id)}
+        >
+          <div className="flex justify-between items-start mb-2">
+            <div className="flex-1">
+              <div className="font-medium text-sm">{product.name}</div>
+              <div className="text-xs text-gray-500">{categoryName}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm font-medium">
+                {product.price.toFixed(2)} Kč
+              </div>
+              <div className="text-xs text-gray-500">ID: {product.id}</div>
+            </div>
+          </div>
+          <div className="flex justify-between items-center">
+            <div className="flex gap-2">
+              <span
+                className={`text-xs px-2 py-1 rounded ${product.active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}
+              >
+                {product.active ? "Aktivní" : "Neaktivní"}
+              </span>
+              {product.buyer && (
+                <span className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-800">
+                  Odběr
+                </span>
+              )}
+            </div>
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenParts(product.id, product.name);
+                }}
+                className="h-8 w-8 p-0"
+              >
+                {hasProductParts ? (
+                  <Package className="h-4 w-4 text-orange-500" />
+                ) : (
+                  <Package className="h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(product.id);
+                }}
+                className="h-8 w-8 p-0"
+              >
+                <FilePenLine className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </>
     );
   }
 );
 
 export function ProductsTable() {
   const { data: products, error, isLoading } = fetchAllProducts();
+  const { data: productPartsCount } = useProductPartsCount();
 
   // const { mutateAsync: updateProduct } = useUpdateProduct();
 
@@ -260,6 +440,15 @@ export function ProductsTable() {
   );
   const [partsProductName, setPartsProductName] = useState<string>("");
 
+  // Create a lookup map for products with parts
+  const productPartsMap = useMemo(() => {
+    const map = new Map<number, boolean>();
+    productPartsCount?.forEach((pc) => {
+      map.set(pc.product_id, true);
+    });
+    return map;
+  }, [productPartsCount]);
+
   const handleCreateProduct = () => {
     setShowCreateDialog(true);
   };
@@ -276,14 +465,15 @@ export function ProductsTable() {
             (priceFilter === "mobile" && product.priceMobil > 0)) &&
           (categoryFilter === "all" ||
             (product.category_id ?? 0).toString() === categoryFilter) &&
-          Object.values(product).some(
-            (value) =>
-              value &&
-              value
-                .toString()
-                .toLowerCase()
-                .includes(globalFilter.toLowerCase())
-          )
+          (() => {
+            const searchLower = removeDiacritics(globalFilter.toLowerCase());
+            return Object.values(product).some((value) => {
+              if (!value) return false;
+              const valueStr = value.toString().toLowerCase();
+              const normalizedValue = removeDiacritics(valueStr);
+              return normalizedValue.includes(searchLower);
+            });
+          })()
       ) || []
     );
   }, [products, categoryFilter, globalFilter, priceFilter]);
@@ -326,64 +516,112 @@ export function ProductsTable() {
 
   return (
     <>
-      <div className="flex gap-8 h-screen py-2">
-        <div className="w-[200px]">
-          <VerticalNav
-            onCategorySelect={handleCategorySelect}
-            selectedCategory={selectedCategory}
-          />
-        </div>
+      <div className="h-screen py-2 px-2 lg:px-4">
+        <Card className="h-full">
+          <div className="p-4 space-y-4">
+            {/* Header with all controls - responsive */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+              <h1 className="text-xl lg:text-2xl font-bold">Produkty</h1>
 
-        <div className="flex-1 pl-[120px]">
-          <Card className="h-full p-4">
-            <div className="flex justify-start gap-2 items-center mb-2">
+              {/* Controls row - responsive */}
+              <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto lg:flex-1 lg:justify-end lg:max-w-2xl">
+                <Input
+                  placeholder="Hledat produkt..."
+                  value={globalFilter}
+                  onChange={(e) => setGlobalFilter(e.target.value)}
+                  className="flex-1 sm:max-w-sm lg:max-w-xs"
+                />
+                <Select value={priceFilter} onValueChange={setPriceFilter}>
+                  <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectValue placeholder="Filter ceny" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Všechny ceny</SelectItem>
+                    <SelectItem value="mobile">Mobilní cena {">"} 0</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  className="bg-orange-500 text-white w-full sm:w-auto"
+                  variant="outline"
+                  onClick={handleCreateProduct}
+                >
+                  <CirclePlus className="h-4 w-4 mr-2" /> Nový výrobek
+                </Button>
+              </div>
+            </div>
+
+            {/* Horizontal Category Navigation */}
+            <HorizontalCategoryNav
+              onCategorySelect={handleCategorySelect}
+              selectedCategory={selectedCategory}
+            />
+
+            {/* Filters - responsive */}
+            {/* <div className="flex flex-col sm:flex-row gap-2">
               <Input
-                placeholder="Search product..."
+                placeholder="Hledat produkt..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
-                className="max-w-sm"
+                className="flex-1 sm:max-w-sm"
               />
-              <Button
-                className="bg-orange-500 text-white"
-                variant="outline"
-                onClick={handleCreateProduct}
-              >
-                <CirclePlus className="h-4 w-4 mr-2" /> Nový výrobek
-              </Button>
               <Select value={priceFilter} onValueChange={setPriceFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by price" />
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Filter ceny" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Prices</SelectItem>
-                  <SelectItem value="mobile">Mobile Price {">"} 0</SelectItem>
+                  <SelectItem value="all">Všechny ceny</SelectItem>
+                  <SelectItem value="mobile">Mobilní cena {">"} 0</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </div> */}
+
+            {/* Table Container - responsive */}
             <div
               ref={parentRef}
-              className="border rounded-md h-[calc(100vh-140px)] overflow-auto"
+              className="border rounded-md h-[calc(100vh-240px)] sm:h-[calc(100vh-220px)] lg:h-[calc(100vh-200px)] overflow-auto"
             >
-              <div className="sticky top-0 bg-white z-10 border-b">
-                <div className="grid grid-cols-[30px_40px_40px_40px_200px_100px_100px_100px_80px_50px_50px_50px_50px_50px_120px] gap-4 py-2 px-4 font-base text-sm">
+              {/* Desktop Header */}
+              <div className="hidden lg:block sticky top-0 bg-white z-10 border-b">
+                <div className="grid grid-cols-[30px_40px_40px_40px_200px_100px_100px_100px_80px_50px_50px_50px_50px_50px_120px] gap-4 py-2 px-4 font-medium text-sm">
                   <div></div>
                   <div className="text-center">ID</div>
                   <div className="text-center">Print ID</div>
                   <div>Kód</div>
-                  <div>Name</div>
+                  <div>Název</div>
                   <div className="text-right">NákupBez</div>
                   <div className="text-right">Mobil</div>
                   <div className="text-right">Prodej</div>
-                  <div>Category</div>
+                  <div>Kategorie</div>
                   <div className="text-right">DPH</div>
                   <div className="text-center">Active</div>
                   <div className="text-center">Odběr</div>
                   <div className="text-center">Store</div>
                   <div className="text-center">Admin</div>
-                  <div className="text-right">Actions</div>
+                  <div className="text-right">Akce</div>
                 </div>
               </div>
 
+              {/* Tablet Header */}
+              <div className="hidden md:block lg:hidden sticky top-0 bg-white z-10 border-b">
+                <div className="grid grid-cols-[40px_150px_80px_80px_80px_60px_80px] gap-2 py-2 px-3 font-medium text-sm">
+                  <div className="text-center">ID</div>
+                  <div>Název</div>
+                  <div className="text-right">Nákup</div>
+                  <div className="text-right">Mobil</div>
+                  <div className="text-right">Prodej</div>
+                  <div className="text-center">Flags</div>
+                  <div className="text-right">Akce</div>
+                </div>
+              </div>
+
+              {/* Mobile Header */}
+              <div className="block md:hidden sticky top-0 bg-white z-10 border-b py-2 px-3">
+                <div className="text-sm font-medium text-gray-600">
+                  {filteredProducts.length} produktů
+                </div>
+              </div>
+
+              {/* Virtualized Product Rows */}
               <div
                 style={{
                   height: `${rowVirtualizer.getTotalSize()}px`,
@@ -393,6 +631,9 @@ export function ProductsTable() {
               >
                 {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                   const product = filteredProducts[virtualRow.index];
+                  const hasProductParts =
+                    productPartsMap.get(product.id) || false;
+
                   return (
                     <div
                       key={product.id}
@@ -410,40 +651,42 @@ export function ProductsTable() {
                         product={product}
                         onEdit={handleEdit}
                         onOpenParts={handleOpenParts}
+                        hasProductParts={hasProductParts}
                       />
                     </div>
                   );
                 })}
               </div>
             </div>
+          </div>
 
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-              <DialogContent className="p-0 border-none">
-                <CreateProductForm />
-              </DialogContent>
-            </Dialog>
+          {/* Dialogs */}
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <DialogContent className="p-0 border-none max-w-4xl">
+              <CreateProductForm />
+            </DialogContent>
+          </Dialog>
 
-            <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-              <DialogContent className="p-0">
-                <ProductForm
-                  productId={editProductId}
-                  onClose={() => {
-                    setShowEditDialog(false);
-                    setSelectedProductId(null);
-                    setEditProductId(undefined);
-                  }}
-                />
-              </DialogContent>
-            </Dialog>
+          <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+            <DialogContent className="p-0 max-w-4xl">
+              <ProductForm
+                productId={editProductId}
+                onClose={() => {
+                  setShowEditDialog(false);
+                  setSelectedProductId(null);
+                  setEditProductId(undefined);
+                }}
+              />
+            </DialogContent>
+          </Dialog>
 
-            <ProductPartsModal
-              open={showPartsDialog}
-              onClose={handleClosePartsDialog}
-              productId={partsProductId || 0}
-              productName={partsProductName}
-            />
-          </Card>
-        </div>
+          <ProductPartsModal
+            open={showPartsDialog}
+            onClose={handleClosePartsDialog}
+            productId={partsProductId || 0}
+            productName={partsProductName}
+          />
+        </Card>
       </div>
       <ProductDetailsDialog />
     </>

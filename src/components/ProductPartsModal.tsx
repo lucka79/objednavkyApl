@@ -30,6 +30,7 @@ import { supabase } from "@/lib/supabase";
 import { useRecipes } from "@/hooks/useRecipes";
 import { useIngredients } from "@/hooks/useIngredients";
 import { fetchAllProducts } from "@/hooks/useProducts";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ProductPart {
   id?: number;
@@ -58,6 +59,7 @@ export function ProductPartsModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Fetch data for dropdowns
   const { data: recipesData } = useRecipes();
@@ -153,6 +155,9 @@ export function ProductPartsModal({
           title: "Úspěch",
           description: "Část produktu byla smazána",
         });
+
+        // Invalidate product parts count query
+        queryClient.invalidateQueries({ queryKey: ["productPartsCount"] });
       } catch (error) {
         console.error("Error deleting product part:", error);
         toast({
@@ -205,6 +210,9 @@ export function ProductPartsModal({
         description: "Části produktu byly uloženy",
       });
 
+      // Invalidate product parts count query
+      queryClient.invalidateQueries({ queryKey: ["productPartsCount"] });
+
       await loadProductParts(); // Reload to get IDs
     } catch (error) {
       console.error("Error saving product parts:", error);
@@ -224,6 +232,32 @@ export function ProductPartsModal({
       return ingredient?.unit || "";
     }
     return "ks";
+  };
+
+  const getPartPrice = (part: ProductPart) => {
+    if (part.ingredient_id) {
+      const ingredient = ingredients.find((i) => i.id === part.ingredient_id);
+      return ingredient?.price ? ingredient.price * part.quantity : 0;
+    }
+    if (part.recipe_id) {
+      const recipe = recipes.find((r) => r.id === part.recipe_id);
+      return recipe?.price ? recipe.price * part.quantity : 0;
+    }
+    if (part.pastry_id) {
+      const product = products.find((p) => p.id === part.pastry_id);
+      return product?.price ? product.price * part.quantity : 0;
+    }
+    return 0;
+  };
+
+  const getTotalPrice = () => {
+    return productParts.reduce((total, part) => {
+      // Skip parts marked as productOnly
+      if (part.productOnly) {
+        return total;
+      }
+      return total + getPartPrice(part);
+    }, 0);
   };
 
   return (
@@ -268,7 +302,8 @@ export function ProductPartsModal({
                       <TableHead>Název</TableHead>
                       <TableHead className="text-right">Množství</TableHead>
                       <TableHead>Jednotka</TableHead>
-                      <TableHead>Pouze produkt</TableHead>
+                      <TableHead className="text-right">Cena</TableHead>
+                      <TableHead>Produkt prodejny</TableHead>
                       <TableHead className="text-right">Akce</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -420,6 +455,11 @@ export function ProductPartsModal({
                             {getPartUnit(part)}
                           </span>
                         </TableCell>
+                        <TableCell className="text-right">
+                          <span className="text-sm text-muted-foreground">
+                            {getPartPrice(part).toFixed(2)} Kč
+                          </span>
+                        </TableCell>
                         <TableCell>
                           <input
                             type="checkbox"
@@ -444,6 +484,23 @@ export function ProductPartsModal({
                     ))}
                   </TableBody>
                 </Table>
+
+                {/* Total Price Summary */}
+                <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-md">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-orange-800">
+                      Celková cena částí produktu:
+                    </span>
+                    <span className="text-lg font-bold text-orange-900">
+                      {getTotalPrice().toFixed(2)} Kč
+                    </span>
+                  </div>
+                  {productParts.length > 0 && (
+                    <div className="text-xs text-orange-700 mt-1">
+                      Počet částí: {productParts.length}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </CardContent>
