@@ -1203,45 +1203,57 @@ export type Database = {
       }
       recipes: {
         Row: {
+          baker: boolean
           baking: string | null
           category_id: number
           created_at: string
+          donut: boolean
           dough: string | null
           id: number
           name: string
           note: string | null
+          pastry: boolean
           price: number
           pricePerKilo: number
           quantity: number
           stir: string | null
+          store: boolean
           water: string | null
         }
         Insert: {
+          baker?: boolean
           baking?: string | null
           category_id?: number
           created_at?: string
+          donut?: boolean
           dough?: string | null
           id?: number
           name: string
           note?: string | null
+          pastry?: boolean
           price?: number
           pricePerKilo?: number
           quantity?: number
           stir?: string | null
+          store?: boolean
           water?: string | null
         }
         Update: {
+          baker?: boolean
           baking?: string | null
           category_id?: number
           created_at?: string
+          donut?: boolean
           dough?: string | null
           id?: number
           name?: string
           note?: string | null
+          pastry?: boolean
           price?: number
           pricePerKilo?: number
           quantity?: number
           stir?: string | null
+          store?: boolean
           water?: string | null
         }
         Relationships: [

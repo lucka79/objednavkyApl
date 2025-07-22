@@ -19,7 +19,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useIngredientStore } from "@/stores/ingredientStore";
-import { Plus, Search, Package, Tag, Scale, Edit, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Package,
+  Tag,
+  Scale,
+  Edit,
+  Trash2,
+  FileText,
+  ZapIcon,
+} from "lucide-react";
 import { IngredientForm } from "./IngredientForm";
 import {
   AlertDialog,
@@ -217,6 +227,8 @@ export function IngredientsTable() {
                         <TableHead className="text-right">Cena</TableHead>
                         <TableHead>Balení</TableHead>
                         <TableHead className="text-right">DPH</TableHead>
+                        <TableHead>Složení</TableHead>
+                        <TableHead>Výživa</TableHead>
                         {/* <TableHead>EAN</TableHead> */}
                         <TableHead>Status</TableHead>
                         <TableHead>Pouze prodejna</TableHead>
@@ -225,7 +237,12 @@ export function IngredientsTable() {
                     </TableHeader>
                     <TableBody>
                       {ingredients.map((ingredient) => (
-                        <TableRow key={ingredient.id}>
+                        <TableRow
+                          key={ingredient.id}
+                          onClick={() => openEditForm(ingredient)}
+                          className="cursor-pointer hover:bg-orange-50 transition-colors"
+                          style={{ userSelect: "none" }}
+                        >
                           <TableCell className="font-medium">
                             {ingredient.name}
                           </TableCell>
@@ -264,6 +281,21 @@ export function IngredientsTable() {
                               {ingredient.vat ? `${ingredient.vat}%` : "—"}
                             </span>
                           </TableCell>
+                          <TableCell className="text-center">
+                            {ingredient.element &&
+                            ingredient.element.trim() !== "" ? (
+                              <FileText className="h-4 w-4 text-blue-600 inline-block" />
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {ingredient.kJ || ingredient.kcal ? (
+                              <ZapIcon className="h-4 w-4 text-orange-500 inline-block" />
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
                           {/* <TableCell>
                             <span className="text-sm font-mono">
                               {ingredient.ean || "—"}
@@ -300,7 +332,10 @@ export function IngredientsTable() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => openEditForm(ingredient)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEditForm(ingredient);
+                                }}
                                 className="h-8 w-8 p-0"
                               >
                                 <Edit className="h-4 w-4" />
@@ -311,6 +346,7 @@ export function IngredientsTable() {
                                     variant="ghost"
                                     size="sm"
                                     className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                                    onClick={(e) => e.stopPropagation()}
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>

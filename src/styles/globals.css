@@ -18,3 +18,9 @@
   left: 0;
   width: 100%;
 }
+
+input[type="number"].no-spinner {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+

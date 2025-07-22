@@ -18,8 +18,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useRecipes } from "@/hooks/useRecipes";
-import { Plus, Search, Scale, Edit, Trash2, ChefHat } from "lucide-react";
+import {
+  RecipeWithCategoryAndIngredients,
+  useRecipes,
+} from "@/hooks/useRecipes";
+import {
+  Plus,
+  Search,
+  Scale,
+  Edit,
+  Trash2,
+  ChefHat,
+  Wheat,
+  Milk,
+  Egg,
+  AlertTriangle,
+  Nut,
+  Fish,
+  Shell,
+} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -149,6 +166,156 @@ export function RecipesTable() {
     );
   }
 
+  // Allergen detection function with icon mapping
+  const detectAllergens = (
+    element: string | null
+  ): Array<{ name: string; icon: any; color: string }> => {
+    if (!element) return [];
+    const allergenKeywords = [
+      {
+        keywords: [
+          "gluten",
+          "pšenice",
+          "pšen.mouka",
+          "žito",
+          "žit.mouka",
+          "ječmen",
+          "oves",
+          "špalda",
+        ],
+        name: "Lepek",
+        icon: Wheat,
+        color: "bg-amber-100 text-amber-800",
+      },
+      {
+        keywords: ["mléko", "laktóza", "sýr", "máslo", "smetana"],
+        name: "Mléko",
+        icon: Milk,
+        color: "bg-blue-100 text-blue-800",
+      },
+      {
+        keywords: ["vejce", "vaječný", "vaječná"],
+        name: "Vejce",
+        icon: Egg,
+        color: "bg-yellow-100 text-yellow-800",
+      },
+      {
+        keywords: ["sója", "soj.", "sójový", "sójová"],
+        name: "Sója",
+        icon: AlertTriangle,
+        color: "bg-green-100 text-green-800",
+      },
+      {
+        keywords: [
+          "ořechy",
+          "mandle",
+          "lískové",
+          "vlašské",
+          "pekanové",
+          "kešu",
+          "pistácie",
+        ],
+        name: "Ořechy",
+        icon: Nut,
+        color: "bg-orange-100 text-orange-800",
+      },
+      {
+        keywords: ["arašídy", "burské ořechy"],
+        name: "Arašídy",
+        icon: Nut,
+        color: "bg-red-100 text-red-800",
+      },
+      {
+        keywords: ["sezam", "sezamové"],
+        name: "Sezam",
+        icon: AlertTriangle,
+        color: "bg-purple-100 text-purple-800",
+      },
+      {
+        keywords: ["ryby", "rybí"],
+        name: "Ryby",
+        icon: Fish,
+        color: "bg-cyan-100 text-cyan-800",
+      },
+      {
+        keywords: ["korýši", "krevety", "kraby"],
+        name: "Korýši",
+        icon: Shell,
+        color: "bg-pink-100 text-pink-800",
+      },
+      {
+        keywords: ["měkkýši", "slávky", "škeble"],
+        name: "Měkkýši",
+        icon: Shell,
+        color: "bg-indigo-100 text-indigo-800",
+      },
+      {
+        keywords: ["celer", "celerový"],
+        name: "Celer",
+        icon: AlertTriangle,
+        color: "bg-lime-100 text-lime-800",
+      },
+      {
+        keywords: ["hořčice", "hořčičné"],
+        name: "Hořčice",
+        icon: AlertTriangle,
+        color: "bg-yellow-100 text-yellow-800",
+      },
+      {
+        keywords: ["oxid siřičitý", "siřičitany", "sulfity"],
+        name: "Siřičitany",
+        icon: AlertTriangle,
+        color: "bg-gray-100 text-gray-800",
+      },
+      {
+        keywords: ["lupin", "vlčí bob"],
+        name: "Lupin",
+        icon: AlertTriangle,
+        color: "bg-violet-100 text-violet-800",
+      },
+    ];
+    const foundAllergens: Array<{ name: string; icon: any; color: string }> =
+      [];
+    const elementLower = element.toLowerCase();
+    allergenKeywords.forEach((allergenGroup) => {
+      const found = allergenGroup.keywords.some((keyword) =>
+        elementLower.includes(keyword.toLowerCase())
+      );
+      if (found && !foundAllergens.find((a) => a.name === allergenGroup.name)) {
+        foundAllergens.push({
+          name: allergenGroup.name,
+          icon: allergenGroup.icon,
+          color: allergenGroup.color,
+        });
+      }
+    });
+    return foundAllergens;
+  };
+
+  // Helper to aggregate unique allergens for a recipe
+  const getRecipeAllergens = (recipe: RecipeWithCategoryAndIngredients) => {
+    const allergenMap = new Map();
+    if (recipe.recipe_ingredients) {
+      recipe.recipe_ingredients.forEach((ri) => {
+        if (ri.ingredient && ri.ingredient.element) {
+          detectAllergens(ri.ingredient.element).forEach((a) => {
+            if (!allergenMap.has(a.name)) allergenMap.set(a.name, a);
+          });
+        }
+      });
+    }
+    return Array.from(allergenMap.values());
+  };
+
+  // Helper to get border color based on recipe type
+  const getRecipeBorderColor = (recipe: RecipeWithCategoryAndIngredients) => {
+    if (recipe.baker) return "border-l-blue-500";
+    if (recipe.pastry) return "border-l-pink-500";
+    if (recipe.donut) return "border-l-purple-500";
+    if (recipe.store) return "border-l-green-500";
+    return ""; // No border for recipes without flags
+  };
+
   return (
     <>
       <Card>
@@ -219,86 +386,143 @@ export function RecipesTable() {
                         <TableHead className="text-right">Množství</TableHead>
                         <TableHead className="text-right">Cena</TableHead>
                         <TableHead className="text-right">Cena/kg</TableHead>
+                        <TableHead>Alergeny</TableHead>
                         <TableHead>Poznámka</TableHead>
+
                         <TableHead className="text-right">Akce</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {recipes.map((recipe) => (
-                        <TableRow key={recipe.id}>
-                          <TableCell className="font-medium">
-                            {recipe.name}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center gap-1 justify-end">
-                              <Scale className="h-3 w-3 text-muted-foreground" />
+                      {recipes.map((recipe) => {
+                        const borderColor = getRecipeBorderColor(recipe);
+                        const hasColorFlag =
+                          recipe.baker ||
+                          recipe.pastry ||
+                          recipe.donut ||
+                          recipe.store;
+                        return (
+                          <TableRow
+                            key={recipe.id}
+                            onClick={() => handleOpenEdit(recipe)}
+                            className={`cursor-pointer hover:bg-orange-50 transition-colors ${hasColorFlag ? "border-l-4" : ""} ${borderColor}`}
+                            style={{ userSelect: "none" }}
+                          >
+                            <TableCell className="font-medium">
+                              {recipe.name}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center gap-1 justify-end">
+                                <Scale className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-sm">
+                                  {recipe.quantity.toFixed(2)} kg
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
                               <span className="text-sm">
-                                {recipe.quantity.toFixed(2)} kg
+                                {recipe.price.toFixed(2)} Kč
                               </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <span className="text-sm">
-                              {recipe.price.toFixed(2)} Kč
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <span className="text-sm">
-                              {recipe.pricePerKilo.toFixed(2)} Kč/kg
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-sm text-muted-foreground">
-                              {recipe.note || "—"}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleOpenEdit(recipe)}
-                                className="h-8 w-8 p-0"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                      Smazat recept
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Opravdu chcete smazat recept "
-                                      {recipe.name}"? Tato akce je nevratná.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                      Zrušit
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleDelete(recipe)}
-                                      className="bg-red-600 hover:bg-red-700"
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span className="text-sm">
+                                {recipe.pricePerKilo.toFixed(2)} Kč/kg
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap gap-1">
+                                {getRecipeAllergens(recipe).length > 0 ? (
+                                  getRecipeAllergens(recipe)
+                                    .slice(0, 3)
+                                    .map((allergen, idx) => {
+                                      const IconComponent = allergen.icon;
+                                      return (
+                                        <span
+                                          key={idx}
+                                          className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${allergen.color}`}
+                                        >
+                                          <IconComponent className="h-3 w-3" />
+                                          {allergen.name}
+                                        </span>
+                                      );
+                                    })
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">
+                                    Bez alergenů
+                                  </span>
+                                )}
+                                {getRecipeAllergens(recipe).length > 3 && (
+                                  <span className="text-xs text-muted-foreground">
+                                    +{getRecipeAllergens(recipe).length - 3}{" "}
+                                    další
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm text-muted-foreground">
+                                {recipe.note || "—"}
+                              </span>
+                            </TableCell>
+
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenEdit(recipe);
+                                  }}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                                      onClick={(e) => e.stopPropagation()}
                                     >
-                                      Smazat
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>
+                                        Smazat recept
+                                      </AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Opravdu chcete smazat recept "
+                                        {recipe.name}"? Tato akce je nevratná.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>
+                                        Zrušit
+                                      </AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDelete(recipe)}
+                                        className="bg-red-600 hover:bg-red-700"
+                                      >
+                                        Smazat
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {/* Add fake empty row to help with border display */}
+                      <TableRow className="h-0">
+                        <TableCell
+                          colSpan={7}
+                          className="p-0 border-0"
+                        ></TableCell>
+                      </TableRow>
                     </TableBody>
                   </Table>
                 </div>

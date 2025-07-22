@@ -19,7 +19,18 @@ import {
 } from "@/components/ui/dialog";
 import { useIngredientStore } from "@/stores/ingredientStore";
 // import { IngredientWithCategory } from "@/hooks/useIngredients";
-import { X, Save, Plus } from "lucide-react";
+import {
+  X,
+  Save,
+  Plus,
+  Wheat,
+  Milk,
+  Egg,
+  AlertTriangle,
+  Nut,
+  Fish,
+  Shell,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface IngredientFormData {
@@ -69,6 +80,133 @@ const initialFormData: IngredientFormData = {
   element: null,
 };
 
+// Allergen detection function with icon mapping
+const detectAllergens = (
+  element: string | null
+): Array<{ name: string; icon: any; color: string }> => {
+  if (!element) return [];
+  const allergenKeywords = [
+    {
+      keywords: [
+        "gluten",
+        "pšenice",
+        "pšen.mouka",
+        "žito",
+        "žit.mouka",
+        "ječmen",
+        "oves",
+        "špalda",
+      ],
+      name: "Lepek",
+      icon: Wheat,
+      color: "bg-amber-100 text-amber-800",
+    },
+    {
+      keywords: ["mléko", "laktóza", "sýr", "máslo", "smetana"],
+      name: "Mléko",
+      icon: Milk,
+      color: "bg-blue-100 text-blue-800",
+    },
+    {
+      keywords: ["vejce", "vaječný", "vaječná"],
+      name: "Vejce",
+      icon: Egg,
+      color: "bg-yellow-100 text-yellow-800",
+    },
+    {
+      keywords: ["sója", "soj.", "sójový", "sójová"],
+      name: "Sója",
+      icon: AlertTriangle,
+      color: "bg-green-100 text-green-800",
+    },
+    {
+      keywords: [
+        "ořechy",
+        "mandle",
+        "lískové",
+        "vlašské",
+        "pekanové",
+        "kešu",
+        "pistácie",
+      ],
+      name: "Ořechy",
+      icon: Nut,
+      color: "bg-orange-100 text-orange-800",
+    },
+    {
+      keywords: ["arašídy", "burské ořechy"],
+      name: "Arašídy",
+      icon: Nut,
+      color: "bg-red-100 text-red-800",
+    },
+    {
+      keywords: ["sezam", "sezamové"],
+      name: "Sezam",
+      icon: AlertTriangle,
+      color: "bg-purple-100 text-purple-800",
+    },
+    {
+      keywords: ["ryby", "rybí"],
+      name: "Ryby",
+      icon: Fish,
+      color: "bg-cyan-100 text-cyan-800",
+    },
+    {
+      keywords: ["korýši", "krevety", "kraby"],
+      name: "Korýši",
+      icon: Shell,
+      color: "bg-pink-100 text-pink-800",
+    },
+    {
+      keywords: ["měkkýši", "slávky", "škeble"],
+      name: "Měkkýši",
+      icon: Shell,
+      color: "bg-indigo-100 text-indigo-800",
+    },
+    {
+      keywords: ["celer", "celerový"],
+      name: "Celer",
+      icon: AlertTriangle,
+      color: "bg-lime-100 text-lime-800",
+    },
+    {
+      keywords: ["hořčice", "hořčičné"],
+      name: "Hořčice",
+      icon: AlertTriangle,
+      color: "bg-yellow-100 text-yellow-800",
+    },
+    {
+      keywords: ["oxid siřičitý", "siřičitany", "sulfity"],
+      name: "Siřičitany",
+      icon: AlertTriangle,
+      color: "bg-gray-100 text-gray-800",
+    },
+    {
+      keywords: ["lupin", "vlčí bob"],
+      name: "Lupin",
+      icon: AlertTriangle,
+      color: "bg-violet-100 text-violet-800",
+    },
+  ];
+  const foundAllergens: Array<{ name: string; icon: any; color: string }> = [];
+  const elementLower = element.toLowerCase();
+  allergenKeywords.forEach((allergenGroup) => {
+    const found = allergenGroup.keywords.some((keyword) =>
+      elementLower.includes(keyword.toLowerCase())
+    );
+    if (found && !foundAllergens.find((a) => a.name === allergenGroup.name)) {
+      foundAllergens.push({
+        name: allergenGroup.name,
+        icon: allergenGroup.icon,
+        color: allergenGroup.color,
+      });
+    }
+  });
+  return foundAllergens;
+};
+
+const COMMON_UNITS = ["kg", "l", "ks"];
+
 export function IngredientForm() {
   const {
     isFormOpen,
@@ -89,6 +227,7 @@ export function IngredientForm() {
   const [validationErrors, setValidationErrors] = useState<
     Record<string, string>
   >({});
+  const [customUnit, setCustomUnit] = useState("");
 
   // Load categories on mount
   useEffect(() => {
@@ -211,6 +350,8 @@ export function IngredientForm() {
     closeForm();
   };
 
+  const allergens = detectAllergens(formData.element);
+
   return (
     <Dialog open={isFormOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -290,13 +431,52 @@ export function IngredientForm() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="unit">Jednotka *</Label>
-                  <Input
-                    id="unit"
-                    value={formData.unit}
-                    onChange={(e) => handleInputChange("unit", e.target.value)}
-                    placeholder="např. kg, l, ks"
-                    className={validationErrors.unit ? "border-red-500" : ""}
-                  />
+                  <Select
+                    value={
+                      COMMON_UNITS.includes(formData.unit)
+                        ? formData.unit
+                        : "jiná..."
+                    }
+                    onValueChange={(value) => {
+                      if (value === "jiná...") {
+                        setCustomUnit(
+                          formData.unit && !COMMON_UNITS.includes(formData.unit)
+                            ? formData.unit
+                            : ""
+                        );
+                        handleInputChange("unit", "");
+                      } else {
+                        handleInputChange("unit", value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Vyberte jednotku" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COMMON_UNITS.map((unit) => (
+                        <SelectItem key={unit} value={unit}>
+                          {unit}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {((formData.unit === "" && customUnit !== "") ||
+                    (!COMMON_UNITS.includes(formData.unit) &&
+                      formData.unit !== "")) && (
+                    <Input
+                      id="unit-custom"
+                      value={customUnit}
+                      onChange={(e) => {
+                        setCustomUnit(e.target.value);
+                        handleInputChange("unit", e.target.value);
+                      }}
+                      placeholder="Zadejte vlastní jednotku"
+                      className={
+                        validationErrors.unit ? "border-red-500 mt-2" : "mt-2"
+                      }
+                    />
+                  )}
                   {validationErrors.unit && (
                     <p className="text-sm text-red-500">
                       {validationErrors.unit}
@@ -583,6 +763,36 @@ export function IngredientForm() {
                 </div>
               </div>
 
+              {/* Allergen Section */}
+              {formData.element && formData.element.trim() !== "" && (
+                <div className="mb-2">
+                  <Label className="block mb-1 text-sm font-semibold text-red-700">
+                    Alergeny
+                  </Label>
+                  {allergens.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {allergens.map((allergen, idx) => {
+                        const IconComponent = allergen.icon;
+                        return (
+                          <span
+                            key={idx}
+                            className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${allergen.color}`}
+                          >
+                            <IconComponent className="h-3 w-3" />
+                            {allergen.name}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      Žádné alergeny detekovány
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Složení ingredience */}
               <div className="space-y-2">
                 <Label htmlFor="element">Složení ingredience</Label>
                 <textarea

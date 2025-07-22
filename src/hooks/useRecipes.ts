@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Ingredient } from "./useIngredients";
 
 export interface Recipe {
   id: number;
@@ -14,6 +15,10 @@ export interface Recipe {
   stir: string | null;
   water: string | null;
   created_at: string;
+  baker: boolean;
+  pastry: boolean;
+  donut: boolean;
+  store: boolean;
 }
 
 export interface RecipeIngredient {
@@ -38,17 +43,29 @@ export interface RecipeWithCategory extends Recipe {
   categories: RecipeCategory | null;
 }
 
+export interface RecipeIngredientWithIngredient extends RecipeIngredient {
+  ingredient: Ingredient;
+}
+
+export interface RecipeWithCategoryAndIngredients extends RecipeWithCategory {
+  recipe_ingredients: RecipeIngredientWithIngredient[];
+}
+
 export const useRecipes = () => {
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ["recipes"],
     queryFn: async () => {
-      // Fetch recipes with their categories
+      // Fetch recipes with their categories and ingredients
       const { data: recipes, error: recipesError } = await supabase
         .from("recipes")
         .select(`
           *,
-          categories!recepts_category_id_fkey(*)
+          categories!recepts_category_id_fkey(*),
+          recipe_ingredients(
+            *,
+            ingredient:ingredients(*)
+          )
         `)
         .order("name", { ascending: true });
 
@@ -64,7 +81,7 @@ export const useRecipes = () => {
       if (categoriesError) throw categoriesError;
 
       return {
-        recipes: recipes as RecipeWithCategory[],
+        recipes: recipes as RecipeWithCategoryAndIngredients[],
         categories: categories as RecipeCategory[],
       };
     },
