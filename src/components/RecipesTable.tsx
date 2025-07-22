@@ -51,6 +51,153 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { RecipeForm } from "@/components/RecipeForm";
 
+// Function to remove diacritics from Czech text
+const removeDiacritics = (text: string): string => {
+  const diacriticsMap: { [key: string]: string } = {
+    á: "a",
+    à: "a",
+    ä: "a",
+    â: "a",
+    ā: "a",
+    ă: "a",
+    ą: "a",
+    č: "c",
+    ć: "c",
+    ĉ: "c",
+    ċ: "c",
+    ç: "c",
+    ď: "d",
+    đ: "d",
+    é: "e",
+    è: "e",
+    ë: "e",
+    ê: "e",
+    ē: "e",
+    ĕ: "e",
+    ė: "e",
+    ę: "e",
+    ě: "e",
+    í: "i",
+    ì: "i",
+    ï: "i",
+    î: "i",
+    ī: "i",
+    ĭ: "i",
+    į: "i",
+    ň: "n",
+    ń: "n",
+    ñ: "n",
+    ņ: "n",
+    ó: "o",
+    ò: "o",
+    ö: "o",
+    ô: "o",
+    ō: "o",
+    ŏ: "o",
+    ő: "o",
+    ř: "r",
+    ŕ: "r",
+    ŗ: "r",
+    š: "s",
+    ś: "s",
+    ŝ: "s",
+    ş: "s",
+    ș: "s",
+    ť: "t",
+    ţ: "t",
+    ț: "t",
+    ú: "u",
+    ù: "u",
+    ü: "u",
+    û: "u",
+    ū: "u",
+    ŭ: "u",
+    ů: "u",
+    ű: "u",
+    ų: "u",
+    ý: "y",
+    ỳ: "y",
+    ÿ: "y",
+    ŷ: "y",
+    ž: "z",
+    ź: "z",
+    ż: "z",
+    Á: "A",
+    À: "A",
+    Ä: "A",
+    Â: "A",
+    Ā: "A",
+    Ă: "A",
+    Ą: "A",
+    Č: "C",
+    Ć: "C",
+    Ĉ: "C",
+    Ċ: "C",
+    Ç: "C",
+    Ď: "D",
+    Đ: "D",
+    É: "E",
+    È: "E",
+    Ë: "E",
+    Ê: "E",
+    Ē: "E",
+    Ĕ: "E",
+    Ė: "E",
+    Ę: "E",
+    Ě: "E",
+    Í: "I",
+    Ì: "I",
+    Ï: "I",
+    Î: "I",
+    Ī: "I",
+    Ĭ: "I",
+    Į: "I",
+    Ň: "N",
+    Ń: "N",
+    Ñ: "N",
+    Ņ: "N",
+    Ó: "O",
+    Ò: "O",
+    Ö: "O",
+    Ô: "O",
+    Ō: "O",
+    Ŏ: "O",
+    Ő: "O",
+    Ř: "R",
+    Ŕ: "R",
+    Ŗ: "R",
+    Š: "S",
+    Ś: "S",
+    Ŝ: "S",
+    Ş: "S",
+    Ș: "S",
+    Ť: "T",
+    Ţ: "T",
+    Ț: "T",
+    Ú: "U",
+    Ù: "U",
+    Ü: "U",
+    Û: "U",
+    Ū: "U",
+    Ŭ: "U",
+    Ů: "U",
+    Ű: "U",
+    Ų: "U",
+    Ý: "Y",
+    Ỳ: "Y",
+    Ÿ: "Y",
+    Ŷ: "Y",
+    Ž: "Z",
+    Ź: "Z",
+    Ż: "Z",
+  };
+
+  return text.replace(
+    /[^\u0000-\u007E]/g,
+    (char) => diacriticsMap[char] || char
+  );
+};
+
 export function RecipesTable() {
   const { data, isLoading, error } = useRecipes();
   const { toast } = useToast();
@@ -98,11 +245,17 @@ export function RecipesTable() {
       )
       .map(({ categoryName, recipes }) => ({
         categoryName,
-        recipes: recipes.filter(
-          (recipe) =>
-            recipe.name.toLowerCase().includes(globalFilter.toLowerCase()) ||
-            recipe.note?.toLowerCase().includes(globalFilter.toLowerCase())
-        ),
+        recipes: recipes.filter((recipe) => {
+          const searchLower = removeDiacritics(globalFilter.toLowerCase());
+          const nameMatch = removeDiacritics(
+            recipe.name.toLowerCase()
+          ).includes(searchLower);
+          const noteMatch = recipe.note
+            ? removeDiacritics(recipe.note.toLowerCase()).includes(searchLower)
+            : false;
+
+          return nameMatch || noteMatch;
+        }),
       }))
       .filter(({ recipes }) => recipes.length > 0);
   }, [groupedRecipes, globalFilter, categoryFilter]);

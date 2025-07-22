@@ -45,6 +45,153 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 
+// Function to remove diacritics from Czech text
+const removeDiacritics = (text: string): string => {
+  const diacriticsMap: { [key: string]: string } = {
+    á: "a",
+    à: "a",
+    ä: "a",
+    â: "a",
+    ā: "a",
+    ă: "a",
+    ą: "a",
+    č: "c",
+    ć: "c",
+    ĉ: "c",
+    ċ: "c",
+    ç: "c",
+    ď: "d",
+    đ: "d",
+    é: "e",
+    è: "e",
+    ë: "e",
+    ê: "e",
+    ē: "e",
+    ĕ: "e",
+    ė: "e",
+    ę: "e",
+    ě: "e",
+    í: "i",
+    ì: "i",
+    ï: "i",
+    î: "i",
+    ī: "i",
+    ĭ: "i",
+    į: "i",
+    ň: "n",
+    ń: "n",
+    ñ: "n",
+    ņ: "n",
+    ó: "o",
+    ò: "o",
+    ö: "o",
+    ô: "o",
+    ō: "o",
+    ŏ: "o",
+    ő: "o",
+    ř: "r",
+    ŕ: "r",
+    ŗ: "r",
+    š: "s",
+    ś: "s",
+    ŝ: "s",
+    ş: "s",
+    ș: "s",
+    ť: "t",
+    ţ: "t",
+    ț: "t",
+    ú: "u",
+    ù: "u",
+    ü: "u",
+    û: "u",
+    ū: "u",
+    ŭ: "u",
+    ů: "u",
+    ű: "u",
+    ų: "u",
+    ý: "y",
+    ỳ: "y",
+    ÿ: "y",
+    ŷ: "y",
+    ž: "z",
+    ź: "z",
+    ż: "z",
+    Á: "A",
+    À: "A",
+    Ä: "A",
+    Â: "A",
+    Ā: "A",
+    Ă: "A",
+    Ą: "A",
+    Č: "C",
+    Ć: "C",
+    Ĉ: "C",
+    Ċ: "C",
+    Ç: "C",
+    Ď: "D",
+    Đ: "D",
+    É: "E",
+    È: "E",
+    Ë: "E",
+    Ê: "E",
+    Ē: "E",
+    Ĕ: "E",
+    Ė: "E",
+    Ę: "E",
+    Ě: "E",
+    Í: "I",
+    Ì: "I",
+    Ï: "I",
+    Î: "I",
+    Ī: "I",
+    Ĭ: "I",
+    Į: "I",
+    Ň: "N",
+    Ń: "N",
+    Ñ: "N",
+    Ņ: "N",
+    Ó: "O",
+    Ò: "O",
+    Ö: "O",
+    Ô: "O",
+    Ō: "O",
+    Ŏ: "O",
+    Ő: "O",
+    Ř: "R",
+    Ŕ: "R",
+    Ŗ: "R",
+    Š: "S",
+    Ś: "S",
+    Ŝ: "S",
+    Ş: "S",
+    Ș: "S",
+    Ť: "T",
+    Ţ: "T",
+    Ț: "T",
+    Ú: "U",
+    Ù: "U",
+    Ü: "U",
+    Û: "U",
+    Ū: "U",
+    Ŭ: "U",
+    Ů: "U",
+    Ű: "U",
+    Ų: "U",
+    Ý: "Y",
+    Ỳ: "Y",
+    Ÿ: "Y",
+    Ŷ: "Y",
+    Ž: "Z",
+    Ź: "Z",
+    Ż: "Z",
+  };
+
+  return text.replace(
+    /[^\u0000-\u007E]/g,
+    (char) => diacriticsMap[char] || char
+  );
+};
+
 export function IngredientsTable() {
   const {
     ingredients,
@@ -104,16 +251,20 @@ export function IngredientsTable() {
       )
       .map(({ categoryName, ingredients }) => ({
         categoryName,
-        ingredients: ingredients.filter(
-          (ingredient) =>
-            ingredient.name
-              .toLowerCase()
-              .includes(globalFilter.toLowerCase()) ||
-            ingredient.ean?.includes(globalFilter) ||
-            ingredient.ingredient_categories?.name
-              .toLowerCase()
-              .includes(globalFilter.toLowerCase())
-        ),
+        ingredients: ingredients.filter((ingredient) => {
+          const searchLower = removeDiacritics(globalFilter.toLowerCase());
+          const nameMatch = removeDiacritics(
+            ingredient.name.toLowerCase()
+          ).includes(searchLower);
+          const eanMatch = ingredient.ean?.includes(globalFilter);
+          const categoryMatch = ingredient.ingredient_categories?.name
+            ? removeDiacritics(
+                ingredient.ingredient_categories.name.toLowerCase()
+              ).includes(searchLower)
+            : false;
+
+          return nameMatch || eanMatch || categoryMatch;
+        }),
       }))
       .filter(({ ingredients }) => ingredients.length > 0);
   }, [groupedIngredients, globalFilter, categoryFilter]);
@@ -123,14 +274,20 @@ export function IngredientsTable() {
     if (!ingredients) return [];
 
     return ingredients
-      .filter(
-        (ingredient) =>
-          ingredient.name.toLowerCase().includes(globalFilter.toLowerCase()) ||
-          ingredient.ean?.includes(globalFilter) ||
-          ingredient.ingredient_categories?.name
-            .toLowerCase()
-            .includes(globalFilter.toLowerCase())
-      )
+      .filter((ingredient) => {
+        const searchLower = removeDiacritics(globalFilter.toLowerCase());
+        const nameMatch = removeDiacritics(
+          ingredient.name.toLowerCase()
+        ).includes(searchLower);
+        const eanMatch = ingredient.ean?.includes(globalFilter);
+        const categoryMatch = ingredient.ingredient_categories?.name
+          ? removeDiacritics(
+              ingredient.ingredient_categories.name.toLowerCase()
+            ).includes(searchLower)
+          : false;
+
+        return nameMatch || eanMatch || categoryMatch;
+      })
       .filter((ingredient) => {
         if (categoryFilter === "all") return true;
         const categoryName =
