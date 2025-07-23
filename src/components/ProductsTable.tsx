@@ -931,6 +931,7 @@ export function ProductsTable() {
                     <div className="text-center">Act</div>
                     <div className="text-center">Odběr</div>
                     <div className="text-center">Store</div>
+
                     <div className="text-right">Akce</div>
                   </div>
                 </div>

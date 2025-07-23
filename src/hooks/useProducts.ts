@@ -56,7 +56,7 @@ export const fetchAllProducts = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select("*, parts, allergens")
         .order("name", { ascending: true });
       if (error) {
         throw new Error(error.message);
@@ -76,7 +76,7 @@ export const fetchActiveProducts = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select("*, parts, allergens")
         .eq("active", true)
         .order("name", { ascending: true });
       if (error) {
@@ -97,7 +97,7 @@ export const fetchStoreProducts = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select("*, parts, allergens")
         .eq("store", true)
         .eq("active", true)
         .order("name", { ascending: true });
@@ -120,7 +120,7 @@ export const fetchProductById = (id: number | null, options?: { enabled?: boolea
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select('*, parts, allergens')
         .eq('id', id)
         .single();
       if (error) throw error;
@@ -200,7 +200,7 @@ export const useProducts = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select('*, parts, allergens')
         .eq('active', true)
         .order('name');
       

@@ -538,6 +538,35 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
     }
   };
 
+  // Helper function to normalize element text for comparison
+  const normalizeElement = (element: string): string => {
+    return (
+      element
+        .trim()
+        .toLowerCase()
+        // Remove multiple spaces and normalize to single space
+        .replace(/\s+/g, " ")
+        // Normalize spacing around punctuation
+        .replace(/\s*\.\s*/g, ".")
+        .replace(/\s*,\s*/g, ",")
+        .replace(/\s*;\s*/g, ";")
+        .replace(/\s*:\s*/g, ":")
+        .replace(/\s*-\s*/g, "-")
+        .replace(/\s*\/\s*/g, "/")
+        .replace(/\s*\(\s*/g, "(")
+        .replace(/\s*\)\s*/g, ")")
+        // Remove trailing punctuation that might be inconsistent
+        .replace(/[.,;:]+$/, "")
+        // Normalize common abbreviations
+        .replace(/\bpšen\./g, "pšeničná")
+        .replace(/\bžit\./g, "žitná")
+        .replace(/\bovoc\./g, "ovocný")
+        .replace(/\bzelez\./g, "železitý")
+        // Final cleanup
+        .trim()
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -915,20 +944,25 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
                     );
                   }
 
-                  // Merge all elements into a single text
-                  const mergedElements = ingredientsWithElements
-                    .map(({ ingredient }) => ingredient.element.trim())
-                    .join(", ");
+                  // Create a map to track unique normalized elements and keep original text
+                  const elementMap = new Map<string, string>();
+
+                  ingredientsWithElements.forEach(({ ingredient }) => {
+                    const originalElement = ingredient.element.trim();
+                    const normalizedElement = normalizeElement(originalElement);
+
+                    // Keep the first occurrence (highest quantity) of each normalized element
+                    if (!elementMap.has(normalizedElement)) {
+                      elementMap.set(normalizedElement, originalElement);
+                    }
+                  });
+
+                  // Get unique elements preserving original formatting
+                  const uniqueElements = Array.from(elementMap.values());
+                  const mergedElements = uniqueElements.join(", ");
 
                   return (
                     <div className="bg-white/80 rounded border border-green-200 p-4">
-                      {/* <h4 className="font-semibold text-green-800 mb-3 flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        Celkové složení receptu
-                        <span className="text-sm font-normal text-green-600">
-                          ({ingredientsWithElements.length} surovin se složením)
-                        </span>
-                      </h4> */}
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="text-sm text-gray-700 leading-relaxed flex-1">
                           {mergedElements}

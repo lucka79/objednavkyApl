@@ -86,6 +86,13 @@ export function ProductPartsModal({
     }
   }, [open, productId]);
 
+  // Auto-save composition when product parts change
+  useEffect(() => {
+    if (open && productParts.length >= 0) {
+      calculateAndSaveComposition();
+    }
+  }, [productParts, open]);
+
   const loadProductParts = async () => {
     setIsLoading(true);
     try {
@@ -214,13 +221,177 @@ export function ProductPartsModal({
         if (error) throw error;
       }
 
+      // Calculate composition and allergens for the product
+      const ingredientsWithElements: Array<{
+        ingredient: any;
+        quantity: number;
+      }> = [];
+
+      // Collect ingredients from all parts (excluding productOnly parts)
+      for (const part of validParts) {
+        if (part.productOnly) continue;
+
+        // Handle direct ingredients
+        if (part.ingredient_id) {
+          const ingredient = ingredients.find(
+            (i) => i.id === part.ingredient_id
+          );
+          if (
+            ingredient &&
+            ingredient.element &&
+            ingredient.element.trim() !== ""
+          ) {
+            ingredientsWithElements.push({
+              ingredient,
+              quantity: part.quantity,
+            });
+          }
+        }
+
+        // Handle ingredients from recipes
+        if (part.recipe_id) {
+          const recipe = recipes.find((r) => r.id === part.recipe_id);
+          if (recipe && recipe.recipe_ingredients) {
+            recipe.recipe_ingredients.forEach((recipeIng: any) => {
+              if (
+                recipeIng.ingredient &&
+                recipeIng.ingredient.element &&
+                recipeIng.ingredient.element.trim() !== ""
+              ) {
+                const usedQuantity = recipeIng.quantity * part.quantity;
+                ingredientsWithElements.push({
+                  ingredient: recipeIng.ingredient,
+                  quantity: usedQuantity,
+                });
+              }
+            });
+          }
+        }
+
+        // Handle ingredients from product parts (pastry_id)
+        if (part.pastry_id) {
+          try {
+            // Fetch ingredients from the referenced product
+            const { data: subProductParts, error: subError } = await supabase
+              .from("product_parts")
+              .select(
+                `
+                *,
+                recipes(name, recipe_ingredients(quantity, ingredient:ingredients(*))),
+                ingredients(name, unit, element, kJ, kcal, fat, saturates, carbohydrate, sugars, protein, fibre, salt, kiloPerUnit, price)
+              `
+              )
+              .eq("product_id", part.pastry_id);
+
+            if (subError) throw subError;
+
+            if (subProductParts) {
+              subProductParts.forEach((subPart: any) => {
+                if (subPart.productOnly) return;
+
+                // Handle direct ingredients from sub-product
+                if (subPart.ingredient_id && subPart.ingredients) {
+                  const ingredient = subPart.ingredients;
+                  if (
+                    ingredient &&
+                    ingredient.element &&
+                    ingredient.element.trim() !== ""
+                  ) {
+                    ingredientsWithElements.push({
+                      ingredient,
+                      quantity: subPart.quantity * part.quantity,
+                    });
+                  }
+                }
+
+                // Handle recipe ingredients from sub-product
+                if (
+                  subPart.recipe_id &&
+                  subPart.recipes &&
+                  subPart.recipes.recipe_ingredients
+                ) {
+                  subPart.recipes.recipe_ingredients.forEach(
+                    (recipeIng: any) => {
+                      if (
+                        recipeIng.ingredient &&
+                        recipeIng.ingredient.element &&
+                        recipeIng.ingredient.element.trim() !== ""
+                      ) {
+                        const usedQuantity =
+                          recipeIng.quantity * subPart.quantity * part.quantity;
+                        ingredientsWithElements.push({
+                          ingredient: recipeIng.ingredient,
+                          quantity: usedQuantity,
+                        });
+                      }
+                    }
+                  );
+                }
+              });
+            }
+          } catch (error) {
+            console.error(
+              `Error getting ingredients from product ${part.pastry_id}:`,
+              error
+            );
+          }
+        }
+      }
+
+      // Process ingredients and create composition
+      let compositionText = "";
+      let allergensArray: string[] = [];
+
+      if (ingredientsWithElements.length > 0) {
+        // Group ingredients by name and sum quantities
+        const groupedIngredients = new Map<
+          string,
+          { ingredient: any; quantity: number }
+        >();
+        ingredientsWithElements.forEach(({ ingredient, quantity }) => {
+          if (groupedIngredients.has(ingredient.name)) {
+            const existing = groupedIngredients.get(ingredient.name)!;
+            existing.quantity += quantity;
+          } else {
+            groupedIngredients.set(ingredient.name, { ingredient, quantity });
+          }
+        });
+
+        // Sort by quantity (descending) and create simple composition
+        const sortedIngredients = Array.from(groupedIngredients.values()).sort(
+          (a, b) => b.quantity - a.quantity
+        );
+
+        // Simple merging without normalization
+        const elements = sortedIngredients.map(({ ingredient }) =>
+          ingredient.element.trim()
+        );
+        compositionText = elements.join(", ");
+
+        // Detect allergens
+        const detectedAllergens = detectAllergens(compositionText);
+        allergensArray = detectedAllergens.map((allergen) => allergen.name);
+      }
+
+      // Update the product with composition and allergens
+      const { error: updateError } = await supabase
+        .from("products")
+        .update({
+          parts: compositionText || null,
+          allergens: allergensArray.length > 0 ? allergensArray : null,
+        })
+        .eq("id", productId);
+
+      if (updateError) throw updateError;
+
       toast({
         title: "Úspěch",
-        description: "Části produktu byly uloženy",
+        description: `Části produktu byly uloženy a složení bylo aktualizováno${compositionText ? " (" + ingredientsWithElements.length + " surovin)" : " (žádné složení)"}`,
       });
 
-      // Invalidate product parts count query
+      // Invalidate product parts count query and products query
       queryClient.invalidateQueries({ queryKey: ["productPartsCount"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
 
       await loadProductParts(); // Reload to get IDs
     } catch (error) {
@@ -232,6 +403,180 @@ export function ProductPartsModal({
       });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const calculateAndSaveComposition = async () => {
+    if (!open || !productId) return;
+
+    try {
+      const ingredientsWithElements: Array<{
+        ingredient: any;
+        quantity: number;
+      }> = [];
+
+      // Collect ingredients from all parts (excluding productOnly parts)
+      for (const part of productParts) {
+        if (part.productOnly) continue;
+
+        // Handle direct ingredients
+        if (part.ingredient_id) {
+          const ingredient = ingredients.find(
+            (i) => i.id === part.ingredient_id
+          );
+          if (
+            ingredient &&
+            ingredient.element &&
+            ingredient.element.trim() !== ""
+          ) {
+            ingredientsWithElements.push({
+              ingredient,
+              quantity: part.quantity,
+            });
+          }
+        }
+
+        // Handle ingredients from recipes
+        if (part.recipe_id) {
+          const recipe = recipes.find((r) => r.id === part.recipe_id);
+          if (recipe && recipe.recipe_ingredients) {
+            recipe.recipe_ingredients.forEach((recipeIng: any) => {
+              if (
+                recipeIng.ingredient &&
+                recipeIng.ingredient.element &&
+                recipeIng.ingredient.element.trim() !== ""
+              ) {
+                const usedQuantity = recipeIng.quantity * part.quantity;
+                ingredientsWithElements.push({
+                  ingredient: recipeIng.ingredient,
+                  quantity: usedQuantity,
+                });
+              }
+            });
+          }
+        }
+
+        // Handle ingredients from product parts (pastry_id)
+        if (part.pastry_id) {
+          try {
+            // Fetch ingredients from the referenced product
+            const { data: subProductParts, error: subError } = await supabase
+              .from("product_parts")
+              .select(
+                `
+                *,
+                recipes(name, recipe_ingredients(quantity, ingredient:ingredients(*))),
+                ingredients(name, unit, element, kJ, kcal, fat, saturates, carbohydrate, sugars, protein, fibre, salt, kiloPerUnit, price)
+              `
+              )
+              .eq("product_id", part.pastry_id);
+
+            if (subError) throw subError;
+
+            if (subProductParts) {
+              subProductParts.forEach((subPart: any) => {
+                if (subPart.productOnly) return;
+
+                // Handle direct ingredients from sub-product
+                if (subPart.ingredient_id && subPart.ingredients) {
+                  const ingredient = subPart.ingredients;
+                  if (
+                    ingredient &&
+                    ingredient.element &&
+                    ingredient.element.trim() !== ""
+                  ) {
+                    ingredientsWithElements.push({
+                      ingredient,
+                      quantity: subPart.quantity * part.quantity,
+                    });
+                  }
+                }
+
+                // Handle recipe ingredients from sub-product
+                if (
+                  subPart.recipe_id &&
+                  subPart.recipes &&
+                  subPart.recipes.recipe_ingredients
+                ) {
+                  subPart.recipes.recipe_ingredients.forEach(
+                    (recipeIng: any) => {
+                      if (
+                        recipeIng.ingredient &&
+                        recipeIng.ingredient.element &&
+                        recipeIng.ingredient.element.trim() !== ""
+                      ) {
+                        const usedQuantity =
+                          recipeIng.quantity * subPart.quantity * part.quantity;
+                        ingredientsWithElements.push({
+                          ingredient: recipeIng.ingredient,
+                          quantity: usedQuantity,
+                        });
+                      }
+                    }
+                  );
+                }
+              });
+            }
+          } catch (error) {
+            console.error(
+              `Error getting ingredients from product ${part.pastry_id}:`,
+              error
+            );
+          }
+        }
+      }
+
+      // Process ingredients and create composition
+      let compositionText = "";
+      let allergensArray: string[] = [];
+
+      if (ingredientsWithElements.length > 0) {
+        // Group ingredients by name and sum quantities
+        const groupedIngredients = new Map<
+          string,
+          { ingredient: any; quantity: number }
+        >();
+        ingredientsWithElements.forEach(({ ingredient, quantity }) => {
+          if (groupedIngredients.has(ingredient.name)) {
+            const existing = groupedIngredients.get(ingredient.name)!;
+            existing.quantity += quantity;
+          } else {
+            groupedIngredients.set(ingredient.name, { ingredient, quantity });
+          }
+        });
+
+        // Sort by quantity (descending) and create simple composition
+        const sortedIngredients = Array.from(groupedIngredients.values()).sort(
+          (a, b) => b.quantity - a.quantity
+        );
+
+        // Simple merging without normalization
+        const elements = sortedIngredients.map(({ ingredient }) =>
+          ingredient.element.trim()
+        );
+        compositionText = elements.join(", ");
+
+        // Detect allergens
+        const detectedAllergens = detectAllergens(compositionText);
+        allergensArray = detectedAllergens.map((allergen) => allergen.name);
+      }
+
+      // Update the product with composition and allergens
+      const { error: updateError } = await supabase
+        .from("products")
+        .update({
+          parts: compositionText || null,
+          allergens: allergensArray.length > 0 ? allergensArray : null,
+        })
+        .eq("id", productId);
+
+      if (updateError) throw updateError;
+
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ["productPartsCount"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    } catch (error) {
+      console.error("Error calculating and saving composition:", error);
     }
   };
 
@@ -548,10 +893,12 @@ export function ProductPartsModal({
         {productParts.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <List className="h-5 w-5" />
-                Složení všech surovin produktu
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <List className="h-5 w-5" />
+                  Složení všech surovin produktu
+                </CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="bg-blue-50/50 rounded-lg p-4 border border-blue-100">
               {(() => {
@@ -617,7 +964,7 @@ export function ProductPartsModal({
                   );
                 }
 
-                // Merge all elements into a single text
+                // Simple merging without normalization
                 const mergedElements = sortedIngredients
                   .map(({ ingredient }) => ingredient.element.trim())
                   .join(", ");

@@ -35,6 +35,8 @@ export interface Product {
   printId?: number | null;
   koef?: number;
   isAdmin: boolean;
+  parts?: string | null;
+  allergens?: string[] | null;
 }
 
   export type Category = {
