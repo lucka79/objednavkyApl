@@ -877,56 +877,289 @@ export function ProductPartsModal({
                           Výživové hodnoty na 100g:
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">Tuky:</span>
-                            <div className="font-medium text-green-700">
-                              {fatPer100g.toFixed(1)} g
-                            </div>
+                          {(() => {
+                            // Adult Reference Intake (RI) values per day
+                            const referenceIntakes = {
+                              energy: 2000, // kcal
+                              fat: 70, // g
+                              saturates: 20, // g
+                              carbohydrate: 260, // g
+                              sugars: 90, // g
+                              protein: 50, // g
+                              salt: 6, // g
+                            };
+
+                            // Traffic light thresholds per 100g (UK standards)
+                            const getTrafficLightColor = (
+                              nutrient: string,
+                              value: number
+                            ) => {
+                              const thresholds = {
+                                fat: { high: 17.5, medium: 3.0 },
+                                saturates: { high: 5.0, medium: 1.5 },
+                                carbohydrate: { high: 22.5, medium: 5.0 }, // Total carbs
+                                sugars: { high: 22.5, medium: 5.0 },
+                                salt: { high: 1.5, medium: 0.3 },
+                                // For beneficial nutrients (higher = better)
+                                protein: { high: 12.0, medium: 6.0 }, // High protein is good
+                                fibre: { high: 6.0, medium: 3.0 }, // High fibre is good
+                              };
+
+                              const threshold =
+                                thresholds[nutrient as keyof typeof thresholds];
+                              if (!threshold)
+                                return "bg-gray-100 text-gray-800";
+
+                              // For harmful nutrients (fat, saturates, sugars, salt): red = high, green = low
+                              if (
+                                [
+                                  "fat",
+                                  "saturates",
+                                  "carbohydrate",
+                                  "sugars",
+                                  "salt",
+                                ].includes(nutrient)
+                              ) {
+                                if (value >= threshold.high)
+                                  return "bg-red-500 text-white";
+                                if (value >= threshold.medium)
+                                  return "bg-amber-500 text-white";
+                                return "bg-green-500 text-white";
+                              }
+
+                              // For beneficial nutrients (protein, fibre): green = high, red = low
+                              if (["protein", "fibre"].includes(nutrient)) {
+                                if (value >= threshold.high)
+                                  return "bg-green-500 text-white";
+                                if (value >= threshold.medium)
+                                  return "bg-amber-500 text-white";
+                                return "bg-gray-300 text-gray-700";
+                              }
+
+                              return "bg-gray-100 text-gray-800";
+                            };
+
+                            // Calculate RI percentages
+                            const getRIPercentage = (
+                              nutrient: string,
+                              value: number
+                            ) => {
+                              const ri =
+                                referenceIntakes[
+                                  nutrient as keyof typeof referenceIntakes
+                                ];
+                              if (!ri) return 0;
+                              return Math.round((value / ri) * 100);
+                            };
+
+                            return (
+                              <>
+                                {/* Energy */}
+                                <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+                                  <div className="flex justify-between items-center mb-1">
+                                    <span className="font-medium text-blue-800">
+                                      Energie
+                                    </span>
+                                    <span className="text-xs text-blue-600">
+                                      {getRIPercentage(
+                                        "energy",
+                                        energyPer100gKcal
+                                      )}
+                                      % RI*
+                                    </span>
+                                  </div>
+                                  <div className="font-bold text-blue-900">
+                                    {energyPer100gKcal.toFixed(0)} kcal
+                                  </div>
+                                  <div className="text-xs text-blue-700">
+                                    {energyPer100gKJ.toFixed(0)} kJ
+                                  </div>
+                                </div>
+
+                                {/* Fat */}
+                                <div
+                                  className={`p-3 rounded-lg ${getTrafficLightColor("fat", fatPer100g)}`}
+                                >
+                                  <div className="flex justify-between items-center mb-1">
+                                    <span className="font-medium">Tuky</span>
+                                    <span className="text-xs opacity-90">
+                                      {getRIPercentage("fat", fatPer100g)}% RI*
+                                    </span>
+                                  </div>
+                                  <div className="font-bold">
+                                    {fatPer100g.toFixed(1)}g
+                                  </div>
+                                </div>
+
+                                {/* Saturated Fat */}
+                                <div
+                                  className={`p-3 rounded-lg ${getTrafficLightColor("saturates", saturatesPer100g)}`}
+                                >
+                                  <div className="flex justify-between items-center mb-1">
+                                    <span className="font-medium">
+                                      Nasycené
+                                    </span>
+                                    <span className="text-xs opacity-90">
+                                      {getRIPercentage(
+                                        "saturates",
+                                        saturatesPer100g
+                                      )}
+                                      % RI*
+                                    </span>
+                                  </div>
+                                  <div className="font-bold">
+                                    {saturatesPer100g.toFixed(1)}g
+                                  </div>
+                                </div>
+
+                                {/* Carbohydrates */}
+                                <div
+                                  className={`p-3 rounded-lg ${getTrafficLightColor("carbohydrate", carbohydratePer100g)}`}
+                                >
+                                  <div className="flex justify-between items-center mb-1">
+                                    <span className="font-medium">
+                                      Sacharidy
+                                    </span>
+                                    <span className="text-xs opacity-90">
+                                      {getRIPercentage(
+                                        "carbohydrate",
+                                        carbohydratePer100g
+                                      )}
+                                      % RI*
+                                    </span>
+                                  </div>
+                                  <div className="font-bold">
+                                    {carbohydratePer100g.toFixed(1)}g
+                                  </div>
+                                </div>
+
+                                {/* Sugars */}
+                                <div
+                                  className={`p-3 rounded-lg ${getTrafficLightColor("sugars", sugarsPer100g)}`}
+                                >
+                                  <div className="flex justify-between items-center mb-1">
+                                    <span className="font-medium">
+                                      Z toho cukry
+                                    </span>
+                                    <span className="text-xs opacity-90">
+                                      {getRIPercentage("sugars", sugarsPer100g)}
+                                      % RI*
+                                    </span>
+                                  </div>
+                                  <div className="font-bold">
+                                    {sugarsPer100g.toFixed(1)}g
+                                  </div>
+                                </div>
+
+                                {/* Protein */}
+                                <div
+                                  className={`p-3 rounded-lg ${getTrafficLightColor("protein", proteinPer100g)}`}
+                                >
+                                  <div className="flex justify-between items-center mb-1">
+                                    <span className="font-medium">
+                                      Bílkoviny
+                                    </span>
+                                    <span className="text-xs opacity-90">
+                                      {getRIPercentage(
+                                        "protein",
+                                        proteinPer100g
+                                      )}
+                                      % RI*
+                                    </span>
+                                  </div>
+                                  <div className="font-bold">
+                                    {proteinPer100g.toFixed(1)}g
+                                  </div>
+                                </div>
+
+                                {/* Fibre */}
+                                <div
+                                  className={`p-3 rounded-lg ${getTrafficLightColor("fibre", fibrePer100g)}`}
+                                >
+                                  <div className="flex justify-between items-center mb-1">
+                                    <span className="font-medium">
+                                      Vláknina
+                                    </span>
+                                    <span className="text-xs opacity-90">
+                                      -
+                                    </span>
+                                  </div>
+                                  <div className="font-bold">
+                                    {fibrePer100g.toFixed(1)}g
+                                  </div>
+                                </div>
+
+                                {/* Salt */}
+                                <div
+                                  className={`p-3 rounded-lg ${getTrafficLightColor("salt", saltPer100g)}`}
+                                >
+                                  <div className="flex justify-between items-center mb-1">
+                                    <span className="font-medium">Sůl</span>
+                                    <span className="text-xs opacity-90">
+                                      {getRIPercentage("salt", saltPer100g)}%
+                                      RI*
+                                    </span>
+                                  </div>
+                                  <div className="font-bold">
+                                    {saltPer100g.toFixed(1)}g
+                                  </div>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+
+                        {/* Reference Intake Footer */}
+                        <div className="mt-3 pt-2 border-t border-green-200">
+                          <div className="flex justify-between items-start mb-2">
+                            <p className="text-xs text-green-600">
+                              *RI = Referenční příjem průměrného dospělého (8400
+                              kJ/2000 kcal)
+                            </p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const nutritionalText = `VÝŽIVOVÉ ÚDAJE NA 100g:
+
+Energie: ${energyPer100gKcal.toFixed(0)} kcal (${energyPer100gKJ.toFixed(0)} kJ) - ${Math.round((energyPer100gKcal / 2000) * 100)}% RI*
+Tuky: ${fatPer100g.toFixed(1)}g - ${Math.round((fatPer100g / 70) * 100)}% RI*
+  z toho nasycené mastné kyseliny: ${saturatesPer100g.toFixed(1)}g - ${Math.round((saturatesPer100g / 20) * 100)}% RI*
+Sacharidy: ${carbohydratePer100g.toFixed(1)}g - ${Math.round((carbohydratePer100g / 260) * 100)}% RI*
+  z toho cukry: ${sugarsPer100g.toFixed(1)}g - ${Math.round((sugarsPer100g / 90) * 100)}% RI*
+Bílkoviny: ${proteinPer100g.toFixed(1)}g - ${Math.round((proteinPer100g / 50) * 100)}% RI*
+Vláknina: ${fibrePer100g.toFixed(1)}g
+Sůl: ${saltPer100g.toFixed(1)}g - ${Math.round((saltPer100g / 6) * 100)}% RI*
+
+*RI = Referenční příjem průměrného dospělého (8400 kJ/2000 kcal)
+Celková hmotnost produktu: ${totalWeightKg.toFixed(3)} kg`;
+
+                                navigator.clipboard.writeText(nutritionalText);
+                                toast({
+                                  title: "Zkopírováno",
+                                  description:
+                                    "Výživové údaje byly zkopírovány do schránky",
+                                });
+                              }}
+                              className="flex-shrink-0"
+                              title="Kopírovat výživové údaje"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <div>
-                            <span className="text-muted-foreground">
-                              Nasycené mastné kyseliny:
-                            </span>
-                            <div className="font-medium text-green-700">
-                              {saturatesPer100g.toFixed(1)} g
+                          <div className="flex items-center gap-4 mt-2 text-xs">
+                            <div className="flex items-center gap-1">
+                              <div className="w-3 h-3 bg-green-500 rounded"></div>
+                              <span className="text-gray-600">Nízké</span>
                             </div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">
-                              Sacharidy:
-                            </span>
-                            <div className="font-medium text-green-700">
-                              {carbohydratePer100g.toFixed(1)} g
+                            <div className="flex items-center gap-1">
+                              <div className="w-3 h-3 bg-amber-500 rounded"></div>
+                              <span className="text-gray-600">Střední</span>
                             </div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">
-                              Z toho cukry:
-                            </span>
-                            <div className="font-medium text-green-700">
-                              {sugarsPer100g.toFixed(1)} g
-                            </div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">
-                              Bílkoviny:
-                            </span>
-                            <div className="font-medium text-green-700">
-                              {proteinPer100g.toFixed(1)} g
-                            </div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">
-                              Vláknina:
-                            </span>
-                            <div className="font-medium text-green-700">
-                              {fibrePer100g.toFixed(1)} g
-                            </div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Sůl:</span>
-                            <div className="font-medium text-green-700">
-                              {saltPer100g.toFixed(1)} g
+                            <div className="flex items-center gap-1">
+                              <div className="w-3 h-3 bg-red-500 rounded"></div>
+                              <span className="text-gray-600">Vysoké</span>
                             </div>
                           </div>
                         </div>

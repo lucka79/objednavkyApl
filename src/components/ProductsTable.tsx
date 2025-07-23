@@ -33,6 +33,7 @@ import {
   FilePenLine,
   ArrowRight,
   Package,
+  Download,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -53,6 +54,9 @@ import { useAuthStore } from "@/lib/supabase";
 import { ProductPartsModal } from "./ProductPartsModal";
 import { removeDiacritics } from "@/utils/removeDiacritics";
 import { useProductPartsCount } from "@/hooks/useProductParts";
+
+import { detectAllergens } from "@/utils/allergenDetection";
+import { supabase } from "@/lib/supabase";
 
 // Horizontal Category Navigation Component
 const HorizontalCategoryNav = ({
@@ -413,6 +417,283 @@ export function ProductsTable() {
   const { data: products, error, isLoading } = fetchAllProducts();
   const { data: productPartsCount } = useProductPartsCount();
 
+  const { data: categories } = fetchCategories();
+
+  // CSV Export Function
+  const exportToCSV = async () => {
+    if (!products || !categories) return;
+
+    // Sort products by category name
+    const sortedProducts = [...products].sort((a, b) => {
+      const categoryA =
+        categories.find((c) => c.id === a.category_id)?.name || "";
+      const categoryB =
+        categories.find((c) => c.id === b.category_id)?.name || "";
+      return categoryA.localeCompare(categoryB);
+    });
+
+    // Calculate nutritional data for each product
+    const csvData = await Promise.all(
+      sortedProducts.map(async (product) => {
+        const category = categories.find((c) => c.id === product.category_id);
+        let elements = "";
+        let allergens = "";
+        let energyKcal = 0;
+        let energyKJ = 0;
+        let fat = 0;
+        let saturates = 0;
+        let carbohydrates = 0;
+        let sugars = 0;
+        let protein = 0;
+        let fibre = 0;
+        let salt = 0;
+        let totalWeight = 0;
+
+        try {
+          // Fetch actual product parts data
+          const { data: productParts, error } = await supabase
+            .from("product_parts")
+            .select(
+              `
+              *,
+              recipes(name, recipe_ingredients(quantity, ingredient:ingredients(*))),
+              ingredients(name, unit, element, kJ, kcal, fat, saturates, carbohydrate, sugars, protein, fibre, salt, kiloPerUnit, price),
+              pastry:products!product_parts_pastry_id_fkey(name, price)
+            `
+            )
+            .eq("product_id", product.id)
+            .order("created_at", { ascending: true });
+
+          if (error) throw error;
+
+          if (productParts && productParts.length > 0) {
+            // Calculate elements - collect all ingredients with elements from all parts (excluding productOnly parts)
+            const ingredientsWithElements: Array<{
+              ingredient: any;
+              quantity: number;
+            }> = [];
+
+            productParts.forEach((part: any) => {
+              // Skip parts marked as productOnly
+              if (part.productOnly) return;
+
+              // Handle direct ingredients
+              if (part.ingredient_id && part.ingredients) {
+                const ingredient = part.ingredients;
+                if (
+                  ingredient &&
+                  ingredient.element &&
+                  ingredient.element.trim() !== ""
+                ) {
+                  ingredientsWithElements.push({
+                    ingredient,
+                    quantity: part.quantity,
+                  });
+                }
+              }
+
+              // Handle ingredients from recipes
+              if (
+                part.recipe_id &&
+                part.recipes &&
+                part.recipes.recipe_ingredients
+              ) {
+                part.recipes.recipe_ingredients.forEach((recipeIng: any) => {
+                  if (
+                    recipeIng.ingredient &&
+                    recipeIng.ingredient.element &&
+                    recipeIng.ingredient.element.trim() !== ""
+                  ) {
+                    const usedQuantity = recipeIng.quantity * part.quantity;
+                    ingredientsWithElements.push({
+                      ingredient: recipeIng.ingredient,
+                      quantity: usedQuantity,
+                    });
+                  }
+                });
+              }
+            });
+
+            // Sort by quantity (descending) and merge elements
+            const sortedIngredients = ingredientsWithElements.sort(
+              (a, b) => b.quantity - a.quantity
+            );
+
+            if (sortedIngredients.length > 0) {
+              // Merge all elements into a single text
+              elements = sortedIngredients
+                .map(({ ingredient }) => ingredient.element.trim())
+                .join(", ");
+            }
+
+            // Calculate nutritional values from all parts (excluding productOnly)
+            productParts.forEach((part: any) => {
+              if (part.productOnly) return; // Skip productOnly parts
+
+              // Handle recipe parts
+              if (
+                part.recipe_id &&
+                part.recipes &&
+                part.recipes.recipe_ingredients
+              ) {
+                // Calculate total weight and nutritional values for the full recipe
+                let recipeWeightKg = 0;
+                let recipeKJ = 0;
+                let recipeKcal = 0;
+                let recipeFat = 0;
+                let recipeSaturates = 0;
+                let recipeCarbohydrate = 0;
+                let recipeSugars = 0;
+                let recipeProtein = 0;
+                let recipeFibre = 0;
+                let recipeSalt = 0;
+
+                part.recipes.recipe_ingredients.forEach((recipeIng: any) => {
+                  if (recipeIng.ingredient) {
+                    const ingredient = recipeIng.ingredient;
+                    // Properly convert ingredient quantity to kg using kiloPerUnit
+                    const weightInKg =
+                      recipeIng.quantity * ingredient.kiloPerUnit;
+                    recipeWeightKg += weightInKg;
+
+                    // Calculate nutritional values per 100g basis
+                    const factor = weightInKg * 10; // Convert kg to 100g units
+                    recipeKJ += ingredient.kJ * factor;
+                    recipeKcal += ingredient.kcal * factor;
+                    recipeFat += ingredient.fat * factor;
+                    recipeSaturates += ingredient.saturates * factor;
+                    recipeCarbohydrate += ingredient.carbohydrate * factor;
+                    recipeSugars += ingredient.sugars * factor;
+                    recipeProtein += ingredient.protein * factor;
+                    recipeFibre += ingredient.fibre * factor;
+                    recipeSalt += ingredient.salt * factor;
+                  }
+                });
+
+                // For recipe parts, part.quantity represents the actual weight in kg being used
+                if (recipeWeightKg > 0) {
+                  const proportion = part.quantity / recipeWeightKg;
+
+                  totalWeight += part.quantity; // Use actual weight
+                  energyKJ += recipeKJ * proportion;
+                  energyKcal += recipeKcal * proportion;
+                  fat += recipeFat * proportion;
+                  saturates += recipeSaturates * proportion;
+                  carbohydrates += recipeCarbohydrate * proportion;
+                  sugars += recipeSugars * proportion;
+                  protein += recipeProtein * proportion;
+                  fibre += recipeFibre * proportion;
+                  salt += recipeSalt * proportion;
+                }
+              }
+
+              // Handle ingredient parts
+              if (part.ingredient_id && part.ingredients) {
+                const ingredient = part.ingredients;
+                const weightInKg = part.quantity * ingredient.kiloPerUnit;
+                totalWeight += weightInKg;
+
+                // Calculate nutritional values per 100g basis
+                const factor = weightInKg * 10; // Convert kg to 100g units
+                energyKJ += ingredient.kJ * factor;
+                energyKcal += ingredient.kcal * factor;
+                fat += ingredient.fat * factor;
+                saturates += ingredient.saturates * factor;
+                carbohydrates += ingredient.carbohydrate * factor;
+                sugars += ingredient.sugars * factor;
+                protein += ingredient.protein * factor;
+                fibre += ingredient.fibre * factor;
+                salt += ingredient.salt * factor;
+              }
+
+              // Handle pastry/product parts (weight only, no nutritional data typically)
+              if (part.pastry_id) {
+                totalWeight += part.quantity;
+              }
+            });
+          }
+        } catch (error) {
+          console.error(
+            `Error fetching product parts for product ${product.id}:`,
+            error
+          );
+        }
+
+        // Calculate per 100g values
+        const energyPer100gKcal =
+          totalWeight > 0 ? (energyKcal / totalWeight) * 0.1 : 0;
+        const energyPer100gKJ =
+          totalWeight > 0 ? (energyKJ / totalWeight) * 0.1 : 0;
+        const fatPer100g = totalWeight > 0 ? (fat / totalWeight) * 0.1 : 0;
+        const saturatesPer100g =
+          totalWeight > 0 ? (saturates / totalWeight) * 0.1 : 0;
+        const carbohydratesPer100g =
+          totalWeight > 0 ? (carbohydrates / totalWeight) * 0.1 : 0;
+        const sugarsPer100g =
+          totalWeight > 0 ? (sugars / totalWeight) * 0.1 : 0;
+        const proteinPer100g =
+          totalWeight > 0 ? (protein / totalWeight) * 0.1 : 0;
+        const fibrePer100g = totalWeight > 0 ? (fibre / totalWeight) * 0.1 : 0;
+        const saltPer100g = totalWeight > 0 ? (salt / totalWeight) * 0.1 : 0;
+
+        // Detect allergens from elements
+        if (elements) {
+          const detectedAllergens = detectAllergens(elements);
+          allergens = detectedAllergens.map((a) => a.name).join(", ");
+        }
+
+        return {
+          "Název produktu": product.name,
+          Kategorie: category?.name || "",
+          "Cena nákup": product.priceBuyer.toFixed(2),
+          "Cena mobil": product.priceMobil.toFixed(2),
+          "Cena prodej": product.price.toFixed(2),
+          Složení: elements,
+          Alergeny: allergens,
+          "Energie (kcal/100g)": energyPer100gKcal.toFixed(0),
+          "Energie (kJ/100g)": energyPer100gKJ.toFixed(0),
+          "Tuky (g/100g)": fatPer100g.toFixed(1),
+          "Nasycené mastné kyseliny (g/100g)": saturatesPer100g.toFixed(1),
+          "Sacharidy (g/100g)": carbohydratesPer100g.toFixed(1),
+          "Cukry (g/100g)": sugarsPer100g.toFixed(1),
+          "Bílkoviny (g/100g)": proteinPer100g.toFixed(1),
+          "Vláknina (g/100g)": fibrePer100g.toFixed(1),
+          "Sůl (g/100g)": saltPer100g.toFixed(1),
+          "Celková hmotnost (kg)": totalWeight.toFixed(3),
+        };
+      })
+    );
+
+    // Convert to CSV format
+    const headers = Object.keys(csvData[0]);
+    const csvContent = [
+      headers.join(","),
+      ...csvData.map((row) =>
+        headers
+          .map((header) => {
+            const value = row[header as keyof typeof row];
+            // Escape commas and quotes in CSV values
+            return `"${String(value).replace(/"/g, '""')}"`;
+          })
+          .join(",")
+      ),
+    ].join("\n");
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `produkty_export_${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // const { mutateAsync: updateProduct } = useUpdateProduct();
 
   // const [sorting, setSorting] = useState<SortingState>([]);
@@ -540,6 +821,15 @@ export function ProductsTable() {
                     <SelectItem value="mobile">Mobilní cena {">"} 0</SelectItem>
                   </SelectContent>
                 </Select>
+                <Button
+                  variant="outline"
+                  onClick={exportToCSV}
+                  className="w-full sm:w-auto"
+                  title="Export do CSV"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  CSV Export
+                </Button>
                 <Button
                   className="bg-orange-500 text-white w-full sm:w-auto"
                   variant="outline"
