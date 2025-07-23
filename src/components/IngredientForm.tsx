@@ -246,12 +246,12 @@ export function IngredientForm() {
             {isEditMode ? (
               <>
                 <Save className="h-5 w-5" />
-                Upravit ingredienci
+                Upravit surovinu
               </>
             ) : (
               <>
                 <Plus className="h-5 w-5" />
-                Nová ingredience
+                Nová surovina
               </>
             )}
           </DialogTitle>
@@ -264,6 +264,32 @@ export function IngredientForm() {
               <CardTitle className="text-lg">Základní informace</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="flex items-center gap-6 pb-4 border-b">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="active"
+                    checked={formData.active}
+                    onCheckedChange={(checked) =>
+                      handleInputChange("active", checked)
+                    }
+                    className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                  />
+                  <Label htmlFor="active">Aktivní</Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="storeOnly"
+                    checked={formData.storeOnly}
+                    onCheckedChange={(checked) =>
+                      handleInputChange("storeOnly", checked)
+                    }
+                    className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                  />
+                  <Label htmlFor="storeOnly">Pouze pro prodejnu</Label>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Název *</Label>
@@ -384,9 +410,9 @@ export function IngredientForm() {
                       )
                     }
                     placeholder="1.000"
-                    className={
+                    className={`[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                       validationErrors.kiloPerUnit ? "border-red-500" : ""
-                    }
+                    }`}
                   />
                   {validationErrors.kiloPerUnit && (
                     <p className="text-sm text-red-500">
@@ -408,7 +434,7 @@ export function IngredientForm() {
                       )
                     }
                     placeholder="např. 25"
-                    className={validationErrors.package ? "border-red-500" : ""}
+                    className={`[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${validationErrors.package ? "border-red-500" : ""}`}
                   />
                   {validationErrors.package && (
                     <p className="text-sm text-red-500">
@@ -441,7 +467,7 @@ export function IngredientForm() {
                       )
                     }
                     placeholder="0.00"
-                    className={validationErrors.price ? "border-red-500" : ""}
+                    className={`[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${validationErrors.price ? "border-red-500" : ""}`}
                   />
                   {validationErrors.price && (
                     <p className="text-sm text-red-500">
@@ -464,7 +490,7 @@ export function IngredientForm() {
                       )
                     }
                     placeholder="21"
-                    className={validationErrors.vat ? "border-red-500" : ""}
+                    className={`[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${validationErrors.vat ? "border-red-500" : ""}`}
                   />
                   {validationErrors.vat && (
                     <p className="text-sm text-red-500">
@@ -508,6 +534,7 @@ export function IngredientForm() {
                       handleInputChange("kJ", parseFloat(e.target.value) || 0)
                     }
                     placeholder="0"
+                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
 
@@ -522,6 +549,7 @@ export function IngredientForm() {
                       handleInputChange("kcal", parseFloat(e.target.value) || 0)
                     }
                     placeholder="0"
+                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
               </div>
@@ -538,6 +566,7 @@ export function IngredientForm() {
                       handleInputChange("fat", parseFloat(e.target.value) || 0)
                     }
                     placeholder="0"
+                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
 
@@ -557,6 +586,7 @@ export function IngredientForm() {
                       )
                     }
                     placeholder="0"
+                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
               </div>
@@ -576,6 +606,7 @@ export function IngredientForm() {
                       )
                     }
                     placeholder="0"
+                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
 
@@ -593,6 +624,7 @@ export function IngredientForm() {
                       )
                     }
                     placeholder="0"
+                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
               </div>
@@ -612,6 +644,7 @@ export function IngredientForm() {
                       )
                     }
                     placeholder="0"
+                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
 
@@ -629,6 +662,7 @@ export function IngredientForm() {
                       )
                     }
                     placeholder="0"
+                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
               </div>
@@ -645,6 +679,7 @@ export function IngredientForm() {
                       handleInputChange("salt", parseFloat(e.target.value) || 0)
                     }
                     placeholder="0"
+                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
               </div>
@@ -705,36 +740,6 @@ export function IngredientForm() {
                   placeholder="Zadejte všechny složky a části ingredience..."
                   className="w-full min-h-[100px] p-3 border border-input bg-background rounded-md text-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Nastavení</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="active"
-                  checked={formData.active}
-                  onCheckedChange={(checked) =>
-                    handleInputChange("active", checked)
-                  }
-                />
-                <Label htmlFor="active">Aktivní</Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="storeOnly"
-                  checked={formData.storeOnly}
-                  onCheckedChange={(checked) =>
-                    handleInputChange("storeOnly", checked)
-                  }
-                />
-                <Label htmlFor="storeOnly">Pouze pro prodejnu</Label>
               </div>
             </CardContent>
           </Card>

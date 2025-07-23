@@ -31,7 +31,6 @@ import {
   CirclePlus,
   Trash2,
   FilePenLine,
-  ArrowRight,
   Package,
   Download,
 } from "lucide-react";
@@ -139,36 +138,34 @@ const ProductRow = memo(
 
     return (
       <>
-        {/* Desktop Layout (lg and up) */}
+        {/* Desktop Layout (xl and up) - Reduced columns for better fit */}
         <div
-          className="hidden lg:grid lg:grid-cols-[30px_40px_40px_40px_200px_100px_100px_100px_80px_50px_50px_50px_50px_50px_120px] gap-4 py-2 px-4 items-center border-b text-sm cursor-pointer hover:bg-gray-50"
+          className="hidden xl:grid xl:grid-cols-[60px_80px_2fr_100px_100px_100px_80px_60px_60px_60px_120px] gap-2 py-2 px-2 items-center border-b text-sm cursor-pointer hover:bg-gray-50 w-full"
           onClick={() => onEdit(product.id)}
         >
-          <div className="flex justify-center">
-            {product.isChild && (
-              <ArrowRight className="h-4 w-4 text-gray-400" />
-            )}
-          </div>
           <div className="text-center">{product.id}</div>
           <div className="text-center">{product.printId}</div>
-          <div>{product.code}</div>
-          <div className="flex flex-col">
+          <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-1">
-              {product.name}
+              <span className="truncate font-medium">{product.name}</span>
               {printIdCount && printIdCount > 1 && (
-                <span className="ml-1 px-1.5 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">
+                <span className="ml-1 px-1.5 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full whitespace-nowrap">
                   {printIdCount}
                 </span>
               )}
             </div>
             {product.nameVi && (
-              <p className="text-xs text-orange-500">{product.nameVi}</p>
+              <p className="text-xs text-orange-500 truncate">
+                {product.nameVi}
+              </p>
             )}
+            <div className="text-xs text-gray-500 truncate">{categoryName}</div>
           </div>
-          <div className="text-right">{product.priceBuyer.toFixed(2)} Kč</div>
-          <div className="text-right">{product.priceMobil.toFixed(2)} Kč</div>
-          <div className="text-right">{product.price.toFixed(2)} Kč</div>
-          <div>{categoryName}</div>
+          <div className="text-right">{product.priceBuyer.toFixed(2)}</div>
+          <div className="text-right">{product.priceMobil.toFixed(2)}</div>
+          <div className="text-right font-medium">
+            {product.price.toFixed(2)}
+          </div>
           <div className="text-right">{product.vat}%</div>
           <div className="flex justify-center">
             <Checkbox
@@ -200,17 +197,6 @@ const ProductRow = memo(
                 handleCheckboxChange("store", checked as boolean);
               }}
               className="border-blue-500 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 data-[state=checked]:text-white"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-          <div className="flex justify-center">
-            <Checkbox
-              checked={product.isAdmin}
-              onCheckedChange={(checked) => {
-                event?.stopPropagation();
-                handleCheckboxChange("isAdmin", checked as boolean);
-              }}
-              className="border-purple-500 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500 data-[state=checked]:text-white"
               onClick={(e) => e.stopPropagation()}
             />
           </div>
@@ -258,7 +244,7 @@ const ProductRow = memo(
                       Opravdu smazat tento výrobek?
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                      Tato akce je nevratná. Výrobek bude trvale odstraněn.
+                      Tata akce je nevratná. Výrobek bude trvale odstraněn.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -281,15 +267,91 @@ const ProductRow = memo(
           </div>
         </div>
 
-        {/* Tablet Layout (md to lg) */}
+        {/* Large Tablet Layout (lg to xl) - Further reduced columns */}
         <div
-          className="hidden md:grid lg:hidden md:grid-cols-[40px_150px_80px_80px_80px_60px_80px] gap-2 py-2 px-3 items-center border-b text-sm cursor-pointer hover:bg-gray-50"
+          className="hidden lg:grid xl:hidden lg:grid-cols-[60px_2fr_90px_90px_90px_80px_100px] gap-2 py-2 px-3 items-center border-b text-sm cursor-pointer hover:bg-gray-50 w-full"
           onClick={() => onEdit(product.id)}
         >
           <div className="text-center">{product.id}</div>
-          <div className="flex flex-col">
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-1">
+              <span className="font-medium truncate">{product.name}</span>
+              {printIdCount && printIdCount > 1 && (
+                <span className="ml-1 px-1.5 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">
+                  {printIdCount}
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-gray-500 truncate">{categoryName}</div>
+          </div>
+          <div className="text-right text-sm">
+            {product.priceBuyer.toFixed(2)}
+          </div>
+          <div className="text-right text-sm">
+            {product.priceMobil.toFixed(2)}
+          </div>
+          <div className="text-right text-sm font-medium">
+            {product.price.toFixed(2)}
+          </div>
+          <div className="flex justify-center gap-1">
+            <Checkbox
+              checked={product.active}
+              onCheckedChange={(checked) => {
+                event?.stopPropagation();
+                handleCheckboxChange("active", checked as boolean);
+              }}
+              className="h-4 w-4 border-amber-500 data-[state=checked]:bg-green-500"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <Checkbox
+              checked={product.buyer}
+              onCheckedChange={(checked) => {
+                event?.stopPropagation();
+                handleCheckboxChange("buyer", checked as boolean);
+              }}
+              className="h-4 w-4 border-orange-500 data-[state=checked]:bg-orange-500"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="flex justify-end gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenParts(product.id, product.name);
+              }}
+              className="h-7 w-7 p-0"
+            >
+              {hasProductParts ? (
+                <Package className="h-3 w-3 text-orange-500" />
+              ) : (
+                <Package className="h-3 w-3" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(product.id);
+              }}
+              className="h-7 w-7 p-0"
+            >
+              <FilePenLine className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Tablet Layout (md to lg) */}
+        <div
+          className="hidden md:grid lg:hidden md:grid-cols-[50px_2fr_80px_80px_80px_100px] gap-2 py-2 px-3 items-center border-b text-sm cursor-pointer hover:bg-gray-50 w-full"
+          onClick={() => onEdit(product.id)}
+        >
+          <div className="text-center">{product.id}</div>
+          <div className="flex flex-col min-w-0">
             <div className="font-medium truncate">{product.name}</div>
-            <div className="text-xs text-gray-500">{categoryName}</div>
+            <div className="text-xs text-gray-500 truncate">{categoryName}</div>
           </div>
           <div className="text-right text-xs">
             {product.priceBuyer.toFixed(2)}
@@ -297,8 +359,10 @@ const ProductRow = memo(
           <div className="text-right text-xs">
             {product.priceMobil.toFixed(2)}
           </div>
-          <div className="text-right text-xs">{product.price.toFixed(2)}</div>
-          <div className="flex justify-center gap-1">
+          <div className="text-right text-xs font-medium">
+            {product.price.toFixed(2)}
+          </div>
+          <div className="flex justify-end gap-1">
             <Checkbox
               checked={product.active}
               onCheckedChange={(checked) => {
@@ -308,17 +372,6 @@ const ProductRow = memo(
               className="h-3 w-3 border-amber-500 data-[state=checked]:bg-green-500"
               onClick={(e) => e.stopPropagation()}
             />
-            <Checkbox
-              checked={product.buyer}
-              onCheckedChange={(checked) => {
-                event?.stopPropagation();
-                handleCheckboxChange("buyer", checked as boolean);
-              }}
-              className="h-3 w-3 border-orange-500 data-[state=checked]:bg-orange-500"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-          <div className="flex justify-end gap-1">
             <Button
               variant="ghost"
               size="sm"
@@ -350,23 +403,25 @@ const ProductRow = memo(
 
         {/* Mobile Layout (sm and below) */}
         <div
-          className="block md:hidden p-3 border-b cursor-pointer hover:bg-gray-50"
+          className="block md:hidden p-3 border-b cursor-pointer hover:bg-gray-50 w-full"
           onClick={() => onEdit(product.id)}
         >
-          <div className="flex justify-between items-start mb-2">
-            <div className="flex-1">
-              <div className="font-medium text-sm">{product.name}</div>
-              <div className="text-xs text-gray-500">{categoryName}</div>
+          <div className="flex justify-between items-start mb-2 w-full">
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-sm truncate">{product.name}</div>
+              <div className="text-xs text-gray-500 truncate">
+                {categoryName}
+              </div>
             </div>
-            <div className="text-right">
+            <div className="text-right flex-shrink-0 ml-2">
               <div className="text-sm font-medium">
                 {product.price.toFixed(2)} Kč
               </div>
               <div className="text-xs text-gray-500">ID: {product.id}</div>
             </div>
           </div>
-          <div className="flex justify-between items-center">
-            <div className="flex gap-2">
+          <div className="flex justify-between items-center w-full">
+            <div className="flex gap-2 flex-wrap">
               <span
                 className={`text-xs px-2 py-1 rounded ${product.active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}
               >
@@ -378,7 +433,7 @@ const ProductRow = memo(
                 </span>
               )}
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-1 flex-shrink-0">
               <Button
                 variant="ghost"
                 size="sm"
@@ -797,23 +852,25 @@ export function ProductsTable() {
 
   return (
     <>
-      <div className="h-screen py-2 px-2 lg:px-4">
-        <Card className="h-full">
-          <div className="p-4 space-y-4">
+      <div className="min-h-screen w-full py-1 px-1 sm:px-2 lg:px-3">
+        <Card className="w-full h-full">
+          <div className="p-2 sm:p-3 lg:p-4 space-y-4 w-full">
             {/* Header with all controls - responsive */}
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-              <h1 className="text-xl lg:text-2xl font-bold">Produkty</h1>
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 w-full">
+              <h1 className="text-xl lg:text-2xl xl:text-3xl font-bold">
+                Produkty
+              </h1>
 
               {/* Controls row - responsive */}
-              <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto lg:flex-1 lg:justify-end lg:max-w-2xl">
+              <div className="flex flex-col sm:flex-row gap-2 w-full lg:flex-1 lg:justify-end">
                 <Input
                   placeholder="Hledat produkt..."
                   value={globalFilter}
                   onChange={(e) => setGlobalFilter(e.target.value)}
-                  className="flex-1 sm:max-w-sm lg:max-w-xs"
+                  className="flex-1 sm:flex-initial sm:w-full lg:w-auto lg:min-w-[200px] xl:min-w-[250px]"
                 />
                 <Select value={priceFilter} onValueChange={setPriceFilter}>
-                  <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectTrigger className="w-full sm:w-auto lg:min-w-[180px]">
                     <SelectValue placeholder="Filter ceny" />
                   </SelectTrigger>
                   <SelectContent>
@@ -824,18 +881,21 @@ export function ProductsTable() {
                 <Button
                   variant="outline"
                   onClick={exportToCSV}
-                  className="w-full sm:w-auto"
+                  className="w-full sm:w-auto whitespace-nowrap"
                   title="Export do CSV"
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  CSV Export
+                  <span className="hidden lg:inline">CSV Export</span>
+                  <span className="lg:hidden">Export</span>
                 </Button>
                 <Button
-                  className="bg-orange-500 text-white w-full sm:w-auto"
+                  className="bg-orange-500 text-white w-full sm:w-auto whitespace-nowrap"
                   variant="outline"
                   onClick={handleCreateProduct}
                 >
-                  <CirclePlus className="h-4 w-4 mr-2" /> Nový výrobek
+                  <CirclePlus className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Nový výrobek</span>
+                  <span className="sm:hidden">Nový</span>
                 </Button>
               </div>
             </div>
@@ -846,106 +906,103 @@ export function ProductsTable() {
               selectedCategory={selectedCategory}
             />
 
-            {/* Filters - responsive */}
-            {/* <div className="flex flex-col sm:flex-row gap-2">
-              <Input
-                placeholder="Hledat produkt..."
-                value={globalFilter}
-                onChange={(e) => setGlobalFilter(e.target.value)}
-                className="flex-1 sm:max-w-sm"
-              />
-              <Select value={priceFilter} onValueChange={setPriceFilter}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue placeholder="Filter ceny" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Všechny ceny</SelectItem>
-                  <SelectItem value="mobile">Mobilní cena {">"} 0</SelectItem>
-                </SelectContent>
-              </Select>
-            </div> */}
-
-            {/* Table Container - responsive */}
+            {/* Table Container - responsive with horizontal scroll fallback */}
             <div
               ref={parentRef}
-              className="border rounded-md h-[calc(100vh-240px)] sm:h-[calc(100vh-220px)] lg:h-[calc(100vh-200px)] overflow-auto"
+              className="border rounded-md overflow-auto w-full"
+              style={{
+                height: "calc(100vh - max(200px, 25vh))",
+                minHeight: "400px",
+                maxHeight: "80vh",
+                overflowX: "auto",
+              }}
             >
-              {/* Desktop Header */}
-              <div className="hidden lg:block sticky top-0 bg-white z-10 border-b">
-                <div className="grid grid-cols-[30px_40px_40px_40px_200px_100px_100px_100px_80px_50px_50px_50px_50px_50px_120px] gap-4 py-2 px-4 font-medium text-sm">
-                  <div></div>
-                  <div className="text-center">ID</div>
-                  <div className="text-center">Print ID</div>
-                  <div>Kód</div>
-                  <div>Název</div>
-                  <div className="text-right">NákupBez</div>
-                  <div className="text-right">Mobil</div>
-                  <div className="text-right">Prodej</div>
-                  <div>Kategorie</div>
-                  <div className="text-right">DPH</div>
-                  <div className="text-center">Active</div>
-                  <div className="text-center">Odběr</div>
-                  <div className="text-center">Store</div>
-                  <div className="text-center">Admin</div>
-                  <div className="text-right">Akce</div>
+              <div className="w-full">
+                {/* Desktop Header (xl and up) */}
+                <div className="hidden xl:block sticky top-0 bg-white z-10 border-b w-full">
+                  <div className="grid grid-cols-[60px_80px_2fr_100px_100px_100px_80px_60px_60px_60px_120px] gap-2 py-2 px-2 font-medium text-sm w-full">
+                    <div className="text-center">ID</div>
+                    <div className="text-center">Print</div>
+                    <div>Název / Kategorie</div>
+                    <div className="text-right">Nákup</div>
+                    <div className="text-right">Mobil</div>
+                    <div className="text-right">Prodej</div>
+                    <div className="text-right">DPH</div>
+                    <div className="text-center">Act</div>
+                    <div className="text-center">Odběr</div>
+                    <div className="text-center">Store</div>
+                    <div className="text-right">Akce</div>
+                  </div>
                 </div>
-              </div>
 
-              {/* Tablet Header */}
-              <div className="hidden md:block lg:hidden sticky top-0 bg-white z-10 border-b">
-                <div className="grid grid-cols-[40px_150px_80px_80px_80px_60px_80px] gap-2 py-2 px-3 font-medium text-sm">
-                  <div className="text-center">ID</div>
-                  <div>Název</div>
-                  <div className="text-right">Nákup</div>
-                  <div className="text-right">Mobil</div>
-                  <div className="text-right">Prodej</div>
-                  <div className="text-center">Flags</div>
-                  <div className="text-right">Akce</div>
+                {/* Large Tablet Header (lg to xl) */}
+                <div className="hidden lg:block xl:hidden sticky top-0 bg-white z-10 border-b w-full">
+                  <div className="grid grid-cols-[60px_2fr_90px_90px_90px_80px_100px] gap-2 py-2 px-3 font-medium text-sm w-full">
+                    <div className="text-center">ID</div>
+                    <div>Název</div>
+                    <div className="text-right">Nákup</div>
+                    <div className="text-right">Mobil</div>
+                    <div className="text-right">Prodej</div>
+                    <div className="text-center">Flags</div>
+                    <div className="text-right">Akce</div>
+                  </div>
                 </div>
-              </div>
 
-              {/* Mobile Header */}
-              <div className="block md:hidden sticky top-0 bg-white z-10 border-b py-2 px-3">
-                <div className="text-sm font-medium text-gray-600">
-                  {filteredProducts.length} produktů
+                {/* Tablet Header (md to lg) */}
+                <div className="hidden md:block lg:hidden sticky top-0 bg-white z-10 border-b w-full">
+                  <div className="grid grid-cols-[50px_2fr_80px_80px_80px_100px] gap-2 py-2 px-3 font-medium text-sm w-full">
+                    <div className="text-center">ID</div>
+                    <div>Název</div>
+                    <div className="text-right">Nákup</div>
+                    <div className="text-right">Mobil</div>
+                    <div className="text-right">Prodej</div>
+                    <div className="text-right">Akce</div>
+                  </div>
                 </div>
-              </div>
 
-              {/* Virtualized Product Rows */}
-              <div
-                style={{
-                  height: `${rowVirtualizer.getTotalSize()}px`,
-                  width: "100%",
-                  position: "relative",
-                }}
-              >
-                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                  const product = filteredProducts[virtualRow.index];
-                  const hasProductParts =
-                    productPartsMap.get(product.id) || false;
+                {/* Mobile Header */}
+                <div className="block md:hidden sticky top-0 bg-white z-10 border-b py-2 px-3 w-full">
+                  <div className="text-sm font-medium text-gray-600">
+                    {filteredProducts.length} produktů
+                  </div>
+                </div>
 
-                  return (
-                    <div
-                      key={product.id}
-                      data-index={virtualRow.index}
-                      ref={rowVirtualizer.measureElement}
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: "100%",
-                        transform: `translateY(${virtualRow.start}px)`,
-                      }}
-                    >
-                      <ProductRow
-                        product={product}
-                        onEdit={handleEdit}
-                        onOpenParts={handleOpenParts}
-                        hasProductParts={hasProductParts}
-                      />
-                    </div>
-                  );
-                })}
+                {/* Virtualized Product Rows */}
+                <div
+                  style={{
+                    height: `${rowVirtualizer.getTotalSize()}px`,
+                    width: "100%",
+                    position: "relative",
+                  }}
+                >
+                  {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                    const product = filteredProducts[virtualRow.index];
+                    const hasProductParts =
+                      productPartsMap.get(product.id) || false;
+
+                    return (
+                      <div
+                        key={product.id}
+                        data-index={virtualRow.index}
+                        ref={rowVirtualizer.measureElement}
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          transform: `translateY(${virtualRow.start}px)`,
+                        }}
+                      >
+                        <ProductRow
+                          product={product}
+                          onEdit={handleEdit}
+                          onOpenParts={handleOpenParts}
+                          hasProductParts={hasProductParts}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>

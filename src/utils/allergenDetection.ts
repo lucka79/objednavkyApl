@@ -30,6 +30,7 @@ export const detectAllergens = (
         "pšen.mouka",
         "žito",
         "žitný",
+        "žitná",
         "žit.mouka",
         "ječmen",
         "ječná",
@@ -54,7 +55,7 @@ export const detectAllergens = (
       color: "bg-yellow-100 text-yellow-800",
     },
     {
-      keywords: ["sója", "soj.", "sójový", "sójová", "sojová", "sojový"],
+      keywords: ["sója", "soj.", "sójový", "sójová", "sojová", "sojový", "sójové"],
       name: "Sója",
       icon: AlertTriangle,
       color: "bg-green-100 text-green-800",

@@ -17,6 +17,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   useRecipes,
   Recipe,
   RecipeCategory,
@@ -362,6 +368,122 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
     if (formData.donut) return "border-l-purple-500";
     if (formData.store) return "border-l-green-500";
     return ""; // No border for recipes without flags
+  };
+
+  // Calculate nutritional breakdown per ingredient for tooltips
+  const calculateNutritionalBreakdown = (nutritionType: string) => {
+    const breakdown: Array<{ name: string; value: number; unit: string }> = [];
+
+    recipeIngredients.forEach((recipeIng) => {
+      if (recipeIng.ingredient_id && recipeIng.quantity > 0) {
+        const ingredient = ingredients.find(
+          (ing) => ing.id === recipeIng.ingredient_id
+        );
+        if (ingredient) {
+          const weightInKg = recipeIng.quantity * ingredient.kiloPerUnit;
+          const factor = weightInKg * 10; // Convert kg to 100g units
+
+          let per100gValue = 0;
+          const unit = nutritionType === "energy" ? "kcal" : "g";
+
+          switch (nutritionType) {
+            case "energy":
+              per100gValue =
+                nutritionalTotals.totalWeightKg > 0
+                  ? ((ingredient.kJ * factor) /
+                      nutritionalTotals.totalWeightKg) *
+                    0.1
+                  : 0;
+              breakdown.push({
+                name: ingredient.name,
+                value: per100gValue,
+                unit: "kJ",
+              });
+              per100gValue =
+                nutritionalTotals.totalWeightKg > 0
+                  ? ((ingredient.kcal * factor) /
+                      nutritionalTotals.totalWeightKg) *
+                    0.1
+                  : 0;
+              breakdown.push({
+                name: ingredient.name,
+                value: per100gValue,
+                unit: "kcal",
+              });
+              return; // Special case for energy - already added both kJ and kcal
+            case "fat":
+              per100gValue =
+                nutritionalTotals.totalWeightKg > 0
+                  ? ((ingredient.fat * factor) /
+                      nutritionalTotals.totalWeightKg) *
+                    0.1
+                  : 0;
+              break;
+            case "saturates":
+              per100gValue =
+                nutritionalTotals.totalWeightKg > 0
+                  ? ((ingredient.saturates * factor) /
+                      nutritionalTotals.totalWeightKg) *
+                    0.1
+                  : 0;
+              break;
+            case "carbohydrate":
+              per100gValue =
+                nutritionalTotals.totalWeightKg > 0
+                  ? ((ingredient.carbohydrate * factor) /
+                      nutritionalTotals.totalWeightKg) *
+                    0.1
+                  : 0;
+              break;
+            case "sugars":
+              per100gValue =
+                nutritionalTotals.totalWeightKg > 0
+                  ? ((ingredient.sugars * factor) /
+                      nutritionalTotals.totalWeightKg) *
+                    0.1
+                  : 0;
+              break;
+            case "protein":
+              per100gValue =
+                nutritionalTotals.totalWeightKg > 0
+                  ? ((ingredient.protein * factor) /
+                      nutritionalTotals.totalWeightKg) *
+                    0.1
+                  : 0;
+              break;
+            case "fibre":
+              per100gValue =
+                nutritionalTotals.totalWeightKg > 0
+                  ? ((ingredient.fibre * factor) /
+                      nutritionalTotals.totalWeightKg) *
+                    0.1
+                  : 0;
+              break;
+            case "salt":
+              per100gValue =
+                nutritionalTotals.totalWeightKg > 0
+                  ? ((ingredient.salt * factor) /
+                      nutritionalTotals.totalWeightKg) *
+                    0.1
+                  : 0;
+              break;
+          }
+
+          if (per100gValue > 0) {
+            breakdown.push({
+              name: ingredient.name,
+              value: per100gValue,
+              unit,
+            });
+          }
+        }
+      }
+    });
+
+    // Sort by value descending and filter out zero values
+    return breakdown
+      .filter((item) => item.value > 0)
+      .sort((a, b) => b.value - a.value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -844,90 +966,338 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 bg-blue-50/50 rounded-lg p-4 border border-blue-100">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">
-                    Energie na 100g:
-                  </span>
-                  <div className="font-semibold">
-                    {nutritionalTotals.totalWeightKg > 0
-                      ? `${((nutritionalTotals.totalKJ / nutritionalTotals.totalWeightKg) * 0.1).toFixed(0)} KJ / ${((nutritionalTotals.totalKcal / nutritionalTotals.totalWeightKg) * 0.1).toFixed(0)} Kcal`
-                      : "0 KJ / 0 Kcal"}
+              <TooltipProvider>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="cursor-help">
+                        <span className="text-muted-foreground">
+                          Energie na 100g:
+                        </span>
+                        <div className="font-semibold">
+                          {nutritionalTotals.totalWeightKg > 0
+                            ? `${((nutritionalTotals.totalKJ / nutritionalTotals.totalWeightKg) * 0.1).toFixed(0)} KJ / ${((nutritionalTotals.totalKcal / nutritionalTotals.totalWeightKg) * 0.1).toFixed(0)} Kcal`
+                            : "0 KJ / 0 Kcal"}
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <div className="space-y-1">
+                        <div className="font-semibold text-xs mb-2">
+                          Energie podle surovin:
+                        </div>
+                        {calculateNutritionalBreakdown("energy").length > 0 ? (
+                          calculateNutritionalBreakdown("energy").map(
+                            (item, index) => (
+                              <div
+                                key={index}
+                                className="text-xs flex justify-between"
+                              >
+                                <span>{item.name}:</span>
+                                <span>
+                                  {item.value.toFixed(1)} {item.unit}
+                                </span>
+                              </div>
+                            )
+                          )
+                        ) : (
+                          <div className="text-xs">Žádné údaje o energii</div>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="cursor-help">
+                        <span className="text-muted-foreground">
+                          Tuky na 100g:
+                        </span>
+                        <div className="font-semibold">
+                          {nutritionalTotals.totalWeightKg > 0
+                            ? `${((nutritionalTotals.totalFat / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
+                            : "0.0 g"}
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <div className="space-y-1">
+                        <div className="font-semibold text-xs mb-2">
+                          Tuky podle surovin:
+                        </div>
+                        {calculateNutritionalBreakdown("fat").length > 0 ? (
+                          calculateNutritionalBreakdown("fat").map(
+                            (item, index) => (
+                              <div
+                                key={index}
+                                className="text-xs flex justify-between"
+                              >
+                                <span>{item.name}:</span>
+                                <span>
+                                  {item.value.toFixed(1)} {item.unit}
+                                </span>
+                              </div>
+                            )
+                          )
+                        ) : (
+                          <div className="text-xs">Žádné údaje o tucích</div>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="cursor-help">
+                        <span className="text-muted-foreground">
+                          Nasycené mastné kyseliny na 100g:
+                        </span>
+                        <div className="font-semibold">
+                          {nutritionalTotals.totalWeightKg > 0
+                            ? `${((nutritionalTotals.totalSaturates / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
+                            : "0.0 g"}
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <div className="space-y-1">
+                        <div className="font-semibold text-xs mb-2">
+                          Nasycené mastné kyseliny podle surovin:
+                        </div>
+                        {calculateNutritionalBreakdown("saturates").length >
+                        0 ? (
+                          calculateNutritionalBreakdown("saturates").map(
+                            (item, index) => (
+                              <div
+                                key={index}
+                                className="text-xs flex justify-between"
+                              >
+                                <span>{item.name}:</span>
+                                <span>
+                                  {item.value.toFixed(1)} {item.unit}
+                                </span>
+                              </div>
+                            )
+                          )
+                        ) : (
+                          <div className="text-xs">
+                            Žádné údaje o nasycených mastných kyselinách
+                          </div>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="cursor-help">
+                        <span className="text-muted-foreground">
+                          Sacharidy na 100g:
+                        </span>
+                        <div className="font-semibold">
+                          {nutritionalTotals.totalWeightKg > 0
+                            ? `${((nutritionalTotals.totalCarbohydrate / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
+                            : "0.0 g"}
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <div className="space-y-1">
+                        <div className="font-semibold text-xs mb-2">
+                          Sacharidy podle surovin:
+                        </div>
+                        {calculateNutritionalBreakdown("carbohydrate").length >
+                        0 ? (
+                          calculateNutritionalBreakdown("carbohydrate").map(
+                            (item, index) => (
+                              <div
+                                key={index}
+                                className="text-xs flex justify-between"
+                              >
+                                <span>{item.name}:</span>
+                                <span>
+                                  {item.value.toFixed(1)} {item.unit}
+                                </span>
+                              </div>
+                            )
+                          )
+                        ) : (
+                          <div className="text-xs">
+                            Žádné údaje o sacharidech
+                          </div>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="cursor-help">
+                        <span className="text-muted-foreground">
+                          Cukry na 100g:
+                        </span>
+                        <div className="font-semibold">
+                          {nutritionalTotals.totalWeightKg > 0
+                            ? `${((nutritionalTotals.totalSugars / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
+                            : "0.0 g"}
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <div className="space-y-1">
+                        <div className="font-semibold text-xs mb-2">
+                          Cukry podle surovin:
+                        </div>
+                        {calculateNutritionalBreakdown("sugars").length > 0 ? (
+                          calculateNutritionalBreakdown("sugars").map(
+                            (item, index) => (
+                              <div
+                                key={index}
+                                className="text-xs flex justify-between"
+                              >
+                                <span>{item.name}:</span>
+                                <span>
+                                  {item.value.toFixed(1)} {item.unit}
+                                </span>
+                              </div>
+                            )
+                          )
+                        ) : (
+                          <div className="text-xs">Žádné údaje o cukrech</div>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="cursor-help">
+                        <span className="text-muted-foreground">
+                          Bílkoviny na 100g:
+                        </span>
+                        <div className="font-semibold">
+                          {nutritionalTotals.totalWeightKg > 0
+                            ? `${((nutritionalTotals.totalProtein / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
+                            : "0.0 g"}
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <div className="space-y-1">
+                        <div className="font-semibold text-xs mb-2">
+                          Bílkoviny podle surovin:
+                        </div>
+                        {calculateNutritionalBreakdown("protein").length > 0 ? (
+                          calculateNutritionalBreakdown("protein").map(
+                            (item, index) => (
+                              <div
+                                key={index}
+                                className="text-xs flex justify-between"
+                              >
+                                <span>{item.name}:</span>
+                                <span>
+                                  {item.value.toFixed(1)} {item.unit}
+                                </span>
+                              </div>
+                            )
+                          )
+                        ) : (
+                          <div className="text-xs">
+                            Žádné údaje o bílkovinách
+                          </div>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="cursor-help">
+                        <span className="text-muted-foreground">
+                          Vláknina na 100g:
+                        </span>
+                        <div className="font-semibold">
+                          {nutritionalTotals.totalWeightKg > 0
+                            ? `${((nutritionalTotals.totalFibre / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
+                            : "0.0 g"}
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <div className="space-y-1">
+                        <div className="font-semibold text-xs mb-2">
+                          Vláknina podle surovin:
+                        </div>
+                        {calculateNutritionalBreakdown("fibre").length > 0 ? (
+                          calculateNutritionalBreakdown("fibre").map(
+                            (item, index) => (
+                              <div
+                                key={index}
+                                className="text-xs flex justify-between"
+                              >
+                                <span>{item.name}:</span>
+                                <span>
+                                  {item.value.toFixed(1)} {item.unit}
+                                </span>
+                              </div>
+                            )
+                          )
+                        ) : (
+                          <div className="text-xs">Žádné údaje o vláknině</div>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="cursor-help">
+                        <span className="text-muted-foreground">
+                          Sůl na 100g:
+                        </span>
+                        <div className="font-semibold">
+                          {nutritionalTotals.totalWeightKg > 0
+                            ? `${((nutritionalTotals.totalSalt / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
+                            : "0.0 g"}
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <div className="space-y-1">
+                        <div className="font-semibold text-xs mb-2">
+                          Sůl podle surovin:
+                        </div>
+                        {calculateNutritionalBreakdown("salt").length > 0 ? (
+                          calculateNutritionalBreakdown("salt").map(
+                            (item, index) => (
+                              <div
+                                key={index}
+                                className="text-xs flex justify-between"
+                              >
+                                <span>{item.name}:</span>
+                                <span>
+                                  {item.value.toFixed(1)} {item.unit}
+                                </span>
+                              </div>
+                            )
+                          )
+                        ) : (
+                          <div className="text-xs">Žádné údaje o soli</div>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <div>
+                    <span className="text-muted-foreground">
+                      Celková hmotnost receptu:
+                    </span>
+                    <div className="font-semibold">
+                      {nutritionalTotals.totalWeightKg.toFixed(3)} kg
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Tuky na 100g:</span>
-                  <div className="font-semibold">
-                    {nutritionalTotals.totalWeightKg > 0
-                      ? `${((nutritionalTotals.totalFat / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
-                      : "0.0 g"}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">
-                    Nasycené mastné kyseliny na 100g:
-                  </span>
-                  <div className="font-semibold">
-                    {nutritionalTotals.totalWeightKg > 0
-                      ? `${((nutritionalTotals.totalSaturates / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
-                      : "0.0 g"}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">
-                    Sacharidy na 100g:
-                  </span>
-                  <div className="font-semibold">
-                    {nutritionalTotals.totalWeightKg > 0
-                      ? `${((nutritionalTotals.totalCarbohydrate / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
-                      : "0.0 g"}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Cukry na 100g:</span>
-                  <div className="font-semibold">
-                    {nutritionalTotals.totalWeightKg > 0
-                      ? `${((nutritionalTotals.totalSugars / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
-                      : "0.0 g"}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">
-                    Bílkoviny na 100g:
-                  </span>
-                  <div className="font-semibold">
-                    {nutritionalTotals.totalWeightKg > 0
-                      ? `${((nutritionalTotals.totalProtein / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
-                      : "0.0 g"}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">
-                    Vláknina na 100g:
-                  </span>
-                  <div className="font-semibold">
-                    {nutritionalTotals.totalWeightKg > 0
-                      ? `${((nutritionalTotals.totalFibre / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
-                      : "0.0 g"}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Sůl na 100g:</span>
-                  <div className="font-semibold">
-                    {nutritionalTotals.totalWeightKg > 0
-                      ? `${((nutritionalTotals.totalSalt / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
-                      : "0.0 g"}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">
-                    Celková hmotnost receptu:
-                  </span>
-                  <div className="font-semibold">
-                    {nutritionalTotals.totalWeightKg.toFixed(3)} kg
-                  </div>
-                </div>
-              </div>
+              </TooltipProvider>
             </CardContent>
           </Card>
 
