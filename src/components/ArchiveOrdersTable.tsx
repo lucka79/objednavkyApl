@@ -188,64 +188,46 @@ const columns: ColumnDef<Order>[] = [
   },
   {
     accessorKey: "date",
-    header: () => <div className=""></div>,
+    header: () => <div className="w-[100px]">Datum</div>,
     cell: ({ row }) => (
-      <div className="w-[80px]">
-        {new Date(row.original.date).toLocaleDateString()}
+      <div className="w-[100px] text-sm">
+        {new Date(row.original.date).toLocaleDateString("cs-CZ")}
       </div>
     ),
   },
   {
     accessorKey: "id",
-    header: () => <div className=""></div>,
-    cell: ({ row }) => <div className="w-[60px]">{row.original.id}</div>,
-  },
-  {
-    accessorKey: "crateSmall",
-    header: () => <div className="print:hidden"></div>,
+    header: () => <div className="w-[60px]">ID</div>,
     cell: ({ row }) => (
-      <div className="flex items-center w-[50px] text-right print:hidden">
-        <Badge variant="outline" className="text-yellow-700 ml-auto">
-          {row.original.crateSmall}
-          <Container size={16} className="ml-2" />
-        </Badge>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "crateBig",
-    header: () => <div className="print:hidden"></div>,
-    cell: ({ row }) => (
-      <div className="flex items-center w-[50px] justify-end print:hidden">
-        <Badge variant="outline" className="text-red-800">
-          {row.original.crateBig}
-          <Container size={20} className="ml-2" />
-        </Badge>
-      </div>
+      <div className="w-[60px] text-sm">{row.original.id}</div>
     ),
   },
   {
     accessorKey: "user.full_name",
-    header: () => <div className=""></div>,
+    header: () => <div className="w-[200px]">Odběratel</div>,
     cell: ({ row }) => (
-      <div className="w-[180px]">{row.original.user.full_name}</div>
+      <div className="w-[200px] truncate text-sm font-medium">
+        {row.original.user.full_name}
+      </div>
     ),
   },
-  {
-    accessorKey: "paid_by",
-    header: () => <div className=""></div>,
-    cell: ({ row }) => <div className="w-[60px]">{row.original.paid_by}</div>,
-  },
+  // {
+  //   accessorKey: "paid_by",
+  //   header: () => <div className="w-[60px]">Platba</div>,
+  //   cell: ({ row }) => <div className="w-[60px] text-sm">{row.original.paid_by}</div>,
+  // },
   {
     accessorKey: "driver.full_name",
-    header: () => <div className=""></div>,
+    header: () => <div className="w-[120px]">Řidič</div>,
     cell: ({ row }) => (
-      <div className="w-[80px]">{row.original.driver?.full_name || "-"}</div>
+      <div className="w-[120px] truncate text-sm">
+        {row.original.driver?.full_name || "—"}
+      </div>
     ),
   },
   {
     accessorKey: "note",
-    header: () => <div className=""></div>,
+    header: () => <div className="w-[40px]">Poznámka</div>,
     cell: ({ row }) => (
       <div className="flex justify-center w-[40px]">
         {row.original.note && row.original.note !== "-" && (
@@ -267,64 +249,55 @@ const columns: ColumnDef<Order>[] = [
     accessorKey: "total",
     header: () => {
       const { user: authUser } = useAuthStore();
-      return authUser?.role === "admin" ? <div className=""></div> : null;
+      return authUser?.role === "admin" ? (
+        <div className="w-[100px] text-right">Celkem</div>
+      ) : null;
     },
     cell: ({ row }) => {
       const { user: authUser } = useAuthStore();
       return authUser?.role === "admin" ? (
-        <div className="w-[80px] text-right">
+        <div className="w-[100px] text-right text-sm font-medium">
           {row.original.total.toFixed(2)} Kč
         </div>
       ) : null;
     },
   },
-  {
-    accessorKey: "crateSmallReceived",
-    header: () => <div className="print:hidden"></div>,
-    cell: ({ row }) => (
-      <div className="flex items-center w-[50px] text-right print:hidden">
-        <Badge variant="outline" className="text-yellow-700 ml-auto">
-          {row.original.crateSmallReceived}
-          <Container size={16} className="mx-1" />
-        </Badge>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "crateBigReceived",
-    header: () => <div className="print:hidden"></div>,
-    cell: ({ row }) => (
-      <div className="flex items-center w-[50px] justify-end print:hidden">
-        <Badge variant="outline" className="text-red-800">
-          {row.original.crateBigReceived}
-          <Container size={20} className="mx-1" />
-        </Badge>
-      </div>
-    ),
-  },
+  // Remove crate received columns for simplicity
+  // {
+  //   accessorKey: "crateSmallReceived",
+  //   header: () => <div className="print:hidden"></div>,
+  //   cell: ({ row }) => (
+  //     <div className="flex items-center w-[50px] text-right print:hidden">
+  //       <Badge variant="outline" className="text-yellow-700 ml-auto">
+  //         {row.original.crateSmallReceived}
+  //         <Container size={16} className="mx-1" />
+  //       </Badge>
+  //     </div>
+  //   ),
+  // },
+  // {
+  //   accessorKey: "crateBigReceived",
+  //   header: () => <div className="print:hidden"></div>,
+  //   cell: ({ row }) => (
+  //     <div className="flex items-center w-[50px] justify-end print:hidden">
+  //       <Badge variant="outline" className="text-red-800">
+  //         {row.original.crateBigReceived}
+  //         <Container size={20} className="mx-1" />
+  //       </Badge>
+  //     </div>
+  //   ),
+  // },
   {
     accessorKey: "status",
-    header: () => <div className=""></div>,
+    header: () => <div className="w-[100px]">Status</div>,
     cell: ({ row }) => {
       const order = row.original;
-
-      // const checkedItems =
-      //   order.order_items?.filter((item) => item.checked).length || 0;
-      // const totalItems = order.order_items?.length || 0;
-
       return (
-        <div className="w-[220px] text-right flex justify-end gap-2 items-center">
-          {/* {totalItems > 0 && (
-            <>
-              <Badge variant="outline" className="border-green-500 w-[50px]">
-                {checkedItems}/{totalItems}
-              </Badge>
-            </>
-          )} */}
+        <div className="w-[100px]">
           <Badge
             variant="outline"
             className={cn(
-              "w-[80px] text-center",
+              "text-xs w-full justify-center",
               order.status === "Expedice R"
                 ? "bg-orange-600 text-white"
                 : order.status === "Expedice O"
@@ -342,7 +315,7 @@ const columns: ColumnDef<Order>[] = [
   },
   {
     id: "actions",
-    header: () => <div className="w-[60px]"></div>,
+    header: () => <div className="w-[80px] text-center">Akce</div>,
     cell: ({ row }) => {
       const order = row.original;
       const deleteOrder = useDeleteOrder();
@@ -386,20 +359,18 @@ const columns: ColumnDef<Order>[] = [
       };
 
       return (
-        <div className="w-[60px] flex justify-end gap-2">
+        <div className="w-[80px] flex justify-center gap-1">
           {canUnlock && (
             <Button
               variant="ghost"
               size="sm"
               onClick={toggleLock}
-              className={
-                order.isLocked ? "text-muted-foreground" : "text-red-600"
-              }
+              className="h-8 w-8 p-0"
             >
               {order.isLocked ? (
-                <Lock className="h-4 w-4" />
+                <Lock className="h-4 w-4 text-muted-foreground" />
               ) : (
-                <Unlock className="h-4 w-4" />
+                <Unlock className="h-4 w-4 text-red-600" />
               )}
             </Button>
           )}
@@ -1560,26 +1531,17 @@ export function ArchiveOrdersTable() {
 
               <div className="flex flex-wrap gap-2 print:hidden">
                 <span className="text-muted-foreground text-sm font-semibold">
-                  Vydáno:
+                  Přepravky:
                 </span>
-                <Badge variant="outline" className="text-yellow-700 ">
-                  {calculateCrateSums(filteredOrders).crateSmall}
-                  <Container size={16} className="mx-1" />
+                <Badge variant="outline" className="text-yellow-700">
+                  <Container size={14} className="mr-1" />
+                  M: {calculateCrateSums(filteredOrders).crateSmall}/
+                  {calculateCrateSums(filteredOrders).crateSmallReceived}
                 </Badge>
                 <Badge variant="outline" className="text-red-800">
-                  {calculateCrateSums(filteredOrders).crateBig}
-                  <Container size={20} className="mx-1" />
-                </Badge>
-                <span className="text-muted-foreground text-sm font-semibold">
-                  Přijato:
-                </span>
-                <Badge variant="secondary" className="text-yellow-700">
-                  {calculateCrateSums(filteredOrders).crateSmallReceived}
-                  <Container size={16} className="mx-1" />
-                </Badge>
-                <Badge variant="secondary" className="text-red-800">
+                  <Container size={16} className="mr-1" />
+                  V: {calculateCrateSums(filteredOrders).crateBig}/
                   {calculateCrateSums(filteredOrders).crateBigReceived}
-                  <Container size={20} className="mx-1" />
                 </Badge>
               </div>
               <Badge
@@ -1593,11 +1555,11 @@ export function ArchiveOrdersTable() {
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full">
               <Select value={selectedRole} onValueChange={setSelectedRole}>
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue placeholder="Typ odběratele..." />
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Typ odběratele" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Typ odběratele</SelectItem>
+                  <SelectItem value="all">Všechny typy</SelectItem>
                   {uniqueRoles.map((role) => (
                     <SelectItem key={role} value={role}>
                       {roleTranslations[role] || role}
@@ -1607,8 +1569,8 @@ export function ArchiveOrdersTable() {
               </Select>
 
               <Select value={selectedDriver} onValueChange={setSelectedDriver}>
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue placeholder="Filtrovat řidiče..." />
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Řidič" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Všichni řidiči</SelectItem>
@@ -1622,11 +1584,11 @@ export function ArchiveOrdersTable() {
               </Select>
 
               <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue placeholder="Stav objednávky..." />
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Stav objednávky</SelectItem>
+                  <SelectItem value="all">Všechny stavy</SelectItem>
                   {uniqueStatusValues.map((status) => (
                     <SelectItem key={status} value={status}>
                       {status}
@@ -1639,8 +1601,8 @@ export function ArchiveOrdersTable() {
                 value={selectedAllUsers}
                 onValueChange={setSelectedAllUsers}
               >
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue placeholder="Všichni odběratelé..." />
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Odběratel" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Všichni odběratelé</SelectItem>
@@ -1653,16 +1615,15 @@ export function ArchiveOrdersTable() {
               </Select>
 
               <Select value={selectedAllOZ} onValueChange={setSelectedAllOZ}>
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue placeholder="Všichni..." />
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="OZ/Partners" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Vyber OZ/Mo Partners</SelectItem>
-                  <SelectItem value="oz">Obchodní zást. původní</SelectItem>
-                  <SelectItem value="oz_new">ObchZást (Hanka)</SelectItem>
+                  <SelectItem value="all">Všechny OZ</SelectItem>
+                  <SelectItem value="oz">OZ původní</SelectItem>
+                  <SelectItem value="oz_new">OZ (Hanka)</SelectItem>
                   <SelectItem value="mo_partners">Mo Partners</SelectItem>
-
-                  <SelectItem value="no_oz_both">Bez OZ i Hanky</SelectItem>
+                  <SelectItem value="no_oz_both">Bez OZ</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -2558,13 +2519,16 @@ function OrderTableContent({
 
   return (
     <div className="border rounded-md print:hidden w-full">
-      <div className="w-full overflow-x-auto">
+      <div className="overflow-x-auto">
         <Table className="w-full">
           <TableHeader className="sticky top-0 bg-background z-10">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="px-2 whitespace-nowrap">
+                  <TableHead
+                    key={header.id}
+                    className="px-2 py-3 whitespace-nowrap text-xs font-medium"
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -2581,10 +2545,13 @@ function OrderTableContent({
               <TableRow
                 key={row.id}
                 onClick={() => setSelectedOrderId(row.original.id)}
-                className="cursor-pointer hover:bg-muted/50"
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
               >
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className="px-2 whitespace-nowrap">
+                  <TableCell
+                    key={cell.id}
+                    className="px-2 py-2 whitespace-nowrap"
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}

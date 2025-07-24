@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { removeDiacritics } from "@/utils/removeDiacritics";
+import { useAuthStore } from "@/lib/supabase";
 
 export function IngredientsTable() {
   const {
@@ -60,9 +61,14 @@ export function IngredientsTable() {
   } = useIngredientStore();
 
   const { toast } = useToast();
+  const { user: authUser } = useAuthStore();
   const [globalFilter, setGlobalFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("categories");
+
+  // Check if user can delete ingredients
+  const canDelete =
+    authUser?.role === "admin" || authUser?.email === "l.batelkova@gmail.com";
 
   // Load data on mount
   useEffect(() => {
@@ -101,7 +107,11 @@ export function IngredientsTable() {
     return groupedIngredients
       .filter(
         ({ categoryName }) =>
-          categoryFilter === "all" || categoryName === categoryFilter
+          // If there's a search term, show all categories to allow global search
+          // Otherwise, respect the category filter
+          globalFilter.trim() !== "" ||
+          categoryFilter === "all" ||
+          categoryName === categoryFilter
       )
       .map(({ categoryName, ingredients }) => ({
         categoryName,
@@ -117,7 +127,18 @@ export function IngredientsTable() {
               ).includes(searchLower)
             : false;
 
-          return nameMatch || eanMatch || categoryMatch;
+          // If there's a search term, search globally
+          if (globalFilter.trim() !== "") {
+            return nameMatch || eanMatch || categoryMatch;
+          }
+
+          // If no search term, apply category filter
+          const categoryFilterMatch =
+            categoryFilter === "all" ||
+            (ingredient.ingredient_categories?.name || "Bez kategorie") ===
+              categoryFilter;
+
+          return categoryFilterMatch;
         }),
       }))
       .filter(({ ingredients }) => ingredients.length > 0);
@@ -140,9 +161,12 @@ export function IngredientsTable() {
             ).includes(searchLower)
           : false;
 
-        return nameMatch || eanMatch || categoryMatch;
-      })
-      .filter((ingredient) => {
+        // If there's a search term, search globally
+        if (globalFilter.trim() !== "") {
+          return nameMatch || eanMatch || categoryMatch;
+        }
+
+        // If no search term, apply category filter
         if (categoryFilter === "all") return true;
         const categoryName =
           ingredient.ingredient_categories?.name || "Bez kategorie";
@@ -276,36 +300,38 @@ export function IngredientsTable() {
           >
             <Edit className="h-4 w-4" />
           </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Smazat ingredienci</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Opravdu chcete smazat ingredienci "{ingredient.name}"? Tato
-                  akce je nevratná.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Zrušit</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => handleDelete(ingredient)}
-                  className="bg-red-600 hover:bg-red-700"
+          {canDelete && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  Smazat
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Smazat ingredienci</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Opravdu chcete smazat ingredienci "{ingredient.name}"? Tato
+                    akce je nevratná.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Zrušit</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => handleDelete(ingredient)}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    Smazat
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </TableCell>
     </TableRow>

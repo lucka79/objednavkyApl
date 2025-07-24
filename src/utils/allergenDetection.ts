@@ -43,7 +43,7 @@ export const detectAllergens = (
       color: "bg-amber-100 text-amber-800",
     },
     {
-      keywords: ["mléko", "laktóza", "sýr", "máslo", "smetana", "syrovátka"],
+      keywords: ["mléko", "laktóza", "sýr", "máslo", "smetana", "syrovátka", "mléč.bílkovina", "mléčná bílkovina"],
       name: "Mléko",
       icon: Milk,
       color: "bg-blue-100 text-blue-800",

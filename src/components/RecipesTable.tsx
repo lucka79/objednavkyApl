@@ -38,12 +38,15 @@ import { useToast } from "@/hooks/use-toast";
 import { RecipeForm } from "@/components/RecipeForm";
 import { removeDiacritics } from "@/utils/removeDiacritics";
 import { detectAllergens } from "@/utils/allergenDetection";
+import { useAuthStore } from "@/lib/supabase";
 
 export function RecipesTable() {
   const { data, isLoading, error } = useRecipes();
   const { toast } = useToast();
   const [globalFilter, setGlobalFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [recipeTypeFilter, setRecipeTypeFilter] = useState("all");
+  const { user: authUser } = useAuthStore();
 
   // Form state
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -51,6 +54,10 @@ export function RecipesTable() {
 
   const recipes = data?.recipes || [];
   const categories = data?.categories || [];
+
+  // Check if user can delete recipes
+  const canDelete =
+    authUser?.role === "admin" || authUser?.email === "l.batelkova@gmail.com";
 
   // Group recipes by category
   const groupedRecipes = useMemo(() => {
@@ -82,7 +89,11 @@ export function RecipesTable() {
     return groupedRecipes
       .filter(
         ({ categoryName }) =>
-          categoryFilter === "all" || categoryName === categoryFilter
+          // If there's a search term, show all categories to allow global search
+          // Otherwise, respect the category filter
+          globalFilter.trim() !== "" ||
+          categoryFilter === "all" ||
+          categoryName === categoryFilter
       )
       .map(({ categoryName, recipes }) => ({
         categoryName,
@@ -95,11 +106,30 @@ export function RecipesTable() {
             ? removeDiacritics(recipe.note.toLowerCase()).includes(searchLower)
             : false;
 
-          return nameMatch || noteMatch;
+          // Recipe type filter
+          const typeMatch =
+            recipeTypeFilter === "all" ||
+            (recipeTypeFilter === "baker" && recipe.baker) ||
+            (recipeTypeFilter === "pastry" && recipe.pastry) ||
+            (recipeTypeFilter === "donut" && recipe.donut) ||
+            (recipeTypeFilter === "store" && recipe.store) ||
+            (recipeTypeFilter === "test" && recipe.test);
+
+          // If there's a search term, search globally but still apply recipe type filter
+          if (globalFilter.trim() !== "") {
+            return (nameMatch || noteMatch) && typeMatch;
+          }
+
+          // If no search term, apply both category and recipe type filters
+          const categoryFilterMatch =
+            categoryFilter === "all" ||
+            (recipe.categories?.name || "Bez kategorie") === categoryFilter;
+
+          return categoryFilterMatch && typeMatch;
         }),
       }))
       .filter(({ recipes }) => recipes.length > 0);
-  }, [groupedRecipes, globalFilter, categoryFilter]);
+  }, [groupedRecipes, globalFilter, categoryFilter, recipeTypeFilter]);
 
   // Calculate totals
   //   const totalRecipes = recipes.length;
@@ -233,6 +263,85 @@ export function RecipesTable() {
             </Select>
           </div>
 
+          {/* Recipe Type Filters */}
+          <div className="flex flex-wrap gap-2">
+            <span className="text-sm font-medium text-muted-foreground self-center">
+              Typ receptu:
+            </span>
+            <Button
+              variant={recipeTypeFilter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setRecipeTypeFilter("all")}
+              className={
+                recipeTypeFilter === "all"
+                  ? "bg-orange-600 hover:bg-orange-700"
+                  : ""
+              }
+            >
+              Všechny
+            </Button>
+            <Button
+              variant={recipeTypeFilter === "baker" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setRecipeTypeFilter("baker")}
+              className={
+                recipeTypeFilter === "baker"
+                  ? "bg-blue-500 hover:bg-blue-600"
+                  : "border-blue-500 text-blue-500 hover:bg-blue-50"
+              }
+            >
+              Pekař
+            </Button>
+            <Button
+              variant={recipeTypeFilter === "pastry" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setRecipeTypeFilter("pastry")}
+              className={
+                recipeTypeFilter === "pastry"
+                  ? "bg-pink-500 hover:bg-pink-600"
+                  : "border-pink-500 text-pink-500 hover:bg-pink-50"
+              }
+            >
+              Cukrář
+            </Button>
+            <Button
+              variant={recipeTypeFilter === "donut" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setRecipeTypeFilter("donut")}
+              className={
+                recipeTypeFilter === "donut"
+                  ? "bg-purple-500 hover:bg-purple-600"
+                  : "border-purple-500 text-purple-500 hover:bg-purple-50"
+              }
+            >
+              Koblihy
+            </Button>
+            <Button
+              variant={recipeTypeFilter === "store" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setRecipeTypeFilter("store")}
+              className={
+                recipeTypeFilter === "store"
+                  ? "bg-green-500 hover:bg-green-600"
+                  : "border-green-500 text-green-500 hover:bg-green-50"
+              }
+            >
+              Prodejna
+            </Button>
+            <Button
+              variant={recipeTypeFilter === "test" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setRecipeTypeFilter("test")}
+              className={
+                recipeTypeFilter === "test"
+                  ? "bg-yellow-500 hover:bg-yellow-600"
+                  : "border-yellow-500 text-yellow-500 hover:bg-yellow-50"
+              }
+            >
+              Test
+            </Button>
+          </div>
+
           {/* Recipes by Category */}
           <div className="space-y-6">
             {filteredGroupedRecipes.map(({ categoryName, recipes }) => (
@@ -357,40 +466,42 @@ export function RecipesTable() {
                                 >
                                   <Edit className="h-4 w-4" />
                                 </Button>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>
-                                        Smazat recept
-                                      </AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Opravdu chcete smazat recept "
-                                        {recipe.name}"? Tato akce je nevratná.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>
-                                        Zrušit
-                                      </AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => handleDelete(recipe)}
-                                        className="bg-red-600 hover:bg-red-700"
+                                {canDelete && (
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                                        onClick={(e) => e.stopPropagation()}
                                       >
-                                        Smazat
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                          Smazat recept
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Opravdu chcete smazat recept "
+                                          {recipe.name}"? Tato akce je nevratná.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>
+                                          Zrušit
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() => handleDelete(recipe)}
+                                          className="bg-red-600 hover:bg-red-700"
+                                        >
+                                          Smazat
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>

@@ -795,22 +795,31 @@ export function ProductsTable() {
 
   const filteredProducts = React.useMemo(() => {
     return (
-      products?.filter(
-        (product: Product) =>
-          (priceFilter === "all" ||
-            (priceFilter === "mobile" && product.priceMobil > 0)) &&
-          (categoryFilter === "all" ||
-            (product.category_id ?? 0).toString() === categoryFilter) &&
-          (() => {
-            const searchLower = removeDiacritics(globalFilter.toLowerCase());
-            return Object.values(product).some((value) => {
-              if (!value) return false;
-              const valueStr = value.toString().toLowerCase();
-              const normalizedValue = removeDiacritics(valueStr);
-              return normalizedValue.includes(searchLower);
-            });
-          })()
-      ) || []
+      products?.filter((product: Product) => {
+        // Price filter - always apply
+        const priceMatch =
+          priceFilter === "all" ||
+          (priceFilter === "mobile" && product.priceMobil > 0);
+
+        // Search filter
+        const searchLower = removeDiacritics(globalFilter.toLowerCase());
+        const searchMatch =
+          globalFilter.trim() === "" ||
+          Object.values(product).some((value) => {
+            if (!value) return false;
+            const valueStr = value.toString().toLowerCase();
+            const normalizedValue = removeDiacritics(valueStr);
+            return normalizedValue.includes(searchLower);
+          });
+
+        // Category filter - only apply if there's no search term
+        const categoryMatch =
+          globalFilter.trim() !== "" ||
+          categoryFilter === "all" ||
+          (product.category_id ?? 0).toString() === categoryFilter;
+
+        return priceMatch && searchMatch && categoryMatch;
+      }) || []
     );
   }, [products, categoryFilter, globalFilter, priceFilter]);
 

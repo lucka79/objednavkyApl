@@ -140,9 +140,7 @@ export function Navbar() {
                     <Link to="/admin/products" className="hover:text-gray-300">
                       <ShoppingCart />
                     </Link>
-                    <Link to="/admin/reports" className="hover:text-gray-300">
-                      Reporty
-                    </Link>
+
                     <Link to="/admin/archive" className="hover:text-gray-300">
                       Archiv
                     </Link>
@@ -152,6 +150,9 @@ export function Navbar() {
                     >
                       Suroviny
                     </Link>
+                    <Link to="/admin/recipes" className="hover:text-gray-300">
+                      Recepty
+                    </Link>
 
                     {user.email === "l.batelkova@gmail.com" && (
                       <>
@@ -160,12 +161,6 @@ export function Navbar() {
                           className="hover:text-gray-300"
                         >
                           Faktury
-                        </Link>
-                        <Link
-                          to="/admin/recipes"
-                          className="hover:text-gray-300"
-                        >
-                          Recepty
                         </Link>
                       </>
                     )}
