@@ -1707,11 +1707,24 @@ function OrderTableContent({
           >
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
               const row = rows[virtualRow.index];
+              const hasDoranNote =
+                row.original.note &&
+                row.original.note.toLowerCase().includes("dorty");
+              const hasFreshNote =
+                row.original.note &&
+                row.original.note.toLowerCase().includes("fresh");
+
               return (
                 <TableRow
                   key={row.id}
                   onClick={() => setSelectedOrderId(row.original.id)}
-                  className="cursor-pointer hover:bg-muted/50 absolute w-full"
+                  className={`cursor-pointer hover:bg-muted/50 absolute w-full ${
+                    hasDoranNote
+                      ? "bg-red-50"
+                      : hasFreshNote
+                        ? "bg-green-50"
+                        : ""
+                  }`}
                   style={{
                     height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,

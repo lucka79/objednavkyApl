@@ -181,6 +181,7 @@ export function RecipesTable() {
     if (recipe.pastry) return "border-l-pink-500";
     if (recipe.donut) return "border-l-purple-500";
     if (recipe.store) return "border-l-green-500";
+    if (recipe.test) return "border-l-yellow-500";
     return ""; // No border for recipes without flags
   };
 
@@ -256,7 +257,7 @@ export function RecipesTable() {
                         <TableHead className="text-right">Cena/kg</TableHead>
                         <TableHead>Alergeny</TableHead>
                         <TableHead>Poznámka</TableHead>
-
+                        <TableHead className="text-center">Test</TableHead>
                         <TableHead className="text-right">Akce</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -267,7 +268,8 @@ export function RecipesTable() {
                           recipe.baker ||
                           recipe.pastry ||
                           recipe.donut ||
-                          recipe.store;
+                          recipe.store ||
+                          recipe.test;
                         return (
                           <TableRow
                             key={recipe.id}
@@ -330,6 +332,16 @@ export function RecipesTable() {
                               <span className="text-sm text-muted-foreground">
                                 {recipe.note || "—"}
                               </span>
+                            </TableCell>
+
+                            <TableCell className="text-center">
+                              {recipe.test ? (
+                                <span className="inline-flex items-center justify-center w-5 h-5 bg-yellow-100 text-yellow-600 rounded-full text-xs font-semibold">
+                                  ✓
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
                             </TableCell>
 
                             <TableCell className="text-right">

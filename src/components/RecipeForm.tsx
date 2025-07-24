@@ -60,10 +60,11 @@ const initialFormData: Omit<Recipe, "id" | "created_at"> = {
   dough: "",
   stir: "",
   water: "",
-  baker: true,
+  baker: false,
   pastry: false,
   donut: false,
   store: false,
+  test: true,
 };
 
 function IngredientPickerModal({
@@ -362,12 +363,20 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
   const nutritionalTotals = calculateNutritionalTotals();
 
   // Helper to get border color based on recipe type
-  const getRecipeBorderColor = () => {
-    if (formData.baker) return "border-l-blue-500";
-    if (formData.pastry) return "border-l-pink-500";
-    if (formData.donut) return "border-l-purple-500";
-    if (formData.store) return "border-l-green-500";
-    return ""; // No border for recipes without flags
+  const getBorderInfo = () => {
+    const colors = [];
+    if (formData.baker)
+      colors.push({ class: "border-l-blue-500", color: "#3b82f6" });
+    if (formData.pastry)
+      colors.push({ class: "border-l-pink-500", color: "#ec4899" });
+    if (formData.donut)
+      colors.push({ class: "border-l-purple-500", color: "#8b5cf6" });
+    if (formData.store)
+      colors.push({ class: "border-l-green-500", color: "#10b981" });
+    if (formData.test)
+      colors.push({ class: "border-l-yellow-500", color: "#eab308" });
+
+    return colors;
   };
 
   // Calculate nutritional breakdown per ingredient for tooltips
@@ -577,103 +586,134 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
-          <Card
-            className={
-              getRecipeBorderColor()
-                ? `border-l-4 ${getRecipeBorderColor()}`
-                : ""
-            }
-          >
-            <CardHeader>
-              <CardTitle className="text-lg">Základní informace</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-4">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="baker"
-                    checked={!!formData.baker}
-                    onCheckedChange={(checked) =>
-                      handleInputChange("baker", checked)
-                    }
-                    className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+          <div className="relative">
+            {/* Colored stripes for multiple selections */}
+            {getBorderInfo().length > 0 && (
+              <div className="absolute left-0 top-0 bottom-0 flex flex-col w-1 z-10 rounded-l">
+                {getBorderInfo().map((info, index) => (
+                  <div
+                    key={index}
+                    className={`flex-1 ${index === 0 ? "rounded-tl" : ""} ${
+                      index === getBorderInfo().length - 1 ? "rounded-bl" : ""
+                    }`}
+                    style={{ backgroundColor: info.color }}
                   />
-                  <Label htmlFor="baker">Pekař</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="pastry"
-                    checked={!!formData.pastry}
-                    onCheckedChange={(checked) =>
-                      handleInputChange("pastry", checked)
-                    }
-                    className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
-                  />
-                  <Label htmlFor="pastry">Cukrář</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="donut"
-                    checked={!!formData.donut}
-                    onCheckedChange={(checked) =>
-                      handleInputChange("donut", checked)
-                    }
-                    className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
-                  />
-                  <Label htmlFor="donut">Donut</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="store"
-                    checked={!!formData.store}
-                    onCheckedChange={(checked) =>
-                      handleInputChange("store", checked)
-                    }
-                    className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
-                  />
-                  <Label htmlFor="store">Prodejna</Label>
-                </div>
+                ))}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Název *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange("name", e.target.value)}
-                    placeholder="Název receptu"
-                  />
+            )}
+            <Card
+              className={
+                getBorderInfo().length === 1
+                  ? `border-l-4 ${getBorderInfo()[0].class}`
+                  : getBorderInfo().length > 1
+                    ? "ml-1"
+                    : ""
+              }
+            >
+              <CardHeader>
+                <CardTitle className="text-lg">Základní informace</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap gap-4">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="baker"
+                      checked={!!formData.baker}
+                      onCheckedChange={(checked) =>
+                        handleInputChange("baker", checked)
+                      }
+                      className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                    />
+                    <Label htmlFor="baker">Pekař</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="pastry"
+                      checked={!!formData.pastry}
+                      onCheckedChange={(checked) =>
+                        handleInputChange("pastry", checked)
+                      }
+                      className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                    />
+                    <Label htmlFor="pastry">Cukrář</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="donut"
+                      checked={!!formData.donut}
+                      onCheckedChange={(checked) =>
+                        handleInputChange("donut", checked)
+                      }
+                      className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                    />
+                    <Label htmlFor="donut">Donut</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="store"
+                      checked={!!formData.store}
+                      onCheckedChange={(checked) =>
+                        handleInputChange("store", checked)
+                      }
+                      className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                    />
+                    <Label htmlFor="store">Prodejna</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="test"
+                      checked={!!formData.test}
+                      onCheckedChange={(checked) =>
+                        handleInputChange("test", checked)
+                      }
+                      className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                    />
+                    <Label htmlFor="test">Test</Label>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="category">Kategorie *</Label>
-                  <Select
-                    value={
-                      formData.category_id
-                        ? formData.category_id.toString()
-                        : ""
-                    }
-                    onValueChange={(value) =>
-                      handleInputChange("category_id", parseInt(value))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Vyberte kategorii" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories?.map((category: RecipeCategory) => (
-                        <SelectItem
-                          key={category.id}
-                          value={category.id.toString()}
-                        >
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Název *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) =>
+                        handleInputChange("name", e.target.value)
+                      }
+                      placeholder="Název receptu"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="category">Kategorie *</Label>
+                    <Select
+                      value={
+                        formData.category_id
+                          ? formData.category_id.toString()
+                          : ""
+                      }
+                      onValueChange={(value) =>
+                        handleInputChange("category_id", parseInt(value))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Vyberte kategorii" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories?.map((category: RecipeCategory) => (
+                          <SelectItem
+                            key={category.id}
+                            value={category.id.toString()}
+                          >
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Ingredients Section */}
           <Card>

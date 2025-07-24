@@ -19,6 +19,7 @@ export interface Recipe {
   pastry: boolean;
   donut: boolean;
   store: boolean;
+  test: boolean;
 }
 
 export interface RecipeIngredient {
