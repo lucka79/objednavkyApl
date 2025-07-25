@@ -501,19 +501,31 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
     try {
       let recipeId: number;
 
-      // Clean formData to exclude joined fields
+      // Calculate totals from ingredients
+      const { totalWeight, totalPrice } = calculateTotals();
+      const pricePerKilo = totalWeight > 0 ? totalPrice / totalWeight : 0;
+
+      // Clean formData to exclude joined fields and add calculated values
       const { categories, recipe_ingredients, ...cleanFormData } =
         formData as any;
 
+      // Update formData with calculated values
+      const recipeDataToSave = {
+        ...cleanFormData,
+        price: totalPrice,
+        pricePerKilo: pricePerKilo,
+        quantity: totalWeight,
+      };
+
       if (isEditMode && initialRecipe) {
-        await updateRecipe(initialRecipe.id, cleanFormData);
+        await updateRecipe(initialRecipe.id, recipeDataToSave);
         recipeId = initialRecipe.id;
         toast({ title: "Úspěch", description: "Recept byl upraven." });
       } else {
         // For new recipes, we need to create the recipe first and get its ID
         const { data: newRecipe, error } = await supabase
           .from("recipes")
-          .insert([cleanFormData])
+          .insert([recipeDataToSave])
           .select()
           .single();
 

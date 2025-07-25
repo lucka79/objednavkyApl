@@ -2541,22 +2541,39 @@ function OrderTableContent({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                onClick={() => setSelectedOrderId(row.original.id)}
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell
-                    key={cell.id}
-                    className="px-2 py-2 whitespace-nowrap"
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
+            {table.getRowModel().rows.map((row) => {
+              // Check for conditional row coloring based on note
+              const hasDoranNote =
+                row.original.note?.toLowerCase().includes("dorty") || false;
+              const hasFreshNote =
+                row.original.note?.toLowerCase().includes("fresh") || false;
+
+              return (
+                <TableRow
+                  key={row.id}
+                  onClick={() => setSelectedOrderId(row.original.id)}
+                  className={`cursor-pointer hover:bg-muted/50 transition-colors ${
+                    hasDoranNote
+                      ? "bg-red-50"
+                      : hasFreshNote
+                        ? "bg-green-50"
+                        : ""
+                  }`}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell
+                      key={cell.id}
+                      className="px-2 py-2 whitespace-nowrap"
+                    >
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
