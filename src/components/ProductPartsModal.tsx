@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +32,7 @@ import {
   List,
   Copy,
   AlertTriangle,
+  BookOpen,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
@@ -40,6 +41,13 @@ import { useIngredients } from "@/hooks/useIngredients";
 import { fetchAllProducts } from "@/hooks/useProducts";
 import { useQueryClient } from "@tanstack/react-query";
 import { detectAllergens } from "@/utils/allergenDetection";
+import { useProductPartsCount } from "@/hooks/useProductParts";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ProductPart {
   id?: number;
@@ -67,6 +75,9 @@ export function ProductPartsModal({
   const [productParts, setProductParts] = useState<ProductPart[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [calculatedWeights, setCalculatedWeights] = useState<
+    Map<number, number>
+  >(new Map());
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -74,10 +85,81 @@ export function ProductPartsModal({
   const { data: recipesData } = useRecipes();
   const { data: ingredientsData } = useIngredients();
   const { data: productsData } = fetchAllProducts();
+  const { data: productPartsCount } = useProductPartsCount();
 
   const recipes = recipesData?.recipes || [];
   const ingredients = ingredientsData?.ingredients || [];
   const products = productsData || [];
+
+  // Create a lookup map for products with parts
+  const productPartsMap = useMemo(() => {
+    const map = new Map<number, boolean>();
+    productPartsCount?.forEach((pc) => {
+      map.set(pc.product_id, true);
+    });
+    return map;
+  }, [productPartsCount]);
+
+  // Helper function to calculate actual weight from recipe ingredients
+  const calculateProductWeightFromRecipe = async (
+    productId: number
+  ): Promise<number | null> => {
+    try {
+      // Fetch product parts for this product
+      const { data: productParts, error } = await supabase
+        .from("product_parts")
+        .select(
+          `
+          *,
+          recipes(name, recipe_ingredients(quantity, ingredient:ingredients(kiloPerUnit))),
+          ingredients(kiloPerUnit)
+        `
+        )
+        .eq("product_id", productId)
+        .eq("productOnly", false); // Only non-productOnly parts contribute to weight
+
+      if (error) throw error;
+
+      if (!productParts || productParts.length === 0) {
+        return null; // No parts found
+      }
+
+      let totalWeightKg = 0;
+
+      productParts.forEach((part: any) => {
+        // Handle recipe parts
+        if (part.recipe_id && part.recipes && part.recipes.recipe_ingredients) {
+          let recipeWeightKg = 0;
+          part.recipes.recipe_ingredients.forEach((recipeIng: any) => {
+            if (recipeIng.ingredient && recipeIng.ingredient.kiloPerUnit) {
+              const weightInKg =
+                recipeIng.quantity * recipeIng.ingredient.kiloPerUnit;
+              recipeWeightKg += weightInKg;
+            }
+          });
+          // Use the actual weight being used from this recipe part
+          totalWeightKg += part.quantity;
+        }
+
+        // Handle ingredient parts
+        if (
+          part.ingredient_id &&
+          part.ingredients &&
+          part.ingredients.kiloPerUnit
+        ) {
+          const weightInKg = part.quantity * part.ingredients.kiloPerUnit;
+          totalWeightKg += weightInKg;
+        }
+
+        // Note: pastry_id parts would need recursive calculation, skip for now
+      });
+
+      return totalWeightKg > 0 ? totalWeightKg : null;
+    } catch (error) {
+      console.error("Error calculating product weight from recipe:", error);
+      return null;
+    }
+  };
 
   // Load existing product parts
   useEffect(() => {
@@ -92,6 +174,29 @@ export function ProductPartsModal({
       calculateAndSaveComposition();
     }
   }, [productParts, open]);
+
+  // Calculate weights for product parts
+  useEffect(() => {
+    const calculateWeights = async () => {
+      const weights = new Map<number, number>();
+      const productIds = productParts
+        .filter((part) => part.pastry_id)
+        .map((part) => part.pastry_id!)
+        .filter((id, index, arr) => arr.indexOf(id) === index); // unique IDs
+
+      for (const productId of productIds) {
+        const weight = await calculateProductWeightFromRecipe(productId);
+        if (weight && weight > 0) {
+          weights.set(productId, weight);
+        }
+      }
+      setCalculatedWeights(weights);
+    };
+
+    if (productParts.length > 0) {
+      calculateWeights();
+    }
+  }, [productParts]);
 
   const loadProductParts = async () => {
     setIsLoading(true);
@@ -271,7 +376,7 @@ export function ProductPartsModal({
         // Handle ingredients from product parts (pastry_id)
         if (part.pastry_id) {
           try {
-            // Fetch ingredients from the referenced product
+            // Fetch the actual product parts for this product
             const { data: subProductParts, error: subError } = await supabase
               .from("product_parts")
               .select(
@@ -331,7 +436,7 @@ export function ProductPartsModal({
             }
           } catch (error) {
             console.error(
-              `Error getting ingredients from product ${part.pastry_id}:`,
+              `Error getting product parts for product ${part.pastry_id}:`,
               error
             );
           }
@@ -456,72 +561,40 @@ export function ProductPartsModal({
           }
         }
 
-        // Handle ingredients from product parts (pastry_id)
+        // Handle product parts - find the recipe used for the product
         if (part.pastry_id) {
-          try {
-            // Fetch ingredients from the referenced product
-            const { data: subProductParts, error: subError } = await supabase
-              .from("product_parts")
-              .select(
-                `
-                *,
-                recipes(name, recipe_ingredients(quantity, ingredient:ingredients(*))),
-                ingredients(name, unit, element, kJ, kcal, fat, saturates, carbohydrate, sugars, protein, fibre, salt, kiloPerUnit, price)
-              `
-              )
-              .eq("product_id", part.pastry_id);
+          const product = products.find((p) => p.id === part.pastry_id);
+          if (product) {
+            // Find recipes that match this product's name or find the main recipe for this product
+            const productRecipe = recipes.find(
+              (recipe) =>
+                recipe.name
+                  .toLowerCase()
+                  .includes(product.name.toLowerCase().split(" ")[0]) ||
+                product.name
+                  .toLowerCase()
+                  .includes(recipe.name.toLowerCase().split(" ")[0])
+            );
 
-            if (subError) throw subError;
-
-            if (subProductParts) {
-              subProductParts.forEach((subPart: any) => {
-                if (subPart.productOnly) return;
-
-                // Handle direct ingredients from sub-product
-                if (subPart.ingredient_id && subPart.ingredients) {
-                  const ingredient = subPart.ingredients;
-                  if (
-                    ingredient &&
-                    ingredient.element &&
-                    ingredient.element.trim() !== ""
-                  ) {
-                    ingredientsWithElements.push({
-                      ingredient,
-                      quantity: subPart.quantity * part.quantity,
-                    });
-                  }
-                }
-
-                // Handle recipe ingredients from sub-product
+            if (productRecipe && productRecipe.recipe_ingredients) {
+              // Use the recipe's ingredients proportionally based on the product quantity
+              const recipeQuantityRatio = product.koef || 1; // Use product's koef if available
+              productRecipe.recipe_ingredients.forEach((recipeIng: any) => {
                 if (
-                  subPart.recipe_id &&
-                  subPart.recipes &&
-                  subPart.recipes.recipe_ingredients
+                  recipeIng.ingredient &&
+                  recipeIng.ingredient.element &&
+                  recipeIng.ingredient.element.trim() !== ""
                 ) {
-                  subPart.recipes.recipe_ingredients.forEach(
-                    (recipeIng: any) => {
-                      if (
-                        recipeIng.ingredient &&
-                        recipeIng.ingredient.element &&
-                        recipeIng.ingredient.element.trim() !== ""
-                      ) {
-                        const usedQuantity =
-                          recipeIng.quantity * subPart.quantity * part.quantity;
-                        ingredientsWithElements.push({
-                          ingredient: recipeIng.ingredient,
-                          quantity: usedQuantity,
-                        });
-                      }
-                    }
-                  );
+                  const usedQuantity =
+                    (recipeIng.quantity * part.quantity * recipeQuantityRatio) /
+                    (productRecipe.quantity || 1);
+                  ingredientsWithElements.push({
+                    ingredient: recipeIng.ingredient,
+                    quantity: usedQuantity,
+                  });
                 }
               });
             }
-          } catch (error) {
-            console.error(
-              `Error getting ingredients from product ${part.pastry_id}:`,
-              error
-            );
           }
         }
       }
@@ -628,7 +701,7 @@ export function ProductPartsModal({
     }
     if (part.pastry_id) {
       const product = products.find((p) => p.id === part.pastry_id);
-      return product?.price ? product.price * part.quantity : 0;
+      return product?.priceBuyer ? product.priceBuyer * part.quantity : 0;
     }
     return 0;
   };
@@ -762,26 +835,78 @@ export function ProductPartsModal({
                             </Select>
                           )}
                           {part.pastry_id && (
-                            <Select
-                              value={part.pastry_id.toString()}
-                              onValueChange={(value) =>
-                                updatePart(index, "pastry_id", parseInt(value))
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Vyberte produkt" />
-                              </SelectTrigger>
-                              <SelectContent className="max-h-60">
-                                {products.map((product) => (
-                                  <SelectItem
-                                    key={product.id}
-                                    value={product.id.toString()}
+                            <div className="flex items-center gap-2">
+                              <Select
+                                value={part.pastry_id.toString()}
+                                onValueChange={(value) =>
+                                  updatePart(
+                                    index,
+                                    "pastry_id",
+                                    parseInt(value)
+                                  )
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Vyberte produkt" />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-60">
+                                  {products.map((product) => (
+                                    <SelectItem
+                                      key={product.id}
+                                      value={product.id.toString()}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        {product.name}
+                                        {(() => {
+                                          const hasProductParts =
+                                            productPartsMap.get(product.id) ||
+                                            false;
+                                          return hasProductParts ? (
+                                            <span
+                                              className="text-xs text-green-600 bg-green-100 px-1 rounded"
+                                              title={`Produkt má definované části`}
+                                            >
+                                              <BookOpen className="h-3 w-3" />
+                                            </span>
+                                          ) : (
+                                            <span
+                                              className="text-xs text-orange-600 bg-orange-100 px-1 rounded"
+                                              title="Produkt nemá definované části"
+                                            >
+                                              ⚠️
+                                            </span>
+                                          );
+                                        })()}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {(() => {
+                                const selectedProduct = products.find(
+                                  (p) => p.id === part.pastry_id
+                                );
+                                if (!selectedProduct) return null;
+                                const hasProductParts =
+                                  productPartsMap.get(selectedProduct.id) ||
+                                  false;
+                                return hasProductParts ? (
+                                  <span
+                                    className="text-xs text-orange-500 bg-orange-100 px-1 rounded"
+                                    title={`Produkt má definované části`}
                                   >
-                                    {product.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                                    <BookOpen className="h-3 w-3" />
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="text-xs text-orange-600 bg-orange-100 px-1 rounded"
+                                    title="Produkt nemá definované části"
+                                  >
+                                    ⚠️
+                                  </span>
+                                );
+                              })()}
+                            </div>
                           )}
                           {part.ingredient_id && (
                             <Select
@@ -949,6 +1074,36 @@ export function ProductPartsModal({
                       });
                     }
                   }
+
+                  // Handle elements from product parts
+                  if (part.pastry_id) {
+                    const product = products.find(
+                      (p) => p.id === part.pastry_id
+                    );
+                    if (
+                      product &&
+                      product.parts &&
+                      product.parts.trim() !== ""
+                    ) {
+                      // Split the stored composition into individual elements
+                      const elements = product.parts
+                        .split(",")
+                        .map((el: string) => el.trim());
+                      elements.forEach((element: string) => {
+                        if (element && element.trim() !== "") {
+                          // Create a pseudo-ingredient object for the element
+                          const pseudoIngredient = {
+                            name: element,
+                            element: element,
+                          };
+                          ingredientsWithElements.push({
+                            ingredient: pseudoIngredient,
+                            quantity: part.quantity, // Use the product quantity
+                          });
+                        }
+                      });
+                    }
+                  }
                 });
 
                 // Sort by quantity (descending) and merge elements
@@ -1050,6 +1205,24 @@ export function ProductPartsModal({
                 let totalSalt = 0;
                 let partsCount = 0;
 
+                // Array to store nutritional breakdown for each part (for tooltips)
+                const partBreakdown: Array<{
+                  name: string;
+                  type: string;
+                  quantity: number;
+                  unit: string;
+                  weightKg: number;
+                  kJ: number;
+                  kcal: number;
+                  fat: number;
+                  saturates: number;
+                  carbohydrate: number;
+                  sugars: number;
+                  protein: number;
+                  fibre: number;
+                  salt: number;
+                }> = [];
+
                 // Calculate nutritional values from all parts (excluding productOnly)
                 productParts.forEach((part) => {
                   if (part.productOnly) return; // Skip productOnly parts
@@ -1099,17 +1272,47 @@ export function ProductPartsModal({
                       // Calculate proportional nutritional values based on the portion being used
                       if (recipeWeightKg > 0) {
                         const proportion = part.quantity / recipeWeightKg;
+                        const partWeightKg = part.quantity;
+                        const partKJ = recipeKJ * proportion;
+                        const partKcal = recipeKcal * proportion;
+                        const partFat = recipeFat * proportion;
+                        const partSaturates = recipeSaturates * proportion;
+                        const partCarbohydrate =
+                          recipeCarbohydrate * proportion;
+                        const partSugars = recipeSugars * proportion;
+                        const partProtein = recipeProtein * proportion;
+                        const partFibre = recipeFibre * proportion;
+                        const partSalt = recipeSalt * proportion;
 
-                        totalWeightKg += part.quantity; // Use actual weight, not multiplied
-                        totalKJ += recipeKJ * proportion;
-                        totalKcal += recipeKcal * proportion;
-                        totalFat += recipeFat * proportion;
-                        totalSaturates += recipeSaturates * proportion;
-                        totalCarbohydrate += recipeCarbohydrate * proportion;
-                        totalSugars += recipeSugars * proportion;
-                        totalProtein += recipeProtein * proportion;
-                        totalFibre += recipeFibre * proportion;
-                        totalSalt += recipeSalt * proportion;
+                        // Add to totals
+                        totalWeightKg += partWeightKg;
+                        totalKJ += partKJ;
+                        totalKcal += partKcal;
+                        totalFat += partFat;
+                        totalSaturates += partSaturates;
+                        totalCarbohydrate += partCarbohydrate;
+                        totalSugars += partSugars;
+                        totalProtein += partProtein;
+                        totalFibre += partFibre;
+                        totalSalt += partSalt;
+
+                        // Store for tooltip
+                        partBreakdown.push({
+                          name: recipe.name,
+                          type: "Recept",
+                          quantity: part.quantity,
+                          unit: "kg",
+                          weightKg: partWeightKg,
+                          kJ: partKJ,
+                          kcal: partKcal,
+                          fat: partFat,
+                          saturates: partSaturates,
+                          carbohydrate: partCarbohydrate,
+                          sugars: partSugars,
+                          protein: partProtein,
+                          fibre: partFibre,
+                          salt: partSalt,
+                        });
                       }
                     }
                   }
@@ -1121,34 +1324,261 @@ export function ProductPartsModal({
                     );
                     if (ingredient) {
                       const weightInKg = part.quantity * ingredient.kiloPerUnit;
-                      totalWeightKg += weightInKg;
-
-                      // Calculate nutritional values per 100g basis
                       const factor = weightInKg * 10; // Convert kg to 100g units
-                      totalKJ += ingredient.kJ * factor;
-                      totalKcal += ingredient.kcal * factor;
-                      totalFat += ingredient.fat * factor;
-                      totalSaturates += ingredient.saturates * factor;
-                      totalCarbohydrate += ingredient.carbohydrate * factor;
-                      totalSugars += ingredient.sugars * factor;
-                      totalProtein += ingredient.protein * factor;
-                      totalFibre += ingredient.fibre * factor;
-                      totalSalt += ingredient.salt * factor;
+                      const partKJ = ingredient.kJ * factor;
+                      const partKcal = ingredient.kcal * factor;
+                      const partFat = ingredient.fat * factor;
+                      const partSaturates = ingredient.saturates * factor;
+                      const partCarbohydrate = ingredient.carbohydrate * factor;
+                      const partSugars = ingredient.sugars * factor;
+                      const partProtein = ingredient.protein * factor;
+                      const partFibre = ingredient.fibre * factor;
+                      const partSalt = ingredient.salt * factor;
+
+                      // Add to totals
+                      totalWeightKg += weightInKg;
+                      totalKJ += partKJ;
+                      totalKcal += partKcal;
+                      totalFat += partFat;
+                      totalSaturates += partSaturates;
+                      totalCarbohydrate += partCarbohydrate;
+                      totalSugars += partSugars;
+                      totalProtein += partProtein;
+                      totalFibre += partFibre;
+                      totalSalt += partSalt;
+
+                      // Store for tooltip
+                      partBreakdown.push({
+                        name: ingredient.name,
+                        type: "Surovina",
+                        quantity: part.quantity,
+                        unit: ingredient.unit,
+                        weightKg: weightInKg,
+                        kJ: partKJ,
+                        kcal: partKcal,
+                        fat: partFat,
+                        saturates: partSaturates,
+                        carbohydrate: partCarbohydrate,
+                        sugars: partSugars,
+                        protein: partProtein,
+                        fibre: partFibre,
+                        salt: partSalt,
+                      });
                     }
                   }
 
-                  // Handle pastry/product parts (weight only, no nutritional data typically)
+                  // Handle pastry/product parts - use actual product data
                   if (part.pastry_id) {
                     const product = products.find(
                       (p) => p.id === part.pastry_id
                     );
+                    console.log("=== FETCHED PRODUCT DATA ===");
+                    console.log("Looking for product ID:", part.pastry_id);
+                    console.log("Found product:", product);
                     if (product) {
-                      // Use the actual quantity from the part setup (in kg units for recipes/ingredients)
-                      // For pastry products, the quantity represents the actual amount used
-                      totalWeightKg += part.quantity;
+                      console.log("Product details:", {
+                        id: product.id,
+                        name: product.name,
+                        koef: product.koef,
+                        price: product.price,
+                        priceBuyer: product.priceBuyer,
+                        category_id: product.category_id,
+                        parts: product.parts,
+                        allergens: product.allergens,
+                        active: product.active,
+                      });
+                      console.log("=== PRODUCT PART DEBUG ===");
+                      console.log("Product:", product.name);
+                      console.log("Product koef:", product.koef);
+                      console.log("Part quantity:", part.quantity);
 
-                      // If products had nutritional data, we would calculate it here similar to ingredients
-                      // For now, pastry products only contribute to weight
+                      // Use realistic weight per piece for products (not 1kg per piece!)
+                      // Most bakery products weigh between 50g-300g per piece
+                      let weightPerPiece = 0.15; // Default 150g per piece
+
+                      // First priority: Use calculated weight from recipe ingredients
+                      const calculatedWeight = calculatedWeights.get(
+                        product.id
+                      );
+                      if (calculatedWeight && calculatedWeight > 0) {
+                        weightPerPiece = calculatedWeight;
+                        console.log(
+                          "Using calculated weight from recipe:",
+                          weightPerPiece,
+                          "kg"
+                        );
+                      } else {
+                        // Second priority: Extract weight from product name (e.g., "Bageta 110g" -> 0.11kg)
+                        const weightMatch = product.name.match(/(\d+)\s*g/i);
+                        if (weightMatch) {
+                          const weightInGrams = parseInt(weightMatch[1]);
+                          weightPerPiece = weightInGrams / 1000; // Convert grams to kg
+                          console.log(
+                            "Extracted weight from name:",
+                            weightPerPiece,
+                            "kg"
+                          );
+                        }
+                        // Third priority: Use product's koef if it represents realistic weight
+                        else if (
+                          product.koef &&
+                          product.koef > 0 &&
+                          product.koef < 1
+                        ) {
+                          weightPerPiece = product.koef; // koef represents weight in kg
+                          console.log("Using koef as weight:", weightPerPiece);
+                        } else {
+                          // Fourth priority: Estimate weight based on product name
+                          const productName = product.name.toLowerCase();
+                          console.log("Product name (lowercase):", productName);
+
+                          if (
+                            productName.includes("bageta") ||
+                            productName.includes("chléb")
+                          ) {
+                            weightPerPiece = 0.25; // 250g for bread/bageta
+                            console.log("Detected product type: BAGETA/CHLÉB");
+                          } else if (
+                            productName.includes("rohlík") ||
+                            productName.includes("houska")
+                          ) {
+                            weightPerPiece = 0.06; // 60g for rolls
+                            console.log("Detected product type: ROHLÍK/HOUSKA");
+                          } else if (
+                            productName.includes("koláč") ||
+                            productName.includes("dort")
+                          ) {
+                            weightPerPiece = 0.4; // 400g for cakes
+                            console.log("Detected product type: KOLÁČ/DORT");
+                          } else if (
+                            productName.includes("buchta") ||
+                            productName.includes("závin")
+                          ) {
+                            weightPerPiece = 0.3; // 300g for pastries
+                            console.log("Detected product type: BUCHTA/ZÁVIN");
+                          } else if (
+                            productName.includes("keks") ||
+                            productName.includes("sušenka")
+                          ) {
+                            weightPerPiece = 0.02; // 20g for cookies
+                            console.log("Detected product type: KEKS/SUŠENKA");
+                          } else if (
+                            productName.includes("croissant") ||
+                            productName.includes("donut")
+                          ) {
+                            weightPerPiece = 0.08; // 80g for croissants/donuts
+                            console.log(
+                              "Detected product type: CROISSANT/DONUT"
+                            );
+                          } else {
+                            console.log(
+                              "Detected product type: DEFAULT (150g)"
+                            );
+                          }
+                          console.log(
+                            "Estimated weight per piece:",
+                            weightPerPiece
+                          );
+                        }
+                      }
+
+                      const partWeightKg = part.quantity * weightPerPiece;
+                      console.log("Calculated part weight (kg):", partWeightKg);
+                      console.log("Product composition:", product.parts);
+                      console.log("==============================");
+
+                      // Try to derive nutritional values from product's composition
+                      // If product has parts composition, estimate based on typical bread/pastry values
+                      let kJPer100g = 1200; // Default bread values
+                      let kcalPer100g = 280;
+                      let fatPer100g = 3;
+                      let saturatesPer100g = 1;
+                      let carbohydratePer100g = 55;
+                      let sugarsPer100g = 3;
+                      let proteinPer100g = 9;
+                      let fibrePer100g = 3;
+                      let saltPer100g = 1;
+
+                      // If product has composition, try to estimate better values
+                      if (product.parts && product.parts.trim() !== "") {
+                        const composition = product.parts.toLowerCase();
+
+                        // Adjust values based on ingredients in composition
+                        if (
+                          composition.includes("máslo") ||
+                          composition.includes("olej") ||
+                          composition.includes("sádlo")
+                        ) {
+                          fatPer100g += 5; // Higher fat if contains butter/oil
+                          kcalPer100g += 50;
+                          kJPer100g = kcalPer100g * 4.184;
+                        }
+                        if (
+                          composition.includes("cukr") ||
+                          composition.includes("med") ||
+                          composition.includes("sirup")
+                        ) {
+                          sugarsPer100g += 10; // Higher sugar content
+                          carbohydratePer100g += 10;
+                          kcalPer100g += 30;
+                          kJPer100g = kcalPer100g * 4.184;
+                        }
+                        if (
+                          composition.includes("vejce") ||
+                          composition.includes("mléko") ||
+                          composition.includes("sýr")
+                        ) {
+                          proteinPer100g += 3; // Higher protein
+                          kcalPer100g += 20;
+                          kJPer100g = kcalPer100g * 4.184;
+                        }
+                        if (composition.includes("sůl")) {
+                          saltPer100g += 0.5; // Higher salt content
+                        }
+                      }
+
+                      // Calculate actual nutritional values for this part
+                      const factor = partWeightKg * 10; // Convert kg to 100g units for calculation
+                      const partKJ = (kJPer100g * factor) / 10;
+                      const partKcal = (kcalPer100g * factor) / 10;
+                      const partFat = (fatPer100g * factor) / 10;
+                      const partSaturates = (saturatesPer100g * factor) / 10;
+                      const partCarbohydrate =
+                        (carbohydratePer100g * factor) / 10;
+                      const partSugars = (sugarsPer100g * factor) / 10;
+                      const partProtein = (proteinPer100g * factor) / 10;
+                      const partFibre = (fibrePer100g * factor) / 10;
+                      const partSalt = (saltPer100g * factor) / 10;
+
+                      // Add to totals
+                      totalWeightKg += partWeightKg;
+                      totalKJ += partKJ;
+                      totalKcal += partKcal;
+                      totalFat += partFat;
+                      totalSaturates += partSaturates;
+                      totalCarbohydrate += partCarbohydrate;
+                      totalSugars += partSugars;
+                      totalProtein += partProtein;
+                      totalFibre += partFibre;
+                      totalSalt += partSalt;
+
+                      // Store for tooltip
+                      partBreakdown.push({
+                        name: product.name,
+                        type: "Produkt",
+                        quantity: part.quantity,
+                        unit: "ks",
+                        weightKg: partWeightKg,
+                        kJ: partKJ,
+                        kcal: partKcal,
+                        fat: partFat,
+                        saturates: partSaturates,
+                        carbohydrate: partCarbohydrate,
+                        sugars: partSugars,
+                        protein: partProtein,
+                        fibre: partFibre,
+                        salt: partSalt,
+                      });
                     }
                   }
                 });
@@ -1185,290 +1615,372 @@ export function ProductPartsModal({
                 const saltPer100g =
                   totalWeightKg > 0 ? (totalSalt / totalWeightKg) * 0.1 : 0;
 
-                return (
-                  <div className="bg-white/80 rounded border border-green-200 p-4">
-                    <div className="space-y-4">
-                      {/* Basic Info */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">
-                            Celková hmotnost:
-                          </span>
-                          <div className="font-semibold text-green-800">
-                            {totalWeightKg.toFixed(3)} kg
-                          </div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">
-                            Celková energie:
-                          </span>
-                          <div className="font-semibold text-green-800">
-                            {totalKJ.toFixed(0)} KJ / {totalKcal.toFixed(0)}{" "}
-                            Kcal
-                          </div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">
-                            Energie na 100g:
-                          </span>
-                          <div className="font-semibold text-green-800">
-                            {energyPer100gKJ.toFixed(0)} KJ /{" "}
-                            {energyPer100gKcal.toFixed(0)} Kcal
-                          </div>
-                        </div>
+                // Helper function to create tooltip content
+                const createNutrientTooltip = (
+                  nutrientName: string,
+                  getValue: (part: any) => number
+                ) => {
+                  return (
+                    <div className="space-y-1 text-xs">
+                      <div className="font-semibold border-b pb-1">
+                        {nutrientName} - Rozložení podle částí:
                       </div>
+                      {partBreakdown.map((part, index) => {
+                        const value = getValue(part);
+                        const per100g =
+                          part.weightKg > 0 ? (value / part.weightKg) * 0.1 : 0;
+                        return (
+                          <div
+                            key={index}
+                            className="flex justify-between items-center"
+                          >
+                            <span className="text-gray-600">
+                              {part.name} ({part.type})
+                            </span>
+                            <span className="font-medium">
+                              {per100g.toFixed(1)}/100g ({value.toFixed(1)}{" "}
+                              celkem)
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                };
 
-                      {/* Nutritional Values per 100g */}
-                      <div className="border-t pt-3">
-                        <h4 className="font-semibold text-green-800 mb-2 text-sm">
-                          Výživové hodnoty na 100g:
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-                          {(() => {
-                            // Adult Reference Intake (RI) values per day
-                            const referenceIntakes = {
-                              energy: 2000, // kcal
-                              fat: 70, // g
-                              saturates: 20, // g
-                              carbohydrate: 260, // g
-                              sugars: 90, // g
-                              protein: 50, // g
-                              salt: 6, // g
-                            };
+                return (
+                  <TooltipProvider>
+                    <div className="bg-white/80 rounded border border-green-200 p-4">
+                      <div className="space-y-4">
+                        {/* Basic Info */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">
+                              Celková hmotnost:
+                            </span>
+                            <div className="font-semibold text-green-800">
+                              {totalWeightKg.toFixed(3)} kg
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">
+                              Celková energie:
+                            </span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="font-semibold text-green-800 cursor-help underline decoration-dotted">
+                                  {totalKJ.toFixed(0)} KJ /{" "}
+                                  {totalKcal.toFixed(0)} Kcal
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {createNutrientTooltip(
+                                  "Energie",
+                                  (part) => part.kcal
+                                )}
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">
+                              Energie na 100g:
+                            </span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="font-semibold text-green-800 cursor-help underline decoration-dotted">
+                                  {energyPer100gKJ.toFixed(0)} KJ /{" "}
+                                  {energyPer100gKcal.toFixed(0)} Kcal
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {createNutrientTooltip(
+                                  "Energie na 100g",
+                                  (part) => part.kcal
+                                )}
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </div>
 
-                            // Traffic light thresholds per 100g (UK standards)
-                            const getTrafficLightColor = (
-                              nutrient: string,
-                              value: number
-                            ) => {
-                              const thresholds = {
-                                fat: { high: 17.5, medium: 3.0 },
-                                saturates: { high: 5.0, medium: 1.5 },
-                                carbohydrate: { high: 22.5, medium: 5.0 }, // Total carbs
-                                sugars: { high: 22.5, medium: 5.0 },
-                                salt: { high: 1.5, medium: 0.3 },
-                                // For beneficial nutrients (higher = better)
-                                protein: { high: 12.0, medium: 6.0 }, // High protein is good
-                                fibre: { high: 6.0, medium: 3.0 }, // High fibre is good
+                        {/* Nutritional Values per 100g */}
+                        <div className="border-t pt-3">
+                          <h4 className="font-semibold text-green-800 mb-2 text-sm">
+                            Výživové hodnoty na 100g:
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                            {(() => {
+                              // Adult Reference Intake (RI) values per day
+                              const referenceIntakes = {
+                                energy: 2000, // kcal
+                                fat: 70, // g
+                                saturates: 20, // g
+                                carbohydrate: 260, // g
+                                sugars: 90, // g
+                                protein: 50, // g
+                                salt: 6, // g
                               };
 
-                              const threshold =
-                                thresholds[nutrient as keyof typeof thresholds];
-                              if (!threshold)
-                                return "bg-gray-100 text-gray-800";
+                              // Traffic light thresholds per 100g (UK standards)
+                              const getTrafficLightColor = (
+                                nutrient: string,
+                                value: number
+                              ) => {
+                                const thresholds = {
+                                  fat: { high: 17.5, medium: 3.0 },
+                                  saturates: { high: 5.0, medium: 1.5 },
+                                  carbohydrate: { high: 22.5, medium: 5.0 }, // Total carbs
+                                  sugars: { high: 22.5, medium: 5.0 },
+                                  salt: { high: 1.5, medium: 0.3 },
+                                  // For beneficial nutrients (higher = better)
+                                  protein: { high: 12.0, medium: 6.0 }, // High protein is good
+                                  fibre: { high: 6.0, medium: 3.0 }, // High fibre is good
+                                };
 
-                              // For harmful nutrients (fat, saturates, sugars, salt): red = high, green = low
-                              if (
-                                [
-                                  "fat",
-                                  "saturates",
-                                  "carbohydrate",
-                                  "sugars",
-                                  "salt",
-                                ].includes(nutrient)
-                              ) {
-                                if (value >= threshold.high)
-                                  return "bg-red-500 text-white";
-                                if (value >= threshold.medium)
-                                  return "bg-amber-500 text-white";
-                                return "bg-green-500 text-white";
-                              }
+                                const threshold =
+                                  thresholds[
+                                    nutrient as keyof typeof thresholds
+                                  ];
+                                if (!threshold)
+                                  return "bg-gray-100 text-gray-800";
 
-                              // For beneficial nutrients (protein, fibre): green = high, red = low
-                              if (["protein", "fibre"].includes(nutrient)) {
-                                if (value >= threshold.high)
+                                // For harmful nutrients (fat, saturates, sugars, salt): red = high, green = low
+                                if (
+                                  [
+                                    "fat",
+                                    "saturates",
+                                    "carbohydrate",
+                                    "sugars",
+                                    "salt",
+                                  ].includes(nutrient)
+                                ) {
+                                  if (value >= threshold.high)
+                                    return "bg-red-500 text-white";
+                                  if (value >= threshold.medium)
+                                    return "bg-amber-500 text-white";
                                   return "bg-green-500 text-white";
-                                if (value >= threshold.medium)
-                                  return "bg-amber-500 text-white";
-                                return "bg-gray-300 text-gray-700";
-                              }
+                                }
 
-                              return "bg-gray-100 text-gray-800";
-                            };
+                                // For beneficial nutrients (protein, fibre): green = high, red = low
+                                if (["protein", "fibre"].includes(nutrient)) {
+                                  if (value >= threshold.high)
+                                    return "bg-green-500 text-white";
+                                  if (value >= threshold.medium)
+                                    return "bg-amber-500 text-white";
+                                  return "bg-gray-300 text-gray-700";
+                                }
 
-                            // Calculate RI percentages
-                            const getRIPercentage = (
-                              nutrient: string,
-                              value: number
-                            ) => {
-                              const ri =
-                                referenceIntakes[
-                                  nutrient as keyof typeof referenceIntakes
-                                ];
-                              if (!ri) return 0;
-                              return Math.round((value / ri) * 100);
-                            };
+                                return "bg-gray-100 text-gray-800";
+                              };
 
-                            return (
-                              <>
-                                {/* Energy */}
-                                <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
-                                  <div className="flex justify-between items-center mb-1">
-                                    <span className="font-medium text-blue-800">
-                                      Energie
-                                    </span>
-                                    <span className="text-xs text-blue-600">
-                                      {getRIPercentage(
-                                        "energy",
-                                        energyPer100gKcal
+                              // Calculate RI percentages
+                              const getRIPercentage = (
+                                nutrient: string,
+                                value: number
+                              ) => {
+                                const ri =
+                                  referenceIntakes[
+                                    nutrient as keyof typeof referenceIntakes
+                                  ];
+                                if (!ri) return 0;
+                                return Math.round((value / ri) * 100);
+                              };
+
+                              return (
+                                <>
+                                  {/* Energy */}
+                                  <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+                                    <div className="flex justify-between items-center mb-1">
+                                      <span className="font-medium text-blue-800">
+                                        Energie
+                                      </span>
+                                      <span className="text-xs text-blue-600">
+                                        {getRIPercentage(
+                                          "energy",
+                                          energyPer100gKcal
+                                        )}
+                                        % RI*
+                                      </span>
+                                    </div>
+                                    <div className="font-bold text-blue-900">
+                                      {energyPer100gKcal.toFixed(0)} kcal
+                                    </div>
+                                    <div className="text-xs text-blue-700">
+                                      {energyPer100gKJ.toFixed(0)} kJ
+                                    </div>
+                                  </div>
+
+                                  {/* Fat */}
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div
+                                        className={`p-3 rounded-lg cursor-help ${getTrafficLightColor("fat", fatPer100g)}`}
+                                      >
+                                        <div className="flex justify-between items-center mb-1">
+                                          <span className="font-medium">
+                                            Tuky
+                                          </span>
+                                          <span className="text-xs opacity-90">
+                                            {getRIPercentage("fat", fatPer100g)}
+                                            % RI*
+                                          </span>
+                                        </div>
+                                        <div className="font-bold">
+                                          {fatPer100g.toFixed(1)}g
+                                        </div>
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {createNutrientTooltip(
+                                        "Tuky",
+                                        (part) => part.fat
                                       )}
-                                      % RI*
-                                    </span>
-                                  </div>
-                                  <div className="font-bold text-blue-900">
-                                    {energyPer100gKcal.toFixed(0)} kcal
-                                  </div>
-                                  <div className="text-xs text-blue-700">
-                                    {energyPer100gKJ.toFixed(0)} kJ
-                                  </div>
-                                </div>
+                                    </TooltipContent>
+                                  </Tooltip>
 
-                                {/* Fat */}
-                                <div
-                                  className={`p-3 rounded-lg ${getTrafficLightColor("fat", fatPer100g)}`}
-                                >
-                                  <div className="flex justify-between items-center mb-1">
-                                    <span className="font-medium">Tuky</span>
-                                    <span className="text-xs opacity-90">
-                                      {getRIPercentage("fat", fatPer100g)}% RI*
-                                    </span>
+                                  {/* Saturated Fat */}
+                                  <div
+                                    className={`p-3 rounded-lg ${getTrafficLightColor("saturates", saturatesPer100g)}`}
+                                  >
+                                    <div className="flex justify-between items-center mb-1">
+                                      <span className="font-medium">
+                                        Nasycené
+                                      </span>
+                                      <span className="text-xs opacity-90">
+                                        {getRIPercentage(
+                                          "saturates",
+                                          saturatesPer100g
+                                        )}
+                                        % RI*
+                                      </span>
+                                    </div>
+                                    <div className="font-bold">
+                                      {saturatesPer100g.toFixed(1)}g
+                                    </div>
                                   </div>
-                                  <div className="font-bold">
-                                    {fatPer100g.toFixed(1)}g
-                                  </div>
-                                </div>
 
-                                {/* Saturated Fat */}
-                                <div
-                                  className={`p-3 rounded-lg ${getTrafficLightColor("saturates", saturatesPer100g)}`}
-                                >
-                                  <div className="flex justify-between items-center mb-1">
-                                    <span className="font-medium">
-                                      Nasycené
-                                    </span>
-                                    <span className="text-xs opacity-90">
-                                      {getRIPercentage(
-                                        "saturates",
-                                        saturatesPer100g
+                                  {/* Carbohydrates */}
+                                  <div
+                                    className={`p-3 rounded-lg ${getTrafficLightColor("carbohydrate", carbohydratePer100g)}`}
+                                  >
+                                    <div className="flex justify-between items-center mb-1">
+                                      <span className="font-medium">
+                                        Sacharidy
+                                      </span>
+                                      <span className="text-xs opacity-90">
+                                        {getRIPercentage(
+                                          "carbohydrate",
+                                          carbohydratePer100g
+                                        )}
+                                        % RI*
+                                      </span>
+                                    </div>
+                                    <div className="font-bold">
+                                      {carbohydratePer100g.toFixed(1)}g
+                                    </div>
+                                  </div>
+
+                                  {/* Sugars */}
+                                  <div
+                                    className={`p-3 rounded-lg ${getTrafficLightColor("sugars", sugarsPer100g)}`}
+                                  >
+                                    <div className="flex justify-between items-center mb-1">
+                                      <span className="font-medium">
+                                        Z toho cukry
+                                      </span>
+                                      <span className="text-xs opacity-90">
+                                        {getRIPercentage(
+                                          "sugars",
+                                          sugarsPer100g
+                                        )}
+                                        % RI*
+                                      </span>
+                                    </div>
+                                    <div className="font-bold">
+                                      {sugarsPer100g.toFixed(1)}g
+                                    </div>
+                                  </div>
+
+                                  {/* Protein */}
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div
+                                        className={`p-3 rounded-lg cursor-help ${getTrafficLightColor("protein", proteinPer100g)}`}
+                                      >
+                                        <div className="flex justify-between items-center mb-1">
+                                          <span className="font-medium">
+                                            Bílkoviny
+                                          </span>
+                                          <span className="text-xs opacity-90">
+                                            {getRIPercentage(
+                                              "protein",
+                                              proteinPer100g
+                                            )}
+                                            % RI*
+                                          </span>
+                                        </div>
+                                        <div className="font-bold">
+                                          {proteinPer100g.toFixed(1)}g
+                                        </div>
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {createNutrientTooltip(
+                                        "Bílkoviny",
+                                        (part) => part.protein
                                       )}
-                                      % RI*
-                                    </span>
-                                  </div>
-                                  <div className="font-bold">
-                                    {saturatesPer100g.toFixed(1)}g
-                                  </div>
-                                </div>
+                                    </TooltipContent>
+                                  </Tooltip>
 
-                                {/* Carbohydrates */}
-                                <div
-                                  className={`p-3 rounded-lg ${getTrafficLightColor("carbohydrate", carbohydratePer100g)}`}
-                                >
-                                  <div className="flex justify-between items-center mb-1">
-                                    <span className="font-medium">
-                                      Sacharidy
-                                    </span>
-                                    <span className="text-xs opacity-90">
-                                      {getRIPercentage(
-                                        "carbohydrate",
-                                        carbohydratePer100g
-                                      )}
-                                      % RI*
-                                    </span>
+                                  {/* Fibre */}
+                                  <div
+                                    className={`p-3 rounded-lg ${getTrafficLightColor("fibre", fibrePer100g)}`}
+                                  >
+                                    <div className="flex justify-between items-center mb-1">
+                                      <span className="font-medium">
+                                        Vláknina
+                                      </span>
+                                      <span className="text-xs opacity-90">
+                                        -
+                                      </span>
+                                    </div>
+                                    <div className="font-bold">
+                                      {fibrePer100g.toFixed(1)}g
+                                    </div>
                                   </div>
-                                  <div className="font-bold">
-                                    {carbohydratePer100g.toFixed(1)}g
-                                  </div>
-                                </div>
 
-                                {/* Sugars */}
-                                <div
-                                  className={`p-3 rounded-lg ${getTrafficLightColor("sugars", sugarsPer100g)}`}
-                                >
-                                  <div className="flex justify-between items-center mb-1">
-                                    <span className="font-medium">
-                                      Z toho cukry
-                                    </span>
-                                    <span className="text-xs opacity-90">
-                                      {getRIPercentage("sugars", sugarsPer100g)}
-                                      % RI*
-                                    </span>
+                                  {/* Salt */}
+                                  <div
+                                    className={`p-3 rounded-lg ${getTrafficLightColor("salt", saltPer100g)}`}
+                                  >
+                                    <div className="flex justify-between items-center mb-1">
+                                      <span className="font-medium">Sůl</span>
+                                      <span className="text-xs opacity-90">
+                                        {getRIPercentage("salt", saltPer100g)}%
+                                        RI*
+                                      </span>
+                                    </div>
+                                    <div className="font-bold">
+                                      {saltPer100g.toFixed(1)}g
+                                    </div>
                                   </div>
-                                  <div className="font-bold">
-                                    {sugarsPer100g.toFixed(1)}g
-                                  </div>
-                                </div>
+                                </>
+                              );
+                            })()}
+                          </div>
 
-                                {/* Protein */}
-                                <div
-                                  className={`p-3 rounded-lg ${getTrafficLightColor("protein", proteinPer100g)}`}
-                                >
-                                  <div className="flex justify-between items-center mb-1">
-                                    <span className="font-medium">
-                                      Bílkoviny
-                                    </span>
-                                    <span className="text-xs opacity-90">
-                                      {getRIPercentage(
-                                        "protein",
-                                        proteinPer100g
-                                      )}
-                                      % RI*
-                                    </span>
-                                  </div>
-                                  <div className="font-bold">
-                                    {proteinPer100g.toFixed(1)}g
-                                  </div>
-                                </div>
-
-                                {/* Fibre */}
-                                <div
-                                  className={`p-3 rounded-lg ${getTrafficLightColor("fibre", fibrePer100g)}`}
-                                >
-                                  <div className="flex justify-between items-center mb-1">
-                                    <span className="font-medium">
-                                      Vláknina
-                                    </span>
-                                    <span className="text-xs opacity-90">
-                                      -
-                                    </span>
-                                  </div>
-                                  <div className="font-bold">
-                                    {fibrePer100g.toFixed(1)}g
-                                  </div>
-                                </div>
-
-                                {/* Salt */}
-                                <div
-                                  className={`p-3 rounded-lg ${getTrafficLightColor("salt", saltPer100g)}`}
-                                >
-                                  <div className="flex justify-between items-center mb-1">
-                                    <span className="font-medium">Sůl</span>
-                                    <span className="text-xs opacity-90">
-                                      {getRIPercentage("salt", saltPer100g)}%
-                                      RI*
-                                    </span>
-                                  </div>
-                                  <div className="font-bold">
-                                    {saltPer100g.toFixed(1)}g
-                                  </div>
-                                </div>
-                              </>
-                            );
-                          })()}
-                        </div>
-
-                        {/* Reference Intake Footer */}
-                        <div className="mt-3 pt-2 border-t border-green-200">
-                          <div className="flex justify-between items-start mb-2">
-                            <p className="text-xs text-green-600">
-                              *RI = Referenční příjem průměrného dospělého (8400
-                              kJ/2000 kcal)
-                            </p>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const nutritionalText = `VÝŽIVOVÉ ÚDAJE NA 100g:
+                          {/* Reference Intake Footer */}
+                          <div className="mt-3 pt-2 border-t border-green-200">
+                            <div className="flex justify-between items-start mb-2">
+                              <p className="text-xs text-green-600">
+                                *RI = Referenční příjem průměrného dospělého
+                                (8400 kJ/2000 kcal)
+                              </p>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const nutritionalText = `VÝŽIVOVÉ ÚDAJE NA 100g:
 
 Energie: ${energyPer100gKcal.toFixed(0)} kcal (${energyPer100gKJ.toFixed(0)} kJ) - ${Math.round((energyPer100gKcal / 2000) * 100)}% RI*
 Tuky: ${fatPer100g.toFixed(1)}g - ${Math.round((fatPer100g / 70) * 100)}% RI*
@@ -1482,41 +1994,45 @@ Sůl: ${saltPer100g.toFixed(1)}g - ${Math.round((saltPer100g / 6) * 100)}% RI*
 *RI = Referenční příjem průměrného dospělého (8400 kJ/2000 kcal)
 Celková hmotnost produktu: ${totalWeightKg.toFixed(3)} kg`;
 
-                                navigator.clipboard.writeText(nutritionalText);
-                                toast({
-                                  title: "Zkopírováno",
-                                  description:
-                                    "Výživové údaje byly zkopírovány do schránky",
-                                });
-                              }}
-                              className="flex-shrink-0"
-                              title="Kopírovat výživové údaje"
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <div className="flex items-center gap-4 mt-2 text-xs">
-                            <div className="flex items-center gap-1">
-                              <div className="w-3 h-3 bg-green-500 rounded"></div>
-                              <span className="text-gray-600">Nízké</span>
+                                  navigator.clipboard.writeText(
+                                    nutritionalText
+                                  );
+                                  toast({
+                                    title: "Zkopírováno",
+                                    description:
+                                      "Výživové údaje byly zkopírovány do schránky",
+                                  });
+                                }}
+                                className="flex-shrink-0"
+                                title="Kopírovat výživové údaje"
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <div className="w-3 h-3 bg-amber-500 rounded"></div>
-                              <span className="text-gray-600">Střední</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <div className="w-3 h-3 bg-red-500 rounded"></div>
-                              <span className="text-gray-600">Vysoké</span>
+                            <div className="flex items-center gap-4 mt-2 text-xs">
+                              <div className="flex items-center gap-1">
+                                <div className="w-3 h-3 bg-green-500 rounded"></div>
+                                <span className="text-gray-600">Nízké</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <div className="w-3 h-3 bg-amber-500 rounded"></div>
+                                <span className="text-gray-600">Střední</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <div className="w-3 h-3 bg-red-500 rounded"></div>
+                                <span className="text-gray-600">Vysoké</span>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
+                      <div className="text-xs text-green-600 mt-3 pt-2 border-t">
+                        Vypočítáno z {partsCount} částí produktu (včetně receptů
+                        a částí produktů, bez produktů označených pouze pro
+                        prodejnu)
+                      </div>
                     </div>
-                    <div className="text-xs text-green-600 mt-3 pt-2 border-t">
-                      Vypočítáno z {partsCount} částí produktu (bez produktů
-                      prodejny)
-                    </div>
-                  </div>
+                  </TooltipProvider>
                 );
               })()}
             </CardContent>

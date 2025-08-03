@@ -252,9 +252,27 @@ const ProductRow = memo(
                       Zrušit
                     </AlertDialogCancel>
                     <AlertDialogAction
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        deleteProduct(product.id);
+                        try {
+                          await deleteProduct(product.id);
+                          toast({
+                            title: "Úspěch",
+                            description: `Produkt "${product.name}" byl úspěšně smazán`,
+                          });
+                          // Refresh the products list
+                          window.location.reload();
+                        } catch (error) {
+                          console.error("Error deleting product:", error);
+                          toast({
+                            title: "Chyba",
+                            description:
+                              error instanceof Error
+                                ? error.message
+                                : "Nepodařilo se smazat produkt",
+                            variant: "destructive",
+                          });
+                        }
                       }}
                       className="bg-red-600 hover:bg-red-700"
                     >
@@ -801,16 +819,37 @@ export function ProductsTable() {
           priceFilter === "all" ||
           (priceFilter === "mobile" && product.priceMobil > 0);
 
-        // Search filter
-        const searchLower = removeDiacritics(globalFilter.toLowerCase());
+        // Search filter - search through specific fields
+        const searchLower = removeDiacritics(globalFilter.toLowerCase().trim());
         const searchMatch =
           globalFilter.trim() === "" ||
-          Object.values(product).some((value) => {
-            if (!value) return false;
-            const valueStr = value.toString().toLowerCase();
-            const normalizedValue = removeDiacritics(valueStr);
-            return normalizedValue.includes(searchLower);
-          });
+          // Search through specific product fields
+          removeDiacritics(product.name?.toLowerCase() || "").includes(
+            searchLower
+          ) ||
+          removeDiacritics(product.nameVi?.toLowerCase() || "").includes(
+            searchLower
+          ) ||
+          removeDiacritics(product.description?.toLowerCase() || "").includes(
+            searchLower
+          ) ||
+          (product.id?.toString() || "").includes(searchLower) ||
+          (product.printId?.toString() || "").includes(searchLower) ||
+          (product.price?.toString() || "").includes(searchLower) ||
+          (product.priceBuyer?.toString() || "").includes(searchLower) ||
+          (product.priceMobil?.toString() || "").includes(searchLower) ||
+          (product.vat?.toString() || "").includes(searchLower) ||
+          // Search in category name if available
+          (() => {
+            const category = categories?.find(
+              (c) => c.id === product.category_id
+            );
+            return category
+              ? removeDiacritics(category.name.toLowerCase()).includes(
+                  searchLower
+                )
+              : false;
+          })();
 
         // Category filter - only apply if there's no search term
         const categoryMatch =
@@ -821,7 +860,7 @@ export function ProductsTable() {
         return priceMatch && searchMatch && categoryMatch;
       }) || []
     );
-  }, [products, categoryFilter, globalFilter, priceFilter]);
+  }, [products, categoryFilter, globalFilter, priceFilter, categories]);
 
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
@@ -1026,14 +1065,16 @@ export function ProductsTable() {
 
           <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
             <DialogContent className="p-0 max-w-4xl">
-              <ProductForm
-                productId={editProductId}
-                onClose={() => {
-                  setShowEditDialog(false);
-                  setSelectedProductId(null);
-                  setEditProductId(undefined);
-                }}
-              />
+              {editProductId && (
+                <ProductForm
+                  productId={editProductId}
+                  onClose={() => {
+                    setShowEditDialog(false);
+                    setSelectedProductId(null);
+                    setEditProductId(undefined);
+                  }}
+                />
+              )}
             </DialogContent>
           </Dialog>
 

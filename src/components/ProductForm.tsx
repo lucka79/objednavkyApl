@@ -110,19 +110,13 @@ const fetchParentProducts = async () => {
 };
 
 export function ProductForm({ onClose, productId }: ProductFormProps) {
-  if (!productId || isNaN(Number(productId))) {
-    console.error("ProductForm requires a valid productId");
-    onClose();
-    return null;
-  }
-
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { data: categories, isLoading: categoriesLoading } = fetchCategories();
   const { data: product, isLoading: productLoading } = fetchProductById(
-    productId,
+    productId ?? null,
     {
-      enabled: true, // Always fetch since we know productId exists
+      enabled: !!productId && !isNaN(Number(productId)), // Only fetch if productId is valid
     }
   );
 
@@ -130,6 +124,20 @@ export function ProductForm({ onClose, productId }: ProductFormProps) {
     queryKey: ["parentProducts"],
     queryFn: fetchParentProducts,
   });
+
+  // Validate productId in useEffect to avoid setState during render
+  useEffect(() => {
+    if (!productId || isNaN(Number(productId))) {
+      console.error("ProductForm requires a valid productId");
+      onClose();
+      return;
+    }
+  }, [productId, onClose]);
+
+  // Early return for safety if productId is invalid
+  if (!productId || isNaN(Number(productId))) {
+    return null;
+  }
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
