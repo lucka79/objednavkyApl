@@ -78,6 +78,22 @@ export function ProductPartsModal({
   const [calculatedWeights, setCalculatedWeights] = useState<
     Map<number, number>
   >(new Map());
+  const [calculatedEnergeticValues, setCalculatedEnergeticValues] = useState<
+    Map<
+      number,
+      {
+        kJ: number;
+        kcal: number;
+        fat: number;
+        saturates: number;
+        carbohydrate: number;
+        sugars: number;
+        protein: number;
+        fibre: number;
+        salt: number;
+      }
+    >
+  >(new Map());
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -179,6 +195,21 @@ export function ProductPartsModal({
   useEffect(() => {
     const calculateWeights = async () => {
       const weights = new Map<number, number>();
+      const energeticValues = new Map<
+        number,
+        {
+          kJ: number;
+          kcal: number;
+          fat: number;
+          saturates: number;
+          carbohydrate: number;
+          sugars: number;
+          protein: number;
+          fibre: number;
+          salt: number;
+        }
+      >();
+
       const productIds = productParts
         .filter((part) => part.pastry_id)
         .map((part) => part.pastry_id!)
@@ -189,8 +220,130 @@ export function ProductPartsModal({
         if (weight && weight > 0) {
           weights.set(productId, weight);
         }
+
+        // Calculate energetic values from recipe
+        try {
+          const { data: productRecipeParts, error: recipeError } =
+            await supabase
+              .from("product_parts")
+              .select(
+                `
+              *,
+              recipes(name, recipe_ingredients(quantity, ingredient:ingredients(kiloPerUnit, kJ, kcal, fat, saturates, carbohydrate, sugars, protein, fibre, salt)))
+            `
+              )
+              .eq("product_id", productId)
+              .eq("productOnly", false);
+
+          if (
+            !recipeError &&
+            productRecipeParts &&
+            productRecipeParts.length > 0
+          ) {
+            let totalKJ = 0;
+            let totalKcal = 0;
+            let totalFat = 0;
+            let totalSaturates = 0;
+            let totalCarbohydrate = 0;
+            let totalSugars = 0;
+            let totalProtein = 0;
+            let totalFibre = 0;
+            let totalSalt = 0;
+
+            productRecipeParts.forEach((recipePart: any) => {
+              if (
+                recipePart.recipe_id &&
+                recipePart.recipes &&
+                recipePart.recipes.recipe_ingredients
+              ) {
+                // Calculate total recipe weight first
+                let recipeWeightKg = 0;
+                recipePart.recipes.recipe_ingredients.forEach(
+                  (recipeIng: any) => {
+                    if (recipeIng.ingredient) {
+                      const ingredient = recipeIng.ingredient;
+                      const weightInKg =
+                        recipeIng.quantity * ingredient.kiloPerUnit;
+                      recipeWeightKg += weightInKg;
+                    }
+                  }
+                );
+
+                // Calculate energetic values for the full recipe, then scale to product weight
+                let recipeKJ = 0;
+                let recipeKcal = 0;
+                let recipeFat = 0;
+                let recipeSaturates = 0;
+                let recipeCarbohydrate = 0;
+                let recipeSugars = 0;
+                let recipeProtein = 0;
+                let recipeFibre = 0;
+                let recipeSalt = 0;
+
+                recipePart.recipes.recipe_ingredients.forEach(
+                  (recipeIng: any) => {
+                    if (recipeIng.ingredient) {
+                      const ingredient = recipeIng.ingredient;
+                      const weightInKg =
+                        recipeIng.quantity * ingredient.kiloPerUnit;
+                      const factor = weightInKg * 10; // Convert kg to 100g units
+
+                      recipeKJ += ingredient.kJ * factor;
+                      recipeKcal += ingredient.kcal * factor;
+                      recipeFat += ingredient.fat * factor;
+                      recipeSaturates += ingredient.saturates * factor;
+                      recipeCarbohydrate += ingredient.carbohydrate * factor;
+                      recipeSugars += ingredient.sugars * factor;
+                      recipeProtein += ingredient.protein * factor;
+                      recipeFibre += ingredient.fibre * factor;
+                      recipeSalt += ingredient.salt * factor;
+                    }
+                  }
+                );
+
+                // Scale to the actual product weight (e.g., 0.113kg for Bageta)
+                const productWeight = weight || 0.113; // Use calculated weight or fallback
+                const scaleFactor = productWeight / recipeWeightKg;
+
+                totalKJ += recipeKJ * scaleFactor;
+                totalKcal += recipeKcal * scaleFactor;
+                totalFat += recipeFat * scaleFactor;
+                totalSaturates += recipeSaturates * scaleFactor;
+                totalCarbohydrate += recipeCarbohydrate * scaleFactor;
+                totalSugars += recipeSugars * scaleFactor;
+                totalProtein += recipeProtein * scaleFactor;
+                totalFibre += recipeFibre * scaleFactor;
+                totalSalt += recipeSalt * scaleFactor;
+
+                console.log(
+                  `Product ${productId} - Recipe weight: ${recipeWeightKg}kg, Product weight: ${productWeight}kg, Scale factor: ${scaleFactor}`
+                );
+              }
+            });
+
+            energeticValues.set(productId, {
+              kJ: totalKJ,
+              kcal: totalKcal,
+              fat: totalFat,
+              saturates: totalSaturates,
+              carbohydrate: totalCarbohydrate,
+              sugars: totalSugars,
+              protein: totalProtein,
+              fibre: totalFibre,
+              salt: totalSalt,
+            });
+          }
+        } catch (error) {
+          console.error(
+            "Error calculating energetic values for product",
+            productId,
+            error
+          );
+        }
       }
+
       setCalculatedWeights(weights);
+      setCalculatedEnergeticValues(energeticValues);
     };
 
     if (productParts.length > 0) {
@@ -909,30 +1062,49 @@ export function ProductPartsModal({
                             </div>
                           )}
                           {part.ingredient_id && (
-                            <Select
-                              value={part.ingredient_id.toString()}
-                              onValueChange={(value) =>
-                                updatePart(
-                                  index,
-                                  "ingredient_id",
-                                  parseInt(value)
-                                )
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Vyberte surovinu" />
-                              </SelectTrigger>
-                              <SelectContent className="max-h-60">
-                                {ingredients.map((ingredient) => (
-                                  <SelectItem
-                                    key={ingredient.id}
-                                    value={ingredient.id.toString()}
+                            <div className="flex items-center gap-2">
+                              <Select
+                                value={part.ingredient_id.toString()}
+                                onValueChange={(value) =>
+                                  updatePart(
+                                    index,
+                                    "ingredient_id",
+                                    parseInt(value)
+                                  )
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Vyberte surovinu" />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-60">
+                                  {ingredients.map((ingredient) => (
+                                    <SelectItem
+                                      key={ingredient.id}
+                                      value={ingredient.id.toString()}
+                                    >
+                                      {ingredient.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {(() => {
+                                const selectedIngredient = ingredients.find(
+                                  (i) => i.id === part.ingredient_id
+                                );
+                                if (!selectedIngredient) return null;
+                                const hasEnergeticValues =
+                                  selectedIngredient.kJ > 0 ||
+                                  selectedIngredient.kcal > 0;
+                                return !hasEnergeticValues ? (
+                                  <span
+                                    className="text-xs text-red-600"
+                                    title="Chybí výživové hodnoty"
                                   >
-                                    {ingredient.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                                    ⚠️
+                                  </span>
+                                ) : null;
+                              })()}
+                            </div>
                           )}
                           {!part.recipe_id &&
                             !part.pastry_id &&
@@ -969,14 +1141,20 @@ export function ProductPartsModal({
                           </span>
                         </TableCell>
                         <TableCell>
-                          <input
-                            type="checkbox"
-                            checked={part.productOnly || false}
-                            onChange={(e) =>
-                              updatePart(index, "productOnly", e.target.checked)
-                            }
-                            className="rounded"
-                          />
+                          {part.pastry_id && (
+                            <input
+                              type="checkbox"
+                              checked={part.productOnly || false}
+                              onChange={(e) =>
+                                updatePart(
+                                  index,
+                                  "productOnly",
+                                  e.target.checked
+                                )
+                              }
+                              className="rounded"
+                            />
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button
@@ -1193,6 +1371,20 @@ export function ProductPartsModal({
             </CardHeader>
             <CardContent className="bg-green-50/50 rounded-lg p-4 border border-green-100">
               {(() => {
+                // Check if any ingredients are missing energetic values
+                const missingEnergeticValues = productParts
+                  .filter((part) => part.ingredient_id && !part.productOnly)
+                  .map((part) => {
+                    const ingredient = ingredients.find(
+                      (i) => i.id === part.ingredient_id
+                    );
+                    return ingredient &&
+                      (ingredient.kJ === 0 || ingredient.kcal === 0)
+                      ? ingredient.name
+                      : null;
+                  })
+                  .filter(Boolean);
+
                 let totalKJ = 0;
                 let totalKcal = 0;
                 let totalWeightKg = 0;
@@ -1233,6 +1425,10 @@ export function ProductPartsModal({
                   if (part.recipe_id) {
                     const recipe = recipes.find((r) => r.id === part.recipe_id);
                     if (recipe && recipe.recipe_ingredients) {
+                      console.log("=== RECIPE PART ===");
+                      console.log("Recipe name:", recipe.name);
+                      console.log("Part quantity:", part.quantity, "kg");
+
                       // Calculate total weight and nutritional values for the full recipe
                       let recipeWeightKg = 0;
                       let recipeKJ = 0;
@@ -1284,6 +1480,15 @@ export function ProductPartsModal({
                         const partFibre = recipeFibre * proportion;
                         const partSalt = recipeSalt * proportion;
 
+                        console.log("Recipe energetic contribution:", {
+                          weight: partWeightKg,
+                          kJ: partKJ,
+                          kcal: partKcal,
+                          fat: partFat,
+                          protein: partProtein,
+                          proportion: proportion,
+                        });
+
                         // Add to totals
                         totalWeightKg += partWeightKg;
                         totalKJ += partKJ;
@@ -1314,6 +1519,7 @@ export function ProductPartsModal({
                           salt: partSalt,
                         });
                       }
+                      console.log("===================");
                     }
                   }
 
@@ -1323,6 +1529,14 @@ export function ProductPartsModal({
                       (i) => i.id === part.ingredient_id
                     );
                     if (ingredient) {
+                      console.log("=== INGREDIENT PART ===");
+                      console.log("Ingredient name:", ingredient.name);
+                      console.log(
+                        "Part quantity:",
+                        part.quantity,
+                        ingredient.unit
+                      );
+
                       const weightInKg = part.quantity * ingredient.kiloPerUnit;
                       const factor = weightInKg * 10; // Convert kg to 100g units
                       const partKJ = ingredient.kJ * factor;
@@ -1334,6 +1548,15 @@ export function ProductPartsModal({
                       const partProtein = ingredient.protein * factor;
                       const partFibre = ingredient.fibre * factor;
                       const partSalt = ingredient.salt * factor;
+
+                      console.log("Ingredient energetic contribution:", {
+                        weight: weightInKg,
+                        kJ: partKJ,
+                        kcal: partKcal,
+                        fat: partFat,
+                        protein: partProtein,
+                        kiloPerUnit: ingredient.kiloPerUnit,
+                      });
 
                       // Add to totals
                       totalWeightKg += weightInKg;
@@ -1364,6 +1587,7 @@ export function ProductPartsModal({
                         fibre: partFibre,
                         salt: partSalt,
                       });
+                      console.log("=======================");
                     }
                   }
 
@@ -1372,9 +1596,10 @@ export function ProductPartsModal({
                     const product = products.find(
                       (p) => p.id === part.pastry_id
                     );
-                    console.log("=== FETCHED PRODUCT DATA ===");
-                    console.log("Looking for product ID:", part.pastry_id);
-                    console.log("Found product:", product);
+                    console.log("=== PRODUCT PART ===");
+                    console.log("Product name:", product?.name);
+                    console.log("Part quantity:", part.quantity, "ks");
+
                     if (product) {
                       console.log("Product details:", {
                         id: product.id,
@@ -1487,68 +1712,104 @@ export function ProductPartsModal({
                       console.log("Product composition:", product.parts);
                       console.log("==============================");
 
-                      // Try to derive nutritional values from product's composition
-                      // If product has parts composition, estimate based on typical bread/pastry values
-                      let kJPer100g = 1200; // Default bread values
-                      let kcalPer100g = 280;
-                      let fatPer100g = 3;
-                      let saturatesPer100g = 1;
-                      let carbohydratePer100g = 55;
-                      let sugarsPer100g = 3;
-                      let proteinPer100g = 9;
-                      let fibrePer100g = 3;
-                      let saltPer100g = 1;
+                      // Calculate energetic values from product's recipe ingredients
+                      let partKJ = 0;
+                      let partKcal = 0;
+                      let partFat = 0;
+                      let partSaturates = 0;
+                      let partCarbohydrate = 0;
+                      let partSugars = 0;
+                      let partProtein = 0;
+                      let partFibre = 0;
+                      let partSalt = 0;
 
-                      // If product has composition, try to estimate better values
-                      if (product.parts && product.parts.trim() !== "") {
-                        const composition = product.parts.toLowerCase();
+                      // Use calculated energetic values from recipe if available
+                      const calculatedEnergetic = calculatedEnergeticValues.get(
+                        product.id
+                      );
+                      if (calculatedEnergetic) {
+                        console.log(
+                          "Using calculated energetic values from recipe for product:",
+                          product.name
+                        );
 
-                        // Adjust values based on ingredients in composition
-                        if (
-                          composition.includes("máslo") ||
-                          composition.includes("olej") ||
-                          composition.includes("sádlo")
-                        ) {
-                          fatPer100g += 5; // Higher fat if contains butter/oil
-                          kcalPer100g += 50;
-                          kJPer100g = kcalPer100g * 4.184;
+                        // Find the recipe part for this product to get the actual quantity used
+                        const recipePart = productParts.find(
+                          (p) => p.pastry_id === product.id
+                        );
+                        if (recipePart) {
+                          // Scale the already calculated energetic values based on the quantity being used
+                          // calculatedEnergetic values are already per piece (e.g., per 0.113kg bageta)
+                          // recipePart.quantity is how many pieces we're using
+                          const quantityMultiplier = recipePart.quantity; // e.g., 2 pieces = multiply by 2
+
+                          partKJ = calculatedEnergetic.kJ * quantityMultiplier;
+                          partKcal =
+                            calculatedEnergetic.kcal * quantityMultiplier;
+                          partFat =
+                            calculatedEnergetic.fat * quantityMultiplier;
+                          partSaturates =
+                            calculatedEnergetic.saturates * quantityMultiplier;
+                          partCarbohydrate =
+                            calculatedEnergetic.carbohydrate *
+                            quantityMultiplier;
+                          partSugars =
+                            calculatedEnergetic.sugars * quantityMultiplier;
+                          partProtein =
+                            calculatedEnergetic.protein * quantityMultiplier;
+                          partFibre =
+                            calculatedEnergetic.fibre * quantityMultiplier;
+                          partSalt =
+                            calculatedEnergetic.salt * quantityMultiplier;
+
+                          console.log(
+                            "Using calculated energetic values from recipe directly:",
+                            {
+                              kJ: partKJ,
+                              kcal: partKcal,
+                              fat: partFat,
+                              protein: partProtein,
+                              productWeight: partWeightKg,
+                              quantity: recipePart.quantity,
+                              quantityMultiplier,
+                            }
+                          );
+
+                          console.log("Product energetic contribution:", {
+                            weight: partWeightKg,
+                            kJ: partKJ,
+                            kcal: partKcal,
+                            fat: partFat,
+                            protein: partProtein,
+                            quantity: recipePart.quantity,
+                          });
+                        } else {
+                          // Fallback if recipe part not found
+                          const factor = partWeightKg * 10;
+                          partKJ = (1200 * factor) / 10;
+                          partKcal = (280 * factor) / 10;
+                          partFat = (3 * factor) / 10;
+                          partSaturates = (1 * factor) / 10;
+                          partCarbohydrate = (55 * factor) / 10;
+                          partSugars = (3 * factor) / 10;
+                          partProtein = (9 * factor) / 10;
+                          partFibre = (3 * factor) / 10;
+                          partSalt = (1 * factor) / 10;
                         }
-                        if (
-                          composition.includes("cukr") ||
-                          composition.includes("med") ||
-                          composition.includes("sirup")
-                        ) {
-                          sugarsPer100g += 10; // Higher sugar content
-                          carbohydratePer100g += 10;
-                          kcalPer100g += 30;
-                          kJPer100g = kcalPer100g * 4.184;
-                        }
-                        if (
-                          composition.includes("vejce") ||
-                          composition.includes("mléko") ||
-                          composition.includes("sýr")
-                        ) {
-                          proteinPer100g += 3; // Higher protein
-                          kcalPer100g += 20;
-                          kJPer100g = kcalPer100g * 4.184;
-                        }
-                        if (composition.includes("sůl")) {
-                          saltPer100g += 0.5; // Higher salt content
-                        }
+                      } else {
+                        console.log("No recipe found, using estimated values");
+                        // Fallback to estimated values if no recipe found
+                        const factor = partWeightKg * 10; // Convert kg to 100g units
+                        partKJ = (1200 * factor) / 10; // Default bread values
+                        partKcal = (280 * factor) / 10;
+                        partFat = (3 * factor) / 10;
+                        partSaturates = (1 * factor) / 10;
+                        partCarbohydrate = (55 * factor) / 10;
+                        partSugars = (3 * factor) / 10;
+                        partProtein = (9 * factor) / 10;
+                        partFibre = (3 * factor) / 10;
+                        partSalt = (1 * factor) / 10;
                       }
-
-                      // Calculate actual nutritional values for this part
-                      const factor = partWeightKg * 10; // Convert kg to 100g units for calculation
-                      const partKJ = (kJPer100g * factor) / 10;
-                      const partKcal = (kcalPer100g * factor) / 10;
-                      const partFat = (fatPer100g * factor) / 10;
-                      const partSaturates = (saturatesPer100g * factor) / 10;
-                      const partCarbohydrate =
-                        (carbohydratePer100g * factor) / 10;
-                      const partSugars = (sugarsPer100g * factor) / 10;
-                      const partProtein = (proteinPer100g * factor) / 10;
-                      const partFibre = (fibrePer100g * factor) / 10;
-                      const partSalt = (saltPer100g * factor) / 10;
 
                       // Add to totals
                       totalWeightKg += partWeightKg;
@@ -1579,6 +1840,7 @@ export function ProductPartsModal({
                         fibre: partFibre,
                         salt: partSalt,
                       });
+                      console.log("====================");
                     }
                   }
                 });
@@ -2031,6 +2293,23 @@ Celková hmotnost produktu: ${totalWeightKg.toFixed(3)} kg`;
                         a částí produktů, bez produktů označených pouze pro
                         prodejnu)
                       </div>
+
+                      {/* Warning for missing energetic values */}
+                      {missingEnergeticValues.length > 0 && (
+                        <div className="mt-3 pt-2 border-t border-orange-200">
+                          <div className="text-xs font-semibold text-orange-800 mb-2 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Chybí výživové hodnoty pro některé suroviny:
+                          </div>
+                          <div className="text-xs text-orange-700">
+                            {missingEnergeticValues.join(", ")}
+                          </div>
+                          <div className="text-xs text-orange-600 mt-1">
+                            Výživové hodnoty mohou být nepřesné kvůli chybějícím
+                            údajům.
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </TooltipProvider>
                 );
