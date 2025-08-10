@@ -33,6 +33,7 @@ import {
   Copy,
   AlertTriangle,
   BookOpen,
+  Search,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
@@ -48,6 +49,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { removeDiacritics } from "@/utils/removeDiacritics";
 
 interface ProductPart {
   id?: number;
@@ -94,6 +96,9 @@ export function ProductPartsModal({
       }
     >
   >(new Map());
+  const [recipeSearch, setRecipeSearch] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [ingredientSearch, setIngredientSearch] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -869,8 +874,23 @@ export function ProductPartsModal({
     }, 0);
   };
 
+  // Clear search when dropdowns are closed
+  const clearSearch = () => {
+    setRecipeSearch("");
+    setProductSearch("");
+    setIngredientSearch("");
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          clearSearch();
+        }
+        onClose();
+      }}
+    >
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -971,19 +991,53 @@ export function ProductPartsModal({
                               onValueChange={(value) =>
                                 updatePart(index, "recipe_id", parseInt(value))
                               }
+                              onOpenChange={(open) => {
+                                if (!open) {
+                                  setRecipeSearch("");
+                                }
+                              }}
                             >
                               <SelectTrigger>
                                 <SelectValue placeholder="Vyberte recept" />
                               </SelectTrigger>
                               <SelectContent className="max-h-60">
-                                {recipes.map((recipe) => (
-                                  <SelectItem
-                                    key={recipe.id}
-                                    value={recipe.id.toString()}
-                                  >
-                                    {recipe.name}
-                                  </SelectItem>
-                                ))}
+                                <div className="relative p-2">
+                                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                  <Input
+                                    placeholder="Hledat recept..."
+                                    value={recipeSearch}
+                                    onChange={(e) =>
+                                      setRecipeSearch(e.target.value)
+                                    }
+                                    className="pl-8"
+                                  />
+                                </div>
+                                <div className="max-h-48 overflow-y-auto">
+                                  {recipes
+                                    .filter((recipe) => {
+                                      if (!recipeSearch.trim()) return true;
+                                      const searchLower = removeDiacritics(
+                                        recipeSearch.toLowerCase()
+                                      );
+                                      const nameMatch = removeDiacritics(
+                                        recipe.name.toLowerCase()
+                                      ).includes(searchLower);
+                                      const noteMatch = recipe.note
+                                        ? removeDiacritics(
+                                            recipe.note.toLowerCase()
+                                          ).includes(searchLower)
+                                        : false;
+                                      return nameMatch || noteMatch;
+                                    })
+                                    .map((recipe) => (
+                                      <SelectItem
+                                        key={recipe.id}
+                                        value={recipe.id.toString()}
+                                      >
+                                        {recipe.name}
+                                      </SelectItem>
+                                    ))}
+                                </div>
                               </SelectContent>
                             </Select>
                           )}
@@ -998,41 +1052,91 @@ export function ProductPartsModal({
                                     parseInt(value)
                                   )
                                 }
+                                onOpenChange={(open) => {
+                                  if (!open) {
+                                    setProductSearch("");
+                                  }
+                                }}
                               >
                                 <SelectTrigger>
                                   <SelectValue placeholder="Vyberte produkt" />
                                 </SelectTrigger>
                                 <SelectContent className="max-h-60">
-                                  {products.map((product) => (
-                                    <SelectItem
-                                      key={product.id}
-                                      value={product.id.toString()}
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        {product.name}
-                                        {(() => {
-                                          const hasProductParts =
-                                            productPartsMap.get(product.id) ||
-                                            false;
-                                          return hasProductParts ? (
-                                            <span
-                                              className="text-xs text-green-600 bg-green-100 px-1 rounded"
-                                              title={`Produkt má definované části`}
-                                            >
-                                              <BookOpen className="h-3 w-3" />
-                                            </span>
-                                          ) : (
-                                            <span
-                                              className="text-xs text-orange-600 bg-orange-100 px-1 rounded"
-                                              title="Produkt nemá definované části"
-                                            >
-                                              ⚠️
-                                            </span>
-                                          );
-                                        })()}
-                                      </div>
-                                    </SelectItem>
-                                  ))}
+                                  <div className="relative p-2">
+                                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                      placeholder="Hledat produkt..."
+                                      value={productSearch}
+                                      onChange={(e) =>
+                                        setProductSearch(e.target.value)
+                                      }
+                                      className="pl-8"
+                                    />
+                                  </div>
+                                  <div className="max-h-48 overflow-y-auto">
+                                    {products
+                                      .filter((product) => {
+                                        if (!productSearch.trim()) return true;
+                                        const searchLower = removeDiacritics(
+                                          productSearch.toLowerCase()
+                                        );
+                                        const nameMatch = removeDiacritics(
+                                          product.name?.toLowerCase() || ""
+                                        ).includes(searchLower);
+                                        const nameViMatch = removeDiacritics(
+                                          product.nameVi?.toLowerCase() || ""
+                                        ).includes(searchLower);
+                                        const descriptionMatch =
+                                          removeDiacritics(
+                                            product.description?.toLowerCase() ||
+                                              ""
+                                          ).includes(searchLower);
+                                        const idMatch = product.id
+                                          ?.toString()
+                                          .includes(productSearch);
+                                        const printIdMatch = product.printId
+                                          ?.toString()
+                                          .includes(productSearch);
+                                        return (
+                                          nameMatch ||
+                                          nameViMatch ||
+                                          descriptionMatch ||
+                                          idMatch ||
+                                          printIdMatch
+                                        );
+                                      })
+                                      .map((product) => (
+                                        <SelectItem
+                                          key={product.id}
+                                          value={product.id.toString()}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            {product.name}
+                                            {(() => {
+                                              const hasProductParts =
+                                                productPartsMap.get(
+                                                  product.id
+                                                ) || false;
+                                              return hasProductParts ? (
+                                                <span
+                                                  className="text-xs text-green-600 bg-green-100 px-1 rounded"
+                                                  title={`Produkt má definované části`}
+                                                >
+                                                  <BookOpen className="h-3 w-3" />
+                                                </span>
+                                              ) : (
+                                                <span
+                                                  className="text-xs text-orange-600 bg-orange-100 px-1 rounded"
+                                                  title="Produkt nemá definované části"
+                                                >
+                                                  ⚠️
+                                                </span>
+                                              );
+                                            })()}
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                  </div>
                                 </SelectContent>
                               </Select>
                               {(() => {
@@ -1072,19 +1176,52 @@ export function ProductPartsModal({
                                     parseInt(value)
                                   )
                                 }
+                                onOpenChange={(open) => {
+                                  if (!open) {
+                                    setIngredientSearch("");
+                                  }
+                                }}
                               >
                                 <SelectTrigger>
                                   <SelectValue placeholder="Vyberte surovinu" />
                                 </SelectTrigger>
                                 <SelectContent className="max-h-60">
-                                  {ingredients.map((ingredient) => (
-                                    <SelectItem
-                                      key={ingredient.id}
-                                      value={ingredient.id.toString()}
-                                    >
-                                      {ingredient.name}
-                                    </SelectItem>
-                                  ))}
+                                  <div className="relative p-2">
+                                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                      placeholder="Hledat surovinu..."
+                                      value={ingredientSearch}
+                                      onChange={(e) =>
+                                        setIngredientSearch(e.target.value)
+                                      }
+                                      className="pl-8"
+                                    />
+                                  </div>
+                                  <div className="max-h-48 overflow-y-auto">
+                                    {ingredients
+                                      .filter((ingredient) => {
+                                        if (!ingredientSearch.trim())
+                                          return true;
+                                        const searchLower = removeDiacritics(
+                                          ingredientSearch.toLowerCase()
+                                        );
+                                        const nameMatch = removeDiacritics(
+                                          ingredient.name.toLowerCase()
+                                        ).includes(searchLower);
+                                        const unitMatch = removeDiacritics(
+                                          ingredient.unit?.toLowerCase() || ""
+                                        ).includes(searchLower);
+                                        return nameMatch || unitMatch;
+                                      })
+                                      .map((ingredient) => (
+                                        <SelectItem
+                                          key={ingredient.id}
+                                          value={ingredient.id.toString()}
+                                        >
+                                          {ingredient.name}
+                                        </SelectItem>
+                                      ))}
+                                  </div>
                                 </SelectContent>
                               </Select>
                               {(() => {

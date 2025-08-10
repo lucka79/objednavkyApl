@@ -159,9 +159,19 @@ export const useInsertProduct = () => {
 
 // funkční insert product
 export const insertProduct = async (product: Omit<Product, 'id' | 'created_at'| 'image' >) => {
+  // Get current user for seller_id
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
   const { data, error } = await supabase
     .from('products')
-    .insert(product)
+    .insert({
+      ...product,
+      seller_id: user.id
+    })
     .single()
 
   if (error) throw error

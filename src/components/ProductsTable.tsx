@@ -56,6 +56,8 @@ import { useProductPartsCount } from "@/hooks/useProductParts";
 
 import { detectAllergens } from "@/utils/allergenDetection";
 import { supabase } from "@/lib/supabase";
+import { DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { sendEmail } from "@/lib/email";
 
 // Horizontal Category Navigation Component
 const HorizontalCategoryNav = ({
@@ -78,6 +80,16 @@ const HorizontalCategoryNav = ({
         onClick={() => onCategorySelect(null)}
       >
         Vše
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        className={`cursor-pointer hover:bg-red-500 hover:text-white transition-colors text-xs ${
+          selectedCategory === -1 ? "bg-red-500 text-white" : ""
+        }`}
+        onClick={() => onCategorySelect(-1)}
+      >
+        Neaktivní
       </Button>
       {categories?.map((category) => (
         <Button
@@ -102,11 +114,13 @@ const ProductRow = memo(
     onEdit,
     onOpenParts,
     hasProductParts,
+    onDebugError,
   }: {
     product: Product;
     onEdit: (id: number) => void;
     onOpenParts: (id: number, name: string) => void;
     hasProductParts: boolean;
+    onDebugError: (title: string, error: any) => void;
   }) => {
     const { data: categories } = fetchCategories();
     const { data: products } = fetchAllProducts();
@@ -140,7 +154,7 @@ const ProductRow = memo(
       <>
         {/* Desktop Layout (xl and up) - Reduced columns for better fit */}
         <div
-          className="hidden xl:grid xl:grid-cols-[60px_80px_2fr_100px_100px_100px_80px_60px_60px_60px_120px] gap-2 py-2 px-2 items-center border-b text-sm cursor-pointer hover:bg-gray-50 w-full"
+          className="hidden xl:grid xl:grid-cols-[60px_80px_2fr_100px_100px_100px_80px_60px_60px_60px_60px_120px] gap-2 py-2 px-2 items-center border-b text-sm cursor-pointer hover:bg-gray-50 w-full"
           onClick={() => onEdit(product.id)}
         >
           <div className="text-center">{product.id}</div>
@@ -197,6 +211,17 @@ const ProductRow = memo(
                 handleCheckboxChange("store", checked as boolean);
               }}
               className="border-blue-500 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 data-[state=checked]:text-white"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="flex justify-center">
+            <Checkbox
+              checked={product.isAdmin}
+              onCheckedChange={(checked) => {
+                event?.stopPropagation();
+                handleCheckboxChange("isAdmin", checked as boolean);
+              }}
+              className="border-purple-500 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500 data-[state=checked]:text-white"
               onClick={(e) => e.stopPropagation()}
             />
           </div>
@@ -264,6 +289,10 @@ const ProductRow = memo(
                           window.location.reload();
                         } catch (error) {
                           console.error("Error deleting product:", error);
+                          onDebugError(
+                            `Error deleting product "${product.name}" (ID: ${product.id})`,
+                            error
+                          );
                           toast({
                             title: "Chyba",
                             description:
@@ -287,7 +316,7 @@ const ProductRow = memo(
 
         {/* Large Tablet Layout (lg to xl) - Further reduced columns */}
         <div
-          className="hidden lg:grid xl:hidden lg:grid-cols-[60px_2fr_90px_90px_90px_80px_100px] gap-2 py-2 px-3 items-center border-b text-sm cursor-pointer hover:bg-gray-50 w-full"
+          className="hidden lg:grid xl:hidden lg:grid-cols-[60px_2fr_90px_90px_90px_80px_80px_100px] gap-2 py-2 px-3 items-center border-b text-sm cursor-pointer hover:bg-gray-50 w-full"
           onClick={() => onEdit(product.id)}
         >
           <div className="text-center">{product.id}</div>
@@ -328,6 +357,24 @@ const ProductRow = memo(
                 handleCheckboxChange("buyer", checked as boolean);
               }}
               className="h-4 w-4 border-orange-500 data-[state=checked]:bg-orange-500"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <Checkbox
+              checked={product.store}
+              onCheckedChange={(checked) => {
+                event?.stopPropagation();
+                handleCheckboxChange("store", checked as boolean);
+              }}
+              className="h-4 w-4 border-blue-500 data-[state=checked]:bg-blue-500"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <Checkbox
+              checked={product.isAdmin}
+              onCheckedChange={(checked) => {
+                event?.stopPropagation();
+                handleCheckboxChange("isAdmin", checked as boolean);
+              }}
+              className="h-4 w-4 border-purple-500 data-[state=checked]:bg-purple-500"
               onClick={(e) => e.stopPropagation()}
             />
           </div>
@@ -448,6 +495,16 @@ const ProductRow = memo(
               {product.buyer && (
                 <span className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-800">
                   Odběr
+                </span>
+              )}
+              {product.store && (
+                <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">
+                  Store
+                </span>
+              )}
+              {product.isAdmin && (
+                <span className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-800">
+                  Admin
                 </span>
               )}
             </div>
@@ -777,7 +834,6 @@ export function ProductsTable() {
   );
   //   const category = categories?.find((c) => c.id === products.category_id);
   // const navigate = useNavigate();
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [priceFilter, setPriceFilter] = useState<string>("all");
   // const queryClient = useQueryClient();
 
@@ -794,6 +850,13 @@ export function ProductsTable() {
   );
   const [partsProductName, setPartsProductName] = useState<string>("");
 
+  // Debug error state
+  const [debugError, setDebugError] = useState<{
+    title: string;
+    error: any;
+  } | null>(null);
+  const [showDebugDialog, setShowDebugDialog] = useState(false);
+
   // Create a lookup map for products with parts
   const productPartsMap = useMemo(() => {
     const map = new Map<number, boolean>();
@@ -806,6 +869,8 @@ export function ProductsTable() {
   const handleCreateProduct = () => {
     setShowCreateDialog(true);
   };
+
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
   //   const openOrderDetails = (orderId: number) => {
   //     window.open(`/admin/orders/${orderId}`, "_blank");
@@ -854,19 +919,17 @@ export function ProductsTable() {
         // Category filter - only apply if there's no search term
         const categoryMatch =
           globalFilter.trim() !== "" ||
-          categoryFilter === "all" ||
-          (product.category_id ?? 0).toString() === categoryFilter;
+          (selectedCategory === null && product.active) ||
+          (selectedCategory === -1 && !product.active) ||
+          ((product.category_id ?? 0) === selectedCategory && product.active);
 
         return priceMatch && searchMatch && categoryMatch;
       }) || []
     );
-  }, [products, categoryFilter, globalFilter, priceFilter, categories]);
-
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  }, [products, selectedCategory, globalFilter, priceFilter, categories]);
 
   const handleCategorySelect = (categoryId: number | null) => {
     setSelectedCategory(categoryId);
-    setCategoryFilter(categoryId ? categoryId.toString() : "all");
   };
 
   // 4. Add virtualization
@@ -893,6 +956,11 @@ export function ProductsTable() {
     setShowPartsDialog(false);
     setPartsProductId(undefined);
     setPartsProductName("");
+  };
+
+  const handleDebugError = (title: string, error: any) => {
+    setDebugError({ title, error });
+    setShowDebugDialog(true);
   };
 
   if (isLoading) return <div>Loading products...</div>;
@@ -968,7 +1036,7 @@ export function ProductsTable() {
               <div className="w-full">
                 {/* Desktop Header (xl and up) */}
                 <div className="hidden xl:block sticky top-0 bg-white z-10 border-b w-full">
-                  <div className="grid grid-cols-[60px_80px_2fr_100px_100px_100px_80px_60px_60px_60px_120px] gap-2 py-2 px-2 font-medium text-sm w-full">
+                  <div className="grid grid-cols-[60px_80px_2fr_100px_100px_100px_80px_60px_60px_60px_60px_120px] gap-2 py-2 px-2 font-medium text-sm w-full">
                     <div className="text-center">ID</div>
                     <div className="text-center">Print</div>
                     <div>Název / Kategorie</div>
@@ -979,6 +1047,7 @@ export function ProductsTable() {
                     <div className="text-center">Act</div>
                     <div className="text-center">Odběr</div>
                     <div className="text-center">Store</div>
+                    <div className="text-center">Admin</div>
 
                     <div className="text-right">Akce</div>
                   </div>
@@ -986,13 +1055,16 @@ export function ProductsTable() {
 
                 {/* Large Tablet Header (lg to xl) */}
                 <div className="hidden lg:block xl:hidden sticky top-0 bg-white z-10 border-b w-full">
-                  <div className="grid grid-cols-[60px_2fr_90px_90px_90px_80px_100px] gap-2 py-2 px-3 font-medium text-sm w-full">
+                  <div className="grid grid-cols-[60px_2fr_90px_90px_90px_80px_80px_100px] gap-2 py-2 px-3 font-medium text-sm w-full">
                     <div className="text-center">ID</div>
                     <div>Název</div>
                     <div className="text-right">Nákup</div>
                     <div className="text-right">Mobil</div>
                     <div className="text-right">Prodej</div>
-                    <div className="text-center">Flags</div>
+                    <div className="text-center">Act</div>
+                    <div className="text-center">Odběr</div>
+                    <div className="text-center">Store</div>
+                    <div className="text-center">Admin</div>
                     <div className="text-right">Akce</div>
                   </div>
                 </div>
@@ -1047,6 +1119,7 @@ export function ProductsTable() {
                           onEdit={handleEdit}
                           onOpenParts={handleOpenParts}
                           hasProductParts={hasProductParts}
+                          onDebugError={handleDebugError}
                         />
                       </div>
                     );
@@ -1086,6 +1159,95 @@ export function ProductsTable() {
           />
         </Card>
       </div>
+      {/* Debug Error Dialog */}
+      <Dialog open={showDebugDialog} onOpenChange={setShowDebugDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">
+              Debug Error Information
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-semibold text-lg mb-2">
+                {debugError?.title}
+              </h3>
+            </div>
+            <div className="bg-gray-100 p-4 rounded-md">
+              <h4 className="font-medium mb-2">Error Details:</h4>
+              <pre className="text-sm overflow-x-auto whitespace-pre-wrap">
+                {JSON.stringify(debugError?.error, null, 2)}
+              </pre>
+            </div>
+            <div className="bg-blue-50 p-4 rounded-md">
+              <h4 className="font-medium mb-2">Error Stack:</h4>
+              <pre className="text-sm overflow-x-auto whitespace-pre-wrap">
+                {debugError?.error?.stack || "No stack trace available"}
+              </pre>
+            </div>
+            <div className="bg-yellow-50 p-4 rounded-md">
+              <h4 className="font-medium mb-2">Error Message:</h4>
+              <pre className="text-sm overflow-x-auto whitespace-pre-wrap">
+                {debugError?.error?.message || "No message available"}
+              </pre>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" onClick={() => setShowDebugDialog(false)}>
+              Close
+            </Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  console.log("Sending test email...");
+                  // Include error details in the test email
+                  const emailText = `
+
+Error Details (if available):
+Title: ${debugError?.title || "No error"}
+Message: ${debugError?.error?.message || "No error message"}
+Timestamp: ${new Date().toLocaleString()}`;
+
+                  const response = await sendEmail({
+                    to: "l.batelkova@gmail.com",
+                    subject: "Chybové hlášení výrobků",
+                    text: emailText,
+                    attachments: [],
+                  });
+                  console.log("Test email response:", response);
+                  toast({
+                    title: "Test email sent",
+                    description: "Email sent successfully",
+                  });
+                } catch (error) {
+                  console.error("Email failed:", error);
+                  toast({
+                    title: "Email failed",
+                    description: "Failed to send email",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            >
+              Odeslat email
+            </Button>
+            <Button
+              onClick={() => {
+                navigator.clipboard.writeText(
+                  JSON.stringify(debugError, null, 2)
+                );
+                toast({
+                  title: "Copied",
+                  description: "Error details copied to clipboard",
+                });
+              }}
+            >
+              Copy Error Details
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <ProductDetailsDialog />
     </>
   );

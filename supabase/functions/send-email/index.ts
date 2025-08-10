@@ -5,7 +5,7 @@ import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',  // Changed to allow all origins for testing
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': '*',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
   'Access-Control-Max-Age': '86400',
 };
 
@@ -48,6 +48,7 @@ serve(async (req) => {
     console.log('Request received:', {
       to: data.to,
       subject: data.subject,
+      textLength: data.text?.length,
       attachmentsCount: data?.attachments?.length,
       attachmentSizes: data?.attachments?.map(a => ({
         name: a.filename,
@@ -65,6 +66,30 @@ serve(async (req) => {
       );
     }
 
+    // Log SMTP configuration (without sensitive data)
+    const smtpUsername = Deno.env.get('SMTP_USERNAME');
+    const smtpPassword = Deno.env.get('SMTP_PASSWORD');
+    console.log('SMTP Configuration:', {
+      hostname: "smtp.cesky-hosting.cz",
+      port: 465,
+      tls: true,
+      username: smtpUsername ? `${smtpUsername.substring(0, 3)}***` : 'NOT_SET',
+      password: smtpPassword ? '***SET***' : 'NOT_SET'
+    });
+
+    // Check if SMTP credentials are set
+    if (!smtpUsername || !smtpPassword) {
+      const errorMsg = 'SMTP credentials not configured';
+      console.error(errorMsg);
+      return new Response(
+        JSON.stringify({ 
+          error: errorMsg,
+          details: 'SMTP_USERNAME or SMTP_PASSWORD environment variables are not set'
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }}
+      );
+    }
+
     try {
       const client = new SMTPClient({
         connection: {
@@ -78,13 +103,58 @@ serve(async (req) => {
         },
       });
 
+      console.log('SMTP client created successfully');
+
       // Process all attachments at once
       const processedAttachments = attachments?.map(attachment => ({
         filename: attachment.filename,
-        content: attachment.content,
+        content: base64ToUint8Array(attachment.content),
         contentType: attachment.contentType || 'application/octet-stream',
-        encoding: 'base64'
       }));
+
+      console.log('Email content prepared:', {
+        from: smtpUsername,
+        to: to,
+        subject: subject,
+        contentLength: text.length,
+        attachmentsCount: processedAttachments?.length || 0
+      });
+
+      // Log the actual email content for debugging
+      console.log('Email content preview:', {
+        subject: subject,
+        contentPreview: text.substring(0, 200) + (text.length > 200 ? '...' : ''),
+        fullContentLength: text.length,
+        containsError: text.includes('Error Details:'),
+        containsJson: text.includes('{') && text.includes('}')
+      });
+
+      // Check for potential issues with email content
+      const contentIssues = [];
+      if (text.length > 10000) contentIssues.push('Content too large');
+      if (text.includes('\u0000')) contentIssues.push('Contains null characters');
+      if (text.includes('\u0001')) contentIssues.push('Contains control characters');
+      if (subject.length > 100) contentIssues.push('Subject too long');
+      
+      if (contentIssues.length > 0) {
+        console.warn('Potential email content issues:', contentIssues);
+      } else {
+        console.log('Email content validation passed');
+      }
+
+      // First, try sending a test email without attachments to verify SMTP connection
+      console.log('Attempting to send email...');
+      
+      // Log the exact email configuration being used
+      const emailConfig = {
+        from: smtpUsername,
+        to: to,
+        subject: subject,
+        content: text,
+        html: text.replace(/\n/g, '<br>'),
+        attachmentsCount: processedAttachments?.length || 0
+      };
+      console.log('Email configuration:', emailConfig);
 
       // Send single email with all attachments
       await client.send({
@@ -97,6 +167,7 @@ serve(async (req) => {
       });
 
       console.log('Email sent successfully with all attachments');
+      console.log('Email delivery completed for:', to);
       await client.close();
       
       return new Response(
