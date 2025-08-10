@@ -321,6 +321,7 @@ export type Database = {
           saturates: number
           storeOnly: boolean
           sugars: number
+          supplier_id: string | null
           unit: string
           vat: number | null
         }
@@ -345,6 +346,7 @@ export type Database = {
           saturates?: number
           storeOnly?: boolean
           sugars?: number
+          supplier_id?: string | null
           unit?: string
           vat?: number | null
         }
@@ -369,6 +371,7 @@ export type Database = {
           saturates?: number
           storeOnly?: boolean
           sugars?: number
+          supplier_id?: string | null
           unit?: string
           vat?: number | null
         }
@@ -378,6 +381,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "ingredient_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingredients_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1020,6 +1030,7 @@ export type Database = {
           phone: string | null
           role: Database["public"]["Enums"]["groupUser"]
           shortcut: string | null
+          supplier: boolean
           updated_at: string | null
           username: string | null
           website: string | null
@@ -1045,6 +1056,7 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["groupUser"]
           shortcut?: string | null
+          supplier?: boolean
           updated_at?: string | null
           username?: string | null
           website?: string | null
@@ -1070,6 +1082,7 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["groupUser"]
           shortcut?: string | null
+          supplier?: boolean
           updated_at?: string | null
           username?: string | null
           website?: string | null
@@ -1218,6 +1231,7 @@ export type Database = {
           quantity: number
           stir: string | null
           store: boolean
+          test: boolean
           water: string | null
         }
         Insert: {
@@ -1236,6 +1250,7 @@ export type Database = {
           quantity?: number
           stir?: string | null
           store?: boolean
+          test?: boolean
           water?: string | null
         }
         Update: {
@@ -1254,6 +1269,7 @@ export type Database = {
           quantity?: number
           stir?: string | null
           store?: boolean
+          test?: boolean
           water?: string | null
         }
         Relationships: [

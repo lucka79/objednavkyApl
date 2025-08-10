@@ -46,6 +46,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { removeDiacritics } from "@/utils/removeDiacritics";
 import { useAuthStore } from "@/lib/supabase";
+import { useSupplierUsers } from "@/hooks/useProfiles";
 
 export function IngredientsTable() {
   const {
@@ -65,6 +66,8 @@ export function IngredientsTable() {
   const [globalFilter, setGlobalFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("categories");
+  const { data: supplierUsers } = useSupplierUsers();
+  const [supplierFilter, setSupplierFilter] = useState<string>("all");
 
   // Check if user can delete ingredients
   const canDelete =
@@ -98,9 +101,13 @@ export function IngredientsTable() {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([categoryName, ingredients]) => ({
         categoryName,
-        ingredients: ingredients.sort((a, b) => a.name.localeCompare(b.name)),
+        ingredients: ingredients
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .filter((ing) =>
+            supplierFilter === "all" ? true : ing.supplier_id === supplierFilter
+          ),
       }));
-  }, [ingredients]);
+  }, [ingredients, supplierFilter]);
 
   // Filter ingredients based on search and category
   const filteredGroupedIngredients = useMemo(() => {
@@ -126,10 +133,16 @@ export function IngredientsTable() {
                 ingredient.ingredient_categories.name.toLowerCase()
               ).includes(searchLower)
             : false;
+          const supplierName = (supplierUsers || [])
+            .find((u: any) => u.id === ingredient.supplier_id)
+            ?.full_name?.toLowerCase();
+          const supplierMatch = supplierName
+            ? removeDiacritics(supplierName).includes(searchLower)
+            : false;
 
           // If there's a search term, search globally
           if (globalFilter.trim() !== "") {
-            return nameMatch || eanMatch || categoryMatch;
+            return nameMatch || eanMatch || categoryMatch || supplierMatch;
           }
 
           // If no search term, apply category filter
@@ -142,7 +155,7 @@ export function IngredientsTable() {
         }),
       }))
       .filter(({ ingredients }) => ingredients.length > 0);
-  }, [groupedIngredients, globalFilter, categoryFilter]);
+  }, [groupedIngredients, globalFilter, categoryFilter, supplierUsers]);
 
   // Filter all ingredients for the "all" tab
   const filteredAllIngredients = useMemo(() => {
@@ -160,10 +173,16 @@ export function IngredientsTable() {
               ingredient.ingredient_categories.name.toLowerCase()
             ).includes(searchLower)
           : false;
+        const supplierName = (supplierUsers || [])
+          .find((u: any) => u.id === ingredient.supplier_id)
+          ?.full_name?.toLowerCase();
+        const supplierMatch = supplierName
+          ? removeDiacritics(supplierName).includes(searchLower)
+          : false;
 
         // If there's a search term, search globally
         if (globalFilter.trim() !== "") {
-          return nameMatch || eanMatch || categoryMatch;
+          return nameMatch || eanMatch || categoryMatch || supplierMatch;
         }
 
         // If no search term, apply category filter
@@ -172,8 +191,17 @@ export function IngredientsTable() {
           ingredient.ingredient_categories?.name || "Bez kategorie";
         return categoryName === categoryFilter;
       })
+      .filter((ing) =>
+        supplierFilter === "all" ? true : ing.supplier_id === supplierFilter
+      )
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [ingredients, globalFilter, categoryFilter]);
+  }, [
+    ingredients,
+    globalFilter,
+    categoryFilter,
+    supplierFilter,
+    supplierUsers,
+  ]);
 
   const handleDelete = async (ingredient: (typeof ingredients)[0]) => {
     try {
@@ -220,6 +248,15 @@ export function IngredientsTable() {
       style={{ userSelect: "none" }}
     >
       <TableCell className="font-medium">{ingredient.name}</TableCell>
+      <TableCell>
+        <div className="flex items-center gap-1">
+          <span className="text-sm">
+            {(supplierUsers || []).find(
+              (u: any) => u.id === ingredient.supplier_id
+            )?.full_name || "—"}
+          </span>
+        </div>
+      </TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
           <Scale className="h-3 w-3 text-muted-foreground" />
@@ -363,7 +400,7 @@ export function IngredientsTable() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Hledat podle názvu, EAN nebo kategorie..."
+                placeholder="Hledat podle názvu, EAN, dodavatele nebo kategorie..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
                 className="pl-10"
@@ -381,6 +418,19 @@ export function IngredientsTable() {
                   </SelectItem>
                 ))}
                 <SelectItem value="Bez kategorie">Bez kategorie</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Filtr dodavatele" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Všichni dodavatelé</SelectItem>
+                {(supplierUsers || []).map((u: any) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.full_name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -412,6 +462,7 @@ export function IngredientsTable() {
                         <TableHeader>
                           <TableRow>
                             <TableHead>Název</TableHead>
+                            <TableHead>Dodavatel</TableHead>
                             <TableHead>Jednotka</TableHead>
                             <TableHead className="text-right">
                               kg/Jednotka
@@ -431,7 +482,7 @@ export function IngredientsTable() {
                           {/* Add fake empty row to help with border display */}
                           <TableRow className="h-0">
                             <TableCell
-                              colSpan={11}
+                              colSpan={12}
                               className="p-0 border-0"
                             ></TableCell>
                           </TableRow>
@@ -456,6 +507,7 @@ export function IngredientsTable() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Název</TableHead>
+                      <TableHead>Dodavatel</TableHead>
                       <TableHead>Jednotka</TableHead>
                       <TableHead className="text-right">kg/Jednotka</TableHead>
                       <TableHead className="text-right">Cena</TableHead>
@@ -473,7 +525,7 @@ export function IngredientsTable() {
                     {/* Add fake empty row to help with border display */}
                     <TableRow className="h-0">
                       <TableCell
-                        colSpan={11}
+                        colSpan={12}
                         className="p-0 border-0"
                       ></TableCell>
                     </TableRow>

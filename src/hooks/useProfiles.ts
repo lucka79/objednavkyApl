@@ -296,6 +296,22 @@ export const updateMoPartners = () => {
   });
 };
 
+export const updateSupplier = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, supplier }: { id: string; supplier: boolean }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ supplier })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+};
+
 export const deleteUser = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -346,6 +362,21 @@ export const updatePhone = () => {
       });
 
       if (authError) throw authError;
+    },
+  });
+};
+
+export const useSupplierUsers = () => {
+  return useQuery({
+    queryKey: ["supplierUsers"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, supplier, active")
+        .eq("supplier", true)
+        .order("full_name", { ascending: true });
+      if (error) throw error;
+      return (data || []).filter((u) => u.full_name);
     },
   });
 };

@@ -1385,6 +1385,28 @@ export function ProductPartsModal({
                   })
                   .filter(Boolean);
 
+                // Check if any products are missing energetic values and elements
+                const missingProductData = productParts
+                  .filter((part) => part.pastry_id && !part.productOnly)
+                  .map((part) => {
+                    const product = products.find(
+                      (p) => p.id === part.pastry_id
+                    );
+                    const hasEnergeticValues = calculatedEnergeticValues.has(
+                      product?.id || 0
+                    );
+                    const hasElements =
+                      product && product.parts && product.parts.trim() !== "";
+                    return product && (!hasEnergeticValues || !hasElements)
+                      ? {
+                          name: product.name,
+                          missingEnergetic: !hasEnergeticValues,
+                          missingElements: !hasElements,
+                        }
+                      : null;
+                  })
+                  .filter(Boolean);
+
                 let totalKJ = 0;
                 let totalKcal = 0;
                 let totalWeightKg = 0;
@@ -2303,6 +2325,37 @@ Celková hmotnost produktu: ${totalWeightKg.toFixed(3)} kg`;
                           </div>
                           <div className="text-xs text-orange-700">
                             {missingEnergeticValues.join(", ")}
+                          </div>
+                          <div className="text-xs text-orange-600 mt-1">
+                            Výživové hodnoty mohou být nepřesné kvůli chybějícím
+                            údajům.
+                          </div>
+                        </div>
+                      )}
+                      {missingProductData.length > 0 && (
+                        <div className="mt-3 pt-2 border-t border-orange-200">
+                          <div className="text-xs font-semibold text-orange-800 mb-2 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Chybí výživové hodnoty nebo složení pro některé
+                            produkty:
+                          </div>
+                          <div className="text-xs text-orange-700 space-y-1">
+                            {missingProductData.map((product) => (
+                              <div
+                                key={product?.name}
+                                className="flex items-center gap-2"
+                              >
+                                <span>• {product?.name}</span>
+                                <span className="text-orange-600">
+                                  {product?.missingEnergetic &&
+                                  product?.missingElements
+                                    ? "(chybí výživové hodnoty i složení)"
+                                    : product?.missingEnergetic
+                                      ? "(chybí výživové hodnoty)"
+                                      : "(chybí složení)"}
+                                </span>
+                              </div>
+                            ))}
                           </div>
                           <div className="text-xs text-orange-600 mt-1">
                             Výživové hodnoty mohou být nepřesné kvůli chybějícím

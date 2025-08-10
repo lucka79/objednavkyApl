@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/input-otp";
 import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface CreateUserFormProps {
   onSuccess: () => void;
@@ -44,6 +45,7 @@ const formSchema = z.object({
     required_error: "Please select a role",
   }),
   address: z.string().optional(),
+  supplier: z.boolean().default(false),
 });
 
 export function CreateUserForm({ onSuccess }: CreateUserFormProps) {
@@ -59,6 +61,7 @@ export function CreateUserForm({ onSuccess }: CreateUserFormProps) {
       password: "Aplica1993",
       role: undefined,
       address: "",
+      supplier: false,
     },
   });
 
@@ -201,6 +204,23 @@ export function CreateUserForm({ onSuccess }: CreateUserFormProps) {
                 <Input {...field} placeholder="Enter address..." />
               </FormControl>
               <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="supplier"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center space-x-2">
+              <FormControl>
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  className="data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
+                />
+              </FormControl>
+              <FormLabel className="text-sm font-normal">Supplier</FormLabel>
             </FormItem>
           )}
         />

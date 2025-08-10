@@ -180,7 +180,9 @@ export default function CartAdmin() {
               autoFocus={false}
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className={`border rounded px-2 py-1 text-thin text-sm w-[120px] min-w-[120px] text-left ${
+              onFocus={(e) => e.currentTarget.select()}
+              onClick={(e) => e.currentTarget.select()}
+              className={`border rounded px-2 py-1 text-thin text-sm w-[140px] min-w-[140px] text-left ${
                 note ? "border-orange-500" : ""
               }`}
               placeholder="Přidat poznámku..."
@@ -302,7 +304,9 @@ export default function CartAdmin() {
                   onChange={(e) =>
                     updateQuantity(item.product.id, parseInt(e.target.value))
                   }
-                  className="w-14 mx-2 text-center"
+                  onFocus={(e) => e.currentTarget.select()}
+                  onClick={(e) => e.currentTarget.select()}
+                  className="w-16 mx-1 text-center"
                 />
                 <SquarePlus
                   onClick={() =>

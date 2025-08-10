@@ -53,6 +53,7 @@ interface UserData {
   password: string
   role: UserRole
   address?: string  // Optional since it's only used for buyers
+  supplier?: boolean
 }
 
 interface AuthState {
@@ -239,6 +240,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           role: userData.role,
           paid_by: 'Hotově', // Add this default value
           address: userData.address, // Add this line
+          supplier: userData.supplier ?? false,
           created_at: authData.user.created_at, // Copy created_at from auth user
         }, {
           onConflict: 'id'
@@ -284,6 +286,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           avatar_url: '',
           role: userData.role,
           paid_by: 'Hotově', // Add this default value
+          supplier: userData.supplier ?? false,
           created_at: authData.user.created_at, // Copy created_at from auth user
         }, {
           onConflict: 'id'

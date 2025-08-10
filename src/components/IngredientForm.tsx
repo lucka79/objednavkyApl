@@ -22,6 +22,7 @@ import { useIngredientStore } from "@/stores/ingredientStore";
 import { detectAllergens } from "@/utils/allergenDetection";
 import { X, Save, Plus, Type } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useSupplierUsers } from "@/hooks/useProfiles";
 
 interface IngredientFormData {
   name: string;
@@ -45,6 +46,7 @@ interface IngredientFormData {
   fibre: number;
   salt: number;
   element: string | null;
+  supplier_id: string | null;
 }
 
 const initialFormData: IngredientFormData = {
@@ -68,6 +70,7 @@ const initialFormData: IngredientFormData = {
   fibre: 0,
   salt: 0,
   element: null,
+  supplier_id: null,
 };
 
 const COMMON_UNITS = ["kg", "l", "ks"];
@@ -93,6 +96,7 @@ export function IngredientForm() {
     Record<string, string>
   >({});
   const [customUnit, setCustomUnit] = useState("");
+  const { data: supplierUsers } = useSupplierUsers();
 
   // Load categories on mount
   useEffect(() => {
@@ -124,6 +128,7 @@ export function IngredientForm() {
           fibre: selectedIngredient.fibre,
           salt: selectedIngredient.salt,
           element: selectedIngredient.element,
+          supplier_id: selectedIngredient.supplier_id || null,
         });
       } else {
         setFormData(initialFormData);
@@ -338,6 +343,32 @@ export function IngredientForm() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              {/* Supplier selection */}
+              <div className="space-y-2">
+                <Label htmlFor="supplier">Dodavatel</Label>
+                <Select
+                  value={formData.supplier_id ?? "none"}
+                  onValueChange={(value) =>
+                    handleInputChange(
+                      "supplier_id",
+                      value === "none" ? null : value
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Vyberte dodavatele" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    <SelectItem value="none">Bez dodavatele</SelectItem>
+                    {(supplierUsers || []).map((u: any) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

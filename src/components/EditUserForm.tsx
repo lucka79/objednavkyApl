@@ -34,6 +34,7 @@ import {
   updateCrateBig,
   updateCrateSmall,
   updateNote,
+  updateSupplier,
 } from "@/hooks/useProfiles";
 
 interface EditUserFormProps {
@@ -69,6 +70,7 @@ const formSchema = z.object({
   mo_partners: z.boolean(),
   crateBig: z.number().min(0),
   crateSmall: z.number().min(0),
+  supplier: z.boolean(),
 });
 
 export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
@@ -86,6 +88,7 @@ export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
   const updateCrateBigMutation = updateCrateBig();
   const updateCrateSmallMutation = updateCrateSmall();
   const updateNoteMutation = updateNote();
+  const updateSupplierMutation = updateSupplier();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -104,6 +107,7 @@ export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
       mo_partners: user.mo_partners || false,
       crateBig: user.crateBig || 0,
       crateSmall: user.crateSmall || 0,
+      supplier: user.supplier || false,
     },
   });
 
@@ -176,6 +180,12 @@ export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
       await updateMoPartnersMutation.mutateAsync({
         id: user.id,
         mo_partners: values.mo_partners,
+      });
+
+      // Update Supplier status
+      await updateSupplierMutation.mutateAsync({
+        id: user.id,
+        supplier: values.supplier,
       });
 
       toast({
@@ -266,6 +276,23 @@ export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
                 <FormLabel className="text-sm font-normal">
                   MO Partners
                 </FormLabel>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="supplier"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center space-x-2">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    className="data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
+                  />
+                </FormControl>
+                <FormLabel className="text-sm font-normal">Supplier</FormLabel>
               </FormItem>
             )}
           />

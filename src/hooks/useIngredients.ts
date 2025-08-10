@@ -25,6 +25,7 @@ export interface Ingredient {
   fibre: number;
   salt: number;
   element: string | null;
+  supplier_id: string | null;
 }
 
 export interface IngredientCategory {

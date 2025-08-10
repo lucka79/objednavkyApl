@@ -221,16 +221,28 @@ export const ProductCategory: React.FC = () => {
                     type="number"
                     min="1"
                     defaultValue={1}
-                    className="w-16 h-8 text-xs"
+                    className="w-14 h-8 text-xs"
                     onClick={(e) => {
                       e.stopPropagation();
                       (e.target as HTMLInputElement).select();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        const input = e.currentTarget as HTMLInputElement;
+                        const quantity = Number(input.value || 1);
+                        if (quantity > 0) {
+                          addItem({ ...product, isAdmin: false }, quantity);
+                          input.value = "1";
+                        }
+                      }
                     }}
                   />
 
                   <Badge
                     variant="outline"
-                    className="text-xs cursor-pointer bg-orange-500 text-white hover:bg-grey-100 hover:text-gray-400"
+                    className="text-xs cursor-pointer bg-orange-500 text-white hover:bg-white-100 hover:text-white-300"
                     onClick={(e: React.MouseEvent) => {
                       e.stopPropagation();
                       const input =
@@ -246,8 +258,8 @@ export const ProductCategory: React.FC = () => {
                   >
                     {(user?.role === "admin" ||
                       user?.role === "expedition") && (
-                      <div className="flex flex-col gap-1 text-sm">
-                        <ShoppingCart size={20} />
+                      <div className="flex flex-col gap-2 text-sm p-1 rounded-md">
+                        <ShoppingCart size={18} />
                       </div>
                     )}
                   </Badge>
