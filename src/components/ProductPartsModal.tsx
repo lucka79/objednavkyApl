@@ -633,13 +633,14 @@ export function ProductPartsModal({
         );
 
         // Simple merging without normalization
-        const elements = sortedIngredients.map(({ ingredient }) =>
-          ingredient.element.trim()
-        );
-        compositionText = elements.join(", ");
+        const mergedElements = sortedIngredients
+          .map(({ ingredient }) => ingredient.element.trim())
+          .join(", ");
+
+        compositionText = mergedElements;
 
         // Detect allergens
-        const detectedAllergens = detectAllergens(compositionText);
+        const detectedAllergens = detectAllergens(mergedElements);
         allergensArray = detectedAllergens.map((allergen) => allergen.name);
       }
 
@@ -789,13 +790,14 @@ export function ProductPartsModal({
         );
 
         // Simple merging without normalization
-        const elements = sortedIngredients.map(({ ingredient }) =>
-          ingredient.element.trim()
-        );
-        compositionText = elements.join(", ");
+        const mergedElements = sortedIngredients
+          .map(({ ingredient }) => ingredient.element.trim())
+          .join(", ");
+
+        compositionText = mergedElements;
 
         // Detect allergens
-        const detectedAllergens = detectAllergens(compositionText);
+        const detectedAllergens = detectAllergens(mergedElements);
         allergensArray = detectedAllergens.map((allergen) => allergen.name);
       }
 
@@ -1468,6 +1470,56 @@ export function ProductPartsModal({
                   }
                 });
 
+                // Helper function to normalize element text for comparison
+                const normalizeElement = (element: string): string => {
+                  return (
+                    element
+                      .trim()
+                      .toLowerCase()
+                      // Remove multiple spaces and normalize to single space
+                      .replace(/\s+/g, " ")
+                      // Normalize spacing around punctuation
+                      .replace(/\s*\.\s*/g, ".")
+                      .replace(/\s*,\s*/g, ",")
+                      .replace(/\s*;\s*/g, ";")
+                      .replace(/\s*:\s*/g, ":")
+                      .replace(/\s*-\s*/g, "-")
+                      .replace(/\s*\/\s*/g, "/")
+                      .replace(/\s*\(\s*/g, "(")
+                      .replace(/\s*\)\s*/g, ")")
+                      // Remove trailing punctuation that might be inconsistent
+                      .replace(/[.,;:]+$/, "")
+                      // Normalize common abbreviations
+                      .replace(/\bpšen\./g, "pšeničná")
+                      .replace(/\bžit\./g, "žitná")
+                      .replace(/\bovoc\./g, "ovocný")
+                      .replace(/\bzelez\./g, "železitý")
+                      // Final cleanup
+                      .trim()
+                  );
+                };
+
+                // Deduplicate elements using normalization
+                const getDeduplicatedElements = (
+                  ingredients: Array<{ ingredient: any; quantity: number }>
+                ) => {
+                  // Create a map to track unique normalized elements and keep original text
+                  const elementMap = new Map<string, string>();
+
+                  ingredients.forEach(({ ingredient }) => {
+                    const originalElement = ingredient.element.trim();
+                    const normalizedElement = normalizeElement(originalElement);
+
+                    // Keep the first occurrence (highest quantity) of each normalized element
+                    if (!elementMap.has(normalizedElement)) {
+                      elementMap.set(normalizedElement, originalElement);
+                    }
+                  });
+
+                  // Get unique elements preserving original formatting
+                  return Array.from(elementMap.values()).join(", ");
+                };
+
                 // Sort by quantity (descending) and merge elements
                 const sortedIngredients = ingredientsWithElements.sort(
                   (a, b) => b.quantity - a.quantity
@@ -1481,25 +1533,24 @@ export function ProductPartsModal({
                   );
                 }
 
-                // Simple merging without normalization
-                const mergedElements = sortedIngredients
-                  .map(({ ingredient }) => ingredient.element.trim())
-                  .join(", ");
-
-                const allergens = detectAllergens(mergedElements);
+                const allergens = detectAllergens(
+                  getDeduplicatedElements(sortedIngredients)
+                );
 
                 return (
                   <div className="bg-white/80 rounded border border-blue-200 p-4">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="text-sm text-gray-700 leading-relaxed flex-1">
-                        {mergedElements}
+                        {getDeduplicatedElements(sortedIngredients)}
                       </div>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          navigator.clipboard.writeText(mergedElements);
+                          navigator.clipboard.writeText(
+                            getDeduplicatedElements(sortedIngredients)
+                          );
                           toast({
                             title: "Zkopírováno",
                             description: "Složení bylo zkopírováno do schránky",
