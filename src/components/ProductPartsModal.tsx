@@ -667,6 +667,9 @@ export function ProductPartsModal({
       queryClient.invalidateQueries({ queryKey: ["products"] });
 
       await loadProductParts(); // Reload to get IDs
+
+      // Close modal after successful save
+      onClose();
     } catch (error) {
       console.error("Error saving product parts:", error);
       toast({
@@ -2357,20 +2360,51 @@ export function ProductPartsModal({
                             <span className="text-muted-foreground">
                               Celková energie:
                             </span>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="font-semibold text-green-800 cursor-help underline decoration-dotted">
-                                  {totalKJ.toFixed(0)} KJ /{" "}
-                                  {totalKcal.toFixed(0)} Kcal
+                            {(() => {
+                              // Reference intake values
+
+                              const referenceKcal = 2000;
+
+                              // Calculate percentage of reference intake
+                              const percentageKcal =
+                                (totalKcal / referenceKcal) * 100;
+
+                              // Determine color based on percentage
+                              const getEnergyColor = (percentage: number) => {
+                                if (percentage >= 50) return "text-red-600"; // High energy (>50% of daily intake)
+                                if (percentage >= 25) return "text-orange-600"; // Medium energy (25-50% of daily intake)
+                                return "text-green-600"; // Low energy (<25% of daily intake)
+                              };
+
+                              const energyColor =
+                                getEnergyColor(percentageKcal);
+
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div
+                                        className={`font-semibold cursor-help underline decoration-dotted ${energyColor}`}
+                                      >
+                                        {totalKJ.toFixed(0)} KJ /{" "}
+                                        {totalKcal.toFixed(0)} Kcal
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {createNutrientTooltip(
+                                        "Energie",
+                                        (part) => part.kcal
+                                      )}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                  <span
+                                    className={`text-xs px-2 py-1 rounded-full ${energyColor.replace("text-", "bg-").replace("-600", "-100")} ${energyColor}`}
+                                  >
+                                    {percentageKcal.toFixed(0)}% RI
+                                  </span>
                                 </div>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {createNutrientTooltip(
-                                  "Energie",
-                                  (part) => part.kcal
-                                )}
-                              </TooltipContent>
-                            </Tooltip>
+                              );
+                            })()}
                           </div>
                           <div>
                             <span className="text-muted-foreground">
