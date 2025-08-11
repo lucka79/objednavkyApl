@@ -41,6 +41,7 @@ import {
   StickyNote,
   Lock,
   Unlock,
+  TriangleAlert,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -178,6 +179,12 @@ const calculateCrateSums = (orders: Order[]) => {
   );
 };
 
+const calculateZeroPriceOrders = (orders: Order[]) => {
+  return orders.filter((order) =>
+    order.order_items?.some((item) => item.price === 0)
+  ).length;
+};
+
 const roleTranslations: Record<string, string> = {
   admin: "Administrátor",
   user: "Uživatel",
@@ -280,7 +287,7 @@ const columns: ColumnDef<Order>[] = [
     accessorKey: "note",
     header: () => <div className=""></div>,
     cell: ({ row }) => (
-      <div className="flex justify-center w-[40px]">
+      <div className="flex justify-center w-[30px]">
         {row.original.note && row.original.note !== "-" && (
           <TooltipProvider>
             <Tooltip>
@@ -295,6 +302,44 @@ const columns: ColumnDef<Order>[] = [
         )}
       </div>
     ),
+  },
+  {
+    id: "priceWarning",
+    header: () => <div className="w-[40px]">Cena</div>,
+    cell: ({ row }) => {
+      const hasZeroPriceItems = row.original.order_items?.some(
+        (item) => item.price === 0
+      );
+
+      if (!hasZeroPriceItems) return <div className="w-[40px]"></div>;
+
+      const zeroPriceItems = row.original.order_items?.filter(
+        (item) => item.price === 0
+      );
+
+      return (
+        <div className="flex justify-center w-[40px]">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <TriangleAlert size={16} className="text-red-500" />
+              </TooltipTrigger>
+              <TooltipContent className="bg-red-500 text-white border-red-500 max-w-xs">
+                <p className="font-semibold mb-1">Položky s nulovou cenou:</p>
+                <div className="space-y-1">
+                  {zeroPriceItems?.map((item, index) => (
+                    <div key={index} className="text-xs">
+                      • {item.product?.name || "Neznámý produkt"} (množství:{" "}
+                      {item.quantity})
+                    </div>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      );
+    },
   },
   {
     accessorKey: "total",
@@ -315,7 +360,7 @@ const columns: ColumnDef<Order>[] = [
     accessorKey: "crateSmallReceived",
     header: () => <div className="print:hidden"></div>,
     cell: ({ row }) => (
-      <div className="flex items-center w-[50px] text-right print:hidden">
+      <div className="flex items-center w-[40px] text-right print:hidden">
         <Badge variant="outline" className="text-yellow-700 ml-auto">
           {row.original.crateSmallReceived}
           <Container size={16} className="mx-1" />
@@ -327,7 +372,7 @@ const columns: ColumnDef<Order>[] = [
     accessorKey: "crateBigReceived",
     header: () => <div className="print:hidden"></div>,
     cell: ({ row }) => (
-      <div className="flex items-center w-[50px] justify-end print:hidden">
+      <div className="flex items-center w-[40px] justify-end print:hidden">
         <Badge variant="outline" className="text-red-800">
           {row.original.crateBigReceived}
           <Container size={20} className="mx-1" />
@@ -346,7 +391,7 @@ const columns: ColumnDef<Order>[] = [
       // const totalItems = order.order_items?.length || 0;
 
       return (
-        <div className="w-[220px] text-right flex justify-end gap-2 items-center">
+        <div className="w-[120px] text-right flex justify-end gap-2 items-center">
           {/* {totalItems > 0 && (
             <>
               <Badge variant="outline" className="border-green-500 w-[50px]">
@@ -1198,6 +1243,39 @@ export function OrdersTable({
                   ? `${filteredOrders.length} orders`
                   : `${filteredOrders.length} total orders`}
               </Badge>
+
+              {calculateZeroPriceOrders(filteredOrders) > 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="cursor-help">
+                        <Badge variant="outline" className="text-red-600">
+                          <TriangleAlert size={14} className="mr-1" />
+                          {calculateZeroPriceOrders(filteredOrders)} objednávek
+                          s nulovou cenou
+                        </Badge>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-red-500 text-white border-red-500 max-w-md">
+                      <p className="font-semibold mb-2">
+                        Objednávky s nulovou cenou:
+                      </p>
+                      <div className="space-y-1 max-h-40 overflow-y-auto">
+                        {filteredOrders
+                          .filter((order) =>
+                            order.order_items?.some((item) => item.price === 0)
+                          )
+                          .map((order) => (
+                            <div key={order.id} className="text-xs">
+                              • {order.user?.full_name} (ID: {order.id}) -{" "}
+                              {new Date(order.date).toLocaleDateString("cs-CZ")}
+                            </div>
+                          ))}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
             <div className="flex flex-row gap-2">
               <Select
@@ -1713,6 +1791,9 @@ function OrderTableContent({
               const hasFreshNote =
                 row.original.note &&
                 row.original.note.toLowerCase().includes("fresh");
+              const hasZeroPriceItems = row.original.order_items?.some(
+                (item) => item.price === 0
+              );
 
               return (
                 <TableRow
@@ -1723,7 +1804,9 @@ function OrderTableContent({
                       ? "bg-red-50"
                       : hasFreshNote
                         ? "bg-green-50"
-                        : ""
+                        : hasZeroPriceItems
+                          ? "bg-yellow-50"
+                          : ""
                   }`}
                   style={{
                     height: `${virtualRow.size}px`,

@@ -944,9 +944,13 @@ export function ProductPartsModal({
                       <TableHead>Typ</TableHead>
                       <TableHead>Název</TableHead>
                       <TableHead className="text-right">Množství</TableHead>
-                      <TableHead>Jednotka</TableHead>
-                      <TableHead className="text-right">Cena</TableHead>
-                      <TableHead>Produkt prodejny</TableHead>
+                      <TableHead>Jedn.</TableHead>
+                      <TableHead className="w-[120px] text-right">
+                        Cena
+                      </TableHead>
+                      <TableHead className="w-[100px] text-center">
+                        Produkt prodejny
+                      </TableHead>
                       <TableHead className="text-right">Akce</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1501,7 +1505,7 @@ export function ProductPartsModal({
                             {getPartPrice(part).toFixed(2)} Kč
                           </span>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-center">
                           {part.pastry_id && (
                             <input
                               type="checkbox"

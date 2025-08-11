@@ -44,6 +44,7 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  TriangleAlert,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "@/components/ui/calendar";
@@ -75,6 +76,12 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cs } from "date-fns/locale";
 import { useQuery } from "@tanstack/react-query";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne", "X"] as const;
 const ROLES = [
@@ -87,6 +94,12 @@ const ROLES = [
   "expedition",
   "admin",
 ] as const;
+
+const calculateZeroPriceFavoriteOrders = (orders: FavoriteOrder[]) => {
+  return orders.filter((order) =>
+    order.favorite_items?.some((item: FavoriteItem) => item.price === 0)
+  ).length;
+};
 
 const columns: ColumnDef<FavoriteOrder>[] = [
   {
@@ -127,6 +140,44 @@ const columns: ColumnDef<FavoriteOrder>[] = [
         {row.original.driver?.full_name || "Bez řidiče"}
       </div>
     ),
+  },
+  {
+    id: "priceWarning",
+    header: () => <div className="w-[40px]">Cena</div>,
+    cell: ({ row }) => {
+      const hasZeroPriceItems = row.original.favorite_items?.some(
+        (item: FavoriteItem) => item.price === 0
+      );
+
+      if (!hasZeroPriceItems) return <div className="w-[40px]"></div>;
+
+      const zeroPriceItems = row.original.favorite_items?.filter(
+        (item: FavoriteItem) => item.price === 0
+      );
+
+      return (
+        <div className="flex justify-center w-[40px]">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <TriangleAlert size={16} className="text-red-500" />
+              </TooltipTrigger>
+              <TooltipContent className="bg-red-500 text-white border-red-500 max-w-xs">
+                <p className="font-semibold mb-1">Položky s nulovou cenou:</p>
+                <div className="space-y-1">
+                  {zeroPriceItems?.map((item, index) => (
+                    <div key={index} className="text-xs">
+                      • {item.product?.name || "Neznámý produkt"} (množství:{" "}
+                      {item.quantity})
+                    </div>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      );
+    },
   },
   {
     accessorKey: "status",
@@ -397,6 +448,9 @@ function FavoriteOrderTableContent({
                   row.original.note?.toLowerCase().includes("dorty") || false;
                 const hasFreshNote =
                   row.original.note?.toLowerCase().includes("fresh") || false;
+                const hasZeroPriceItems = row.original.favorite_items?.some(
+                  (item: FavoriteItem) => item.price === 0
+                );
 
                 return (
                   <TableRow
@@ -407,7 +461,9 @@ function FavoriteOrderTableContent({
                         ? "bg-red-50"
                         : hasFreshNote
                           ? "bg-green-50"
-                          : ""
+                          : hasZeroPriceItems
+                            ? "bg-yellow-50"
+                            : ""
                     }`}
                   >
                     {row.getVisibleCells().map((cell) => (
@@ -872,6 +928,43 @@ export function FavoriteOrdersTable({
                   ? `${filteredOrders.length} orders`
                   : `${filteredOrders.length} total orders`}
               </Badge>
+
+              {calculateZeroPriceFavoriteOrders(filteredOrders) > 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="cursor-help">
+                        <Badge variant="outline" className="text-red-600">
+                          <TriangleAlert size={14} className="mr-1" />
+                          {calculateZeroPriceFavoriteOrders(
+                            filteredOrders
+                          )}{" "}
+                          objednávek s nulovou cenou
+                        </Badge>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-red-500 text-white border-red-500 max-w-md">
+                      <p className="font-semibold mb-2">
+                        Oblíbené objednávky s nulovou cenou:
+                      </p>
+                      <div className="space-y-1 max-h-40 overflow-y-auto">
+                        {filteredOrders
+                          .filter((order) =>
+                            order.favorite_items?.some(
+                              (item: FavoriteItem) => item.price === 0
+                            )
+                          )
+                          .map((order) => (
+                            <div key={order.id} className="text-xs">
+                              • {order.user?.full_name} (ID: {order.id}) -{" "}
+                              {new Date().toLocaleDateString("cs-CZ")}
+                            </div>
+                          ))}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
 
               {/* Comparison Toggle Button */}
               {roleFilter === "mobil" && (

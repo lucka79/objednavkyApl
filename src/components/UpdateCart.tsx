@@ -126,11 +126,13 @@ const PriceEditDialog = ({
   isOpen,
   onClose,
   onSave,
+  onOpenChange,
 }: {
   item: OrderItem | null;
   isOpen: boolean;
   onClose: () => void;
   onSave: (itemId: number, newPrice: number) => void;
+  onOpenChange?: (open: boolean) => void;
 }) => {
   const [price, setPrice] = useState<number>(0);
 
@@ -158,7 +160,7 @@ const PriceEditDialog = ({
   if (!item) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Upravit cenu</DialogTitle>
@@ -274,6 +276,16 @@ export default function UpdateCart({
   useEffect(() => {
     setOrderItems(processedItems);
   }, [processedItems]);
+
+  // Call onUpdate when component unmounts or when there are significant changes
+  useEffect(() => {
+    return () => {
+      // When component unmounts, ensure parent gets updated data
+      onUpdate();
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["expeditionOrders"] });
+    };
+  }, [onUpdate, queryClient]);
 
   const calculateTotal = () => {
     return orderItems.reduce((sum: number, item: OrderItem) => {
@@ -423,13 +435,23 @@ export default function UpdateCart({
     setEditingPriceItem(item);
   };
 
-  const closePriceEditModal = () => {
+  const closePriceEditModal = async () => {
     setEditingPriceItem(null);
+
+    // Update parent component and invalidate queries when modal closes
+    await onUpdate();
+    queryClient.invalidateQueries({ queryKey: ["orders"] });
+    queryClient.invalidateQueries({ queryKey: ["expeditionOrders"] });
   };
 
-  const handlePriceSave = (itemId: number, newPrice: number) => {
-    updateOrderPrice(itemId, newPrice);
+  const handlePriceSave = async (itemId: number, newPrice: number) => {
+    await updateOrderPrice(itemId, newPrice);
     closePriceEditModal();
+
+    // Update parent component and invalidate queries
+    await onUpdate();
+    queryClient.invalidateQueries({ queryKey: ["orders"] });
+    queryClient.invalidateQueries({ queryKey: ["expeditionOrders"] });
   };
 
   const handleCheckChange = async (itemId: number, checked: boolean) => {
@@ -749,6 +771,11 @@ export default function UpdateCart({
         isOpen={!!editingPriceItem}
         onClose={closePriceEditModal}
         onSave={handlePriceSave}
+        onOpenChange={(open) => {
+          if (!open) {
+            closePriceEditModal();
+          }
+        }}
       />
     </Card>
   );
