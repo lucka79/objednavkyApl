@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,13 +8,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -33,7 +26,6 @@ import {
   Copy,
   AlertTriangle,
   BookOpen,
-  Search,
   ShieldAlert,
   TriangleAlert,
 } from "lucide-react";
@@ -99,15 +91,16 @@ export function ProductPartsModal({
     >
   >(new Map());
   // Search states for each row - Map<rowIndex, searchText>
-  const [recipeSearches, setRecipeSearches] = useState<Map<number, string>>(
-    new Map()
-  );
-  const [productSearches, setProductSearches] = useState<Map<number, string>>(
-    new Map()
-  );
-  const [ingredientSearches, setIngredientSearches] = useState<
-    Map<number, string>
-  >(new Map());
+  // const [recipeSearches, setRecipeSearches] = useState<Map<number, string>>(
+  //   new Map()
+  // );
+  // const [productSearches, setProductSearches] = useState<Map<number, string>>(
+  //   new Map()
+  // );
+  // const [ingredientSearches, setIngredientSearches] = useState<
+  //   Map<number, string>
+  // >(new Map());
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -396,12 +389,20 @@ export function ProductPartsModal({
   };
 
   const addNewPart = () => {
+    setIsPickerOpen(true);
+  };
+
+  const handleAddPart = (
+    type: "recipe" | "product" | "ingredient",
+    id: number,
+    quantity: number
+  ) => {
     const newPart: ProductPart = {
       product_id: productId,
-      recipe_id: null,
-      pastry_id: null,
-      ingredient_id: null,
-      quantity: 1,
+      recipe_id: type === "recipe" ? id : null,
+      pastry_id: type === "product" ? id : null,
+      ingredient_id: type === "ingredient" ? id : null,
+      quantity: quantity,
       productOnly: false,
     };
     setProductParts([...productParts, newPart]);
@@ -888,23 +889,8 @@ export function ProductPartsModal({
     }, 0);
   };
 
-  // Clear search when dropdowns are closed
-  const clearSearch = () => {
-    setRecipeSearches(new Map());
-    setProductSearches(new Map());
-    setIngredientSearches(new Map());
-  };
-
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(isOpen) => {
-        if (!isOpen) {
-          clearSearch();
-        }
-        onClose();
-      }}
-    >
+    <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -941,7 +927,6 @@ export function ProductPartsModal({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Typ</TableHead>
                       <TableHead>Název</TableHead>
                       <TableHead className="text-right">Množství</TableHead>
                       <TableHead>Jedn.</TableHead>
@@ -958,526 +943,49 @@ export function ProductPartsModal({
                     {productParts.map((part, index) => (
                       <TableRow key={index}>
                         <TableCell>
-                          <Select
-                            value={
-                              part.recipe_id
-                                ? "recipe"
-                                : part.pastry_id
-                                  ? "product"
-                                  : part.ingredient_id
-                                    ? "ingredient"
-                                    : ""
-                            }
-                            onValueChange={(value) => {
-                              if (value === "recipe") {
-                                updatePart(
-                                  index,
-                                  "recipe_id",
-                                  recipes[0]?.id || null
-                                );
-                              } else if (value === "product") {
-                                updatePart(
-                                  index,
-                                  "pastry_id",
-                                  products[0]?.id || null
-                                );
-                              } else if (value === "ingredient") {
-                                updatePart(
-                                  index,
-                                  "ingredient_id",
-                                  ingredients[0]?.id || null
-                                );
-                              }
-                            }}
-                          >
-                            <SelectTrigger className="w-32">
-                              <SelectValue placeholder="Vyberte typ" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="recipe">Recept</SelectItem>
-                              <SelectItem value="product">Produkt</SelectItem>
-                              <SelectItem value="ingredient">
-                                Surovina
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          {part.recipe_id && (
-                            <div className="flex items-center gap-2">
-                              <Select
-                                value={part.recipe_id.toString()}
-                                onValueChange={(value) =>
-                                  updatePart(
-                                    index,
-                                    "recipe_id",
-                                    parseInt(value)
-                                  )
-                                }
-                                onOpenChange={(open) => {
-                                  if (!open) {
-                                    setRecipeSearches((prev) => {
-                                      const newMap = new Map(prev);
-                                      newMap.delete(index);
-                                      return newMap;
-                                    });
-                                  }
-                                }}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Vyberte recept" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <div className="relative p-2">
-                                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                      placeholder="Hledat recept..."
-                                      value={recipeSearches.get(index) || ""}
-                                      onChange={(e) =>
-                                        setRecipeSearches((prev) =>
-                                          new Map(prev).set(
-                                            index,
-                                            e.target.value
-                                          )
-                                        )
-                                      }
-                                      onKeyDown={(e) => {
-                                        e.stopPropagation();
-                                      }}
-                                      onFocus={(e) => {
-                                        e.stopPropagation();
-                                      }}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                      }}
-                                      className="pl-8"
-                                    />
-                                  </div>
-                                  <div className="max-h-80 overflow-y-auto pb-2">
-                                    {(() => {
-                                      const searchTerm = recipeSearches
-                                        .get(index)
-                                        ?.trim();
-                                      const filteredRecipes = recipes.filter(
-                                        (recipe) => {
-                                          if (!searchTerm) return true;
-                                          const searchLower = removeDiacritics(
-                                            searchTerm.toLowerCase()
-                                          );
-                                          const nameMatch = removeDiacritics(
-                                            recipe.name.toLowerCase()
-                                          ).includes(searchLower);
-                                          const noteMatch = recipe.note
-                                            ? removeDiacritics(
-                                                recipe.note.toLowerCase()
-                                              ).includes(searchLower)
-                                            : false;
-                                          return nameMatch || noteMatch;
-                                        }
-                                      );
-
-                                      return filteredRecipes.map((recipe) => (
-                                        <SelectItem
-                                          key={recipe.id}
-                                          value={recipe.id.toString()}
-                                        >
-                                          {recipe.name}
-                                        </SelectItem>
-                                      ));
-                                    })()}
-                                  </div>
-                                </SelectContent>
-                              </Select>
-                              {(() => {
-                                const selectedRecipe = recipes.find(
-                                  (r) => r.id === part.recipe_id
-                                );
-                                if (
-                                  !selectedRecipe ||
-                                  !selectedRecipe.recipe_ingredients
-                                )
-                                  return null;
-
-                                // Recipe warning logic
-                                const missingElements =
-                                  selectedRecipe.recipe_ingredients.some(
-                                    (recipeIng) =>
-                                      !recipeIng.ingredient?.element ||
-                                      recipeIng.ingredient.element.trim() === ""
-                                  );
-
-                                const missingEnergeticValues =
-                                  selectedRecipe.recipe_ingredients.some(
-                                    (recipeIng) =>
-                                      !recipeIng.ingredient?.kJ ||
-                                      recipeIng.ingredient.kJ <= 0
-                                  );
-
-                                // Get specific missing data for tooltips
-                                const missingElementsList =
-                                  selectedRecipe.recipe_ingredients
-                                    .filter(
-                                      (recipeIng) =>
-                                        !recipeIng.ingredient?.element ||
-                                        recipeIng.ingredient.element.trim() ===
-                                          ""
-                                    )
-                                    .map(
-                                      (recipeIng) =>
-                                        recipeIng.ingredient?.name ||
-                                        "Neznámá surovina"
-                                    );
-
-                                const missingEnergeticList =
-                                  selectedRecipe.recipe_ingredients
-                                    .filter(
-                                      (recipeIng) =>
-                                        !recipeIng.ingredient?.kJ ||
-                                        recipeIng.ingredient.kJ <= 0
-                                    )
-                                    .map(
-                                      (recipeIng) =>
-                                        recipeIng.ingredient?.name ||
-                                        "Neznámá surovina"
-                                    );
-
-                                if (!missingElements && !missingEnergeticValues)
-                                  return null;
-
-                                return (
-                                  <div className="flex gap-1">
-                                    {missingElements && (
-                                      <span
-                                        className="text-xs text-orange-500"
-                                        title={`Chybí složení: ${missingElementsList.join(", ")}`}
-                                      >
-                                        <ShieldAlert className="h-3 w-3" />
-                                      </span>
-                                    )}
-                                    {missingEnergeticValues && (
-                                      <span
-                                        className="text-xs text-red-600"
-                                        title={`Chybí výživové hodnoty: ${missingEnergeticList.join(", ")}`}
-                                      >
-                                        <TriangleAlert className="h-3 w-3" />
-                                      </span>
-                                    )}
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          )}
-                          {part.pastry_id && (
-                            <div className="flex items-center gap-2">
-                              <Select
-                                value={part.pastry_id.toString()}
-                                onValueChange={(value) =>
-                                  updatePart(
-                                    index,
-                                    "pastry_id",
-                                    parseInt(value)
-                                  )
-                                }
-                                onOpenChange={(open) => {
-                                  if (!open) {
-                                    setProductSearches((prev) => {
-                                      const newMap = new Map(prev);
-                                      newMap.delete(index);
-                                      return newMap;
-                                    });
-                                  }
-                                }}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Vyberte produkt" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <div className="relative p-2">
-                                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                      placeholder="Hledat produkt..."
-                                      value={productSearches.get(index) || ""}
-                                      onChange={(e) =>
-                                        setProductSearches((prev) =>
-                                          new Map(prev).set(
-                                            index,
-                                            e.target.value
-                                          )
-                                        )
-                                      }
-                                      onKeyDown={(e) => {
-                                        e.stopPropagation();
-                                      }}
-                                      onFocus={(e) => {
-                                        e.stopPropagation();
-                                      }}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                      }}
-                                      className="pl-8"
-                                    />
-                                  </div>
-                                  <div className="max-h-80 overflow-y-auto pb-2">
-                                    {products
-                                      .filter((product) => {
-                                        if (!productSearches.get(index)?.trim())
-                                          return true;
-                                        const searchLower = removeDiacritics(
-                                          productSearches
-                                            .get(index)
-                                            ?.toLowerCase() || ""
-                                        );
-                                        const nameMatch = removeDiacritics(
-                                          product.name?.toLowerCase() || ""
-                                        ).includes(searchLower);
-                                        const nameViMatch = removeDiacritics(
-                                          product.nameVi?.toLowerCase() || ""
-                                        ).includes(searchLower);
-                                        const descriptionMatch =
-                                          removeDiacritics(
-                                            product.description?.toLowerCase() ||
-                                              ""
-                                          ).includes(searchLower);
-                                        const idMatch = product.id
-                                          ?.toString()
-                                          .includes(productSearches.get(index));
-                                        const printIdMatch = product.printId
-                                          ?.toString()
-                                          .includes(productSearches.get(index));
-                                        return (
-                                          nameMatch ||
-                                          nameViMatch ||
-                                          descriptionMatch ||
-                                          idMatch ||
-                                          printIdMatch
-                                        );
-                                      })
-                                      .map((product) => (
-                                        <SelectItem
-                                          key={product.id}
-                                          value={product.id.toString()}
-                                        >
-                                          <div className="flex items-center gap-2">
-                                            {product.name}
-                                            {(() => {
-                                              const hasProductParts =
-                                                productPartsMap.get(
-                                                  product.id
-                                                ) || false;
-                                              return hasProductParts ? (
-                                                <span
-                                                  className="text-xs text-green-600 bg-green-100 px-1 rounded"
-                                                  title={`Produkt má definované části`}
-                                                >
-                                                  <BookOpen className="h-3 w-3" />
-                                                </span>
-                                              ) : (
-                                                <span
-                                                  className="text-xs text-orange-500 bg-orange-100 px-1 rounded"
-                                                  title={`Produkt "${product.name}" nemá definované části (product_parts)`}
-                                                >
-                                                  <ShieldAlert className="h-3 w-3" />
-                                                </span>
-                                              );
-                                            })()}
-                                          </div>
-                                        </SelectItem>
-                                      ))}
-                                  </div>
-                                </SelectContent>
-                              </Select>
-                              {(() => {
-                                const selectedProduct = products.find(
-                                  (p) => p.id === part.pastry_id
-                                );
-                                if (!selectedProduct) return null;
-
-                                // Product warning logic
-                                const missingElements =
-                                  !selectedProduct.parts ||
-                                  selectedProduct.parts.trim() === "";
-
-                                const missingEnergeticValues =
-                                  !calculatedEnergeticValues.has(
-                                    selectedProduct.id
-                                  );
-
-                                // Create detailed tooltip messages
-                                const elementsTooltip = missingElements
-                                  ? `Produkt "${selectedProduct.name}" nemá definované složení (parts)`
-                                  : "";
-
-                                const energeticTooltip = missingEnergeticValues
-                                  ? `Produkt "${selectedProduct.name}" nemá vypočítané výživové hodnoty z receptů`
-                                  : "";
-
-                                if (!missingElements && !missingEnergeticValues)
-                                  return null;
-
-                                return (
-                                  <div className="flex gap-1">
-                                    {missingElements && (
-                                      <span
-                                        className="text-xs text-orange-500"
-                                        title={elementsTooltip}
-                                      >
-                                        <ShieldAlert className="h-3 w-3" />
-                                      </span>
-                                    )}
-                                    {missingEnergeticValues && (
-                                      <span
-                                        className="text-xs text-red-600"
-                                        title={energeticTooltip}
-                                      >
-                                        <TriangleAlert className="h-3 w-3" />
-                                      </span>
-                                    )}
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          )}
-                          {part.ingredient_id && (
-                            <div className="flex items-center gap-2">
-                              <Select
-                                value={part.ingredient_id.toString()}
-                                onValueChange={(value) =>
-                                  updatePart(
-                                    index,
-                                    "ingredient_id",
-                                    parseInt(value)
-                                  )
-                                }
-                                onOpenChange={(open) => {
-                                  if (!open) {
-                                    setIngredientSearches((prev) => {
-                                      const newMap = new Map(prev);
-                                      newMap.delete(index);
-                                      return newMap;
-                                    });
-                                  }
-                                }}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Vyberte surovinu" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <div className="relative p-2">
-                                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                      placeholder="Hledat surovinu..."
-                                      value={
-                                        ingredientSearches.get(index) || ""
-                                      }
-                                      onChange={(e) =>
-                                        setIngredientSearches((prev) =>
-                                          new Map(prev).set(
-                                            index,
-                                            e.target.value
-                                          )
-                                        )
-                                      }
-                                      onKeyDown={(e) => {
-                                        e.stopPropagation();
-                                      }}
-                                      onFocus={(e) => {
-                                        e.stopPropagation();
-                                      }}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                      }}
-                                      className="pl-8"
-                                    />
-                                  </div>
-                                  <div className="max-h-80 overflow-y-auto pb-2">
-                                    {ingredients
-                                      .filter((ingredient) => {
-                                        if (
-                                          !ingredientSearches.get(index)?.trim()
-                                        )
-                                          return true;
-                                        const searchLower = removeDiacritics(
-                                          ingredientSearches
-                                            .get(index)
-                                            ?.toLowerCase() || ""
-                                        );
-                                        const nameMatch = removeDiacritics(
-                                          ingredient.name.toLowerCase()
-                                        ).includes(searchLower);
-                                        const unitMatch = removeDiacritics(
-                                          ingredient.unit?.toLowerCase() || ""
-                                        ).includes(searchLower);
-                                        return nameMatch || unitMatch;
-                                      })
-                                      .map((ingredient) => (
-                                        <SelectItem
-                                          key={ingredient.id}
-                                          value={ingredient.id.toString()}
-                                        >
-                                          {ingredient.name}
-                                        </SelectItem>
-                                      ))}
-                                  </div>
-                                </SelectContent>
-                              </Select>
-                              {(() => {
-                                const selectedIngredient = ingredients.find(
-                                  (i) => i.id === part.ingredient_id
-                                );
-                                if (!selectedIngredient) return null;
-                                const hasEnergeticValues =
-                                  selectedIngredient.kJ > 0 ||
-                                  selectedIngredient.kcal > 0;
-                                const missingEnergeticValues =
-                                  !hasEnergeticValues;
-
-                                // Ingredient warning logic
-                                const missingElements =
-                                  !selectedIngredient.element ||
-                                  selectedIngredient.element.trim() === "";
-
-                                // Create detailed tooltip messages
-                                const elementsTooltip = missingElements
-                                  ? `Surovina "${selectedIngredient.name}" nemá definované složení (element)`
-                                  : "";
-
-                                const energeticTooltip = missingEnergeticValues
-                                  ? `Surovina "${selectedIngredient.name}" nemá výživové hodnoty (kJ: ${selectedIngredient.kJ}, kcal: ${selectedIngredient.kcal})`
-                                  : "";
-
-                                if (!missingElements && !missingEnergeticValues)
-                                  return null;
-
-                                return (
-                                  <div className="flex gap-1">
-                                    {missingElements && (
-                                      <span
-                                        className="text-xs text-orange-500"
-                                        title={elementsTooltip}
-                                      >
-                                        <ShieldAlert className="h-3 w-3" />
-                                      </span>
-                                    )}
-                                    {missingEnergeticValues && (
-                                      <span
-                                        className="text-xs text-red-600"
-                                        title={energeticTooltip}
-                                      >
-                                        <TriangleAlert className="h-3 w-3" />
-                                      </span>
-                                    )}
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          )}
-                          {!part.recipe_id &&
-                            !part.pastry_id &&
-                            !part.ingredient_id && (
-                              <span className="text-muted-foreground">
-                                Vyberte typ a položku
-                              </span>
+                          <div className="flex items-center gap-2">
+                            {part.recipe_id && (
+                              <>
+                                <span className="font-medium">
+                                  {recipes.find((r) => r.id === part.recipe_id)
+                                    ?.name || "Neznámý recept"}
+                                </span>
+                                <span className="text-xs text-muted-foreground bg-blue-100 px-2 py-1 rounded">
+                                  Recept
+                                </span>
+                              </>
                             )}
+                            {part.pastry_id && (
+                              <>
+                                <span className="font-medium">
+                                  {products.find((p) => p.id === part.pastry_id)
+                                    ?.name || "Neznámý produkt"}
+                                </span>
+                                <span className="text-xs text-muted-foreground bg-green-100 px-2 py-1 rounded">
+                                  Produkt
+                                </span>
+                              </>
+                            )}
+                            {part.ingredient_id && (
+                              <>
+                                <span className="font-medium">
+                                  {ingredients.find(
+                                    (i) => i.id === part.ingredient_id
+                                  )?.name || "Neznámá surovina"}
+                                </span>
+                                <span className="text-xs text-muted-foreground bg-orange-100 px-2 py-1 rounded">
+                                  Surovina
+                                </span>
+                              </>
+                            )}
+                            {!part.recipe_id &&
+                              !part.pastry_id &&
+                              !part.ingredient_id && (
+                                <span className="text-muted-foreground">
+                                  Vyberte typ a položku
+                                </span>
+                              )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Input
@@ -2828,6 +2336,330 @@ Celková hmotnost produktu: ${totalWeightKg.toFixed(3)} kg`;
             <Save className="h-4 w-4 mr-2" />
             {isSaving ? "Ukládám..." : "Uložit změny"}
           </Button>
+        </div>
+      </DialogContent>
+      <PartPickerModal
+        open={isPickerOpen}
+        onClose={() => setIsPickerOpen(false)}
+        onPick={handleAddPart}
+        recipes={recipes}
+        products={products}
+        ingredients={ingredients}
+        productPartsMap={productPartsMap}
+      />
+    </Dialog>
+  );
+}
+
+// New modal component for picking parts (recipes, products, ingredients)
+function PartPickerModal({
+  open,
+  onClose,
+  onPick,
+  recipes,
+  products,
+  ingredients,
+  productPartsMap,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onPick: (
+    type: "recipe" | "product" | "ingredient",
+    id: number,
+    quantity: number
+  ) => void;
+  recipes: any[];
+  products: any[];
+  ingredients: any[];
+  productPartsMap: Map<number, boolean>;
+}) {
+  const [search, setSearch] = useState("");
+  const [selectedType, setSelectedType] = useState<
+    "recipe" | "product" | "ingredient" | null
+  >(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [quantity, setQuantity] = useState(1);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Filter items based on search and selected type
+  const filteredItems = useMemo(() => {
+    if (!selectedType) return [];
+
+    const searchLower = removeDiacritics(search.toLowerCase());
+
+    switch (selectedType) {
+      case "recipe":
+        return recipes.filter((recipe) => {
+          const nameMatch = removeDiacritics(
+            recipe.name.toLowerCase()
+          ).includes(searchLower);
+          const noteMatch = recipe.note
+            ? removeDiacritics(recipe.note.toLowerCase()).includes(searchLower)
+            : false;
+          return nameMatch || noteMatch;
+        });
+      case "product":
+        return products.filter((product) => {
+          const nameMatch = removeDiacritics(
+            product.name?.toLowerCase() || ""
+          ).includes(searchLower);
+          const nameViMatch = removeDiacritics(
+            product.nameVi?.toLowerCase() || ""
+          ).includes(searchLower);
+          const descriptionMatch = removeDiacritics(
+            product.description?.toLowerCase() || ""
+          ).includes(searchLower);
+          const idMatch = product.id?.toString().includes(search);
+          const printIdMatch = product.printId?.toString().includes(search);
+          return (
+            nameMatch ||
+            nameViMatch ||
+            descriptionMatch ||
+            idMatch ||
+            printIdMatch
+          );
+        });
+      case "ingredient":
+        return ingredients.filter((ingredient) => {
+          const nameMatch = removeDiacritics(
+            ingredient.name.toLowerCase()
+          ).includes(searchLower);
+          const unitMatch = removeDiacritics(
+            ingredient.unit?.toLowerCase() || ""
+          ).includes(searchLower);
+          return nameMatch || unitMatch;
+        });
+      default:
+        return [];
+    }
+  }, [search, selectedType, recipes, products, ingredients]);
+
+  useEffect(() => {
+    if (open) {
+      setSearch("");
+      setSelectedType(null);
+      setSelectedId(null);
+      setQuantity(1);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [open]);
+
+  const handleTypeSelect = (type: "recipe" | "product" | "ingredient") => {
+    setSelectedType(type);
+    setSelectedId(null);
+    setSearch("");
+  };
+
+  const handleItemSelect = (id: number) => {
+    setSelectedId(id);
+  };
+
+  const handleAdd = () => {
+    if (selectedType && selectedId && quantity > 0) {
+      onPick(selectedType, selectedId, quantity);
+      onClose();
+    }
+  };
+
+  const getItemName = (item: any) => {
+    switch (selectedType) {
+      case "recipe":
+        return item.name;
+      case "product":
+        return item.name;
+      case "ingredient":
+        return item.name;
+      default:
+        return "";
+    }
+  };
+
+  const getItemUnit = (item: any) => {
+    switch (selectedType) {
+      case "recipe":
+        return "kg";
+      case "product":
+        return "ks";
+      case "ingredient":
+        return item.unit;
+      default:
+        return "";
+    }
+  };
+
+  const getItemWarning = (item: any) => {
+    switch (selectedType) {
+      case "recipe":
+        if (!item.recipe_ingredients || item.recipe_ingredients.length === 0) {
+          return { type: "error", message: "Recept nemá suroviny" };
+        }
+        const missingElements = item.recipe_ingredients.some(
+          (recipeIng: any) =>
+            !recipeIng.ingredient?.element ||
+            recipeIng.ingredient.element.trim() === ""
+        );
+        const missingEnergetic = item.recipe_ingredients.some(
+          (recipeIng: any) =>
+            !recipeIng.ingredient?.kJ || recipeIng.ingredient.kJ <= 0
+        );
+        if (missingElements)
+          return { type: "warning", message: "Chybí složení" };
+        if (missingEnergetic)
+          return { type: "error", message: "Chybí výživové hodnoty" };
+        return null;
+      case "product":
+        const hasProductParts = productPartsMap.get(item.id) || false;
+        if (!hasProductParts)
+          return { type: "warning", message: "Nemá definované části" };
+        if (!item.parts || item.parts.trim() === "")
+          return { type: "warning", message: "Chybí složení" };
+        return null;
+      case "ingredient":
+        if (!item.element || item.element.trim() === "")
+          return { type: "warning", message: "Chybí složení" };
+        if (!item.kJ || item.kJ <= 0)
+          return { type: "error", message: "Chybí výživové hodnoty" };
+        return null;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Přidat část produktu</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          {/* Type Selection */}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={selectedType === "recipe" ? "default" : "outline"}
+              onClick={() => handleTypeSelect("recipe")}
+              className="flex-1"
+            >
+              Recept
+            </Button>
+            <Button
+              type="button"
+              variant={selectedType === "product" ? "default" : "outline"}
+              onClick={() => handleTypeSelect("product")}
+              className="flex-1"
+            >
+              Produkt
+            </Button>
+            <Button
+              type="button"
+              variant={selectedType === "ingredient" ? "default" : "outline"}
+              onClick={() => handleTypeSelect("ingredient")}
+              className="flex-1"
+            >
+              Surovina
+            </Button>
+          </div>
+
+          {/* Search and Selection */}
+          {selectedType && (
+            <>
+              <Input
+                ref={inputRef}
+                placeholder={`Hledat ${selectedType === "recipe" ? "recept" : selectedType === "product" ? "produkt" : "surovinu"}...`}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+
+              <div className="max-h-60 overflow-y-auto border rounded">
+                {filteredItems.length === 0 ? (
+                  <div className="p-4 text-muted-foreground text-center">
+                    Nenalezeno
+                  </div>
+                ) : (
+                  <ul>
+                    {filteredItems.map((item) => {
+                      const warning = getItemWarning(item);
+                      return (
+                        <li
+                          key={item.id}
+                          className={`px-3 py-2 cursor-pointer hover:bg-orange-50 rounded flex items-center gap-2 ${selectedId === item.id ? "bg-orange-100" : ""}`}
+                          onClick={() => handleItemSelect(item.id)}
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium">
+                              {getItemName(item)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Jednotka: {getItemUnit(item)}
+                            </div>
+                          </div>
+                          {warning && (
+                            <span
+                              className={`text-xs px-2 py-1 rounded ${
+                                warning.type === "error"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-orange-100 text-orange-700"
+                              }`}
+                              title={warning.message}
+                            >
+                              {warning.type === "error" ? (
+                                <TriangleAlert className="h-3 w-3" />
+                              ) : (
+                                <ShieldAlert className="h-3 w-3" />
+                              )}
+                            </span>
+                          )}
+                          {selectedType === "product" &&
+                            productPartsMap.get(item.id) && (
+                              <span
+                                className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded"
+                                title="Produkt má definované části"
+                              >
+                                <BookOpen className="h-3 w-3" />
+                              </span>
+                            )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+
+              {/* Quantity Input and Add Button */}
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={0.001}
+                  step={0.001}
+                  value={quantity}
+                  onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)}
+                  onFocus={(e) => e.target.select()}
+                  className="w-24 no-spinner"
+                  placeholder="Množství"
+                  inputMode="decimal"
+                  disabled={!selectedId}
+                />
+                <span className="text-sm text-muted-foreground">
+                  {selectedId
+                    ? getItemUnit(
+                        filteredItems.find((item) => item.id === selectedId)
+                      )
+                    : ""}
+                </span>
+                <Button
+                  type="button"
+                  onClick={handleAdd}
+                  disabled={!selectedId || quantity <= 0}
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  Přidat
+                </Button>
+                <Button type="button" variant="outline" onClick={onClose}>
+                  Zrušit
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
