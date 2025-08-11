@@ -10,6 +10,7 @@ import {
   Trash2,
   Lock,
   Unlock,
+  Edit,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +19,7 @@ import {
   useUpdateOrder,
   useDeleteOrderItem,
   useOrderItemHistory,
+  useUpdateOrderTotal,
   // useUpdateStoredItems,
 } from "@/hooks/useOrders";
 
@@ -28,6 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { AddProduct } from "@/components/AddProduct";
 
@@ -118,6 +121,86 @@ const HistoryDialog = ({ itemId }: { itemId: number }) => {
   );
 };
 
+const PriceEditDialog = ({
+  item,
+  isOpen,
+  onClose,
+  onSave,
+}: {
+  item: OrderItem | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (itemId: number, newPrice: number) => void;
+}) => {
+  const [price, setPrice] = useState<number>(0);
+
+  useEffect(() => {
+    if (item) {
+      setPrice(item.price);
+    }
+  }, [item]);
+
+  const handleSave = () => {
+    if (item && price >= 0) {
+      onSave(item.id, price);
+      onClose();
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSave();
+    } else if (e.key === "Escape") {
+      onClose();
+    }
+  };
+
+  if (!item) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Upravit cenu</DialogTitle>
+          <DialogDescription>
+            Změňte cenu pro položku: {item.product.name}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="price" className="w-20">
+              Cena:
+            </Label>
+            <Input
+              id="price"
+              type="number"
+              step="0.01"
+              min="0"
+              value={price}
+              onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
+              onKeyDown={handleKeyPress}
+              className="flex-1"
+              autoFocus
+            />
+            <span className="text-sm text-muted-foreground">Kč</span>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Současná cena: {item.price.toFixed(2)} Kč
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="outline" onClick={onClose}>
+            Zrušit
+          </Button>
+          <Button onClick={handleSave} disabled={price < 0}>
+            Uložit
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 export default function UpdateCart({
   items,
   orderId,
@@ -127,8 +210,12 @@ export default function UpdateCart({
 }: UpdateCartProps) {
   const [orderItems, setOrderItems] = useState<OrderItem[]>(items);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
+  const [editingPriceItem, setEditingPriceItem] = useState<OrderItem | null>(
+    null
+  );
   const { mutate: updateOrderItems } = useUpdateOrderItems();
   const { mutate: updateOrder } = useUpdateOrder();
+  const { mutate: updateOrderTotal } = useUpdateOrderTotal();
   // const { mutateAsync: updateStoredItems } = useUpdateStoredItems();
   const { mutateAsync: deleteOrderItem } = useDeleteOrderItem();
   const { toast } = useToast();
@@ -283,6 +370,66 @@ export default function UpdateCart({
       setOrderItems(items);
       console.error("Failed to update quantity:", error);
     }
+  };
+
+  const updateOrderPrice = async (itemId: number, newPrice: number) => {
+    if (isLocked || order.isLocked) {
+      return;
+    }
+
+    if (newPrice < 0) return;
+
+    try {
+      const currentItem = orderItems.find((item) => item.id === itemId);
+      if (!currentItem) return;
+
+      // Update local state immediately for better UX
+      setOrderItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === itemId ? { ...item, price: newPrice } : item
+        )
+      );
+
+      // Update the order item price
+      await updateOrderItems({
+        id: itemId,
+        updatedFields: { price: newPrice },
+      });
+
+      // Update the order total
+      updateOrderTotal(orderId);
+
+      if (isLocked) {
+        const { data: invoice } = await supabase
+          .from("invoices")
+          .select("id")
+          .contains("order_ids", [orderId])
+          .single();
+
+        if (invoice) {
+          updateInvoiceTotal(invoice.id);
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["expeditionOrders"] });
+    } catch (error) {
+      // Revert local state on error
+      setOrderItems(items);
+      console.error("Failed to update price:", error);
+    }
+  };
+
+  const openPriceEditModal = (item: OrderItem) => {
+    setEditingPriceItem(item);
+  };
+
+  const closePriceEditModal = () => {
+    setEditingPriceItem(null);
+  };
+
+  const handlePriceSave = (itemId: number, newPrice: number) => {
+    updateOrderPrice(itemId, newPrice);
+    closePriceEditModal();
   };
 
   const handleCheckChange = async (itemId: number, checked: boolean) => {
@@ -453,7 +600,7 @@ export default function UpdateCart({
                     item.quantity === 0
                       ? "text-gray-400 scale-95 print:hidden"
                       : ""
-                  }`}
+                  } ${item.price === 0 ? "bg-yellow-50 " : ""}`}
                 >
                   {(user?.role === "admin" ||
                     user?.role === "expedition" ||
@@ -479,7 +626,20 @@ export default function UpdateCart({
                     {item.product.name}
                   </div>
                   <div className="text-sm flex-1 mr-2 text-end">
-                    {item.price.toFixed(2)} Kč
+                    <div className="flex items-center justify-end gap-1">
+                      <span>{item.price.toFixed(2)} Kč</span>
+                      {user?.role === "admin" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openPriceEditModal(item)}
+                          disabled={isReadOnly}
+                          className="h-4 w-4 p-0 hover:bg-orange-50 text-orange-600"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center">
                     {(item.quantity || 0) > 0 && (
@@ -582,6 +742,14 @@ export default function UpdateCart({
           <span className="text-base">{total.toFixed(2)} Kč</span>
         </div>
       </CardContent>
+
+      {/* Price Edit Dialog */}
+      <PriceEditDialog
+        item={editingPriceItem}
+        isOpen={!!editingPriceItem}
+        onClose={closePriceEditModal}
+        onSave={handlePriceSave}
+      />
     </Card>
   );
 }
