@@ -182,6 +182,36 @@ export const useUpdateRecipe = () => {
   });
 };
 
+// Delete recipe mutation hook
+export const useDeleteRecipe = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (recipeId: number) => {
+      // First delete recipe ingredients
+      const { error: ingredientsError } = await supabase
+        .from("recipe_ingredients")
+        .delete()
+        .eq("recipe_id", recipeId);
+      
+      if (ingredientsError) throw ingredientsError;
+      
+      // Then delete the recipe
+      const { error: recipeError } = await supabase
+        .from("recipes")
+        .delete()
+        .eq("id", recipeId);
+      
+      if (recipeError) throw recipeError;
+      
+      return recipeId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
+    },
+  });
+};
+
 export const useRecipeCategories = () => {
   return useQuery({
     queryKey: ["recipeCategories"],

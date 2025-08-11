@@ -36,6 +36,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRef } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { detectAllergens } from "@/utils/allergenDetection";
+import { removeDiacritics } from "@/utils/removeDiacritics";
 
 interface RecipeFormProps {
   open: boolean;
@@ -85,7 +86,9 @@ function IngredientPickerModal({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const filtered = ingredients.filter((ing) =>
-    ing.name.toLowerCase().includes(search.toLowerCase())
+    removeDiacritics(ing.name)
+      .toLowerCase()
+      .includes(removeDiacritics(search).toLowerCase())
   );
 
   useEffect(() => {

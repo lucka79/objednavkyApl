@@ -21,8 +21,18 @@ import {
 import {
   RecipeWithCategoryAndIngredients,
   useRecipes,
+  useDeleteRecipe,
 } from "@/hooks/useRecipes";
-import { Plus, Search, Scale, Edit, Trash2, ChefHat } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Scale,
+  Edit,
+  Trash2,
+  ChefHat,
+  AlertTriangle,
+  X,
+} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +44,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { RecipeForm } from "@/components/RecipeForm";
 import { removeDiacritics } from "@/utils/removeDiacritics";
@@ -44,6 +60,7 @@ export function RecipesTable() {
   // Note: This table automatically refreshes when new recipes are created or updated
   // due to query invalidation in useCreateRecipe and useUpdateRecipe hooks
   const { data, isLoading, error } = useRecipes();
+  const deleteRecipeMutation = useDeleteRecipe();
   const { toast } = useToast();
   const [globalFilter, setGlobalFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -53,6 +70,11 @@ export function RecipesTable() {
   // Form state
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
+  const [debugError, setDebugError] = useState<{
+    error: any;
+    recipe: any;
+  } | null>(null);
+  const [isDebugOpen, setIsDebugOpen] = useState(false);
 
   const recipes = data?.recipes || [];
   const categories = data?.categories || [];
@@ -139,15 +161,24 @@ export function RecipesTable() {
 
   const handleDelete = async (recipe: (typeof recipes)[0]) => {
     try {
-      // TODO: Implement delete functionality
+      await deleteRecipeMutation.mutateAsync(recipe.id);
       toast({
         title: "Úspěch",
         description: `Recept "${recipe.name}" byl smazán`,
       });
     } catch (error) {
+      console.error("Recipe deletion error:", error);
+
+      // Set debug error information
+      setDebugError({
+        error: error,
+        recipe: recipe,
+      });
+      setIsDebugOpen(true);
+
       toast({
         title: "Chyba",
-        description: "Nepodařilo se smazat recept",
+        description: "Nepodařilo se smazat recept. Zobrazit detaily chyby.",
         variant: "destructive",
       });
     }
@@ -536,6 +567,149 @@ export function RecipesTable() {
         onClose={handleCloseForm}
         initialRecipe={selectedRecipe}
       />
+
+      {/* Debug Error Dialog */}
+      <Dialog open={isDebugOpen} onOpenChange={setIsDebugOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Debug: Chyba při mazání receptu
+            </DialogTitle>
+          </DialogHeader>
+
+          {debugError && (
+            <div className="space-y-4">
+              {/* Recipe Information */}
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h3 className="font-semibold text-blue-800 mb-2">
+                  Informace o receptu:
+                </h3>
+                <div className="text-sm space-y-1">
+                  <div>
+                    <strong>ID:</strong> {debugError.recipe.id}
+                  </div>
+                  <div>
+                    <strong>Název:</strong> {debugError.recipe.name}
+                  </div>
+                  <div>
+                    <strong>Kategorie:</strong>{" "}
+                    {debugError.recipe.categories?.name || "Bez kategorie"}
+                  </div>
+                  <div>
+                    <strong>Množství:</strong> {debugError.recipe.quantity} kg
+                  </div>
+                  <div>
+                    <strong>Cena:</strong> {debugError.recipe.price} Kč
+                  </div>
+                  <div>
+                    <strong>Test:</strong>{" "}
+                    {debugError.recipe.test ? "Ano" : "Ne"}
+                  </div>
+                  <div>
+                    <strong>Pekař:</strong>{" "}
+                    {debugError.recipe.baker ? "Ano" : "Ne"}
+                  </div>
+                  <div>
+                    <strong>Cukrář:</strong>{" "}
+                    {debugError.recipe.pastry ? "Ano" : "Ne"}
+                  </div>
+                  <div>
+                    <strong>Donut:</strong>{" "}
+                    {debugError.recipe.donut ? "Ano" : "Ne"}
+                  </div>
+                  <div>
+                    <strong>Prodejna:</strong>{" "}
+                    {debugError.recipe.store ? "Ano" : "Ne"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Error Information */}
+              <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                <h3 className="font-semibold text-red-800 mb-2">
+                  Detaily chyby:
+                </h3>
+                <div className="text-sm space-y-2">
+                  <div>
+                    <strong>Typ chyby:</strong>{" "}
+                    {debugError.error?.constructor?.name || "Unknown"}
+                  </div>
+                  <div>
+                    <strong>Zpráva:</strong>{" "}
+                    {debugError.error?.message || "Žádná zpráva"}
+                  </div>
+                  <div>
+                    <strong>Kód:</strong>{" "}
+                    {debugError.error?.code || "Žádný kód"}
+                  </div>
+                  <div>
+                    <strong>Status:</strong>{" "}
+                    {debugError.error?.status || "Žádný status"}
+                  </div>
+                  <div>
+                    <strong>Status Text:</strong>{" "}
+                    {debugError.error?.statusText || "Žádný status text"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Error Stack Trace */}
+              {debugError.error?.stack && (
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h3 className="font-semibold text-gray-800 mb-2">
+                    Stack Trace:
+                  </h3>
+                  <pre className="text-xs text-gray-700 bg-white p-3 rounded border overflow-x-auto whitespace-pre-wrap">
+                    {debugError.error.stack}
+                  </pre>
+                </div>
+              )}
+
+              {/* Full Error Object */}
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h3 className="font-semibold text-gray-800 mb-2">
+                  Kompletní objekt chyby:
+                </h3>
+                <pre className="text-xs text-gray-700 bg-white p-3 rounded border overflow-x-auto whitespace-pre-wrap">
+                  {JSON.stringify(debugError.error, null, 2)}
+                </pre>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (debugError?.error) {
+                      navigator.clipboard.writeText(
+                        JSON.stringify(debugError.error, null, 2)
+                      );
+                      toast({
+                        title: "Zkopírováno",
+                        description:
+                          "Detaily chyby byly zkopírovány do schránky",
+                      });
+                    }
+                  }}
+                >
+                  Kopírovat detaily
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDebugError(null);
+                    setIsDebugOpen(false);
+                  }}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Zavřít
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

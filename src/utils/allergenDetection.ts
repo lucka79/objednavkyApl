@@ -63,7 +63,7 @@ export const detectAllergens = (
     {
       keywords: [
         "ořechy",
-        "mandle",
+        "mandle", "MANDLE",
         "lískové",
         "vlašské",
         "pekanové",
