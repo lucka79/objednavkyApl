@@ -96,9 +96,16 @@ export function ProductPartsModal({
       }
     >
   >(new Map());
-  const [recipeSearch, setRecipeSearch] = useState("");
-  const [productSearch, setProductSearch] = useState("");
-  const [ingredientSearch, setIngredientSearch] = useState("");
+  // Search states for each row - Map<rowIndex, searchText>
+  const [recipeSearches, setRecipeSearches] = useState<Map<number, string>>(
+    new Map()
+  );
+  const [productSearches, setProductSearches] = useState<Map<number, string>>(
+    new Map()
+  );
+  const [ingredientSearches, setIngredientSearches] = useState<
+    Map<number, string>
+  >(new Map());
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -876,9 +883,9 @@ export function ProductPartsModal({
 
   // Clear search when dropdowns are closed
   const clearSearch = () => {
-    setRecipeSearch("");
-    setProductSearch("");
-    setIngredientSearch("");
+    setRecipeSearches(new Map());
+    setProductSearches(new Map());
+    setIngredientSearches(new Map());
   };
 
   return (
@@ -993,50 +1000,73 @@ export function ProductPartsModal({
                               }
                               onOpenChange={(open) => {
                                 if (!open) {
-                                  setRecipeSearch("");
+                                  const newMap = new Map(recipeSearches);
+                                  newMap.delete(index);
+                                  setRecipeSearches(newMap);
                                 }
                               }}
                             >
                               <SelectTrigger>
                                 <SelectValue placeholder="Vyberte recept" />
                               </SelectTrigger>
-                              <SelectContent className="max-h-60">
+                              <SelectContent>
                                 <div className="relative p-2">
                                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                   <Input
                                     placeholder="Hledat recept..."
-                                    value={recipeSearch}
+                                    value={recipeSearches.get(index) || ""}
                                     onChange={(e) =>
-                                      setRecipeSearch(e.target.value)
+                                      setRecipeSearches(
+                                        new Map(recipeSearches).set(
+                                          index,
+                                          e.target.value
+                                        )
+                                      )
                                     }
+                                    onKeyDown={(e) => {
+                                      e.stopPropagation();
+                                    }}
+                                    onFocus={(e) => {
+                                      e.stopPropagation();
+                                    }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                    }}
                                     className="pl-8"
                                   />
                                 </div>
-                                <div className="max-h-48 overflow-y-auto">
-                                  {recipes
-                                    .filter((recipe) => {
-                                      if (!recipeSearch.trim()) return true;
-                                      const searchLower = removeDiacritics(
-                                        recipeSearch.toLowerCase()
-                                      );
-                                      const nameMatch = removeDiacritics(
-                                        recipe.name.toLowerCase()
-                                      ).includes(searchLower);
-                                      const noteMatch = recipe.note
-                                        ? removeDiacritics(
-                                            recipe.note.toLowerCase()
-                                          ).includes(searchLower)
-                                        : false;
-                                      return nameMatch || noteMatch;
-                                    })
-                                    .map((recipe) => (
+                                <div className="max-h-80 overflow-y-auto pb-2">
+                                  {(() => {
+                                    const searchTerm = recipeSearches
+                                      .get(index)
+                                      ?.trim();
+                                    const filteredRecipes = recipes.filter(
+                                      (recipe) => {
+                                        if (!searchTerm) return true;
+                                        const searchLower = removeDiacritics(
+                                          searchTerm.toLowerCase()
+                                        );
+                                        const nameMatch = removeDiacritics(
+                                          recipe.name.toLowerCase()
+                                        ).includes(searchLower);
+                                        const noteMatch = recipe.note
+                                          ? removeDiacritics(
+                                              recipe.note.toLowerCase()
+                                            ).includes(searchLower)
+                                          : false;
+                                        return nameMatch || noteMatch;
+                                      }
+                                    );
+
+                                    return filteredRecipes.map((recipe) => (
                                       <SelectItem
                                         key={recipe.id}
                                         value={recipe.id.toString()}
                                       >
                                         {recipe.name}
                                       </SelectItem>
-                                    ))}
+                                    ));
+                                  })()}
                                 </div>
                               </SelectContent>
                             </Select>
@@ -1054,31 +1084,50 @@ export function ProductPartsModal({
                                 }
                                 onOpenChange={(open) => {
                                   if (!open) {
-                                    setProductSearch("");
+                                    const newMap = new Map(productSearches);
+                                    newMap.delete(index);
+                                    setProductSearches(newMap);
                                   }
                                 }}
                               >
                                 <SelectTrigger>
                                   <SelectValue placeholder="Vyberte produkt" />
                                 </SelectTrigger>
-                                <SelectContent className="max-h-60">
+                                <SelectContent>
                                   <div className="relative p-2">
                                     <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                     <Input
                                       placeholder="Hledat produkt..."
-                                      value={productSearch}
+                                      value={productSearches.get(index) || ""}
                                       onChange={(e) =>
-                                        setProductSearch(e.target.value)
+                                        setProductSearches(
+                                          new Map(productSearches).set(
+                                            index,
+                                            e.target.value
+                                          )
+                                        )
                                       }
+                                      onKeyDown={(e) => {
+                                        e.stopPropagation();
+                                      }}
+                                      onFocus={(e) => {
+                                        e.stopPropagation();
+                                      }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                      }}
                                       className="pl-8"
                                     />
                                   </div>
-                                  <div className="max-h-48 overflow-y-auto">
+                                  <div className="max-h-80 overflow-y-auto pb-2">
                                     {products
                                       .filter((product) => {
-                                        if (!productSearch.trim()) return true;
+                                        if (!productSearches.get(index)?.trim())
+                                          return true;
                                         const searchLower = removeDiacritics(
-                                          productSearch.toLowerCase()
+                                          productSearches
+                                            .get(index)
+                                            ?.toLowerCase() || ""
                                         );
                                         const nameMatch = removeDiacritics(
                                           product.name?.toLowerCase() || ""
@@ -1093,10 +1142,10 @@ export function ProductPartsModal({
                                           ).includes(searchLower);
                                         const idMatch = product.id
                                           ?.toString()
-                                          .includes(productSearch);
+                                          .includes(productSearches.get(index));
                                         const printIdMatch = product.printId
                                           ?.toString()
-                                          .includes(productSearch);
+                                          .includes(productSearches.get(index));
                                         return (
                                           nameMatch ||
                                           nameViMatch ||
@@ -1139,30 +1188,6 @@ export function ProductPartsModal({
                                   </div>
                                 </SelectContent>
                               </Select>
-                              {(() => {
-                                const selectedProduct = products.find(
-                                  (p) => p.id === part.pastry_id
-                                );
-                                if (!selectedProduct) return null;
-                                const hasProductParts =
-                                  productPartsMap.get(selectedProduct.id) ||
-                                  false;
-                                return hasProductParts ? (
-                                  <span
-                                    className="text-xs text-orange-500 bg-orange-100 px-1 rounded"
-                                    title={`Produkt má definované části`}
-                                  >
-                                    <BookOpen className="h-3 w-3" />
-                                  </span>
-                                ) : (
-                                  <span
-                                    className="text-xs text-orange-600 bg-orange-100 px-1 rounded"
-                                    title="Produkt nemá definované části"
-                                  >
-                                    ⚠️
-                                  </span>
-                                );
-                              })()}
                             </div>
                           )}
                           {part.ingredient_id && (
@@ -1178,32 +1203,54 @@ export function ProductPartsModal({
                                 }
                                 onOpenChange={(open) => {
                                   if (!open) {
-                                    setIngredientSearch("");
+                                    const newMap = new Map(ingredientSearches);
+                                    newMap.delete(index);
+                                    setIngredientSearches(newMap);
                                   }
                                 }}
                               >
                                 <SelectTrigger>
                                   <SelectValue placeholder="Vyberte surovinu" />
                                 </SelectTrigger>
-                                <SelectContent className="max-h-60">
+                                <SelectContent>
                                   <div className="relative p-2">
                                     <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                     <Input
                                       placeholder="Hledat surovinu..."
-                                      value={ingredientSearch}
-                                      onChange={(e) =>
-                                        setIngredientSearch(e.target.value)
+                                      value={
+                                        ingredientSearches.get(index) || ""
                                       }
+                                      onChange={(e) =>
+                                        setIngredientSearches(
+                                          new Map(ingredientSearches).set(
+                                            index,
+                                            e.target.value
+                                          )
+                                        )
+                                      }
+                                      onKeyDown={(e) => {
+                                        e.stopPropagation();
+                                      }}
+                                      onFocus={(e) => {
+                                        e.stopPropagation();
+                                      }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                      }}
                                       className="pl-8"
                                     />
                                   </div>
-                                  <div className="max-h-48 overflow-y-auto">
+                                  <div className="max-h-80 overflow-y-auto pb-2">
                                     {ingredients
                                       .filter((ingredient) => {
-                                        if (!ingredientSearch.trim())
+                                        if (
+                                          !ingredientSearches.get(index)?.trim()
+                                        )
                                           return true;
                                         const searchLower = removeDiacritics(
-                                          ingredientSearch.toLowerCase()
+                                          ingredientSearches
+                                            .get(index)
+                                            ?.toLowerCase() || ""
                                         );
                                         const nameMatch = removeDiacritics(
                                           ingredient.name.toLowerCase()

@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Ingredient } from "./useIngredients";
 
 export interface Recipe {
@@ -91,11 +91,13 @@ export const useRecipes = () => {
   });
 
   // Create recipe
-  const createRecipe = async (recipe: Omit<Recipe, "id" | "created_at">) => {
-    const { error } = await supabase.from("recipes").insert([recipe]);
-    if (error) throw error;
-    await queryClient.invalidateQueries({ queryKey: ["recipes"] });
-  };
+  const createRecipe = useMutation({
+    mutationFn: async (recipe: Omit<Recipe, "id" | "created_at">) => {
+      const { error } = await supabase.from("recipes").insert([recipe]);
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ["recipes"] });
+    },
+  });
 
   // Update recipe
   const updateRecipe = async (id: number, updates: Partial<Omit<Recipe, "id" | "created_at">>) => {
@@ -135,6 +137,49 @@ export const useRecipes = () => {
   };
 
   return { ...query, createRecipe, updateRecipe, fetchRecipeIngredients, saveRecipeIngredients };
+};
+
+// Create recipe mutation hook
+export const useCreateRecipe = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (recipe: Omit<Recipe, "id" | "created_at">) => {
+      const { data, error } = await supabase
+        .from("recipes")
+        .insert([recipe])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
+    },
+  });
+};
+
+// Update recipe mutation hook
+export const useUpdateRecipe = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, updates }: { id: number; updates: Partial<Omit<Recipe, "id" | "created_at">> }) => {
+      const { data, error } = await supabase
+        .from("recipes")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
+    },
+  });
 };
 
 export const useRecipeCategories = () => {

@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/tooltip";
 import {
   useRecipes,
+  useCreateRecipe,
+  useUpdateRecipe,
   Recipe,
   RecipeCategory,
   RecipeWithCategoryAndIngredients,
@@ -31,7 +33,6 @@ import {
 import { Ingredient, useIngredients } from "@/hooks/useIngredients";
 import { Save, X, Plus, Trash2, FileText, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase";
 import { useRef } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { detectAllergens } from "@/utils/allergenDetection";
@@ -171,11 +172,12 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
   const {
     data,
 
-    updateRecipe,
     fetchRecipeIngredients,
     saveRecipeIngredients,
   } = useRecipes();
   const { data: ingredientsData } = useIngredients();
+  const createRecipeMutation = useCreateRecipe();
+  const updateRecipeMutation = useUpdateRecipe();
   const categories = data?.categories || [];
   const ingredients = ingredientsData?.ingredients || [];
   const { toast } = useToast();
@@ -518,18 +520,16 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
       };
 
       if (isEditMode && initialRecipe) {
-        await updateRecipe(initialRecipe.id, recipeDataToSave);
+        await updateRecipeMutation.mutateAsync({
+          id: initialRecipe.id,
+          updates: recipeDataToSave,
+        });
         recipeId = initialRecipe.id;
         toast({ title: "Úspěch", description: "Recept byl upraven." });
       } else {
         // For new recipes, we need to create the recipe first and get its ID
-        const { data: newRecipe, error } = await supabase
-          .from("recipes")
-          .insert([recipeDataToSave])
-          .select()
-          .single();
-
-        if (error) throw error;
+        const newRecipe =
+          await createRecipeMutation.mutateAsync(recipeDataToSave);
         recipeId = newRecipe.id;
         toast({ title: "Úspěch", description: "Recept byl vytvořen." });
       }

@@ -41,6 +41,8 @@ import { detectAllergens } from "@/utils/allergenDetection";
 import { useAuthStore } from "@/lib/supabase";
 
 export function RecipesTable() {
+  // Note: This table automatically refreshes when new recipes are created or updated
+  // due to query invalidation in useCreateRecipe and useUpdateRecipe hooks
   const { data, isLoading, error } = useRecipes();
   const { toast } = useToast();
   const [globalFilter, setGlobalFilter] = useState("");
