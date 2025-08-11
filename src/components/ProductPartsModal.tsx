@@ -34,6 +34,8 @@ import {
   AlertTriangle,
   BookOpen,
   Search,
+  ShieldAlert,
+  TriangleAlert,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
@@ -995,83 +997,168 @@ export function ProductPartsModal({
                         </TableCell>
                         <TableCell>
                           {part.recipe_id && (
-                            <Select
-                              value={part.recipe_id.toString()}
-                              onValueChange={(value) =>
-                                updatePart(index, "recipe_id", parseInt(value))
-                              }
-                              onOpenChange={(open) => {
-                                if (!open) {
-                                  const newMap = new Map(recipeSearches);
-                                  newMap.delete(index);
-                                  setRecipeSearches(newMap);
+                            <div className="flex items-center gap-2">
+                              <Select
+                                value={part.recipe_id.toString()}
+                                onValueChange={(value) =>
+                                  updatePart(
+                                    index,
+                                    "recipe_id",
+                                    parseInt(value)
+                                  )
                                 }
-                              }}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Vyberte recept" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <div className="relative p-2">
-                                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                  <Input
-                                    placeholder="Hledat recept..."
-                                    value={recipeSearches.get(index) || ""}
-                                    onChange={(e) =>
-                                      setRecipeSearches(
-                                        new Map(recipeSearches).set(
-                                          index,
-                                          e.target.value
+                                onOpenChange={(open) => {
+                                  if (!open) {
+                                    setRecipeSearches((prev) => {
+                                      const newMap = new Map(prev);
+                                      newMap.delete(index);
+                                      return newMap;
+                                    });
+                                  }
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Vyberte recept" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <div className="relative p-2">
+                                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                      placeholder="Hledat recept..."
+                                      value={recipeSearches.get(index) || ""}
+                                      onChange={(e) =>
+                                        setRecipeSearches((prev) =>
+                                          new Map(prev).set(
+                                            index,
+                                            e.target.value
+                                          )
                                         )
-                                      )
-                                    }
-                                    onKeyDown={(e) => {
-                                      e.stopPropagation();
-                                    }}
-                                    onFocus={(e) => {
-                                      e.stopPropagation();
-                                    }}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                    }}
-                                    className="pl-8"
-                                  />
-                                </div>
-                                <div className="max-h-80 overflow-y-auto pb-2">
-                                  {(() => {
-                                    const searchTerm = recipeSearches
-                                      .get(index)
-                                      ?.trim();
-                                    const filteredRecipes = recipes.filter(
-                                      (recipe) => {
-                                        if (!searchTerm) return true;
-                                        const searchLower = removeDiacritics(
-                                          searchTerm.toLowerCase()
-                                        );
-                                        const nameMatch = removeDiacritics(
-                                          recipe.name.toLowerCase()
-                                        ).includes(searchLower);
-                                        const noteMatch = recipe.note
-                                          ? removeDiacritics(
-                                              recipe.note.toLowerCase()
-                                            ).includes(searchLower)
-                                          : false;
-                                        return nameMatch || noteMatch;
                                       }
+                                      onKeyDown={(e) => {
+                                        e.stopPropagation();
+                                      }}
+                                      onFocus={(e) => {
+                                        e.stopPropagation();
+                                      }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                      }}
+                                      className="pl-8"
+                                    />
+                                  </div>
+                                  <div className="max-h-80 overflow-y-auto pb-2">
+                                    {(() => {
+                                      const searchTerm = recipeSearches
+                                        .get(index)
+                                        ?.trim();
+                                      const filteredRecipes = recipes.filter(
+                                        (recipe) => {
+                                          if (!searchTerm) return true;
+                                          const searchLower = removeDiacritics(
+                                            searchTerm.toLowerCase()
+                                          );
+                                          const nameMatch = removeDiacritics(
+                                            recipe.name.toLowerCase()
+                                          ).includes(searchLower);
+                                          const noteMatch = recipe.note
+                                            ? removeDiacritics(
+                                                recipe.note.toLowerCase()
+                                              ).includes(searchLower)
+                                            : false;
+                                          return nameMatch || noteMatch;
+                                        }
+                                      );
+
+                                      return filteredRecipes.map((recipe) => (
+                                        <SelectItem
+                                          key={recipe.id}
+                                          value={recipe.id.toString()}
+                                        >
+                                          {recipe.name}
+                                        </SelectItem>
+                                      ));
+                                    })()}
+                                  </div>
+                                </SelectContent>
+                              </Select>
+                              {(() => {
+                                const selectedRecipe = recipes.find(
+                                  (r) => r.id === part.recipe_id
+                                );
+                                if (
+                                  !selectedRecipe ||
+                                  !selectedRecipe.recipe_ingredients
+                                )
+                                  return null;
+
+                                // Recipe warning logic
+                                const missingElements =
+                                  selectedRecipe.recipe_ingredients.some(
+                                    (recipeIng) =>
+                                      !recipeIng.ingredient?.element ||
+                                      recipeIng.ingredient.element.trim() === ""
+                                  );
+
+                                const missingEnergeticValues =
+                                  selectedRecipe.recipe_ingredients.some(
+                                    (recipeIng) =>
+                                      !recipeIng.ingredient?.kJ ||
+                                      recipeIng.ingredient.kJ <= 0
+                                  );
+
+                                // Get specific missing data for tooltips
+                                const missingElementsList =
+                                  selectedRecipe.recipe_ingredients
+                                    .filter(
+                                      (recipeIng) =>
+                                        !recipeIng.ingredient?.element ||
+                                        recipeIng.ingredient.element.trim() ===
+                                          ""
+                                    )
+                                    .map(
+                                      (recipeIng) =>
+                                        recipeIng.ingredient?.name ||
+                                        "Neznámá surovina"
                                     );
 
-                                    return filteredRecipes.map((recipe) => (
-                                      <SelectItem
-                                        key={recipe.id}
-                                        value={recipe.id.toString()}
+                                const missingEnergeticList =
+                                  selectedRecipe.recipe_ingredients
+                                    .filter(
+                                      (recipeIng) =>
+                                        !recipeIng.ingredient?.kJ ||
+                                        recipeIng.ingredient.kJ <= 0
+                                    )
+                                    .map(
+                                      (recipeIng) =>
+                                        recipeIng.ingredient?.name ||
+                                        "Neznámá surovina"
+                                    );
+
+                                if (!missingElements && !missingEnergeticValues)
+                                  return null;
+
+                                return (
+                                  <div className="flex gap-1">
+                                    {missingElements && (
+                                      <span
+                                        className="text-xs text-orange-500"
+                                        title={`Chybí složení: ${missingElementsList.join(", ")}`}
                                       >
-                                        {recipe.name}
-                                      </SelectItem>
-                                    ));
-                                  })()}
-                                </div>
-                              </SelectContent>
-                            </Select>
+                                        <ShieldAlert className="h-3 w-3" />
+                                      </span>
+                                    )}
+                                    {missingEnergeticValues && (
+                                      <span
+                                        className="text-xs text-red-600"
+                                        title={`Chybí výživové hodnoty: ${missingEnergeticList.join(", ")}`}
+                                      >
+                                        <TriangleAlert className="h-3 w-3" />
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </div>
                           )}
                           {part.pastry_id && (
                             <div className="flex items-center gap-2">
@@ -1086,9 +1173,11 @@ export function ProductPartsModal({
                                 }
                                 onOpenChange={(open) => {
                                   if (!open) {
-                                    const newMap = new Map(productSearches);
-                                    newMap.delete(index);
-                                    setProductSearches(newMap);
+                                    setProductSearches((prev) => {
+                                      const newMap = new Map(prev);
+                                      newMap.delete(index);
+                                      return newMap;
+                                    });
                                   }
                                 }}
                               >
@@ -1102,8 +1191,8 @@ export function ProductPartsModal({
                                       placeholder="Hledat produkt..."
                                       value={productSearches.get(index) || ""}
                                       onChange={(e) =>
-                                        setProductSearches(
-                                          new Map(productSearches).set(
+                                        setProductSearches((prev) =>
+                                          new Map(prev).set(
                                             index,
                                             e.target.value
                                           )
@@ -1177,10 +1266,10 @@ export function ProductPartsModal({
                                                 </span>
                                               ) : (
                                                 <span
-                                                  className="text-xs text-orange-600 bg-orange-100 px-1 rounded"
-                                                  title="Produkt nemá definované části"
+                                                  className="text-xs text-orange-500 bg-orange-100 px-1 rounded"
+                                                  title={`Produkt "${product.name}" nemá definované části (product_parts)`}
                                                 >
-                                                  ⚠️
+                                                  <ShieldAlert className="h-3 w-3" />
                                                 </span>
                                               );
                                             })()}
@@ -1190,6 +1279,55 @@ export function ProductPartsModal({
                                   </div>
                                 </SelectContent>
                               </Select>
+                              {(() => {
+                                const selectedProduct = products.find(
+                                  (p) => p.id === part.pastry_id
+                                );
+                                if (!selectedProduct) return null;
+
+                                // Product warning logic
+                                const missingElements =
+                                  !selectedProduct.parts ||
+                                  selectedProduct.parts.trim() === "";
+
+                                const missingEnergeticValues =
+                                  !calculatedEnergeticValues.has(
+                                    selectedProduct.id
+                                  );
+
+                                // Create detailed tooltip messages
+                                const elementsTooltip = missingElements
+                                  ? `Produkt "${selectedProduct.name}" nemá definované složení (parts)`
+                                  : "";
+
+                                const energeticTooltip = missingEnergeticValues
+                                  ? `Produkt "${selectedProduct.name}" nemá vypočítané výživové hodnoty z receptů`
+                                  : "";
+
+                                if (!missingElements && !missingEnergeticValues)
+                                  return null;
+
+                                return (
+                                  <div className="flex gap-1">
+                                    {missingElements && (
+                                      <span
+                                        className="text-xs text-orange-500"
+                                        title={elementsTooltip}
+                                      >
+                                        <ShieldAlert className="h-3 w-3" />
+                                      </span>
+                                    )}
+                                    {missingEnergeticValues && (
+                                      <span
+                                        className="text-xs text-red-600"
+                                        title={energeticTooltip}
+                                      >
+                                        <TriangleAlert className="h-3 w-3" />
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           )}
                           {part.ingredient_id && (
@@ -1205,9 +1343,11 @@ export function ProductPartsModal({
                                 }
                                 onOpenChange={(open) => {
                                   if (!open) {
-                                    const newMap = new Map(ingredientSearches);
-                                    newMap.delete(index);
-                                    setIngredientSearches(newMap);
+                                    setIngredientSearches((prev) => {
+                                      const newMap = new Map(prev);
+                                      newMap.delete(index);
+                                      return newMap;
+                                    });
                                   }
                                 }}
                               >
@@ -1223,8 +1363,8 @@ export function ProductPartsModal({
                                         ingredientSearches.get(index) || ""
                                       }
                                       onChange={(e) =>
-                                        setIngredientSearches(
-                                          new Map(ingredientSearches).set(
+                                        setIngredientSearches((prev) =>
+                                          new Map(prev).set(
                                             index,
                                             e.target.value
                                           )
@@ -1281,14 +1421,46 @@ export function ProductPartsModal({
                                 const hasEnergeticValues =
                                   selectedIngredient.kJ > 0 ||
                                   selectedIngredient.kcal > 0;
-                                return !hasEnergeticValues ? (
-                                  <span
-                                    className="text-xs text-red-600"
-                                    title="Chybí výživové hodnoty"
-                                  >
-                                    ⚠️
-                                  </span>
-                                ) : null;
+                                const missingEnergeticValues =
+                                  !hasEnergeticValues;
+
+                                // Ingredient warning logic
+                                const missingElements =
+                                  !selectedIngredient.element ||
+                                  selectedIngredient.element.trim() === "";
+
+                                // Create detailed tooltip messages
+                                const elementsTooltip = missingElements
+                                  ? `Surovina "${selectedIngredient.name}" nemá definované složení (element)`
+                                  : "";
+
+                                const energeticTooltip = missingEnergeticValues
+                                  ? `Surovina "${selectedIngredient.name}" nemá výživové hodnoty (kJ: ${selectedIngredient.kJ}, kcal: ${selectedIngredient.kcal})`
+                                  : "";
+
+                                if (!missingElements && !missingEnergeticValues)
+                                  return null;
+
+                                return (
+                                  <div className="flex gap-1">
+                                    {missingElements && (
+                                      <span
+                                        className="text-xs text-orange-500"
+                                        title={elementsTooltip}
+                                      >
+                                        <ShieldAlert className="h-3 w-3" />
+                                      </span>
+                                    )}
+                                    {missingEnergeticValues && (
+                                      <span
+                                        className="text-xs text-red-600"
+                                        title={energeticTooltip}
+                                      >
+                                        <TriangleAlert className="h-3 w-3" />
+                                      </span>
+                                    )}
+                                  </div>
+                                );
                               })()}
                             </div>
                           )}
@@ -2561,7 +2733,7 @@ Celková hmotnost produktu: ${totalWeightKg.toFixed(3)} kg`;
                           <div className="text-xs text-orange-700">
                             {missingEnergeticValues.join(", ")}
                           </div>
-                          <div className="text-xs text-orange-600 mt-1">
+                          <div className="text-xs text-orange-500 mt-1">
                             Výživové hodnoty mohou být nepřesné kvůli chybějícím
                             údajům.
                           </div>
@@ -2581,7 +2753,7 @@ Celková hmotnost produktu: ${totalWeightKg.toFixed(3)} kg`;
                                 className="flex items-center gap-2"
                               >
                                 <span>• {product?.name}</span>
-                                <span className="text-orange-600">
+                                <span className="text-orange-500">
                                   {product?.missingEnergetic &&
                                   product?.missingElements
                                     ? "(chybí výživové hodnoty i složení)"
@@ -2592,7 +2764,7 @@ Celková hmotnost produktu: ${totalWeightKg.toFixed(3)} kg`;
                               </div>
                             ))}
                           </div>
-                          <div className="text-xs text-orange-600 mt-1">
+                          <div className="text-xs text-orange-500 mt-1">
                             Výživové hodnoty mohou být nepřesné kvůli chybějícím
                             údajům.
                           </div>
