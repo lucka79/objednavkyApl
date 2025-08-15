@@ -96,6 +96,7 @@ export const useRecipes = () => {
       const { error } = await supabase.from("recipes").insert([recipe]);
       if (error) throw error;
       await queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      await queryClient.invalidateQueries({ queryKey: ["products"] });
     },
   });
 
@@ -104,6 +105,7 @@ export const useRecipes = () => {
     const { error } = await supabase.from("recipes").update(updates).eq("id", id);
     if (error) throw error;
     await queryClient.invalidateQueries({ queryKey: ["recipes"] });
+    await queryClient.invalidateQueries({ queryKey: ["products"] });
   };
 
   // Fetch recipe ingredients
@@ -134,6 +136,10 @@ export const useRecipes = () => {
       const { error } = await supabase.from("recipe_ingredients").insert(ingredientsToInsert);
       if (error) throw error;
     }
+    
+    // Invalidate queries to refresh data
+    await queryClient.invalidateQueries({ queryKey: ["recipes"] });
+    await queryClient.invalidateQueries({ queryKey: ["products"] });
   };
 
   return { ...query, createRecipe, updateRecipe, fetchRecipeIngredients, saveRecipeIngredients };
@@ -156,6 +162,7 @@ export const useCreateRecipe = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
     },
   });
 };
@@ -178,6 +185,7 @@ export const useUpdateRecipe = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
     },
   });
 };
@@ -208,6 +216,7 @@ export const useDeleteRecipe = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
     },
   });
 };

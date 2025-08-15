@@ -630,16 +630,112 @@ export function ProductPartsModal({
           }
         });
 
-        // Sort by quantity (descending) and create simple composition
-        const sortedIngredients = Array.from(groupedIngredients.values()).sort(
+        // Sort by quantity (descending) and merge elements
+        const sortedIngredients = ingredientsWithElements.sort(
           (a, b) => b.quantity - a.quantity
         );
 
-        // Simple merging without normalization
-        const mergedElements = sortedIngredients
-          .map(({ ingredient }) => ingredient.element.trim())
-          .join(", ");
+        if (sortedIngredients.length === 0) {
+          return (
+            <p className="text-muted-foreground text-center py-4">
+              Žádná ze surovin nemá definované složení.
+            </p>
+          );
+        }
 
+        // Helper function to normalize element text for comparison
+        const normalizeElement = (element: string): string => {
+          return (
+            element
+              .trim()
+              .toLowerCase()
+              // Remove multiple spaces and normalize to single space
+              .replace(/\s+/g, " ")
+              // Normalize spacing around punctuation
+              .replace(/\s*\.\s*/g, ".")
+              .replace(/\s*,\s*/g, ",")
+              .replace(/\s*;\s*/g, ";")
+              .replace(/\s*:\s*/g, ":")
+              .replace(/\s*-\s*/g, "-")
+              .replace(/\s*\/\s*/g, "/")
+              .replace(/\s*\(\s*/g, "(")
+              .replace(/\s*\)\s*/g, ")")
+              // Remove trailing punctuation that might be inconsistent
+              .replace(/[.,;:]+$/, "")
+              // Normalize common abbreviations and variations
+              .replace(/\bpšen\./g, "pšeničná")
+              .replace(/\bpšen\s+mouka/g, "pšeničná mouka")
+              .replace(/\bpšen\.\s*mouka/g, "pšeničná mouka")
+              .replace(/\bžit\./g, "žitná")
+              .replace(/\bovoc\./g, "ovocný")
+              .replace(/\bzelez\./g, "železitý")
+              .replace(/\bkvasinky/g, "kvasinky")
+              .replace(/\bbakterie/g, "bakterie")
+              .replace(/\bvoda/g, "voda")
+              .replace(/\bsůl/g, "sůl")
+              .replace(/\bdroždí/g, "droždí")
+              .replace(/\blepek/g, "lepek")
+              .replace(/\bdextróza/g, "dextróza")
+              .replace(/\bsyrovátka/g, "syrovátka")
+              // Final cleanup
+              .trim()
+          );
+        };
+
+        // Deduplicate elements using normalization while preserving quantity order
+        const getDeduplicatedElements = (
+          ingredients: Array<{ ingredient: any; quantity: number }>
+        ) => {
+          // Create a map to track unique normalized elements and keep original text
+          const elementMap = new Map<string, string>();
+          const elementCounts = new Map<string, number>();
+          const elementTotalQuantities = new Map<string, number>();
+
+          ingredients.forEach(({ ingredient, quantity }) => {
+            const originalElement = ingredient.element.trim();
+            const normalizedElement = normalizeElement(originalElement);
+
+            // Sum quantities for each normalized element
+            elementTotalQuantities.set(
+              normalizedElement,
+              (elementTotalQuantities.get(normalizedElement) || 0) + quantity
+            );
+
+            // Count occurrences of each normalized element
+            elementCounts.set(
+              normalizedElement,
+              (elementCounts.get(normalizedElement) || 0) + 1
+            );
+
+            // Keep the first occurrence of each normalized element
+            if (!elementMap.has(normalizedElement)) {
+              elementMap.set(normalizedElement, originalElement);
+            }
+          });
+
+          // Get unique elements preserving original formatting
+          const uniqueElements = Array.from(elementMap.values());
+
+          // Sort elements by total quantity (descending) and then alphabetically
+          const sortedElements = uniqueElements.sort((a, b) => {
+            const aNormalized = normalizeElement(a);
+            const bNormalized = normalizeElement(b);
+            const aQuantity = elementTotalQuantities.get(aNormalized) || 0;
+            const bQuantity = elementTotalQuantities.get(bNormalized) || 0;
+
+            // First sort by total quantity (descending)
+            if (aQuantity !== bQuantity) {
+              return bQuantity - aQuantity;
+            }
+
+            // Then sort alphabetically
+            return aNormalized.localeCompare(bNormalized);
+          });
+
+          return sortedElements.join(", ");
+        };
+
+        const mergedElements = getDeduplicatedElements(sortedIngredients);
         compositionText = mergedElements;
 
         // Detect allergens
@@ -790,16 +886,112 @@ export function ProductPartsModal({
           }
         });
 
-        // Sort by quantity (descending) and create simple composition
-        const sortedIngredients = Array.from(groupedIngredients.values()).sort(
+        // Sort by quantity (descending) and merge elements
+        const sortedIngredients = ingredientsWithElements.sort(
           (a, b) => b.quantity - a.quantity
         );
 
-        // Simple merging without normalization
-        const mergedElements = sortedIngredients
-          .map(({ ingredient }) => ingredient.element.trim())
-          .join(", ");
+        if (sortedIngredients.length === 0) {
+          return (
+            <p className="text-muted-foreground text-center py-4">
+              Žádná ze surovin nemá definované složení.
+            </p>
+          );
+        }
 
+        // Helper function to normalize element text for comparison
+        const normalizeElement = (element: string): string => {
+          return (
+            element
+              .trim()
+              .toLowerCase()
+              // Remove multiple spaces and normalize to single space
+              .replace(/\s+/g, " ")
+              // Normalize spacing around punctuation
+              .replace(/\s*\.\s*/g, ".")
+              .replace(/\s*,\s*/g, ",")
+              .replace(/\s*;\s*/g, ";")
+              .replace(/\s*:\s*/g, ":")
+              .replace(/\s*-\s*/g, "-")
+              .replace(/\s*\/\s*/g, "/")
+              .replace(/\s*\(\s*/g, "(")
+              .replace(/\s*\)\s*/g, ")")
+              // Remove trailing punctuation that might be inconsistent
+              .replace(/[.,;:]+$/, "")
+              // Normalize common abbreviations and variations
+              .replace(/\bpšen\./g, "pšeničná")
+              .replace(/\bpšen\s+mouka/g, "pšeničná mouka")
+              .replace(/\bpšen\.\s*mouka/g, "pšeničná mouka")
+              .replace(/\bžit\./g, "žitná")
+              .replace(/\bovoc\./g, "ovocný")
+              .replace(/\bzelez\./g, "železitý")
+              .replace(/\bkvasinky/g, "kvasinky")
+              .replace(/\bbakterie/g, "bakterie")
+              .replace(/\bvoda/g, "voda")
+              .replace(/\bsůl/g, "sůl")
+              .replace(/\bdroždí/g, "droždí")
+              .replace(/\blepek/g, "lepek")
+              .replace(/\bdextróza/g, "dextróza")
+              .replace(/\bsyrovátka/g, "syrovátka")
+              // Final cleanup
+              .trim()
+          );
+        };
+
+        // Deduplicate elements using normalization while preserving quantity order
+        const getDeduplicatedElements = (
+          ingredients: Array<{ ingredient: any; quantity: number }>
+        ) => {
+          // Create a map to track unique normalized elements and keep original text
+          const elementMap = new Map<string, string>();
+          const elementCounts = new Map<string, number>();
+          const elementTotalQuantities = new Map<string, number>();
+
+          ingredients.forEach(({ ingredient, quantity }) => {
+            const originalElement = ingredient.element.trim();
+            const normalizedElement = normalizeElement(originalElement);
+
+            // Sum quantities for each normalized element
+            elementTotalQuantities.set(
+              normalizedElement,
+              (elementTotalQuantities.get(normalizedElement) || 0) + quantity
+            );
+
+            // Count occurrences of each normalized element
+            elementCounts.set(
+              normalizedElement,
+              (elementCounts.get(normalizedElement) || 0) + 1
+            );
+
+            // Keep the first occurrence of each normalized element
+            if (!elementMap.has(normalizedElement)) {
+              elementMap.set(normalizedElement, originalElement);
+            }
+          });
+
+          // Get unique elements preserving original formatting
+          const uniqueElements = Array.from(elementMap.values());
+
+          // Sort elements by total quantity (descending) and then alphabetically
+          const sortedElements = uniqueElements.sort((a, b) => {
+            const aNormalized = normalizeElement(a);
+            const bNormalized = normalizeElement(b);
+            const aQuantity = elementTotalQuantities.get(aNormalized) || 0;
+            const bQuantity = elementTotalQuantities.get(bNormalized) || 0;
+
+            // First sort by total quantity (descending)
+            if (aQuantity !== bQuantity) {
+              return bQuantity - aQuantity;
+            }
+
+            // Then sort alphabetically
+            return aNormalized.localeCompare(bNormalized);
+          });
+
+          return sortedElements.join(", ");
+        };
+
+        const mergedElements = getDeduplicatedElements(sortedIngredients);
         compositionText = mergedElements;
 
         // Detect allergens
@@ -1014,7 +1206,7 @@ export function ProductPartsModal({
                           </span>
                         </TableCell>
                         <TableCell className="text-center">
-                          {part.pastry_id && (
+                          {(part.pastry_id || part.recipe_id) && (
                             <input
                               type="checkbox"
                               checked={part.productOnly || false}
@@ -1157,6 +1349,19 @@ export function ProductPartsModal({
                   }
                 });
 
+                // Sort by quantity (descending) and merge elements
+                const sortedIngredients = ingredientsWithElements.sort(
+                  (a, b) => b.quantity - a.quantity
+                );
+
+                if (sortedIngredients.length === 0) {
+                  return (
+                    <p className="text-muted-foreground text-center py-4">
+                      Žádná ze surovin nemá definované složení.
+                    </p>
+                  );
+                }
+
                 // Helper function to normalize element text for comparison
                 const normalizeElement = (element: string): string => {
                   return (
@@ -1176,68 +1381,97 @@ export function ProductPartsModal({
                       .replace(/\s*\)\s*/g, ")")
                       // Remove trailing punctuation that might be inconsistent
                       .replace(/[.,;:]+$/, "")
-                      // Normalize common abbreviations
+                      // Normalize common abbreviations and variations
                       .replace(/\bpšen\./g, "pšeničná")
+                      .replace(/\bpšen\s+mouka/g, "pšeničná mouka")
+                      .replace(/\bpšen\.\s*mouka/g, "pšeničná mouka")
                       .replace(/\bžit\./g, "žitná")
                       .replace(/\bovoc\./g, "ovocný")
                       .replace(/\bzelez\./g, "železitý")
+                      .replace(/\bkvasinky/g, "kvasinky")
+                      .replace(/\bbakterie/g, "bakterie")
+                      .replace(/\bvoda/g, "voda")
+                      .replace(/\bsůl/g, "sůl")
+                      .replace(/\bdroždí/g, "droždí")
+                      .replace(/\blepek/g, "lepek")
+                      .replace(/\bdextróza/g, "dextróza")
+                      .replace(/\bsyrovátka/g, "syrovátka")
                       // Final cleanup
                       .trim()
                   );
                 };
 
-                // Deduplicate elements using normalization
+                // Deduplicate elements using normalization while preserving quantity order
                 const getDeduplicatedElements = (
                   ingredients: Array<{ ingredient: any; quantity: number }>
                 ) => {
                   // Create a map to track unique normalized elements and keep original text
                   const elementMap = new Map<string, string>();
+                  const elementCounts = new Map<string, number>();
+                  const elementTotalQuantities = new Map<string, number>();
 
-                  ingredients.forEach(({ ingredient }) => {
+                  ingredients.forEach(({ ingredient, quantity }) => {
                     const originalElement = ingredient.element.trim();
                     const normalizedElement = normalizeElement(originalElement);
 
-                    // Keep the first occurrence (highest quantity) of each normalized element
+                    // Sum quantities for each normalized element
+                    elementTotalQuantities.set(
+                      normalizedElement,
+                      (elementTotalQuantities.get(normalizedElement) || 0) +
+                        quantity
+                    );
+
+                    // Count occurrences of each normalized element
+                    elementCounts.set(
+                      normalizedElement,
+                      (elementCounts.get(normalizedElement) || 0) + 1
+                    );
+
+                    // Keep the first occurrence of each normalized element
                     if (!elementMap.has(normalizedElement)) {
                       elementMap.set(normalizedElement, originalElement);
                     }
                   });
 
                   // Get unique elements preserving original formatting
-                  return Array.from(elementMap.values()).join(", ");
+                  const uniqueElements = Array.from(elementMap.values());
+
+                  // Sort elements by total quantity (descending) and then alphabetically
+                  const sortedElements = uniqueElements.sort((a, b) => {
+                    const aNormalized = normalizeElement(a);
+                    const bNormalized = normalizeElement(b);
+                    const aQuantity =
+                      elementTotalQuantities.get(aNormalized) || 0;
+                    const bQuantity =
+                      elementTotalQuantities.get(bNormalized) || 0;
+
+                    // First sort by total quantity (descending)
+                    if (aQuantity !== bQuantity) {
+                      return bQuantity - aQuantity;
+                    }
+
+                    // Then sort alphabetically
+                    return aNormalized.localeCompare(bNormalized);
+                  });
+
+                  return sortedElements.join(", ");
                 };
 
-                // Sort by quantity (descending) and merge elements
-                const sortedIngredients = ingredientsWithElements.sort(
-                  (a, b) => b.quantity - a.quantity
-                );
-
-                if (sortedIngredients.length === 0) {
-                  return (
-                    <p className="text-muted-foreground text-center py-4">
-                      Žádná ze surovin nemá definované složení.
-                    </p>
-                  );
-                }
-
-                const allergens = detectAllergens(
-                  getDeduplicatedElements(sortedIngredients)
-                );
+                const mergedElements =
+                  getDeduplicatedElements(sortedIngredients);
 
                 return (
                   <div className="bg-white/80 rounded border border-blue-200 p-4">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="text-sm text-gray-700 leading-relaxed flex-1">
-                        {getDeduplicatedElements(sortedIngredients)}
+                        {mergedElements}
                       </div>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          navigator.clipboard.writeText(
-                            getDeduplicatedElements(sortedIngredients)
-                          );
+                          navigator.clipboard.writeText(mergedElements);
                           toast({
                             title: "Zkopírováno",
                             description: "Složení bylo zkopírováno do schránky",
@@ -1253,25 +1487,27 @@ export function ProductPartsModal({
                       Složení z {sortedIngredients.length} surovin (seřazeno
                       podle množství)
                     </div>
-                    {allergens.length > 0 && (
+                    {detectAllergens(mergedElements).length > 0 && (
                       <div className="mt-3">
                         <div className="text-xs font-semibold text-red-800 mb-2 flex items-center gap-1">
                           <AlertTriangle className="h-3 w-3" />
                           Detekované alergeny:
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {allergens.map((allergen, index) => {
-                            const IconComponent = allergen.icon;
-                            return (
-                              <span
-                                key={index}
-                                className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${allergen.color}`}
-                              >
-                                <IconComponent className="h-3 w-3" />
-                                {allergen.name}
-                              </span>
-                            );
-                          })}
+                          {detectAllergens(mergedElements).map(
+                            (allergen, index) => {
+                              const IconComponent = allergen.icon;
+                              return (
+                                <span
+                                  key={index}
+                                  className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${allergen.color}`}
+                                >
+                                  <IconComponent className="h-3 w-3" />
+                                  {allergen.name}
+                                </span>
+                              );
+                            }
+                          )}
                         </div>
                       </div>
                     )}

@@ -154,7 +154,7 @@ const ProductRow = memo(
       <>
         {/* Desktop Layout (xl and up) - Reduced columns for better fit */}
         <div
-          className="hidden xl:grid xl:grid-cols-[60px_80px_2fr_100px_100px_100px_80px_60px_60px_60px_60px_120px] gap-2 py-2 px-2 items-center border-b text-sm cursor-pointer hover:bg-gray-50 w-full"
+          className="hidden xl:grid xl:grid-cols-[60px_80px_1.5fr_100px_100px_100px_80px_60px_60px_60px_60px_120px] gap-2 py-2 px-2 items-center border-b text-sm cursor-pointer hover:bg-gray-50 w-full"
           onClick={() => onEdit(product.id)}
         >
           <div className="text-center">{product.id}</div>
@@ -316,7 +316,7 @@ const ProductRow = memo(
 
         {/* Large Tablet Layout (lg to xl) - Further reduced columns */}
         <div
-          className="hidden lg:grid xl:hidden lg:grid-cols-[60px_2fr_90px_90px_90px_80px_80px_100px] gap-2 py-2 px-3 items-center border-b text-sm cursor-pointer hover:bg-gray-50 w-full"
+          className="hidden lg:grid xl:hidden lg:grid-cols-[60px_1.5fr_90px_90px_90px_80px_80px_100px] gap-2 py-2 px-3 items-center border-b text-sm cursor-pointer hover:bg-gray-50 w-full"
           onClick={() => onEdit(product.id)}
         >
           <div className="text-center">{product.id}</div>
@@ -410,7 +410,7 @@ const ProductRow = memo(
 
         {/* Tablet Layout (md to lg) */}
         <div
-          className="hidden md:grid lg:hidden md:grid-cols-[50px_2fr_80px_80px_80px_100px] gap-2 py-2 px-3 items-center border-b text-sm cursor-pointer hover:bg-gray-50 w-full"
+          className="hidden md:grid lg:hidden md:grid-cols-[50px_1.5fr_80px_80px_80px_100px] gap-2 py-2 px-3 items-center border-b text-sm cursor-pointer hover:bg-gray-50 w-full"
           onClick={() => onEdit(product.id)}
         >
           <div className="text-center">{product.id}</div>
@@ -1048,7 +1048,7 @@ export function ProductsTable() {
                     <div className="text-center">Odběr</div>
                     <div className="text-center">Store</div>
                     <div className="text-center">Admin</div>
-
+                    {/* <div className="text-right">Složení</div> */}
                     <div className="text-right">Akce</div>
                   </div>
                 </div>

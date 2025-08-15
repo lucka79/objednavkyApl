@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 
 export interface Ingredient {
   id: number;
@@ -82,6 +82,101 @@ export const useIngredientCategories = () => {
 
       if (error) throw error;
       return data as IngredientCategory[];
+    },
+  });
+};
+
+// Create ingredient mutation hook
+export const useCreateIngredient = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (ingredient: Omit<Ingredient, "id" | "created_at">) => {
+      const { data, error } = await supabase
+        .from("ingredients")
+        .insert([ingredient])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ingredients"] });
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+  });
+};
+
+// Update ingredient mutation hook
+export const useUpdateIngredient = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, updates }: { id: number; updates: Partial<Omit<Ingredient, "id" | "created_at">> }) => {
+      const { data, error } = await supabase
+        .from("ingredients")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ingredients"] });
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+  });
+};
+
+// Delete ingredient mutation hook
+export const useDeleteIngredient = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (ingredientId: number) => {
+      // First check if ingredient is used in any recipes
+      const { data: recipeIngredients, error: checkError } = await supabase
+        .from("recipe_ingredients")
+        .select("recipe_id")
+        .eq("ingredient_id", ingredientId);
+      
+      if (checkError) throw checkError;
+      
+      if (recipeIngredients && recipeIngredients.length > 0) {
+        throw new Error(`Ingredient is used in ${recipeIngredients.length} recipe(s) and cannot be deleted.`);
+      }
+      
+      // Check if ingredient is used in any product parts
+      const { data: productParts, error: productCheckError } = await supabase
+        .from("product_parts")
+        .select("product_id")
+        .eq("ingredient_id", ingredientId);
+      
+      if (productCheckError) throw productCheckError;
+      
+      if (productParts && productParts.length > 0) {
+        throw new Error(`Ingredient is used in ${productParts.length} product part(s) and cannot be deleted.`);
+      }
+      
+      // Delete the ingredient
+      const { error: deleteError } = await supabase
+        .from("ingredients")
+        .delete()
+        .eq("id", ingredientId);
+      
+      if (deleteError) throw deleteError;
+      
+      return ingredientId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ingredients"] });
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
     },
   });
 }; 
