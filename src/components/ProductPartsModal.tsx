@@ -1044,23 +1044,9 @@ export function ProductPartsModal({
     }
     if (part.recipe_id) {
       const recipe = recipes.find((r) => r.id === part.recipe_id);
-      if (recipe && recipe.recipe_ingredients) {
-        // Calculate the total weight of the recipe
-        let recipeWeightKg = 0;
-        recipe.recipe_ingredients.forEach((recipeIng: any) => {
-          if (recipeIng.ingredient) {
-            const ingredient = recipeIng.ingredient;
-            const weightInKg = recipeIng.quantity * ingredient.kiloPerUnit;
-            recipeWeightKg += weightInKg;
-          }
-        });
-
-        // Calculate price per kg of the recipe
-        const recipePricePerKg =
-          recipeWeightKg > 0 ? recipe.price / recipeWeightKg : 0;
-
-        // Calculate price for the actual quantity being used
-        return recipePricePerKg * part.quantity;
+      if (recipe && recipe.price) {
+        // For recipes, the price is already per kg, so just multiply by the quantity
+        return recipe.price * part.quantity;
       }
       return 0;
     }

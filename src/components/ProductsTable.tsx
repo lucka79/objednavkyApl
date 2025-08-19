@@ -33,6 +33,7 @@ import {
   FilePenLine,
   Package,
   Download,
+  Share,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -824,6 +825,156 @@ export function ProductsTable() {
     document.body.removeChild(link);
   };
 
+  // Share CSV Export Function - Product Parts
+  const exportProductPartsToCSV = async () => {
+    if (!products || !categories) return;
+
+    // Sort products by category name
+    const sortedProducts = [...products].sort((a, b) => {
+      const categoryA =
+        categories.find((c) => c.id === a.category_id)?.name || "";
+      const categoryB =
+        categories.find((c) => c.id === b.category_id)?.name || "";
+      return categoryA.localeCompare(categoryB);
+    });
+
+    // Fetch product parts data for all products
+    const csvData = await Promise.all(
+      sortedProducts.map(async (product) => {
+        const category = categories.find((c) => c.id === product.category_id);
+
+        try {
+          // Fetch product parts data
+          const { data: productParts, error } = await supabase
+            .from("product_parts")
+            .select(
+              `
+              *,
+              recipes(name),
+              ingredients(name, unit),
+              pastry:products!product_parts_pastry_id_fkey(name)
+            `
+            )
+            .eq("product_id", product.id)
+            .order("created_at", { ascending: true });
+
+          if (error) throw error;
+
+          if (productParts && productParts.length > 0) {
+            // Create a row for each product part
+            return productParts.map((part: any) => {
+              let partName = "";
+              let partType = "";
+              let unit = "";
+
+              if (part.recipe_id && part.recipes) {
+                partName = part.recipes.name;
+                partType = "Recept";
+                unit = "kg";
+              } else if (part.pastry_id && part.pastry) {
+                partName = part.pastry.name;
+                partType = "Produkt";
+                unit = "ks";
+              } else if (part.ingredient_id && part.ingredients) {
+                partName = part.ingredients.name;
+                partType = "Surovina";
+                unit = part.ingredients.unit || "kg";
+              }
+
+              return {
+                "Název produktu": product.name,
+                "Kategorie produktu": category?.name || "",
+                "ID produktu": product.id,
+                "Název části": partName,
+                "Typ části": partType,
+                Množství: part.quantity,
+                Jednotka: unit,
+                "Produkt prodejny": part.productOnly ? "Ano" : "Ne",
+              };
+            });
+          } else {
+            // Product has no parts
+            return [
+              {
+                "Název produktu": product.name,
+                "Kategorie produktu": category?.name || "",
+                "ID produktu": product.id,
+                "Název části": "",
+                "Typ části": "",
+                Množství: "",
+                Jednotka: "",
+                "Produkt prodejny": "",
+              },
+            ];
+          }
+        } catch (error) {
+          console.error(
+            `Error fetching product parts for product ${product.id}:`,
+            error
+          );
+          return [
+            {
+              "Název produktu": product.name,
+              "Kategorie produktu": category?.name || "",
+              "ID produktu": product.id,
+              "Název části": "Chyba načítání",
+              "Typ části": "",
+              Množství: "",
+              Jednotka: "",
+              "Produkt prodejny": "",
+            },
+          ];
+        }
+      })
+    );
+
+    // Flatten the array of arrays
+    const flattenedData = csvData.flat();
+
+    if (flattenedData.length === 0) {
+      toast({
+        title: "Chyba",
+        description: "Žádná data k exportu",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Convert to CSV format
+    const headers = Object.keys(flattenedData[0]);
+    const csvContent = [
+      headers.join(","),
+      ...flattenedData.map((row) =>
+        headers
+          .map((header) => {
+            const value = row[header as keyof typeof row];
+            // Escape commas and quotes in CSV values
+            return `"${String(value).replace(/"/g, '""')}"`;
+          })
+          .join(",")
+      ),
+    ].join("\n");
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `produkty_casti_export_${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Úspěch",
+      description: `Exportován ${flattenedData.length} řádek s částmi produktů`,
+    });
+  };
+
   // const { mutateAsync: updateProduct } = useUpdateProduct();
 
   // const [sorting, setSorting] = useState<SortingState>([]);
@@ -835,6 +986,7 @@ export function ProductsTable() {
   //   const category = categories?.find((c) => c.id === products.category_id);
   // const navigate = useNavigate();
   const [priceFilter, setPriceFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   // const queryClient = useQueryClient();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -884,6 +1036,24 @@ export function ProductsTable() {
           priceFilter === "all" ||
           (priceFilter === "mobile" && product.priceMobil > 0);
 
+        // Status filter - filter by store, buyer, and admin status
+        const statusMatch =
+          statusFilter === "all" ||
+          (statusFilter === "store" && product.store) ||
+          (statusFilter === "buyer" && product.buyer) ||
+          (statusFilter === "admin" && product.isAdmin) ||
+          (statusFilter === "both" && product.store && product.buyer) ||
+          (statusFilter === "storeOnly" && product.store && !product.buyer) ||
+          (statusFilter === "buyerOnly" && product.buyer && !product.store) ||
+          (statusFilter === "adminOnly" &&
+            product.isAdmin &&
+            !product.store &&
+            !product.buyer) ||
+          (statusFilter === "none" &&
+            !product.store &&
+            !product.buyer &&
+            !product.isAdmin);
+
         // Search filter - search through specific fields
         const searchLower = removeDiacritics(globalFilter.toLowerCase().trim());
         const searchMatch =
@@ -923,10 +1093,17 @@ export function ProductsTable() {
           (selectedCategory === -1 && !product.active) ||
           ((product.category_id ?? 0) === selectedCategory && product.active);
 
-        return priceMatch && searchMatch && categoryMatch;
+        return priceMatch && statusMatch && searchMatch && categoryMatch;
       }) || []
     );
-  }, [products, selectedCategory, globalFilter, priceFilter, categories]);
+  }, [
+    products,
+    selectedCategory,
+    globalFilter,
+    priceFilter,
+    statusFilter,
+    categories,
+  ]);
 
   const handleCategorySelect = (categoryId: number | null) => {
     setSelectedCategory(categoryId);
@@ -994,6 +1171,18 @@ export function ProductsTable() {
                     <SelectItem value="mobile">Mobilní cena {">"} 0</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full sm:w-auto lg:min-w-[180px]">
+                    <SelectValue placeholder="Filter statusu" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Všechny produkty</SelectItem>
+                    <SelectItem value="store">Prodejna</SelectItem>
+                    <SelectItem value="buyer">Odběratelé</SelectItem>
+                    <SelectItem value="admin">pouze Admin</SelectItem>
+                    <SelectItem value="both">Prodej a Odběr</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button
                   variant="outline"
                   onClick={exportToCSV}
@@ -1003,6 +1192,16 @@ export function ProductsTable() {
                   <Download className="h-4 w-4 mr-2" />
                   <span className="hidden lg:inline">CSV Export</span>
                   <span className="lg:hidden">Export</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={exportProductPartsToCSV}
+                  className="w-full sm:w-auto whitespace-nowrap"
+                  title="Export částí produktů do CSV"
+                >
+                  <Share className="h-4 w-4 mr-2" />
+                  <span className="hidden lg:inline">Share CSV</span>
+                  <span className="lg:hidden">Share</span>
                 </Button>
                 <Button
                   className="bg-orange-500 text-white w-full sm:w-auto whitespace-nowrap"
