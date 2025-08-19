@@ -554,8 +554,75 @@ export function ProductsTable() {
   const exportToCSV = async () => {
     if (!products || !categories) return;
 
-    // Sort products by category name
-    const sortedProducts = [...products].sort((a, b) => {
+    // Use the same filtering logic as the table
+    const filteredProductsForExport = products.filter((product: Product) => {
+      // Price filter - always apply
+      const priceMatch =
+        priceFilter === "all" ||
+        (priceFilter === "mobile" && product.priceMobil > 0);
+
+      // Status filter - filter by store, buyer, and admin status
+      const statusMatch =
+        statusFilter === "all" ||
+        (statusFilter === "store" && product.store) ||
+        (statusFilter === "buyer" && product.buyer) ||
+        (statusFilter === "admin" && product.isAdmin) ||
+        (statusFilter === "both" && product.store && product.buyer) ||
+        (statusFilter === "storeOnly" && product.store && !product.buyer) ||
+        (statusFilter === "buyerOnly" && product.buyer && !product.store) ||
+        (statusFilter === "adminOnly" &&
+          product.isAdmin &&
+          !product.store &&
+          !product.buyer) ||
+        (statusFilter === "none" &&
+          !product.store &&
+          !product.buyer &&
+          !product.isAdmin);
+
+      // Search filter - search through specific fields
+      const searchLower = removeDiacritics(globalFilter.toLowerCase().trim());
+      const searchMatch =
+        globalFilter.trim() === "" ||
+        // Search through specific product fields
+        removeDiacritics(product.name?.toLowerCase() || "").includes(
+          searchLower
+        ) ||
+        removeDiacritics(product.nameVi?.toLowerCase() || "").includes(
+          searchLower
+        ) ||
+        removeDiacritics(product.description?.toLowerCase() || "").includes(
+          searchLower
+        ) ||
+        (product.id?.toString() || "").includes(searchLower) ||
+        (product.printId?.toString() || "").includes(searchLower) ||
+        (product.price?.toString() || "").includes(searchLower) ||
+        (product.priceBuyer?.toString() || "").includes(searchLower) ||
+        (product.priceMobil?.toString() || "").includes(searchLower) ||
+        (product.vat?.toString() || "").includes(searchLower) ||
+        // Search in category name if available
+        (() => {
+          const category = categories?.find(
+            (c) => c.id === product.category_id
+          );
+          return category
+            ? removeDiacritics(category.name.toLowerCase()).includes(
+                searchLower
+              )
+            : false;
+        })();
+
+      // Category filter - only apply if there's no search term
+      const categoryMatch =
+        globalFilter.trim() !== "" ||
+        (selectedCategory === null && product.active) ||
+        (selectedCategory === -1 && !product.active) ||
+        ((product.category_id ?? 0) === selectedCategory && product.active);
+
+      return priceMatch && statusMatch && searchMatch && categoryMatch;
+    });
+
+    // Sort filtered products by category name
+    const sortedProducts = [...filteredProductsForExport].sort((a, b) => {
       const categoryA =
         categories.find((c) => c.id === a.category_id)?.name || "";
       const categoryB =
@@ -776,11 +843,13 @@ export function ProductsTable() {
         return {
           "Název produktu": product.name,
           Kategorie: category?.name || "",
+          "Celková hmotnost (kg)": totalWeight.toFixed(3),
           "Cena nákup": product.priceBuyer.toFixed(2),
           "Cena mobil": product.priceMobil.toFixed(2),
           "Cena prodej": product.price.toFixed(2),
-          Složení: elements,
           Alergeny: allergens,
+          Složení: elements,
+
           "Energie (kcal/100g)": energyPer100gKcal.toFixed(0),
           "Energie (kJ/100g)": energyPer100gKJ.toFixed(0),
           "Tuky (g/100g)": fatPer100g.toFixed(1),
@@ -790,7 +859,6 @@ export function ProductsTable() {
           "Bílkoviny (g/100g)": proteinPer100g.toFixed(1),
           "Vláknina (g/100g)": fibrePer100g.toFixed(1),
           "Sůl (g/100g)": saltPer100g.toFixed(1),
-          "Celková hmotnost (kg)": totalWeight.toFixed(3),
         };
       })
     );
@@ -815,9 +883,21 @@ export function ProductsTable() {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
+
+    // Get category name for filename
+    let categoryName = "all";
+    if (selectedCategory === null) {
+      categoryName = "vse";
+    } else if (selectedCategory === -1) {
+      categoryName = "neaktivni";
+    } else if (selectedCategory) {
+      const category = categories.find((c) => c.id === selectedCategory);
+      categoryName = category ? category.name : "unknown";
+    }
+
     link.setAttribute(
       "download",
-      `produkty_export_${new Date().toISOString().split("T")[0]}.csv`
+      `produkty_${categoryName}_${new Date().toISOString().split("T")[0]}.csv`
     );
     link.style.visibility = "hidden";
     document.body.appendChild(link);
@@ -829,8 +909,75 @@ export function ProductsTable() {
   const exportProductPartsToCSV = async () => {
     if (!products || !categories) return;
 
-    // Sort products by category name
-    const sortedProducts = [...products].sort((a, b) => {
+    // Use the same filtering logic as the table
+    const filteredProductsForExport = products.filter((product: Product) => {
+      // Price filter - always apply
+      const priceMatch =
+        priceFilter === "all" ||
+        (priceFilter === "mobile" && product.priceMobil > 0);
+
+      // Status filter - filter by store, buyer, and admin status
+      const statusMatch =
+        statusFilter === "all" ||
+        (statusFilter === "store" && product.store) ||
+        (statusFilter === "buyer" && product.buyer) ||
+        (statusFilter === "admin" && product.isAdmin) ||
+        (statusFilter === "both" && product.store && product.buyer) ||
+        (statusFilter === "storeOnly" && product.store && !product.buyer) ||
+        (statusFilter === "buyerOnly" && product.buyer && !product.store) ||
+        (statusFilter === "adminOnly" &&
+          product.isAdmin &&
+          !product.store &&
+          !product.buyer) ||
+        (statusFilter === "none" &&
+          !product.store &&
+          !product.buyer &&
+          !product.isAdmin);
+
+      // Search filter - search through specific fields
+      const searchLower = removeDiacritics(globalFilter.toLowerCase().trim());
+      const searchMatch =
+        globalFilter.trim() === "" ||
+        // Search through specific product fields
+        removeDiacritics(product.name?.toLowerCase() || "").includes(
+          searchLower
+        ) ||
+        removeDiacritics(product.nameVi?.toLowerCase() || "").includes(
+          searchLower
+        ) ||
+        removeDiacritics(product.description?.toLowerCase() || "").includes(
+          searchLower
+        ) ||
+        (product.id?.toString() || "").includes(searchLower) ||
+        (product.printId?.toString() || "").includes(searchLower) ||
+        (product.price?.toString() || "").includes(searchLower) ||
+        (product.priceBuyer?.toString() || "").includes(searchLower) ||
+        (product.priceMobil?.toString() || "").includes(searchLower) ||
+        (product.vat?.toString() || "").includes(searchLower) ||
+        // Search in category name if available
+        (() => {
+          const category = categories?.find(
+            (c) => c.id === product.category_id
+          );
+          return category
+            ? removeDiacritics(category.name.toLowerCase()).includes(
+                searchLower
+              )
+            : false;
+        })();
+
+      // Category filter - only apply if there's no search term
+      const categoryMatch =
+        globalFilter.trim() !== "" ||
+        (selectedCategory === null && product.active) ||
+        (selectedCategory === -1 && !product.active) ||
+        ((product.category_id ?? 0) === selectedCategory && product.active);
+
+      return priceMatch && statusMatch && searchMatch && categoryMatch;
+    });
+
+    // Sort filtered products by category name
+    const sortedProducts = [...filteredProductsForExport].sort((a, b) => {
       const categoryA =
         categories.find((c) => c.id === a.category_id)?.name || "";
       const categoryB =
