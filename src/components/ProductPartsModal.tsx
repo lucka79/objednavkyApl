@@ -16,7 +16,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Plus,
   Trash2,
@@ -104,6 +112,15 @@ export function ProductPartsModal({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Product diversification flags state
+  const [productDiversification, setProductDiversification] = useState({
+    baker_recipe: false,
+    pastry_recipe: false,
+    donut_recipe: false,
+    store_recipe: false,
+    non_recipe: false,
+  });
+
   // Fetch data for dropdowns
   const { data: recipesData } = useRecipes();
   const { data: ingredientsData } = useIngredients();
@@ -184,10 +201,11 @@ export function ProductPartsModal({
     }
   };
 
-  // Load existing product parts
+  // Load existing product parts and diversification flags
   useEffect(() => {
     if (open && productId) {
       loadProductParts();
+      loadProductDiversification();
     }
   }, [open, productId]);
 
@@ -388,6 +406,32 @@ export function ProductPartsModal({
     }
   };
 
+  const loadProductDiversification = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select(
+          "baker_recipe, pastry_recipe, donut_recipe, store_recipe, non_recipe"
+        )
+        .eq("id", productId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setProductDiversification({
+          baker_recipe: data.baker_recipe || false,
+          pastry_recipe: data.pastry_recipe || false,
+          donut_recipe: data.donut_recipe || false,
+          store_recipe: data.store_recipe || false,
+          non_recipe: data.non_recipe || false,
+        });
+      }
+    } catch (error) {
+      console.error("Error loading product diversification:", error);
+    }
+  };
+
   const addNewPart = () => {
     setIsPickerOpen(true);
   };
@@ -493,6 +537,20 @@ export function ProductPartsModal({
 
         if (error) throw error;
       }
+
+      // Update product diversification flags
+      const { error: diversificationError } = await supabase
+        .from("products")
+        .update({
+          baker_recipe: productDiversification.baker_recipe,
+          pastry_recipe: productDiversification.pastry_recipe,
+          donut_recipe: productDiversification.donut_recipe,
+          store_recipe: productDiversification.store_recipe,
+          non_recipe: productDiversification.non_recipe,
+        })
+        .eq("id", productId);
+
+      if (diversificationError) throw diversificationError;
 
       // Calculate composition and allergens for the product
       const ingredientsWithElements: Array<{
@@ -1045,8 +1103,52 @@ export function ProductPartsModal({
     if (part.recipe_id) {
       const recipe = recipes.find((r) => r.id === part.recipe_id);
       if (recipe && recipe.price) {
-        // For recipes, the price is already per kg, so just multiply by the quantity
-        return recipe.price * part.quantity;
+        // Calculate recipe price per kg by dividing total price by total weight
+        let recipePricePerKg = 0;
+
+        // Calculate total weight and price from recipe ingredients
+        let totalRecipeWeight = 0;
+        let totalRecipePrice = 0;
+
+        // Get recipe ingredients from the recipes data
+        const recipeIngredients = recipe.recipe_ingredients || [];
+        recipeIngredients.forEach((recipeIng: any) => {
+          if (recipeIng.ingredient_id && recipeIng.quantity > 0) {
+            const ingredient = ingredients.find(
+              (i) => i.id === recipeIng.ingredient_id
+            );
+            if (ingredient) {
+              const weightInKg = recipeIng.quantity * ingredient.kiloPerUnit;
+              totalRecipeWeight += weightInKg;
+
+              if (ingredient.price) {
+                totalRecipePrice += weightInKg * ingredient.price;
+              }
+            }
+          }
+        });
+
+        // Calculate price per kg
+        if (totalRecipeWeight > 0) {
+          recipePricePerKg = totalRecipePrice / totalRecipeWeight;
+        } else {
+          // Fallback to stored recipe price if no ingredients found
+          recipePricePerKg = recipe.price;
+        }
+
+        console.log(`=== RECIPE PART PRICE CALCULATION ===`);
+        console.log(`Recipe name: ${recipe.name}`);
+        console.log(`Total recipe price: ${totalRecipePrice} Kč`);
+        console.log(`Total recipe weight: ${totalRecipeWeight} kg`);
+        console.log(`Recipe price per kg: ${recipePricePerKg} Kč/kg`);
+        console.log(`Part quantity: ${part.quantity} kg`);
+        console.log(
+          `Calculation: ${recipePricePerKg} Kč/kg × ${part.quantity} kg = ${recipePricePerKg * part.quantity} Kč`
+        );
+        console.log(`Final price: ${recipePricePerKg * part.quantity} Kč`);
+        console.log(`=== END RECIPE PART PRICE CALCULATION ===`);
+
+        return recipePricePerKg * part.quantity;
       }
       return 0;
     }
@@ -1067,6 +1169,44 @@ export function ProductPartsModal({
     }, 0);
   };
 
+  // Handle product diversification checkbox changes
+  const handleDiversificationChange = (
+    field: keyof typeof productDiversification,
+    checked: boolean
+  ) => {
+    setProductDiversification((prev) => {
+      if (field === "non_recipe" && checked) {
+        // When non_recipe is checked, uncheck all others
+        return {
+          baker_recipe: false,
+          pastry_recipe: false,
+          donut_recipe: false,
+          store_recipe: false,
+          non_recipe: true,
+        };
+      } else if (field === "non_recipe" && !checked) {
+        // When non_recipe is unchecked, just update it
+        return {
+          ...prev,
+          non_recipe: false,
+        };
+      } else if (checked) {
+        // When any other checkbox is checked, uncheck non_recipe
+        return {
+          ...prev,
+          [field]: true,
+          non_recipe: false,
+        };
+      } else {
+        // When any other checkbox is unchecked, just update it
+        return {
+          ...prev,
+          [field]: false,
+        };
+      }
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -1076,6 +1216,95 @@ export function ProductPartsModal({
             Části produktu: {productName}
           </DialogTitle>
         </DialogHeader>
+
+        {/* Product Diversification Section */}
+        <Card className="mb-4">
+          <CardHeader>
+            <CardTitle className="text-md">Zobrazení v receptech</CardTitle>
+            <CardDescription>
+              Označte typy receptů pro tento produkt
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="baker_recipe"
+                  checked={productDiversification.baker_recipe}
+                  onCheckedChange={(checked) =>
+                    handleDiversificationChange(
+                      "baker_recipe",
+                      checked as boolean
+                    )
+                  }
+                />
+                <Label htmlFor="baker_recipe" className="text-sm">
+                  Pekaři
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="pastry_recipe"
+                  checked={productDiversification.pastry_recipe}
+                  onCheckedChange={(checked) =>
+                    handleDiversificationChange(
+                      "pastry_recipe",
+                      checked as boolean
+                    )
+                  }
+                />
+                <Label htmlFor="pastry_recipe" className="text-sm">
+                  Cukráři
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="donut_recipe"
+                  checked={productDiversification.donut_recipe}
+                  onCheckedChange={(checked) =>
+                    handleDiversificationChange(
+                      "donut_recipe",
+                      checked as boolean
+                    )
+                  }
+                />
+                <Label htmlFor="donut_recipe" className="text-sm">
+                  Koblihy
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="store_recipe"
+                  checked={productDiversification.store_recipe}
+                  onCheckedChange={(checked) =>
+                    handleDiversificationChange(
+                      "store_recipe",
+                      checked as boolean
+                    )
+                  }
+                />
+                <Label htmlFor="store_recipe" className="text-sm">
+                  Prodejny
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="non_recipe"
+                  checked={productDiversification.non_recipe}
+                  onCheckedChange={(checked) =>
+                    handleDiversificationChange(
+                      "non_recipe",
+                      checked as boolean
+                    )
+                  }
+                />
+                <Label htmlFor="non_recipe" className="text-sm">
+                  Bez receptu
+                </Label>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

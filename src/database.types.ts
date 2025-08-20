@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -919,11 +919,13 @@ export type Database = {
         Row: {
           active: boolean
           allergens: string | null
+          baker_recipe: boolean
           buyer: boolean
           category_id: number
           code: string | null
           created_at: string
           description: string | null
+          donut_recipe: boolean
           id: number
           image: string | null
           isAdmin: boolean
@@ -932,23 +934,28 @@ export type Database = {
           limit: number | null
           name: string
           nameVi: string | null
+          non_recipe: boolean
           parts: string | null
+          pastry_recipe: boolean
           price: number
           priceBuyer: number
           priceMobil: number
           printId: number
           seller_id: string | null
           store: boolean
+          store_recipe: boolean
           vat: number
         }
         Insert: {
           active?: boolean
           allergens?: string | null
+          baker_recipe?: boolean
           buyer?: boolean
           category_id?: number
           code?: string | null
           created_at?: string
           description?: string | null
+          donut_recipe?: boolean
           id?: number
           image?: string | null
           isAdmin?: boolean
@@ -957,23 +964,28 @@ export type Database = {
           limit?: number | null
           name: string
           nameVi?: string | null
+          non_recipe?: boolean
           parts?: string | null
+          pastry_recipe?: boolean
           price?: number
           priceBuyer?: number
           priceMobil?: number
           printId?: number
           seller_id?: string | null
           store?: boolean
+          store_recipe?: boolean
           vat?: number
         }
         Update: {
           active?: boolean
           allergens?: string | null
+          baker_recipe?: boolean
           buyer?: boolean
           category_id?: number
           code?: string | null
           created_at?: string
           description?: string | null
+          donut_recipe?: boolean
           id?: number
           image?: string | null
           isAdmin?: boolean
@@ -982,13 +994,16 @@ export type Database = {
           limit?: number | null
           name?: string
           nameVi?: string | null
+          non_recipe?: boolean
           parts?: string | null
+          pastry_recipe?: boolean
           price?: number
           priceBuyer?: number
           priceMobil?: number
           printId?: number
           seller_id?: string | null
           store?: boolean
+          store_recipe?: boolean
           vat?: number
         }
         Relationships: [
@@ -1395,6 +1410,84 @@ export type Database = {
           },
         ]
       }
+      transfer_items: {
+        Row: {
+          created_at: string
+          id: number
+          ingredient_id: number | null
+          quantity: number
+          transfer_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          ingredient_id?: number | null
+          quantity?: number
+          transfer_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          ingredient_id?: number | null
+          quantity?: number
+          transfer_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_items_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_items_transfer_id_fkey"
+            columns: ["transfer_id"]
+            isOneToOne: false
+            referencedRelation: "transfers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transfers: {
+        Row: {
+          created_at: string
+          date: string
+          id: number
+          receiver_id: string
+          sender_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: number
+          receiver_id: string
+          sender_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: number
+          receiver_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfers_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfers_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1403,8 +1496,8 @@ export type Database = {
       cleanup_existing_duplicate_receipts: {
         Args: Record<PropertyKey, never>
         Returns: {
-          cleaned_receipts: number
           cleaned_receipt_items: number
+          cleaned_receipts: number
         }[]
       }
       cleanup_expired_device_triggers: {
