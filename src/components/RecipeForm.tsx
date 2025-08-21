@@ -31,12 +31,23 @@ import {
   RecipeWithCategoryAndIngredients,
 } from "@/hooks/useRecipes";
 import { Ingredient, useIngredients } from "@/hooks/useIngredients";
-import { Save, X, Plus, Trash2, FileText, Copy } from "lucide-react";
+import {
+  Save,
+  X,
+  Plus,
+  Trash2,
+  FileText,
+  Copy,
+  Package,
+  Printer,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRef } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { detectAllergens } from "@/utils/allergenDetection";
 import { removeDiacritics } from "@/utils/removeDiacritics";
+import { supabase } from "@/lib/supabase";
+import { Product } from "types";
 
 interface RecipeFormProps {
   open: boolean;
@@ -191,6 +202,10 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
   >([]);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingIngredients, setLoadingIngredients] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [productsUsingRecipe, setProductsUsingRecipe] = useState<
+    (Product & { usedQuantity: number })[]
+  >([]);
   const isEditMode = Boolean(initialRecipe);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
 
@@ -202,9 +217,12 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
         setFormData({ ...rest });
         // Fetch existing ingredients for the recipe
         loadRecipeIngredients(initialRecipe.id);
+        // Load products that use this recipe
+        loadProductsUsingRecipe(initialRecipe.id);
       } else {
         setFormData(initialFormData);
         setRecipeIngredients([]);
+        setProductsUsingRecipe([]);
       }
     }
   }, [open, initialRecipe]);
@@ -232,6 +250,68 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
       });
     } finally {
       setLoadingIngredients(false);
+    }
+  };
+
+  // Load products that use this recipe
+  const loadProductsUsingRecipe = async (recipeId: number) => {
+    setLoadingProducts(true);
+    try {
+      const { data: productParts, error } = await supabase
+        .from("product_parts")
+        .select(
+          `
+          product_id,
+          quantity,
+          products!product_parts_product_id_fkey (
+            id,
+            name,
+            code,
+            price,
+            priceMobil,
+            priceBuyer,
+            active,
+            store,
+            buyer,
+            category_id,
+            description,
+            image
+          )
+        `
+        )
+        .eq("recipe_id", recipeId)
+        .not("products!product_parts_product_id_fkey", "is", null);
+
+      if (error) throw error;
+
+      if (productParts && productParts.length > 0) {
+        const productsWithQuantity = productParts
+          .map((part) => {
+            const product = part.products as unknown as Product;
+            return {
+              ...product,
+              usedQuantity: part.quantity,
+            };
+          })
+          .filter(
+            (product): product is Product & { usedQuantity: number } =>
+              product !== null && "name" in product
+          )
+          .sort((a, b) => a.name.localeCompare(b.name, "cs"));
+
+        setProductsUsingRecipe(productsWithQuantity);
+      } else {
+        setProductsUsingRecipe([]);
+      }
+    } catch (error) {
+      console.error("Failed to load products using recipe:", error);
+      toast({
+        title: "Chyba",
+        description: "Nepodařilo se načíst produkty používající tento recept",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingProducts(false);
     }
   };
 
@@ -500,6 +580,276 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
       .sort((a, b) => b.value - a.value);
   };
 
+  const handlePrint = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${formData.name || "Recept"}</title>
+          <style>
+            @page { size: A4; margin: 10px; }
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+            .header { text-align: center; margin-bottom: 20px; }
+            .section { margin-bottom: 30px; }
+            .section-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+            .ingredient-row { display: flex; justify-content: space-between; padding: 5px 0; }
+            .total-row { font-weight: bold; border-top: 2px solid #000; padding-top: 10px; }
+            .allergens { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+            .allergen-badge { padding: 4px 8px; border-radius: 4px; background: #f0f0f0; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${formData.name || "Recept"}</h1>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Základní informace</div>
+            <table>
+              <tr>
+                <td>Kategorie:</td>
+                <td>${categories.find((c) => c.id === formData.category_id)?.name || "-"}</td>
+              </tr>
+              <tr>
+                <td>Typ:</td>
+                <td>${
+                  [
+                    formData.baker && "Pekař",
+                    formData.pastry && "Cukrář",
+                    formData.donut && "Donut",
+                    formData.store && "Prodejna",
+                    formData.test && "Test",
+                  ]
+                    .filter(Boolean)
+                    .join(", ") || "-"
+                }</td>
+              </tr>
+            </table>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Suroviny</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Surovina</th>
+                  <th>Množství</th>
+                  <th>Jednotka</th>
+                  <th>Cena</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${recipeIngredients
+                  .slice()
+                  .sort((a, b) => {
+                    const ingredientA = ingredients.find(
+                      (ing) => ing.id === a.ingredient_id
+                    );
+                    const ingredientB = ingredients.find(
+                      (ing) => ing.id === b.ingredient_id
+                    );
+
+                    // Move ingredients with unit "L" or "l" to bottom
+                    const isLiterA = ingredientA?.unit?.toLowerCase() === "l";
+                    const isLiterB = ingredientB?.unit?.toLowerCase() === "l";
+
+                    if (isLiterA && !isLiterB) return 1;
+                    if (!isLiterA && isLiterB) return -1;
+
+                    // Sort by quantity (descending) within the same unit type
+                    return b.quantity - a.quantity;
+                  })
+                  .map((recipeIng) => {
+                    const ingredient = ingredients.find(
+                      (ing) => ing.id === recipeIng.ingredient_id
+                    );
+                    if (!ingredient) return "";
+                    return `
+                    <tr>
+                      <td>${ingredient.name}</td>
+                      <td>${recipeIng.quantity}${
+                        ingredient.unit === "ks"
+                          ? ` (${(recipeIng.quantity * ingredient.kiloPerUnit).toFixed(3)} kg)`
+                          : ""
+                      }</td>
+                      <td>${ingredient.unit}</td>
+                      <td>${(recipeIng.quantity * ingredient.kiloPerUnit * (ingredient.price || 0)).toFixed(2)} Kč</td>
+                    </tr>
+                  `;
+                  })
+                  .join("")}
+                <tr class="total-row">
+                  <td>Celkem:</td>
+                  <td>${recipeIngredients.reduce((sum, ing) => sum + ing.quantity, 0).toFixed(3)}${
+                    recipeIngredients.some((ing) => {
+                      const ingredient = ingredients.find(
+                        (i) => i.id === ing.ingredient_id
+                      );
+                      return ingredient?.unit === "ks";
+                    })
+                      ? ` (${recipeIngredients
+                          .reduce((sum, ing) => {
+                            const ingredient = ingredients.find(
+                              (i) => i.id === ing.ingredient_id
+                            );
+                            return (
+                              sum +
+                              ing.quantity * (ingredient?.kiloPerUnit || 0)
+                            );
+                          }, 0)
+                          .toFixed(3)} kg)`
+                      : ""
+                  }</td>
+                  <td></td>
+                  <td>${totalPrice.toFixed(2)} Kč</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Složení výrobku</div>
+            <div style="padding: 10px; background: #f9f9f9; border-radius: 4px; line-height: 1.5;">
+              ${recipeIngredients
+                .map((recipeIng) => {
+                  const ingredient = ingredients.find(
+                    (ing) => ing.id === recipeIng.ingredient_id
+                  );
+                  return ingredient?.element || "";
+                })
+                .filter(Boolean)
+                .join(", ")}
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Alergeny</div>
+            <div class="allergens">
+              ${recipeAllergens
+                .map(
+                  (allergen) => `
+                <span class="allergen-badge">${allergen.name}</span>
+              `
+                )
+                .join("")}
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Nutriční hodnoty (na 100g)</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+              <table>
+                <tr>
+                  <td>Energie:</td>
+                  <td>${
+                    nutritionalTotals.totalWeightKg > 0
+                      ? `${((nutritionalTotals.totalKJ / nutritionalTotals.totalWeightKg) * 0.1).toFixed(0)} KJ / 
+                       ${((nutritionalTotals.totalKcal / nutritionalTotals.totalWeightKg) * 0.1).toFixed(0)} Kcal`
+                      : "0 KJ / 0 Kcal"
+                  }</td>
+                </tr>
+                <tr>
+                  <td>Tuky:</td>
+                  <td>${
+                    nutritionalTotals.totalWeightKg > 0
+                      ? `${((nutritionalTotals.totalFat / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
+                      : "0.0 g"
+                  }</td>
+                </tr>
+                <tr>
+                  <td>Sacharidy:</td>
+                  <td>${
+                    nutritionalTotals.totalWeightKg > 0
+                      ? `${((nutritionalTotals.totalCarbohydrate / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
+                      : "0.0 g"
+                  }</td>
+                </tr>
+              </table>
+              <table>
+                <tr>
+                  <td>Bílkoviny:</td>
+                  <td>${
+                    nutritionalTotals.totalWeightKg > 0
+                      ? `${((nutritionalTotals.totalProtein / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
+                      : "0.0 g"
+                  }</td>
+                </tr>
+                <tr>
+                  <td>Sůl:</td>
+                  <td>${
+                    nutritionalTotals.totalWeightKg > 0
+                      ? `${((nutritionalTotals.totalSalt / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
+                      : "0.0 g"
+                  }</td>
+                </tr>
+                <tr>
+                  <td>Celková hmotnost:</td>
+                  <td>${nutritionalTotals.totalWeightKg.toFixed(3)} kg</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Proces</div>
+            <table>
+              ${formData.baking ? `<tr><td>Pečení:</td><td>${formData.baking}</td></tr>` : ""}
+              ${formData.dough ? `<tr><td>Těsto:</td><td>${formData.dough}</td></tr>` : ""}
+              ${formData.stir ? `<tr><td>Míchání:</td><td>${formData.stir}</td></tr>` : ""}
+              ${formData.water ? `<tr><td>Voda:</td><td>${formData.water}</td></tr>` : ""}
+              ${formData.note ? `<tr><td>Poznámka:</td><td>${formData.note}</td></tr>` : ""}
+            </table>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Produkty používající tento recept</div>
+            ${
+              productsUsingRecipe.length > 0
+                ? `
+              <table>
+                <thead>
+                  <tr>
+                    <th>Název produktu</th>
+                    <th>Použité množství</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${productsUsingRecipe
+                    .map(
+                      (product) => `
+                    <tr>
+                      <td>${product.name}</td>
+                      <td>${product.usedQuantity}</td>
+                      <td>${product.active ? "Aktivní" : "Neaktivní"}</td>
+                    </tr>
+                  `
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            `
+                : `
+              <p>Žádné produkty nepoužívají tento recept.</p>
+            `
+            }
+          </div>
+
+          <div style="text-align: right; margin-top: 20px; font-size: 12px; color: #666;">
+            Vytištěno: ${new Date().toLocaleString()}
+          </div>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -593,14 +943,18 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto print:max-h-none print:overflow-visible print:relative print:!block print:!top-0 print:!translate-y-0 print:m-0 print:rounded-none print:min-h-0 [&_[role='dialog']]:print:!block [&_[role='dialog']]:print:!relative [&_[role='dialog']]:print:!transform-none [&>[data-state]]:print:bg-transparent">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Save className="h-5 w-5" />
+            <Save className="h-5 w-5 print:hidden" />
+            <Printer className="h-5 w-5 hidden print:inline" />
             {isEditMode ? "Upravit recept" : "Nový recept"}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-6 print:!block print:!visible"
+        >
           <div className="relative">
             {/* Colored stripes for multiple selections */}
             {getBorderInfo().length > 0 && (
@@ -737,10 +1091,9 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
                 Suroviny
                 <Button
                   type="button"
-                  variant="outline"
                   size="sm"
                   onClick={() => setIsPickerOpen(true)}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white"
                 >
                   <Plus className="h-4 w-4" />
                   Přidat surovinu
@@ -982,7 +1335,11 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
                       return ingredient &&
                         ingredient.element &&
                         ingredient.element.trim() !== ""
-                        ? { ingredient, quantity: recipeIng.quantity }
+                        ? {
+                            ingredient,
+                            quantity:
+                              recipeIng.quantity * ingredient.kiloPerUnit, // Convert to kg for proper sorting
+                          }
                         : null;
                     })
                     .filter(
@@ -1441,6 +1798,84 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
             </CardContent>
           </Card>
 
+          {/* Products Using This Recipe Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Produkty využívající tento recept
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 bg-purple-50/50 rounded-lg p-4 border border-purple-100">
+              {loadingProducts ? (
+                <div className="text-center py-4">
+                  <p className="text-muted-foreground">Načítání produktů...</p>
+                </div>
+              ) : productsUsingRecipe.length === 0 ? (
+                <div className="text-center py-4">
+                  <p className="text-muted-foreground">
+                    Nenalezeny žádné produkty, které používají tento recept.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="text-sm text-muted-foreground mb-3">
+                    Nalezeno {productsUsingRecipe.length} produkt
+                    {productsUsingRecipe.length === 1
+                      ? ""
+                      : productsUsingRecipe.length < 5
+                        ? "y"
+                        : "ů"}{" "}
+                    používajících tento recept:
+                  </div>
+                  <div className="grid gap-2">
+                    {productsUsingRecipe.map((product) => (
+                      <div
+                        key={product.id}
+                        className="flex items-center justify-between p-3 bg-white/80 rounded border border-purple-200 shadow-sm"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex-shrink-0">
+                            <div
+                              className={`w-3 h-3 rounded-full ${
+                                product.active ? "bg-green-500" : "bg-red-500"
+                              }`}
+                            />
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              {product.name}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              Použité množství: {product.usedQuantity}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {product.store && (
+                            <span className="inline-flex items-center px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                              Prodejna
+                            </span>
+                          )}
+                          {product.buyer && (
+                            <span className="inline-flex items-center px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                              Odběratel
+                            </span>
+                          )}
+                          {!product.active && (
+                            <span className="inline-flex items-center px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">
+                              Neaktivní
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Proces</CardTitle>
@@ -1496,28 +1931,40 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
             </CardContent>
           </Card>
 
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-between gap-3">
             <Button
               type="button"
               variant="outline"
-              onClick={onClose}
-              disabled={isSaving}
+              onClick={handlePrint}
+              className="print:hidden"
             >
-              <X className="h-4 w-4 mr-2" />
-              Zrušit
+              <Printer className="h-4 w-4 mr-2" />
+              Vytisknout
             </Button>
-            <Button
-              type="submit"
-              disabled={isSaving}
-              className="bg-orange-600 hover:bg-orange-700"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {isSaving
-                ? "Ukládám..."
-                : isEditMode
-                  ? "Uložit změny"
-                  : "Vytvořit"}
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={isSaving}
+                className="print:hidden"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Zrušit
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSaving}
+                className="bg-orange-600 hover:bg-orange-700 print:hidden"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {isSaving
+                  ? "Ukládám..."
+                  : isEditMode
+                    ? "Uložit změny"
+                    : "Vytvořit"}
+              </Button>
+            </div>
           </div>
         </form>
         <IngredientPickerModal

@@ -572,9 +572,11 @@ export function ProductPartsModal({
             ingredient.element &&
             ingredient.element.trim() !== ""
           ) {
+            // Convert quantity to kg for proper sorting
+            const quantityInKg = part.quantity * ingredient.kiloPerUnit;
             ingredientsWithElements.push({
               ingredient,
-              quantity: part.quantity,
+              quantity: quantityInKg,
             });
           }
         }
@@ -589,10 +591,14 @@ export function ProductPartsModal({
                 recipeIng.ingredient.element &&
                 recipeIng.ingredient.element.trim() !== ""
               ) {
-                const usedQuantity = recipeIng.quantity * part.quantity;
+                // Convert quantity to kg for proper sorting
+                const usedQuantityInKg =
+                  recipeIng.quantity *
+                  part.quantity *
+                  recipeIng.ingredient.kiloPerUnit;
                 ingredientsWithElements.push({
                   ingredient: recipeIng.ingredient,
-                  quantity: usedQuantity,
+                  quantity: usedQuantityInKg,
                 });
               }
             });
@@ -628,9 +634,12 @@ export function ProductPartsModal({
                     ingredient.element &&
                     ingredient.element.trim() !== ""
                   ) {
+                    // Convert quantity to kg for proper sorting
+                    const quantityInKg =
+                      subPart.quantity * part.quantity * ingredient.kiloPerUnit;
                     ingredientsWithElements.push({
                       ingredient,
-                      quantity: subPart.quantity * part.quantity,
+                      quantity: quantityInKg,
                     });
                   }
                 }
@@ -648,11 +657,15 @@ export function ProductPartsModal({
                         recipeIng.ingredient.element &&
                         recipeIng.ingredient.element.trim() !== ""
                       ) {
-                        const usedQuantity =
-                          recipeIng.quantity * subPart.quantity * part.quantity;
+                        // Convert quantity to kg for proper sorting
+                        const usedQuantityInKg =
+                          recipeIng.quantity *
+                          subPart.quantity *
+                          part.quantity *
+                          recipeIng.ingredient.kiloPerUnit;
                         ingredientsWithElements.push({
                           ingredient: recipeIng.ingredient,
-                          quantity: usedQuantity,
+                          quantity: usedQuantityInKg,
                         });
                       }
                     }
@@ -860,9 +873,11 @@ export function ProductPartsModal({
             ingredient.element &&
             ingredient.element.trim() !== ""
           ) {
+            // Convert quantity to kg for proper sorting
+            const quantityInKg = part.quantity * ingredient.kiloPerUnit;
             ingredientsWithElements.push({
               ingredient,
-              quantity: part.quantity,
+              quantity: quantityInKg,
             });
           }
         }
@@ -877,10 +892,14 @@ export function ProductPartsModal({
                 recipeIng.ingredient.element &&
                 recipeIng.ingredient.element.trim() !== ""
               ) {
-                const usedQuantity = recipeIng.quantity * part.quantity;
+                // Convert quantity to kg for proper sorting
+                const usedQuantityInKg =
+                  recipeIng.quantity *
+                  part.quantity *
+                  recipeIng.ingredient.kiloPerUnit;
                 ingredientsWithElements.push({
                   ingredient: recipeIng.ingredient,
-                  quantity: usedQuantity,
+                  quantity: usedQuantityInKg,
                 });
               }
             });
@@ -911,12 +930,16 @@ export function ProductPartsModal({
                   recipeIng.ingredient.element &&
                   recipeIng.ingredient.element.trim() !== ""
                 ) {
-                  const usedQuantity =
-                    (recipeIng.quantity * part.quantity * recipeQuantityRatio) /
+                  // Convert quantity to kg for proper sorting
+                  const usedQuantityInKg =
+                    (recipeIng.quantity *
+                      part.quantity *
+                      recipeQuantityRatio *
+                      recipeIng.ingredient.kiloPerUnit) /
                     (productRecipe.quantity || 1);
                   ingredientsWithElements.push({
                     ingredient: recipeIng.ingredient,
-                    quantity: usedQuantity,
+                    quantity: usedQuantityInKg,
                   });
                 }
               });
