@@ -35,7 +35,11 @@ import {
   updateCrateSmall,
   updateNote,
   updateSupplier,
+  updateUserGeocoding,
 } from "@/hooks/useProfiles";
+import { geocodingService } from "@/lib/geocoding";
+import { MapPin } from "lucide-react";
+import { useState } from "react";
 
 interface EditUserFormProps {
   user: any;
@@ -57,6 +61,10 @@ const formSchema = z.object({
   email: z.string().email("Invalid email").optional().or(z.literal("")),
   ico: z.string().optional(),
   address: z.string().optional(),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
+  formatted_address: z.string().optional(),
+  place_id: z.string().optional(),
   note: z.string().optional(),
   role: z.enum(roles, {
     required_error: "Please select a role",
@@ -75,6 +83,7 @@ const formSchema = z.object({
 
 export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
   const { toast } = useToast();
+  const [isGeocoding, setIsGeocoding] = useState(false);
 
   // Mutation hooks
   const updateProfileMutation = updateProfile();
@@ -89,6 +98,7 @@ export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
   const updateCrateSmallMutation = updateCrateSmall();
   const updateNoteMutation = updateNote();
   const updateSupplierMutation = updateSupplier();
+  const updateGeocodingMutation = updateUserGeocoding();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -98,6 +108,10 @@ export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
       email: user.email || "",
       ico: user.ico || "",
       address: user.address || "",
+      lat: user.lat || undefined,
+      lng: user.lng || undefined,
+      formatted_address: user.formatted_address || "",
+      place_id: user.place_id || "",
       note: user.note || "",
       role: user.role || "user",
       paid_by: user.paid_by || "-",
@@ -110,6 +124,53 @@ export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
       supplier: user.supplier || false,
     },
   });
+
+  // Geocoding function
+  const handleGeocodeAddress = async () => {
+    const address = form.getValues("address");
+    if (!address || address.trim() === "") {
+      toast({
+        title: "Error",
+        description: "Please enter an address first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeocoding(true);
+    try {
+      const result = await geocodingService.geocodeAddress(address);
+
+      if ("error" in result) {
+        toast({
+          title: "Geocoding Error",
+          description: result.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update form fields with geocoding results
+      form.setValue("lat", result.lat);
+      form.setValue("lng", result.lng);
+      form.setValue("formatted_address", result.formatted_address);
+      form.setValue("place_id", result.place_id);
+
+      toast({
+        title: "Success",
+        description: `Address geocoded: ${result.formatted_address}`,
+      });
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to geocode address",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
@@ -187,6 +248,22 @@ export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
         id: user.id,
         supplier: values.supplier,
       });
+
+      // Update geocoding data if coordinates are present
+      if (
+        values.lat &&
+        values.lng &&
+        values.formatted_address &&
+        values.place_id
+      ) {
+        await updateGeocodingMutation.mutateAsync({
+          id: user.id,
+          lat: values.lat,
+          lng: values.lng,
+          formatted_address: values.formatted_address,
+          place_id: values.place_id,
+        });
+      }
 
       toast({
         title: "Success",
@@ -364,13 +441,104 @@ export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Address</FormLabel>
-              <FormControl>
-                <Input {...field} placeholder="Enter address..." />
-              </FormControl>
+              <div className="flex gap-2">
+                <FormControl>
+                  <Input {...field} placeholder="Enter address..." />
+                </FormControl>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGeocodeAddress}
+                  disabled={isGeocoding || !field.value}
+                  className="flex-shrink-0"
+                >
+                  {isGeocoding ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                  ) : (
+                    <MapPin className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
               <FormMessage />
             </FormItem>
           )}
         />
+
+        {/* Geocoding Results */}
+        {(form.watch("lat") || form.watch("lng")) && (
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="lat"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Latitude</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="number"
+                      step="any"
+                      placeholder="Latitude"
+                      value={field.value || ""}
+                      onChange={(e) =>
+                        field.onChange(
+                          e.target.value ? Number(e.target.value) : undefined
+                        )
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="lng"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Longitude</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="number"
+                      step="any"
+                      placeholder="Longitude"
+                      value={field.value || ""}
+                      onChange={(e) =>
+                        field.onChange(
+                          e.target.value ? Number(e.target.value) : undefined
+                        )
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        )}
+
+        {form.watch("formatted_address") && (
+          <FormField
+            control={form.control}
+            name="formatted_address"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Formatted Address</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    placeholder="Formatted address from Google..."
+                    readOnly
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <FormField
           control={form.control}

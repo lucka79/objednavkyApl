@@ -1,5 +1,5 @@
 import { useAuthStore } from "../lib/supabase";
-import { useUsers } from "@/hooks/useProfiles";
+import { useUsers, updateUserGeocoding } from "@/hooks/useProfiles";
 import { useState, useMemo, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,7 +10,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, ChevronDown, Download } from "lucide-react";
+import { Edit, Trash2, ChevronDown, Download, MapPin } from "lucide-react";
+import { geocodingService } from "@/lib/geocoding";
+import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -50,6 +52,10 @@ const exportToCSV = (users: any[], showEmail: boolean) => {
     ...(showEmail ? ["Email"] : []),
     "Phone",
     "Address",
+    "Latitude",
+    "Longitude",
+    "Formatted Address",
+    "Place ID",
     "OZ",
     "OZ New",
     "MO Partners",
@@ -69,6 +75,10 @@ const exportToCSV = (users: any[], showEmail: boolean) => {
     ...(showEmail ? [user.email || ""] : []),
     user.phone || "",
     user.address || "",
+    user.lat || "",
+    user.lng || "",
+    user.formatted_address || "",
+    user.place_id || "",
     user.oz ? "✅" : "❌",
     user.oz_new ? "✅" : "❌",
     user.mo_partners ? "✅" : "❌",
@@ -107,6 +117,8 @@ export function AdminTable() {
   const user = useAuthStore((state) => state.user);
   const { data: users, isLoading } = useUsers();
   const deleteUserMutation = deleteUser();
+  const geocodingMutation = updateUserGeocoding();
+  const { toast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("mobil");
@@ -117,6 +129,56 @@ export function AdminTable() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showEmail, setShowEmail] = useState(false);
+  const [geocodingLoading, setGeocodingLoading] = useState<string | null>(null);
+
+  // Geocoding function
+  const handleGeocodeAddress = async (userId: string, address: string) => {
+    if (!address || address.trim() === "") {
+      toast({
+        title: "Error",
+        description: "No address provided for geocoding",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setGeocodingLoading(userId);
+
+    try {
+      const result = await geocodingService.geocodeAddress(address);
+
+      if ("error" in result) {
+        toast({
+          title: "Geocoding Error",
+          description: result.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await geocodingMutation.mutateAsync({
+        id: userId,
+        lat: result.lat,
+        lng: result.lng,
+        formatted_address: result.formatted_address,
+        place_id: result.place_id,
+      });
+
+      toast({
+        title: "Success",
+        description: `Address geocoded successfully: ${result.formatted_address}`,
+      });
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to geocode address",
+        variant: "destructive",
+      });
+    } finally {
+      setGeocodingLoading(null);
+    }
+  };
 
   // Memoized search function for better performance
   const searchUsers = useCallback((users: any[], searchTerm: string) => {
@@ -392,6 +454,59 @@ export function AdminTable() {
             <Download className="h-4 w-4" />
             Export CSV
           </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              const usersWithAddresses = filteredUsers.filter(
+                (user) => user.address && !user.lat
+              );
+              if (usersWithAddresses.length === 0) {
+                toast({
+                  title: "No addresses to geocode",
+                  description:
+                    "All visible users already have geocoded addresses or no addresses",
+                });
+                return;
+              }
+
+              let successCount = 0;
+              let errorCount = 0;
+
+              for (const user of usersWithAddresses) {
+                try {
+                  const result = await geocodingService.geocodeAddress(
+                    user.address
+                  );
+                  if (!("error" in result)) {
+                    await geocodingMutation.mutateAsync({
+                      id: user.id,
+                      lat: result.lat,
+                      lng: result.lng,
+                      formatted_address: result.formatted_address,
+                      place_id: result.place_id,
+                    });
+                    successCount++;
+                  } else {
+                    errorCount++;
+                  }
+                } catch (error) {
+                  errorCount++;
+                }
+              }
+
+              toast({
+                title: "Bulk geocoding completed",
+                description: `Successfully geocoded ${successCount} addresses${errorCount > 0 ? `, ${errorCount} failed` : ""}`,
+              });
+            }}
+            className="flex items-center gap-1 bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
+            disabled={geocodingLoading !== null}
+          >
+            <MapPin className="h-4 w-4" />
+            Geocode All
+          </Button>
         </div>
 
         {/* Table */}
@@ -406,6 +521,7 @@ export function AdminTable() {
                 )}
                 <th className="text-left p-3 font-medium">Phone</th>
                 <th className="text-left p-3 font-medium">Address</th>
+                <th className="text-left p-3 font-medium">Location</th>
                 <th className="text-left p-3 font-medium">OZ</th>
                 <th className="text-left p-3 font-medium">OZ New</th>
                 <th className="text-left p-3 font-medium">MO Partners</th>
@@ -430,6 +546,22 @@ export function AdminTable() {
                   {showEmail && <td className="p-3">{user.email || "-"}</td>}
                   <td className="p-3">{user.phone || "-"}</td>
                   <td className="p-3">{user.address || "-"}</td>
+                  <td className="p-3">
+                    {user.lat && user.lng ? (
+                      <div className="flex items-center gap-1">
+                        <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">
+                          ✓ Geocoded
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          ({user.lat.toFixed(4)}, {user.lng.toFixed(4)})
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-800">
+                        Not geocoded
+                      </span>
+                    )}
+                  </td>
                   <td className="p-3">
                     <span
                       className={`px-2 py-1 rounded text-xs ${user.oz ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}
@@ -483,6 +615,23 @@ export function AdminTable() {
                         }}
                       >
                         <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="hover:text-green-600"
+                        disabled={!user.address || geocodingLoading === user.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleGeocodeAddress(user.id, user.address);
+                        }}
+                        title="Geocode address"
+                      >
+                        {geocodingLoading === user.id ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
+                        ) : (
+                          <MapPin className="h-4 w-4" />
+                        )}
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>

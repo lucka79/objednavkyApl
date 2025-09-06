@@ -380,3 +380,37 @@ export const useSupplierUsers = () => {
     },
   });
 };
+
+// Geocoding mutation
+export const updateUserGeocoding = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ 
+      id, 
+      lat, 
+      lng, 
+      formatted_address, 
+      place_id 
+    }: { 
+      id: string; 
+      lat: number; 
+      lng: number; 
+      formatted_address: string; 
+      place_id: string; 
+    }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ 
+          lat, 
+          lng, 
+          formatted_address, 
+          place_id 
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+};

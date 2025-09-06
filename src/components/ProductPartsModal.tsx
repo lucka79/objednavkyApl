@@ -61,6 +61,7 @@ interface ProductPart {
   ingredient_id?: number | null;
   quantity: number;
   productOnly?: boolean | null;
+  bakerOnly?: boolean | null;
 }
 
 interface ProductPartsModalProps {
@@ -448,6 +449,7 @@ export function ProductPartsModal({
       ingredient_id: type === "ingredient" ? id : null,
       quantity: quantity,
       productOnly: false,
+      bakerOnly: false,
     };
     setProductParts([...productParts, newPart]);
   };
@@ -529,6 +531,7 @@ export function ProductPartsModal({
           ingredient_id: part.ingredient_id,
           quantity: part.quantity,
           productOnly: part.productOnly || false,
+          bakerOnly: part.bakerOnly || false,
         }));
 
         const { error } = await supabase
@@ -753,14 +756,14 @@ export function ProductPartsModal({
           );
         };
 
-        // Deduplicate elements using normalization while preserving quantity order
+        // Deduplicate elements using normalization while preserving part type order
         const getDeduplicatedElements = (
           ingredients: Array<{ ingredient: any; quantity: number }>
         ) => {
           // Create a map to track unique normalized elements and keep original text
           const elementMap = new Map<string, string>();
-          const elementCounts = new Map<string, number>();
           const elementTotalQuantities = new Map<string, number>();
+          const elementTypePriorities = new Map<string, number>();
 
           ingredients.forEach(({ ingredient, quantity }) => {
             const originalElement = ingredient.element.trim();
@@ -772,14 +775,39 @@ export function ProductPartsModal({
               (elementTotalQuantities.get(normalizedElement) || 0) + quantity
             );
 
-            // Count occurrences of each normalized element
-            elementCounts.set(
-              normalizedElement,
-              (elementCounts.get(normalizedElement) || 0) + 1
-            );
+            // Determine type priority for this ingredient
+            const getTypePriority = (ingredient: any) => {
+              // Check if this ingredient comes from a recipe part
+              const isFromRecipe = productParts.some(
+                (part) =>
+                  part.recipe_id &&
+                  !part.productOnly &&
+                  recipes
+                    .find((r) => r.id === part.recipe_id)
+                    ?.recipe_ingredients?.some(
+                      (recipeIng: any) =>
+                        recipeIng.ingredient?.name === ingredient.name
+                    )
+              );
 
-            // Keep the first occurrence of each normalized element
-            if (!elementMap.has(normalizedElement)) {
+              // Check if this ingredient comes from a product part
+              const isFromProduct = productParts.some(
+                (part) => part.pastry_id && !part.productOnly
+              );
+
+              if (isFromRecipe) return 1; // Recipe parts first
+              if (isFromProduct) return 2; // Product parts second
+              return 3; // Ingredient parts last
+            };
+
+            const typePriority = getTypePriority(ingredient);
+
+            // Keep the highest priority (lowest number) for each normalized element
+            if (
+              !elementTypePriorities.has(normalizedElement) ||
+              typePriority < elementTypePriorities.get(normalizedElement)!
+            ) {
+              elementTypePriorities.set(normalizedElement, typePriority);
               elementMap.set(normalizedElement, originalElement);
             }
           });
@@ -787,23 +815,42 @@ export function ProductPartsModal({
           // Get unique elements preserving original formatting
           const uniqueElements = Array.from(elementMap.values());
 
-          // Sort elements by total quantity (descending) and then alphabetically
+          // Sort elements by type priority first, then by total quantity (descending)
           const sortedElements = uniqueElements.sort((a, b) => {
             const aNormalized = normalizeElement(a);
             const bNormalized = normalizeElement(b);
+            const aTypePriority = elementTypePriorities.get(aNormalized) || 3;
+            const bTypePriority = elementTypePriorities.get(bNormalized) || 3;
             const aQuantity = elementTotalQuantities.get(aNormalized) || 0;
             const bQuantity = elementTotalQuantities.get(bNormalized) || 0;
 
-            // First sort by total quantity (descending)
+            // First sort by type priority (ascending - recipe first)
+            if (aTypePriority !== bTypePriority) {
+              return aTypePriority - bTypePriority;
+            }
+
+            // Then sort by total quantity (descending)
             if (aQuantity !== bQuantity) {
               return bQuantity - aQuantity;
             }
 
-            // Then sort alphabetically
+            // Finally sort alphabetically
             return aNormalized.localeCompare(bNormalized);
           });
 
-          return sortedElements.join(", ");
+          // Remove duplicates from behind (keep first occurrence, remove later duplicates)
+          const finalElements: string[] = [];
+          const seenNormalized = new Set<string>();
+
+          for (const element of sortedElements) {
+            const normalizedElement = normalizeElement(element);
+            if (!seenNormalized.has(normalizedElement)) {
+              seenNormalized.add(normalizedElement);
+              finalElements.push(element);
+            }
+          }
+
+          return finalElements.join(", ");
         };
 
         const mergedElements = getDeduplicatedElements(sortedIngredients);
@@ -1019,14 +1066,14 @@ export function ProductPartsModal({
           );
         };
 
-        // Deduplicate elements using normalization while preserving quantity order
+        // Deduplicate elements using normalization while preserving part type order
         const getDeduplicatedElements = (
           ingredients: Array<{ ingredient: any; quantity: number }>
         ) => {
           // Create a map to track unique normalized elements and keep original text
           const elementMap = new Map<string, string>();
-          const elementCounts = new Map<string, number>();
           const elementTotalQuantities = new Map<string, number>();
+          const elementTypePriorities = new Map<string, number>();
 
           ingredients.forEach(({ ingredient, quantity }) => {
             const originalElement = ingredient.element.trim();
@@ -1038,14 +1085,39 @@ export function ProductPartsModal({
               (elementTotalQuantities.get(normalizedElement) || 0) + quantity
             );
 
-            // Count occurrences of each normalized element
-            elementCounts.set(
-              normalizedElement,
-              (elementCounts.get(normalizedElement) || 0) + 1
-            );
+            // Determine type priority for this ingredient
+            const getTypePriority = (ingredient: any) => {
+              // Check if this ingredient comes from a recipe part
+              const isFromRecipe = productParts.some(
+                (part) =>
+                  part.recipe_id &&
+                  !part.productOnly &&
+                  recipes
+                    .find((r) => r.id === part.recipe_id)
+                    ?.recipe_ingredients?.some(
+                      (recipeIng: any) =>
+                        recipeIng.ingredient?.name === ingredient.name
+                    )
+              );
 
-            // Keep the first occurrence of each normalized element
-            if (!elementMap.has(normalizedElement)) {
+              // Check if this ingredient comes from a product part
+              const isFromProduct = productParts.some(
+                (part) => part.pastry_id && !part.productOnly
+              );
+
+              if (isFromRecipe) return 1; // Recipe parts first
+              if (isFromProduct) return 2; // Product parts second
+              return 3; // Ingredient parts last
+            };
+
+            const typePriority = getTypePriority(ingredient);
+
+            // Keep the highest priority (lowest number) for each normalized element
+            if (
+              !elementTypePriorities.has(normalizedElement) ||
+              typePriority < elementTypePriorities.get(normalizedElement)!
+            ) {
+              elementTypePriorities.set(normalizedElement, typePriority);
               elementMap.set(normalizedElement, originalElement);
             }
           });
@@ -1053,23 +1125,42 @@ export function ProductPartsModal({
           // Get unique elements preserving original formatting
           const uniqueElements = Array.from(elementMap.values());
 
-          // Sort elements by total quantity (descending) and then alphabetically
+          // Sort elements by type priority first, then by total quantity (descending)
           const sortedElements = uniqueElements.sort((a, b) => {
             const aNormalized = normalizeElement(a);
             const bNormalized = normalizeElement(b);
+            const aTypePriority = elementTypePriorities.get(aNormalized) || 3;
+            const bTypePriority = elementTypePriorities.get(bNormalized) || 3;
             const aQuantity = elementTotalQuantities.get(aNormalized) || 0;
             const bQuantity = elementTotalQuantities.get(bNormalized) || 0;
 
-            // First sort by total quantity (descending)
+            // First sort by type priority (ascending - recipe first)
+            if (aTypePriority !== bTypePriority) {
+              return aTypePriority - bTypePriority;
+            }
+
+            // Then sort by total quantity (descending)
             if (aQuantity !== bQuantity) {
               return bQuantity - aQuantity;
             }
 
-            // Then sort alphabetically
+            // Finally sort alphabetically
             return aNormalized.localeCompare(bNormalized);
           });
 
-          return sortedElements.join(", ");
+          // Remove duplicates from behind (keep first occurrence, remove later duplicates)
+          const finalElements: string[] = [];
+          const seenNormalized = new Set<string>();
+
+          for (const element of sortedElements) {
+            const normalizedElement = normalizeElement(element);
+            if (!seenNormalized.has(normalizedElement)) {
+              seenNormalized.add(normalizedElement);
+              finalElements.push(element);
+            }
+          }
+
+          return finalElements.join(", ");
         };
 
         const mergedElements = getDeduplicatedElements(sortedIngredients);
@@ -1366,6 +1457,9 @@ export function ProductPartsModal({
                       <TableHead className="w-[100px] text-center">
                         Produkt prodejny
                       </TableHead>
+                      <TableHead className="w-[100px] text-center">
+                        Pouze pekaři
+                      </TableHead>
                       <TableHead className="text-right">Akce</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1454,6 +1548,18 @@ export function ProductPartsModal({
                                   "productOnly",
                                   e.target.checked
                                 )
+                              }
+                              className="rounded"
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {(part.pastry_id || part.recipe_id) && (
+                            <input
+                              type="checkbox"
+                              checked={part.bakerOnly || false}
+                              onChange={(e) =>
+                                updatePart(index, "bakerOnly", e.target.checked)
                               }
                               className="rounded"
                             />
@@ -1587,9 +1693,44 @@ export function ProductPartsModal({
                   }
                 });
 
-                // Sort by quantity (descending) and merge elements
+                // Sort by part type first (recipe -> product -> ingredient), then by quantity (descending)
                 const sortedIngredients = ingredientsWithElements.sort(
-                  (a, b) => b.quantity - a.quantity
+                  (a, b) => {
+                    // First sort by part type priority
+                    const getTypePriority = (ingredient: any) => {
+                      // Check if this ingredient comes from a recipe part
+                      const isFromRecipe = productParts.some(
+                        (part) =>
+                          part.recipe_id &&
+                          !part.productOnly &&
+                          recipes
+                            .find((r) => r.id === part.recipe_id)
+                            ?.recipe_ingredients?.some(
+                              (recipeIng: any) =>
+                                recipeIng.ingredient?.name === ingredient.name
+                            )
+                      );
+
+                      // Check if this ingredient comes from a product part
+                      const isFromProduct = productParts.some(
+                        (part) => part.pastry_id && !part.productOnly
+                      );
+
+                      if (isFromRecipe) return 1; // Recipe parts first
+                      if (isFromProduct) return 2; // Product parts second
+                      return 3; // Ingredient parts last
+                    };
+
+                    const typePriorityA = getTypePriority(a.ingredient);
+                    const typePriorityB = getTypePriority(b.ingredient);
+
+                    if (typePriorityA !== typePriorityB) {
+                      return typePriorityA - typePriorityB;
+                    }
+
+                    // Then sort by quantity (descending)
+                    return b.quantity - a.quantity;
+                  }
                 );
 
                 if (sortedIngredients.length === 0) {
@@ -1639,14 +1780,14 @@ export function ProductPartsModal({
                   );
                 };
 
-                // Deduplicate elements using normalization while preserving quantity order
+                // Deduplicate elements using normalization while preserving part type order
                 const getDeduplicatedElements = (
                   ingredients: Array<{ ingredient: any; quantity: number }>
                 ) => {
                   // Create a map to track unique normalized elements and keep original text
                   const elementMap = new Map<string, string>();
-                  const elementCounts = new Map<string, number>();
                   const elementTotalQuantities = new Map<string, number>();
+                  const elementTypePriorities = new Map<string, number>();
 
                   ingredients.forEach(({ ingredient, quantity }) => {
                     const originalElement = ingredient.element.trim();
@@ -1659,14 +1800,43 @@ export function ProductPartsModal({
                         quantity
                     );
 
-                    // Count occurrences of each normalized element
-                    elementCounts.set(
-                      normalizedElement,
-                      (elementCounts.get(normalizedElement) || 0) + 1
-                    );
+                    // Determine type priority for this ingredient
+                    const getTypePriority = (ingredient: any) => {
+                      // Check if this ingredient comes from a recipe part
+                      const isFromRecipe = productParts.some(
+                        (part) =>
+                          part.recipe_id &&
+                          !part.productOnly &&
+                          recipes
+                            .find((r) => r.id === part.recipe_id)
+                            ?.recipe_ingredients?.some(
+                              (recipeIng: any) =>
+                                recipeIng.ingredient?.name === ingredient.name
+                            )
+                      );
 
-                    // Keep the first occurrence of each normalized element
-                    if (!elementMap.has(normalizedElement)) {
+                      // Check if this ingredient comes from a product part
+                      const isFromProduct = productParts.some(
+                        (part) => part.pastry_id && !part.productOnly
+                      );
+
+                      if (isFromRecipe) return 1; // Recipe parts first
+                      if (isFromProduct) return 2; // Product parts second
+                      return 3; // Ingredient parts last
+                    };
+
+                    const typePriority = getTypePriority(ingredient);
+
+                    // Keep the highest priority (lowest number) for each normalized element
+                    if (
+                      !elementTypePriorities.has(normalizedElement) ||
+                      typePriority <
+                        elementTypePriorities.get(normalizedElement)!
+                    ) {
+                      elementTypePriorities.set(
+                        normalizedElement,
+                        typePriority
+                      );
                       elementMap.set(normalizedElement, originalElement);
                     }
                   });
@@ -1674,25 +1844,46 @@ export function ProductPartsModal({
                   // Get unique elements preserving original formatting
                   const uniqueElements = Array.from(elementMap.values());
 
-                  // Sort elements by total quantity (descending) and then alphabetically
+                  // Sort elements by type priority first, then by total quantity (descending)
                   const sortedElements = uniqueElements.sort((a, b) => {
                     const aNormalized = normalizeElement(a);
                     const bNormalized = normalizeElement(b);
+                    const aTypePriority =
+                      elementTypePriorities.get(aNormalized) || 3;
+                    const bTypePriority =
+                      elementTypePriorities.get(bNormalized) || 3;
                     const aQuantity =
                       elementTotalQuantities.get(aNormalized) || 0;
                     const bQuantity =
                       elementTotalQuantities.get(bNormalized) || 0;
 
-                    // First sort by total quantity (descending)
+                    // First sort by type priority (ascending - recipe first)
+                    if (aTypePriority !== bTypePriority) {
+                      return aTypePriority - bTypePriority;
+                    }
+
+                    // Then sort by total quantity (descending)
                     if (aQuantity !== bQuantity) {
                       return bQuantity - aQuantity;
                     }
 
-                    // Then sort alphabetically
+                    // Finally sort alphabetically
                     return aNormalized.localeCompare(bNormalized);
                   });
 
-                  return sortedElements.join(", ");
+                  // Remove duplicates from behind (keep first occurrence, remove later duplicates)
+                  const finalElements: string[] = [];
+                  const seenNormalized = new Set<string>();
+
+                  for (const element of sortedElements) {
+                    const normalizedElement = normalizeElement(element);
+                    if (!seenNormalized.has(normalizedElement)) {
+                      seenNormalized.add(normalizedElement);
+                      finalElements.push(element);
+                    }
+                  }
+
+                  return finalElements.join(", ");
                 };
 
                 const mergedElements =
@@ -1723,7 +1914,7 @@ export function ProductPartsModal({
                     </div>
                     <div className="text-xs text-blue-600 mt-2">
                       Složení z {sortedIngredients.length} surovin (seřazeno
-                      podle množství)
+                      podle typu části a množství)
                     </div>
                     {detectAllergens(mergedElements).length > 0 && (
                       <div className="mt-3">

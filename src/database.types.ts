@@ -781,32 +781,35 @@ export type Database = {
       }
       product_parts: {
         Row: {
+          bakerOnly: boolean
           created_at: string
           id: number
           ingredient_id: number | null
           pastry_id: number | null
           product_id: number
-          productOnly: boolean | null
+          productOnly: boolean
           quantity: number
           recipe_id: number | null
         }
         Insert: {
+          bakerOnly?: boolean
           created_at?: string
           id?: number
           ingredient_id?: number | null
           pastry_id?: number | null
           product_id: number
-          productOnly?: boolean | null
+          productOnly?: boolean
           quantity?: number
           recipe_id?: number | null
         }
         Update: {
+          bakerOnly?: boolean
           created_at?: string
           id?: number
           ingredient_id?: number | null
           pastry_id?: number | null
           product_id?: number
-          productOnly?: boolean | null
+          productOnly?: boolean
           quantity?: number
           recipe_id?: number | null
         }
@@ -1034,15 +1037,19 @@ export type Database = {
           created_at: string | null
           dic: string | null
           email: string | null
+          formatted_address: string | null
           full_name: string | null
           ico: string | null
           id: string
+          lat: number | null
+          lng: number | null
           mo_partners: boolean | null
           note: string | null
           oz: boolean
           oz_new: boolean
           paid_by: Database["public"]["Enums"]["paidByType"] | null
           phone: string | null
+          place_id: string | null
           role: Database["public"]["Enums"]["groupUser"]
           shortcut: string | null
           supplier: boolean
@@ -1060,15 +1067,19 @@ export type Database = {
           created_at?: string | null
           dic?: string | null
           email?: string | null
+          formatted_address?: string | null
           full_name?: string | null
           ico?: string | null
           id: string
+          lat?: number | null
+          lng?: number | null
           mo_partners?: boolean | null
           note?: string | null
           oz?: boolean
           oz_new?: boolean
           paid_by?: Database["public"]["Enums"]["paidByType"] | null
           phone?: string | null
+          place_id?: string | null
           role?: Database["public"]["Enums"]["groupUser"]
           shortcut?: string | null
           supplier?: boolean
@@ -1086,15 +1097,19 @@ export type Database = {
           created_at?: string | null
           dic?: string | null
           email?: string | null
+          formatted_address?: string | null
           full_name?: string | null
           ico?: string | null
           id?: string
+          lat?: number | null
+          lng?: number | null
           mo_partners?: boolean | null
           note?: string | null
           oz?: boolean
           oz_new?: boolean
           paid_by?: Database["public"]["Enums"]["paidByType"] | null
           phone?: string | null
+          place_id?: string | null
           role?: Database["public"]["Enums"]["groupUser"]
           shortcut?: string | null
           supplier?: boolean

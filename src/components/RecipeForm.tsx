@@ -637,9 +637,9 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
               <thead>
                 <tr>
                   <th>Surovina</th>
-                  <th>Množství</th>
+                  <th style="text-align: right;">Množství</th>
                   <th>Jednotka</th>
-                  <th>Cena</th>
+                  <th style="text-align: right;">Cena</th>
                 </tr>
               </thead>
               <tbody>
@@ -671,128 +671,56 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
                     return `
                     <tr>
                       <td>${ingredient.name}</td>
-                      <td>${recipeIng.quantity}${
+                      <td style="text-align: right;">${recipeIng.quantity.toFixed(3)}${
                         ingredient.unit === "ks"
                           ? ` (${(recipeIng.quantity * ingredient.kiloPerUnit).toFixed(3)} kg)`
                           : ""
                       }</td>
                       <td>${ingredient.unit}</td>
-                      <td>${(recipeIng.quantity * ingredient.kiloPerUnit * (ingredient.price || 0)).toFixed(2)} Kč</td>
+                      <td style="text-align: right;">${(recipeIng.quantity * ingredient.kiloPerUnit * (ingredient.price || 0)).toFixed(2)} Kč</td>
                     </tr>
                   `;
                   })
                   .join("")}
                 <tr class="total-row">
                   <td>Celkem:</td>
-                  <td>${recipeIngredients.reduce((sum, ing) => sum + ing.quantity, 0).toFixed(3)}${
-                    recipeIngredients.some((ing) => {
-                      const ingredient = ingredients.find(
-                        (i) => i.id === ing.ingredient_id
-                      );
-                      return ingredient?.unit === "ks";
-                    })
-                      ? ` (${recipeIngredients
-                          .reduce((sum, ing) => {
-                            const ingredient = ingredients.find(
-                              (i) => i.id === ing.ingredient_id
-                            );
-                            return (
-                              sum +
-                              ing.quantity * (ingredient?.kiloPerUnit || 0)
-                            );
-                          }, 0)
-                          .toFixed(3)} kg)`
-                      : ""
-                  }</td>
+                                     <td style="text-align: right;">${recipeIngredients
+                                       .reduce(
+                                         (sum, ing) => sum + ing.quantity,
+                                         0
+                                       )
+                                       .toFixed(3)}${
+                                       recipeIngredients.some((ing) => {
+                                         const ingredient = ingredients.find(
+                                           (i) => i.id === ing.ingredient_id
+                                         );
+                                         return ingredient?.unit === "ks";
+                                       })
+                                         ? ` (${recipeIngredients
+                                             .reduce((sum, ing) => {
+                                               const ingredient =
+                                                 ingredients.find(
+                                                   (i) =>
+                                                     i.id === ing.ingredient_id
+                                                 );
+                                               return (
+                                                 sum +
+                                                 ing.quantity *
+                                                   (ingredient?.kiloPerUnit ||
+                                                     0)
+                                               );
+                                             }, 0)
+                                             .toFixed(3)} kg)`
+                                         : ""
+                                     }</td>
                   <td></td>
-                  <td>${totalPrice.toFixed(2)} Kč</td>
+                  <td style="text-align: right;">${totalPrice.toFixed(2)} Kč</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <div class="section">
-            <div class="section-title">Složení výrobku</div>
-            <div style="padding: 10px; background: #f9f9f9; border-radius: 4px; line-height: 1.5;">
-              ${recipeIngredients
-                .map((recipeIng) => {
-                  const ingredient = ingredients.find(
-                    (ing) => ing.id === recipeIng.ingredient_id
-                  );
-                  return ingredient?.element || "";
-                })
-                .filter(Boolean)
-                .join(", ")}
-            </div>
-          </div>
 
-          <div class="section">
-            <div class="section-title">Alergeny</div>
-            <div class="allergens">
-              ${recipeAllergens
-                .map(
-                  (allergen) => `
-                <span class="allergen-badge">${allergen.name}</span>
-              `
-                )
-                .join("")}
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Nutriční hodnoty (na 100g)</div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-              <table>
-                <tr>
-                  <td>Energie:</td>
-                  <td>${
-                    nutritionalTotals.totalWeightKg > 0
-                      ? `${((nutritionalTotals.totalKJ / nutritionalTotals.totalWeightKg) * 0.1).toFixed(0)} KJ / 
-                       ${((nutritionalTotals.totalKcal / nutritionalTotals.totalWeightKg) * 0.1).toFixed(0)} Kcal`
-                      : "0 KJ / 0 Kcal"
-                  }</td>
-                </tr>
-                <tr>
-                  <td>Tuky:</td>
-                  <td>${
-                    nutritionalTotals.totalWeightKg > 0
-                      ? `${((nutritionalTotals.totalFat / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
-                      : "0.0 g"
-                  }</td>
-                </tr>
-                <tr>
-                  <td>Sacharidy:</td>
-                  <td>${
-                    nutritionalTotals.totalWeightKg > 0
-                      ? `${((nutritionalTotals.totalCarbohydrate / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
-                      : "0.0 g"
-                  }</td>
-                </tr>
-              </table>
-              <table>
-                <tr>
-                  <td>Bílkoviny:</td>
-                  <td>${
-                    nutritionalTotals.totalWeightKg > 0
-                      ? `${((nutritionalTotals.totalProtein / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
-                      : "0.0 g"
-                  }</td>
-                </tr>
-                <tr>
-                  <td>Sůl:</td>
-                  <td>${
-                    nutritionalTotals.totalWeightKg > 0
-                      ? `${((nutritionalTotals.totalSalt / nutritionalTotals.totalWeightKg) * 0.1).toFixed(1)} g`
-                      : "0.0 g"
-                  }</td>
-                </tr>
-                <tr>
-                  <td>Celková hmotnost:</td>
-                  <td>${nutritionalTotals.totalWeightKg.toFixed(3)} kg</td>
-                </tr>
-              </table>
-            </div>
-          </div>
 
           <div class="section">
             <div class="section-title">Proces</div>
@@ -805,43 +733,45 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
             </table>
           </div>
 
-          <div class="section">
-            <div class="section-title">Produkty používající tento recept</div>
-            ${
-              productsUsingRecipe.length > 0
-                ? `
-              <table>
-                <thead>
-                  <tr>
-                    <th>Název produktu</th>
-                    <th>Použité množství</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${productsUsingRecipe
-                    .map(
-                      (product) => `
-                    <tr>
-                      <td>${product.name}</td>
-                      <td>${product.usedQuantity}</td>
-                      <td>${product.active ? "Aktivní" : "Neaktivní"}</td>
-                    </tr>
-                  `
-                    )
-                    .join("")}
-                </tbody>
-              </table>
-            `
-                : `
-              <p>Žádné produkty nepoužívají tento recept.</p>
-            `
-            }
-          </div>
+                     <div style="page-break-before: always;"></div>
+           
+           <div class="section">
+             <div class="section-title">Produkty používající tento recept</div>
+             ${
+               productsUsingRecipe.length > 0
+                 ? `
+               <table>
+                 <thead>
+                   <tr>
+                     <th>Název produktu</th>
+                     <th>Použité množství</th>
+                     <th>Status</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                   ${productsUsingRecipe
+                     .map(
+                       (product) => `
+                     <tr>
+                       <td>${product.name}</td>
+                       <td>${product.usedQuantity}</td>
+                       <td>${product.active ? "Aktivní" : "Neaktivní"}</td>
+                     </tr>
+                   `
+                     )
+                     .join("")}
+                 </tbody>
+               </table>
+             `
+                 : `
+               <p>Žádné produkty nepoužívají tento recept.</p>
+             `
+             }
+           </div>
 
-          <div style="text-align: right; margin-top: 20px; font-size: 12px; color: #666;">
-            Vytištěno: ${new Date().toLocaleString()}
-          </div>
+           <div style="text-align: right; margin-top: 20px; font-size: 12px; color: #666;">
+             Vytištěno: ${new Date().toLocaleString()}
+           </div>
         </body>
       </html>
     `);
