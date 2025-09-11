@@ -535,18 +535,28 @@ function PrintSummary({
     (acc, order) => {
       order.order_items.forEach((item) => {
         if (item.quantity > 0) {
+          // Calculate price based on order user's role
+          const calculatedPrice =
+            order.user?.role === "mobil" || order.user?.role === "driver"
+              ? item.product.priceMobil
+              : order.user?.role === "store" ||
+                  order.user?.role === "buyer" ||
+                  order.user?.role === "admin"
+                ? item.product.priceBuyer
+                : item.product.price;
+
           // Only consider items with quantity > 0
-          const key = `${item.product.name}-${item.price}`;
+          const key = `${item.product.name}-${calculatedPrice}`;
           if (!acc[key]) {
             acc[key] = {
               name: item.product.name,
-              price: item.price,
+              price: calculatedPrice,
               quantity: 0,
               total: 0,
             };
           }
           acc[key].quantity += item.quantity;
-          acc[key].total += item.quantity * item.price;
+          acc[key].total += item.quantity * calculatedPrice;
         }
       });
       return acc;

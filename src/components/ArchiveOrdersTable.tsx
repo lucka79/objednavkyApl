@@ -1077,9 +1077,20 @@ export function ArchiveOrdersTable() {
       `porovnani_obdobi_${comparisonType}_${comparisonWeek1}_${comparisonYear1}_vs_${comparisonWeek2}_${comparisonYear2}_${new Date().toISOString().split("T")[0]}.csv`
     );
     link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    link.style.position = "absolute";
+    link.style.left = "-9999px";
+
+    try {
+      document.body.appendChild(link);
+      link.click();
+    } finally {
+      // Safely remove the link element
+      if (link.parentNode) {
+        link.parentNode.removeChild(link);
+      }
+      // Clean up the object URL
+      URL.revokeObjectURL(url);
+    }
   };
 
   // Update comparison values when type changes
@@ -3319,9 +3330,20 @@ function ArchiveOrdersComparisonTable({
       `porovnani_stalych_objednavek_${new Date().toISOString().split("T")[0]}.csv`
     );
     link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    link.style.position = "absolute";
+    link.style.left = "-9999px";
+
+    try {
+      document.body.appendChild(link);
+      link.click();
+    } finally {
+      // Safely remove the link element
+      if (link.parentNode) {
+        link.parentNode.removeChild(link);
+      }
+      // Clean up the object URL
+      URL.revokeObjectURL(url);
+    }
   };
 
   const scheduledCount = comparisonData.reduce((total, user) => {

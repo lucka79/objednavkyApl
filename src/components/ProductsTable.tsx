@@ -900,9 +900,20 @@ export function ProductsTable() {
       `produkty_${categoryName}_${new Date().toISOString().split("T")[0]}.csv`
     );
     link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    link.style.position = "absolute";
+    link.style.left = "-9999px";
+
+    try {
+      document.body.appendChild(link);
+      link.click();
+    } finally {
+      // Safely remove the link element
+      if (link.parentNode) {
+        link.parentNode.removeChild(link);
+      }
+      // Clean up the object URL
+      URL.revokeObjectURL(url);
+    }
   };
 
   // Share CSV Export Function - Product Parts
@@ -1112,9 +1123,20 @@ export function ProductsTable() {
       `produkty_casti_export_${new Date().toISOString().split("T")[0]}.csv`
     );
     link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    link.style.position = "absolute";
+    link.style.left = "-9999px";
+
+    try {
+      document.body.appendChild(link);
+      link.click();
+    } finally {
+      // Safely remove the link element
+      if (link.parentNode) {
+        link.parentNode.removeChild(link);
+      }
+      // Clean up the object URL
+      URL.revokeObjectURL(url);
+    }
 
     toast({
       title: "Úspěch",
@@ -1297,9 +1319,30 @@ export function ProductsTable() {
           <div className="p-2 sm:p-3 lg:p-4 space-y-4 w-full">
             {/* Header with all controls - responsive */}
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 w-full">
-              <h1 className="text-xl lg:text-2xl xl:text-3xl font-bold">
-                Produkty
-              </h1>
+              <div>
+                <h1 className="text-xl lg:text-2xl xl:text-3xl font-bold">
+                  Produkty
+                </h1>
+                <p className="text-muted-foreground">
+                  {(() => {
+                    const totalProducts = products?.length || 0;
+                    const activeProducts =
+                      products?.filter((p) => p.active).length || 0;
+                    const filteredCount = filteredProducts?.length || 0;
+
+                    if (selectedCategory === null) {
+                      return `${activeProducts} aktivních z ${totalProducts} celkem`;
+                    } else if (selectedCategory === -1) {
+                      return `${filteredCount} neaktivních produktů`;
+                    } else {
+                      const categoryName =
+                        categories?.find((c) => c.id === selectedCategory)
+                          ?.name || "Neznámá kategorie";
+                      return `${filteredCount} produktů v kategorii "${categoryName}"`;
+                    }
+                  })()}
+                </p>
+              </div>
 
               {/* Controls row - responsive */}
               <div className="flex flex-col sm:flex-row gap-2 w-full lg:flex-1 lg:justify-end">

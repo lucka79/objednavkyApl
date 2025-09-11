@@ -1777,7 +1777,8 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
                               {product.name}
                             </div>
                             <div className="text-sm text-gray-500">
-                              Použité množství: {product.usedQuantity}
+                              Použité množství:{" "}
+                              {product.usedQuantity.toFixed(3)}
                             </div>
                           </div>
                         </div>
