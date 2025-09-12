@@ -82,7 +82,24 @@ const exportToCSV = (users: any[], showEmail: boolean) => {
     user.oz ? "✅" : "❌",
     user.oz_new ? "✅" : "❌",
     user.mo_partners ? "✅" : "❌",
-    user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "",
+    user.role
+      ? (() => {
+          const roleMap: Record<string, string> = {
+            // user: "Uživatel",
+            buyer: "Odběratel (Pohoda)",
+            driver: "Řidič",
+            store: "Prodejna",
+            mobil: "Mobil",
+            expedition: "Expedice",
+            supplier: "Dodavatel",
+            admin: "Administrátor",
+          };
+          return (
+            roleMap[user.role] ||
+            user.role.charAt(0).toUpperCase() + user.role.slice(1)
+          );
+        })()
+      : "",
     user.active ? "✅" : "❌",
     user.created_at
       ? new Date(user.created_at).toLocaleDateString("cs-CZ")
@@ -261,12 +278,6 @@ export function AdminTable() {
   const filteredUsers = useMemo(() => {
     if (!users) return [];
 
-    // Debug: Log the first user to see what fields are available
-    if (users.length > 0) {
-      console.log("First user data:", users[0]);
-      console.log("Created at field:", users[0].created_at);
-    }
-
     let result = users;
 
     // Apply search first
@@ -344,18 +355,19 @@ export function AdminTable() {
               <SelectValue placeholder="Filter by role" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All roles</SelectItem>
+              <SelectItem value="all">Všechny role</SelectItem>
               {[
-                "user",
-                "buyer",
-                "driver",
-                "store",
-                "mobil",
-                "expedition",
-                "admin",
+                // { value: "user", label: "Uživatel" },
+                { value: "buyer", label: "Odběratel (Pohoda)" },
+                { value: "driver", label: "Řidič" },
+                { value: "store", label: "Prodejna" },
+                { value: "mobil", label: "Mobil" },
+                { value: "expedition", label: "Expedice" },
+                { value: "supplier", label: "Dodavatel" },
+                { value: "admin", label: "Administrátor" },
               ].map((role) => (
-                <SelectItem key={role} value={role}>
-                  {role.charAt(0).toUpperCase() + role.slice(1)}
+                <SelectItem key={role.value} value={role.value}>
+                  {role.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -585,7 +597,23 @@ export function AdminTable() {
                   </td>
                   <td className="p-3">
                     {user.role
-                      ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
+                      ? (() => {
+                          const roleMap: Record<string, string> = {
+                            // user: "Uživatel",
+                            buyer: "Odběratel (Pohoda)",
+                            driver: "Řidič",
+                            store: "Prodejna",
+                            mobil: "Mobil",
+                            expedition: "Expedice",
+                            supplier: "Dodavatel",
+                            admin: "Administrátor",
+                          };
+                          return (
+                            roleMap[user.role] ||
+                            user.role.charAt(0).toUpperCase() +
+                              user.role.slice(1)
+                          );
+                        })()
                       : "-"}
                   </td>
                   <td className="p-3">

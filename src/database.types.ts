@@ -529,6 +529,174 @@ export type Database = {
           },
         ]
       }
+      invoices_received: {
+        Row: {
+          confidence_score: number | null
+          created_at: string | null
+          created_by: string | null
+          currency: string | null
+          due_date: string | null
+          id: string
+          invoice_date: string | null
+          invoice_number: string
+          net_amount: number | null
+          original_image_url: string | null
+          payment_method: string | null
+          payment_terms: string | null
+          processed_document_url: string | null
+          processing_errors: string[] | null
+          processing_status: string | null
+          raw_document_ai_response: Json | null
+          supplier_address: string | null
+          supplier_id: string | null
+          supplier_name: string | null
+          supplier_tax_id: string | null
+          tax_amount: number | null
+          total_amount: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          due_date?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number: string
+          net_amount?: number | null
+          original_image_url?: string | null
+          payment_method?: string | null
+          payment_terms?: string | null
+          processed_document_url?: string | null
+          processing_errors?: string[] | null
+          processing_status?: string | null
+          raw_document_ai_response?: Json | null
+          supplier_address?: string | null
+          supplier_id?: string | null
+          supplier_name?: string | null
+          supplier_tax_id?: string | null
+          tax_amount?: number | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          due_date?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string
+          net_amount?: number | null
+          original_image_url?: string | null
+          payment_method?: string | null
+          payment_terms?: string | null
+          processed_document_url?: string | null
+          processing_errors?: string[] | null
+          processing_status?: string | null
+          raw_document_ai_response?: Json | null
+          supplier_address?: string | null
+          supplier_id?: string | null
+          supplier_name?: string | null
+          supplier_tax_id?: string | null
+          tax_amount?: number | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_received_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_received_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      items_received: {
+        Row: {
+          bounding_box: Json | null
+          created_at: string | null
+          description: string
+          id: string
+          invoice_received_id: string | null
+          line_number: number | null
+          line_total: number | null
+          manual_match: boolean | null
+          matched_ingredient_id: number | null
+          matching_confidence: number | null
+          quantity: number | null
+          raw_line_data: Json | null
+          tax_amount: number | null
+          tax_rate: number | null
+          unit_of_measure: string | null
+          unit_price: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          bounding_box?: Json | null
+          created_at?: string | null
+          description: string
+          id?: string
+          invoice_received_id?: string | null
+          line_number?: number | null
+          line_total?: number | null
+          manual_match?: boolean | null
+          matched_ingredient_id?: number | null
+          matching_confidence?: number | null
+          quantity?: number | null
+          raw_line_data?: Json | null
+          tax_amount?: number | null
+          tax_rate?: number | null
+          unit_of_measure?: string | null
+          unit_price?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          bounding_box?: Json | null
+          created_at?: string | null
+          description?: string
+          id?: string
+          invoice_received_id?: string | null
+          line_number?: number | null
+          line_total?: number | null
+          manual_match?: boolean | null
+          matched_ingredient_id?: number | null
+          matching_confidence?: number | null
+          quantity?: number | null
+          raw_line_data?: Json | null
+          tax_amount?: number | null
+          tax_rate?: number | null
+          unit_of_measure?: string | null
+          unit_price?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "items_received_invoice_received_id_fkey"
+            columns: ["invoice_received_id"]
+            isOneToOne: false
+            referencedRelation: "invoices_received"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "items_received_matched_ingredient_id_fkey"
+            columns: ["matched_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       network_monitoring_devices: {
         Row: {
           created_at: string | null
@@ -1527,13 +1695,63 @@ export type Database = {
         Args: { device_id: string }
         Returns: undefined
       }
+      get_invoice_stats: {
+        Args: { user_id_param?: string }
+        Returns: {
+          completed_invoices: number
+          pending_invoices: number
+          this_month_amount: number
+          total_amount: number
+          total_invoices: number
+        }[]
+      }
+      gtrgm_compress: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_decompress: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_in: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_options: {
+        Args: { "": unknown }
+        Returns: undefined
+      }
+      gtrgm_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
       log_network_status: {
         Args: { status_data: Json }
         Returns: undefined
       }
+      match_ingredient_by_description: {
+        Args: { description_text: string }
+        Returns: {
+          confidence: number
+          ingredient_id: number
+          ingredient_name: string
+        }[]
+      }
       register_device: {
         Args: { device_data: Json }
         Returns: undefined
+      }
+      set_limit: {
+        Args: { "": number }
+        Returns: number
+      }
+      show_limit: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      show_trgm: {
+        Args: { "": string }
+        Returns: string[]
       }
       update_device_heartbeat: {
         Args: { device_id: string }
@@ -1549,6 +1767,7 @@ export type Database = {
         | "store"
         | "mobil"
         | "buyer"
+        | "seller"
       paidByType: "Hotov─Ť" | "Kartou" | "P┼Ö├şkazem" | "-"
     }
     CompositeTypes: {
@@ -1685,6 +1904,7 @@ export const Constants = {
         "store",
         "mobil",
         "buyer",
+        "seller",
       ],
       paidByType: ["Hotov─Ť", "Kartou", "P┼Ö├şkazem", "-"],
     },

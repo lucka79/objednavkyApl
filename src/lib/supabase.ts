@@ -22,7 +22,7 @@ export const supabase = createClient(
 )
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
-type UserRole = 'admin' | 'expedition' | 'driver' | 'user' | 'mobil' | 'store' |'buyer'
+type UserRole = 'admin' | 'expedition' | 'driver' | 'user' | 'mobil' | 'store' | 'buyer' | 'supplier'
 
 
 interface Profile {

@@ -26,7 +26,14 @@ interface CreateUserEmailFormProps {
   onSuccess: () => void;
 }
 
-const roles = ["buyer", "driver", "expedition", "store", "mobil"] as const;
+const roles = [
+  "buyer",
+  "driver",
+  "expedition",
+  "store",
+  "mobil",
+  "supplier",
+] as const;
 
 const formSchema = z.object({
   full_name: z.string().min(1, "Full name is required"),
@@ -133,11 +140,22 @@ export function CreateUserEmailForm({ onSuccess }: CreateUserEmailFormProps) {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {roles.map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {role.charAt(0).toUpperCase() + role.slice(1)}
-                    </SelectItem>
-                  ))}
+                  {roles.map((role) => {
+                    const roleMap: Record<string, string> = {
+                      buyer: "Odběratel (Pohoda)",
+                      driver: "Řidič",
+                      store: "Prodejna",
+                      mobil: "Mobil",
+                      expedition: "Expedice",
+                      supplier: "Dodavatel",
+                    };
+                    return (
+                      <SelectItem key={role} value={role}>
+                        {roleMap[role] ||
+                          role.charAt(0).toUpperCase() + role.slice(1)}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
               <FormMessage />

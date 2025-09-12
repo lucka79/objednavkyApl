@@ -7,9 +7,11 @@ import {
   flexRender,
 } from "@tanstack/react-table";
 import {
-  fetchExpeditionOrders,
+  fetchExpeditionOrdersByPeriod,
+  fetchOrderCountsByPeriod,
   fetchOrdersForPrinting,
   useDeleteOrder,
+  useOrdersByMonth,
 } from "@/hooks/useOrders";
 import { Order } from "../../types";
 import { Input } from "@/components/ui/input";
@@ -104,68 +106,7 @@ const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
 
 ProductPrintWrapper.displayName = "ProductPrintWrapper";
 
-const filterOrdersByDate = (
-  orders: Order[],
-  period:
-    | "today"
-    | "tomorrow"
-    | "afterTomorrow"
-    | "week"
-    | "month"
-    | "lastMonth"
-    | "nextWeek",
-  selectedDate?: Date
-) => {
-  if (selectedDate) {
-    return orders.filter((order) => {
-      const orderDate = new Date(order.date);
-      return orderDate.toDateString() === selectedDate.toDateString();
-    });
-  }
-
-  const now = new Date();
-  return orders.filter((order) => {
-    const orderDate = new Date(order.date);
-    switch (period) {
-      case "today":
-        return orderDate.toDateString() === now.toDateString();
-      case "tomorrow":
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        return orderDate.toDateString() === tomorrow.toDateString();
-      case "afterTomorrow":
-        const afterTomorrow = new Date(now);
-        afterTomorrow.setDate(afterTomorrow.getDate() + 2);
-        return orderDate.toDateString() === afterTomorrow.toDateString();
-      case "week":
-        const weekStart = new Date(now);
-        weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 6);
-        return orderDate >= weekStart && orderDate <= weekEnd;
-      case "month":
-        return (
-          orderDate.getMonth() === now.getMonth() &&
-          orderDate.getFullYear() === now.getFullYear()
-        );
-      case "lastMonth":
-        const lastMonth = new Date(now);
-        lastMonth.setMonth(lastMonth.getMonth() - 1);
-        return (
-          orderDate.getMonth() === lastMonth.getMonth() &&
-          orderDate.getFullYear() === lastMonth.getFullYear()
-        );
-      case "nextWeek":
-        const nextWeekStart = new Date(now);
-        nextWeekStart.setDate(
-          nextWeekStart.getDate() - nextWeekStart.getDay() + 7
-        );
-        const nextWeekEnd = new Date(nextWeekStart);
-        nextWeekEnd.setDate(nextWeekEnd.getDate() + 6);
-        return orderDate >= nextWeekStart && orderDate <= nextWeekEnd;
-    }
-  });
-};
+// Removed filterOrdersByDate function - now fetching orders by period directly from database
 
 const calculateCrateSums = (orders: Order[]) => {
   return orders.reduce(
@@ -904,27 +845,53 @@ const printReportBuyersSummary = (orders: Order[]) => {
   printWindow.print();
 };
 
-// Move helper functions before they are used
-const isOrderInDate = (order: Order, date: Date) => {
-  const orderDate = new Date(order.date);
-  return orderDate.toDateString() === date.toDateString();
-};
+// Removed isOrderInDate function - no longer needed with period-based fetching
 
 export function OrdersExpeditionTable({
   selectedProductId: initialProductId,
 }: OrdersExpeditionTableProps) {
   const [selectedOrders] = useState<Order[]>([]);
-
-  const { data: orders, error, isLoading } = fetchExpeditionOrders();
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [activeTab, setActiveTab] = useState<
+    | "today"
+    | "tomorrow"
+    | "afterTomorrow"
+    | "week"
+    | "nextWeek"
+    | "month"
+    | "lastMonth"
+    | "custom"
+  >("tomorrow");
   const [date, setDate] = useState<Date>();
+  const [isSpecificDay, setIsSpecificDay] = useState(false);
+
+  // Use the optimized hook that fetches orders by period
+  const {
+    data: periodOrders,
+    error: periodError,
+    isLoading: periodLoading,
+  } = fetchExpeditionOrdersByPeriod(activeTab, date);
+
+  // Use the month-based hook for calendar functionality
+  const {
+    data: monthOrders,
+    error: monthError,
+    isLoading: monthLoading,
+  } = useOrdersByMonth(date, isSpecificDay);
+
+  // Get order counts for tab badges
+  const { data: orderCounts } = fetchOrderCountsByPeriod();
+
+  // Determine which orders to use based on the active tab
+  const orders = activeTab === "custom" ? monthOrders : periodOrders;
+  const error = activeTab === "custom" ? monthError : periodError;
+  const isLoading = activeTab === "custom" ? monthLoading : periodLoading;
+
+  const [globalFilter, setGlobalFilter] = useState("");
   const setSelectedOrderId = useOrderStore((state) => state.setSelectedOrderId);
   const [selectedProductId, setSelectedProductId] = useState(
     initialProductId || ""
   );
   const { data: products } = fetchActiveProducts();
-  // @ts-ignore
-  const [activeTab, setActiveTab] = useState("today");
   const [selectedPaidBy, setSelectedPaidBy] = useState<string>("all");
   const [selectedRole, setSelectedRole] = useState<string>("all");
   const selectedDriver = useOrderStore((state) => state.selectedDriver);
@@ -979,14 +946,13 @@ export function OrdersExpeditionTable({
   }, [uniqueUserNames, userSearchQuery]);
 
   // Update filteredOrders to include role filtering
+  // Since we're now fetching orders by period from the database, we only need to apply client-side filters
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
 
     return orders
       .filter((order) => {
-        // Combine all filter conditions into a single pass
-        if (date && !isOrderInDate(order, date)) return false;
-
+        // Apply client-side filters only
         if (selectedProductId && selectedProductId !== "all") {
           const hasProduct = order.order_items.some(
             (item) => item.product_id.toString() === selectedProductId
@@ -1036,7 +1002,6 @@ export function OrdersExpeditionTable({
       });
   }, [
     orders,
-    date,
     selectedProductId,
     selectedPaidBy,
     selectedStatus,
@@ -1257,30 +1222,6 @@ export function OrdersExpeditionTable({
                 </SelectContent>
               </Select>
 
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "w-[240px] justify-start text-left font-normal",
-                      !date && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? format(date, "PPP") : <span>Vyberte datum</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={setDate}
-                    initialFocus
-                    locale={cs}
-                  />
-                </PopoverContent>
-              </Popover>
-
               <Select value={selectedOZ} onValueChange={setSelectedOZ}>
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Obchodní zástupce..." />
@@ -1408,31 +1349,99 @@ export function OrdersExpeditionTable({
           </div>
 
           <Tabs
-            defaultValue="tomorrow"
+            value={activeTab}
             className="w-full"
             onValueChange={(value) => {
-              setDate(undefined);
-              setActiveTab(value);
+              if (value !== "custom") {
+                setDate(undefined);
+                setIsSpecificDay(false);
+              }
+              setActiveTab(
+                value as
+                  | "today"
+                  | "tomorrow"
+                  | "afterTomorrow"
+                  | "week"
+                  | "nextWeek"
+                  | "month"
+                  | "lastMonth"
+                  | "custom"
+              );
             }}
           >
-            <TabsList className="print:hidden">
-              {[
-                { value: "tomorrow", label: "Zítra" },
-                { value: "afterTomorrow", label: "Pozítří" },
-                { value: "today", label: "Dnes" },
-                { value: "week", label: "Tento týden" },
-                { value: "nextWeek", label: "Příští týden" },
-                { value: "month", label: "Tento měsíc" },
-                { value: "lastMonth", label: "Minulý měsíc" },
-              ].map((tab) => (
-                <TabsTrigger key={tab.value} value={tab.value}>
-                  {tab.label}{" "}
-                  <Badge variant="outline" className="ml-2">
-                    {filterOrdersByDate(orders || [], tab.value as any).length}
-                  </Badge>
-                </TabsTrigger>
-              ))}
-            </TabsList>
+            <div className="flex items-center gap-2 mb-4 print:hidden">
+              {/* Calendar button */}
+              <div className="flex gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-[150px] justify-start text-left font-normal",
+                        !date && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {date ? (
+                        isSpecificDay ? (
+                          format(date, "PP", { locale: cs })
+                        ) : (
+                          format(date, "LLLL yyyy", { locale: cs })
+                        )
+                      ) : (
+                        <span>Datum ?</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={isSpecificDay ? date : undefined}
+                      onSelect={(selectedDate) => {
+                        if (selectedDate) {
+                          setDate(selectedDate);
+                          setIsSpecificDay(true);
+                          setActiveTab("custom");
+                        }
+                      }}
+                      initialFocus
+                      locale={cs}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <TabsList className="print:hidden">
+                {[
+                  { value: "tomorrow", label: "Zítra" },
+                  { value: "afterTomorrow", label: "Pozítří" },
+                  { value: "today", label: "Dnes" },
+                  { value: "week", label: "Tento týden" },
+                  { value: "nextWeek", label: "Příští týden" },
+                  { value: "month", label: "Tento měsíc" },
+                  { value: "lastMonth", label: "Minulý měsíc" },
+                  {
+                    value: "custom",
+                    label: date
+                      ? isSpecificDay
+                        ? format(date, "dd.MM.yyyy")
+                        : format(date, "LLLL yyyy", { locale: cs })
+                      : "Vlastní datum",
+                  },
+                ].map((tab) => (
+                  <TabsTrigger key={tab.value} value={tab.value}>
+                    {tab.label}{" "}
+                    <Badge variant="outline" className="ml-2">
+                      {tab.value === "custom"
+                        ? activeTab === "custom"
+                          ? filteredOrders.length
+                          : 0
+                        : orderCounts?.[tab.value] || 0}
+                    </Badge>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
 
             {[
               "today",
@@ -1442,26 +1451,27 @@ export function OrdersExpeditionTable({
               "nextWeek",
               "month",
               "lastMonth",
+              "custom",
             ].map((period) => {
-              const filteredPeriodOrders = filterOrdersByDate(
-                filteredOrders || [],
-                period as
-                  | "today"
-                  | "tomorrow"
-                  | "afterTomorrow"
-                  | "week"
-                  | "nextWeek"
-                  | "month"
-                  | "lastMonth",
-                date
-              );
+              // Only render content for the active tab
+              if (period !== activeTab) {
+                return null;
+              }
+
+              const filteredPeriodOrders = filteredOrders || [];
               const crateSums = calculateCrateSums(filteredPeriodOrders);
 
               return (
                 <TabsContent key={period} value={period}>
                   <PrintSummary
                     orders={filteredPeriodOrders}
-                    period={period}
+                    period={
+                      period === "custom" && date
+                        ? isSpecificDay
+                          ? format(date, "dd.MM.yyyy")
+                          : format(date, "LLLL yyyy", { locale: cs })
+                        : period
+                    }
                     globalFilter={globalFilter}
                   />
 
@@ -1819,11 +1829,13 @@ function OrderTableContent({
                   key={row.id}
                   onClick={() => setSelectedOrderId(row.original.id)}
                   className={`cursor-pointer hover:bg-muted/50 absolute w-full ${
-                    hasDoranNote
-                      ? "bg-red-50"
-                      : hasFreshNote
-                        ? "bg-green-50"
-                        : ""
+                    row.original.user?.role === "buyer"
+                      ? "bg-blue-50"
+                      : hasDoranNote
+                        ? "bg-red-50"
+                        : hasFreshNote
+                          ? "bg-green-50"
+                          : ""
                   }`}
                   style={{
                     height: `${virtualRow.size}px`,

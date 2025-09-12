@@ -131,6 +131,34 @@ const columns: ColumnDef<FavoriteOrder>[] = [
   {
     accessorKey: "user.role",
     header: "Typ",
+    cell: ({ row }) => {
+      const role = row.original.user?.role;
+      const roleMap: Record<string, string> = {
+        user: "Uživatel",
+        buyer: "Odběratel (Pohoda)",
+        driver: "Řidič",
+        store: "Prodejna",
+        mobil: "Mobil",
+        expedition: "Expedice",
+        supplier: "Dodavatel",
+        admin: "Administrátor",
+      };
+
+      const roleLabel =
+        roleMap[role] || role?.charAt(0).toUpperCase() + role?.slice(1);
+
+      return (
+        <span
+          className={`px-2 py-1 rounded text-xs ${
+            role === "buyer"
+              ? "bg-blue-100 text-blue-800"
+              : "bg-gray-100 text-gray-800"
+          }`}
+        >
+          {roleLabel}
+        </span>
+      );
+    },
   },
   {
     accessorKey: "driver.full_name",
@@ -457,13 +485,15 @@ function FavoriteOrderTableContent({
                     key={row.id}
                     onClick={() => setSelectedOrderId(row.original.id)}
                     className={`cursor-pointer hover:bg-muted/50 ${
-                      hasDoranNote
-                        ? "bg-red-50"
-                        : hasFreshNote
-                          ? "bg-green-50"
-                          : hasZeroPriceItems
-                            ? "bg-yellow-50"
-                            : ""
+                      row.original.user?.role === "buyer"
+                        ? "bg-blue-50"
+                        : hasDoranNote
+                          ? "bg-red-50"
+                          : hasFreshNote
+                            ? "bg-green-50"
+                            : hasZeroPriceItems
+                              ? "bg-yellow-50"
+                              : ""
                     }`}
                   >
                     {row.getVisibleCells().map((cell) => (
@@ -1029,6 +1059,21 @@ export function FavoriteOrdersTable({
                   >
                     <span className="hidden sm:inline">Store/Admin</span>
                     <span className="sm:hidden">S/A</span>
+                  </Button>
+                  <Button
+                    variant={roleFilter === "buyer" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() =>
+                      setRoleFilter(roleFilter === "buyer" ? "all" : "buyer")
+                    }
+                    className={
+                      roleFilter === "buyer"
+                        ? "bg-blue-500 text-white hover:bg-blue-600"
+                        : "border-blue-300 text-blue-600 hover:bg-blue-50"
+                    }
+                  >
+                    <span className="hidden sm:inline">Odběratel</span>
+                    <span className="sm:hidden">O</span>
                   </Button>
                 </div>
               </div>

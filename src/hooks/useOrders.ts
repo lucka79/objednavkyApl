@@ -360,6 +360,211 @@ export const fetchExpeditionOrders = () => {
   });
 };
 
+// Hook to get order counts for all periods (for tab badges)
+export const fetchOrderCountsByPeriod = () => {
+  return useQuery({
+    queryKey: ['orderCounts'],
+    queryFn: async () => {
+      const now = new Date();
+      const periods = [
+        "today",
+        "tomorrow", 
+        "afterTomorrow",
+        "week",
+        "nextWeek",
+        "month",
+        "lastMonth"
+      ] as const;
+
+      const counts = await Promise.all(
+        periods.map(async (period) => {
+          let startDate: Date;
+          let endDate: Date;
+
+          switch (period) {
+            case "today":
+              startDate = new Date(now);
+              endDate = new Date(now);
+              break;
+            case "tomorrow":
+              startDate = new Date(now);
+              startDate.setDate(startDate.getDate() + 1);
+              endDate = new Date(startDate);
+              break;
+            case "afterTomorrow":
+              startDate = new Date(now);
+              startDate.setDate(startDate.getDate() + 2);
+              endDate = new Date(startDate);
+              break;
+            case "week":
+              startDate = new Date(now);
+              startDate.setDate(startDate.getDate() - startDate.getDay());
+              endDate = new Date(startDate);
+              endDate.setDate(endDate.getDate() + 6);
+              break;
+            case "nextWeek":
+              startDate = new Date(now);
+              startDate.setDate(startDate.getDate() - startDate.getDay() + 7);
+              endDate = new Date(startDate);
+              endDate.setDate(endDate.getDate() + 6);
+              break;
+            case "month":
+              startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+              endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+              break;
+            case "lastMonth":
+              startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+              endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+              break;
+            default:
+              startDate = new Date(now);
+              endDate = new Date(now);
+          }
+
+          const startDateStr = startDate.toISOString().split('T')[0];
+          const endDateStr = endDate.toISOString().split('T')[0];
+
+          const { count, error } = await supabase
+            .from('orders')
+            .select('*', { count: 'exact', head: true })
+            .gte('date', startDateStr)
+            .lte('date', endDateStr);
+
+          if (error) throw error;
+          return { period, count: count || 0 };
+        })
+      );
+
+      return counts.reduce((acc, { period, count }) => {
+        acc[period] = count;
+        return acc;
+      }, {} as Record<string, number>);
+    },
+    staleTime: 60 * 1000, // 1 minute
+    gcTime: 5 * 60 * 1000, // 5 minutes
+  });
+};
+
+// New optimized hook for fetching orders by period
+export const fetchExpeditionOrdersByPeriod = (
+  period: "today" | "tomorrow" | "afterTomorrow" | "week" | "nextWeek" | "month" | "lastMonth" | "custom",
+  selectedDate?: Date
+) => {
+  return useQuery({
+    queryKey: ['expeditionOrders', period, selectedDate?.toISOString()],
+    queryFn: async () => {
+      // Calculate date range based on period
+      const now = new Date();
+      let startDate: Date;
+      let endDate: Date;
+
+      switch (period) {
+        case "today":
+          startDate = new Date(now);
+          endDate = new Date(now);
+          break;
+        case "tomorrow":
+          startDate = new Date(now);
+          startDate.setDate(startDate.getDate() + 1);
+          endDate = new Date(startDate);
+          break;
+        case "afterTomorrow":
+          startDate = new Date(now);
+          startDate.setDate(startDate.getDate() + 2);
+          endDate = new Date(startDate);
+          break;
+        case "week":
+          startDate = new Date(now);
+          startDate.setDate(startDate.getDate() - startDate.getDay());
+          endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + 6);
+          break;
+        case "nextWeek":
+          startDate = new Date(now);
+          startDate.setDate(startDate.getDate() - startDate.getDay() + 7);
+          endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + 6);
+          break;
+        case "month":
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+          break;
+        case "lastMonth":
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+          break;
+        case "custom":
+          // For custom period, we must have a selectedDate
+          if (!selectedDate) {
+            throw new Error("Selected date is required for custom period");
+          }
+          startDate = new Date(selectedDate);
+          endDate = new Date(selectedDate);
+          break;
+        default:
+          startDate = new Date(now);
+          endDate = new Date(now);
+      }
+
+      // Format dates for Supabase
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = endDate.toISOString().split('T')[0];
+
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          date,
+          status,
+          total,
+          user_id,
+          driver_id,
+          note,
+          crateBig,
+          crateSmall,
+          crateBigReceived,
+          crateSmallReceived,
+          paid_by,
+          
+          user:profiles!orders_user_id_fkey (
+            id, 
+            full_name, 
+            role,
+            address,
+            mo_partners,
+            oz
+          ),
+          driver:profiles!orders_driver_id_fkey (
+            id, 
+            full_name, 
+            role
+          ),
+          order_items (
+            *,
+            product:products (
+              id,
+              name,
+              price,
+              priceMobil,
+              priceBuyer
+            )
+          )
+        `)
+        .gte('date', startDateStr)
+        .lte('date', endDateStr)
+        .order('date', { ascending: false })
+        .order('user(full_name)', { ascending: true });
+
+      if (error) throw error;
+
+      return orders as unknown as Order[];
+    },
+    staleTime: 30 * 1000, // 30 seconds
+    gcTime: 5 * 60 * 1000, // 5 minutes
+    enabled: true, // Always enabled, but will refetch when period/date changes
+  });
+};
+
 // export const updateOrderItem = async (orderItem: OrderItem): Promise<OrderItem> => {
 //   const { data, error } = await supabase
 //     .from('order_items')

@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, supabaseAdmin } from "@/lib/supabase";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface SubscriberUser {
@@ -346,22 +346,45 @@ export const useDriverUsers = () => {
 
 // Add new mutation
 export const updatePhone = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, phone }: { id: string; phone: string }) => {
-      // Update profile
+      console.log('Updating user phone:', { id, phone });
+      
+      // Update profile first
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ phone })
         .eq('id', id);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        throw profileError;
+      }
 
-      // Update auth user
-      const { error: authError } = await supabase.auth.updateUser({
-        phone
-      });
+      console.log('Profile phone updated successfully');
 
-      if (authError) throw authError;
+      // Try to update auth user using admin client
+      try {
+        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(id, {
+          phone
+        });
+
+        if (authError) {
+          console.warn('Auth phone update failed (this is often expected):', authError);
+          // Don't throw error - profile update was successful
+        } else {
+          console.log('Auth phone updated successfully');
+        }
+      } catch (authUpdateError) {
+        console.warn('Auth phone update failed (this is often expected):', authUpdateError);
+        // Don't throw error - profile update was successful
+      }
+      
+      console.log('Phone update completed for user:', id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
     },
   });
 };

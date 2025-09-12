@@ -35,7 +35,14 @@ interface CreateUserFormProps {
   onSuccess: () => void;
 }
 
-const roles = ["buyer", "driver", "expedition", "store", "mobil"] as const;
+const roles = [
+  "buyer",
+  "driver",
+  "expedition",
+  "store",
+  "mobil",
+  "supplier",
+] as const;
 
 const formSchema = z.object({
   full_name: z.string().min(1, "Full name is required"),
@@ -182,11 +189,22 @@ export function CreateUserForm({ onSuccess }: CreateUserFormProps) {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {roles.map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {role.charAt(0).toUpperCase() + role.slice(1)}
-                    </SelectItem>
-                  ))}
+                  {roles.map((role) => {
+                    const roleMap: Record<string, string> = {
+                      buyer: "Odběratel (Pohoda)",
+                      driver: "Řidič",
+                      store: "Prodejna",
+                      mobil: "Mobil",
+                      expedition: "Expedice",
+                      supplier: "Dodavatel",
+                    };
+                    return (
+                      <SelectItem key={role} value={role}>
+                        {roleMap[role] ||
+                          role.charAt(0).toUpperCase() + role.slice(1)}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -220,7 +238,7 @@ export function CreateUserForm({ onSuccess }: CreateUserFormProps) {
                   className="data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
                 />
               </FormControl>
-              <FormLabel className="text-sm font-normal">Supplier</FormLabel>
+              <FormLabel className="text-sm font-normal">Dodavatel</FormLabel>
             </FormItem>
           )}
         />

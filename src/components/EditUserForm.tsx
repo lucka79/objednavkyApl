@@ -52,7 +52,8 @@ const roles = [
   "expedition",
   "store",
   "mobil",
-  "user",
+
+  "supplier",
 ] as const;
 
 const formSchema = z.object({
@@ -369,7 +370,7 @@ export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
                     className="data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
                   />
                 </FormControl>
-                <FormLabel className="text-sm font-normal">Supplier</FormLabel>
+                <FormLabel className="text-sm font-normal">Dodavatel</FormLabel>
               </FormItem>
             )}
           />
@@ -571,11 +572,23 @@ export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {roles.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {role.charAt(0).toUpperCase() + role.slice(1)}
-                      </SelectItem>
-                    ))}
+                    {roles.map((role) => {
+                      const roleMap: Record<string, string> = {
+                        buyer: "Odběratel (Pohoda)",
+                        driver: "Řidič",
+                        store: "Prodejna",
+                        mobil: "Mobil",
+                        expedition: "Expedice",
+                        supplier: "Dodavatel",
+                        admin: "Administrátor",
+                      };
+                      return (
+                        <SelectItem key={role} value={role}>
+                          {roleMap[role] ||
+                            role.charAt(0).toUpperCase() + role.slice(1)}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -657,7 +670,7 @@ export function EditUserForm({ user, onSuccess }: EditUserFormProps) {
           className="w-full bg-orange-600 text-white hover:bg-orange-700 focus:bg-orange-700"
           disabled={form.formState.isSubmitting}
         >
-          {form.formState.isSubmitting ? "Updating..." : "Update User"}
+          {form.formState.isSubmitting ? "Upravuji..." : "Upravit"}
         </Button>
       </form>
     </Form>
