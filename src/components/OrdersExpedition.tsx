@@ -92,9 +92,21 @@ import { PrintReportBuyerOrders } from "./PrintReportBuyerOrders";
 import { PrintReportProducts } from "./PrintReportProducts";
 import { PrintReportBuyersSummary } from "./PrintReportBuyersSummary";
 import { PrintCategoryBagets } from "./PrintCategoryBagets";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+import {
+  useCratesByDate,
+  useUpsertCrates,
+  calculateCrateStatsFromOrders,
+  type CrateInput,
+} from "@/hooks/useCrates";
 
 const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
   ({ orders }, ref) => (
@@ -118,6 +130,37 @@ const calculateCrateSums = (orders: Order[]) => {
       crateBigReceived: sums.crateBigReceived + (order.crateBigReceived || 0),
     }),
     { crateSmall: 0, crateBig: 0, crateSmallReceived: 0, crateBigReceived: 0 }
+  );
+};
+
+const calculateDriverStats = (orders: Order[]) => {
+  const driverStats = new Map();
+
+  orders.forEach((order) => {
+    if (order.driver) {
+      const driverId = order.driver.id;
+      const driverName = order.driver.full_name;
+
+      if (!driverStats.has(driverId)) {
+        driverStats.set(driverId, {
+          name: driverName,
+          crateSmall: 0,
+          crateBig: 0,
+          crateSmallReceived: 0,
+          crateBigReceived: 0,
+        });
+      }
+
+      const stats = driverStats.get(driverId);
+      stats.crateSmall += order.crateSmall || 0;
+      stats.crateBig += order.crateBig || 0;
+      stats.crateSmallReceived += order.crateSmallReceived || 0;
+      stats.crateBigReceived += order.crateBigReceived || 0;
+    }
+  });
+
+  return Array.from(driverStats.values()).sort((a, b) =>
+    a.name.localeCompare(b.name, "cs")
   );
 };
 
@@ -863,6 +906,19 @@ export function OrdersExpeditionTable({
   >("tomorrow");
   const [date, setDate] = useState<Date>();
   const [isSpecificDay, setIsSpecificDay] = useState(false);
+  const [isDriverDialogOpen, setIsDriverDialogOpen] = useState(false);
+  const [driverReceivedCrates, setDriverReceivedCrates] = useState<
+    Record<string, { crateSmall: number; crateBig: number }>
+  >({});
+  const [driverManualCrates, setDriverManualCrates] = useState<
+    Record<string, { crateSmall: number; crateBig: number }>
+  >({});
+  const [manualDrivers, setManualDrivers] = useState<
+    Array<{ id: string; name: string; driver_id: string }>
+  >([]);
+  const [isSavingCrates, setIsSavingCrates] = useState(false);
+  const [isAddingDriver, setIsAddingDriver] = useState(false);
+  const [selectedDriverId, setSelectedDriverId] = useState("");
 
   // Use the optimized hook that fetches orders by period
   const {
@@ -881,8 +937,190 @@ export function OrdersExpeditionTable({
   // Get order counts for tab badges
   const { data: orderCounts } = fetchOrderCountsByPeriod();
 
+  // Get current date for crates tracking
+  const currentDate = useMemo(() => {
+    if (activeTab === "custom" && date) {
+      return date.toISOString().split("T")[0];
+    } else if (activeTab === "today") {
+      return new Date().toISOString().split("T")[0];
+    } else if (activeTab === "tomorrow") {
+      return new Date(Date.now() + 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0];
+    } else if (activeTab === "afterTomorrow") {
+      return new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0];
+    }
+    return null;
+  }, [activeTab, date]);
+
   // Determine which orders to use based on the active tab
   const orders = activeTab === "custom" ? monthOrders : periodOrders;
+
+  // Fetch existing crates data for the current date
+  const { data: existingCrates } = useCratesByDate(currentDate || "");
+
+  // Mutation for saving crates
+  const upsertCrates = useUpsertCrates();
+
+  // Load existing crates data when dialog opens or date changes
+  useEffect(() => {
+    if (isDriverDialogOpen && existingCrates && currentDate) {
+      const cratesMap: Record<
+        string,
+        { crateSmall: number; crateBig: number }
+      > = {};
+
+      const manualCratesMap: Record<
+        string,
+        { crateSmall: number; crateBig: number }
+      > = {};
+
+      existingCrates.forEach((crate) => {
+        // Find driver name from orders
+        const driver = orders?.find(
+          (order) => order.driver?.id === crate.driver_id
+        )?.driver;
+        if (driver) {
+          cratesMap[driver.full_name] = {
+            crateSmall: crate.crate_small_received,
+            crateBig: crate.crate_big_received,
+          };
+
+          // Calculate manually inserted crates (issued - original issued from orders)
+          const driverStats = calculateCrateStatsFromOrders(orders || []);
+          const originalDriverStats = driverStats.find(
+            (d) => d.driver_id === crate.driver_id
+          );
+          if (originalDriverStats) {
+            manualCratesMap[driver.full_name] = {
+              crateSmall: Math.max(
+                0,
+                crate.crate_small_issued -
+                  originalDriverStats.crate_small_issued
+              ),
+              crateBig: Math.max(
+                0,
+                crate.crate_big_issued - originalDriverStats.crate_big_issued
+              ),
+            };
+          }
+        }
+      });
+
+      setDriverReceivedCrates(cratesMap);
+      setDriverManualCrates(manualCratesMap);
+    }
+  }, [isDriverDialogOpen, existingCrates, currentDate, orders]);
+
+  // Add new manual driver
+  const handleAddDriver = () => {
+    if (!selectedDriverId) return;
+
+    const selectedDriver = driverUsers?.find(
+      (driver) => driver.id === selectedDriverId
+    );
+    if (!selectedDriver) return;
+
+    // Check if driver is already added
+    const isAlreadyAdded = manualDrivers.some(
+      (driver) => driver.driver_id === selectedDriverId
+    );
+    if (isAlreadyAdded) return;
+
+    const newDriver = {
+      id: `manual-${Date.now()}`,
+      name: selectedDriver.full_name,
+      driver_id: selectedDriver.id,
+    };
+
+    setManualDrivers((prev) => [...prev, newDriver]);
+    setSelectedDriverId("");
+    setIsAddingDriver(false);
+  };
+
+  // Remove manual driver
+  const handleRemoveDriver = (driverId: string) => {
+    setManualDrivers((prev) => prev.filter((driver) => driver.id !== driverId));
+    // Clean up associated data
+    const driverName = manualDrivers.find((d) => d.id === driverId)?.name;
+    if (driverName) {
+      setDriverReceivedCrates((prev) => {
+        const newData = { ...prev };
+        delete newData[driverName];
+        return newData;
+      });
+      setDriverManualCrates((prev) => {
+        const newData = { ...prev };
+        delete newData[driverName];
+        return newData;
+      });
+    }
+  };
+
+  // Save crates data
+  const handleSaveCrates = async () => {
+    if (!currentDate) return;
+
+    setIsSavingCrates(true);
+    try {
+      const cratesToSave: CrateInput[] = [];
+
+      // Get driver stats from orders
+      const driverStats = calculateCrateStatsFromOrders(orders || []);
+
+      // Create crate records for each driver from orders
+      driverStats.forEach((driver) => {
+        const manualData = driverReceivedCrates[driver.driver_name];
+        const manualInsertedData = driverManualCrates[driver.driver_name];
+
+        cratesToSave.push({
+          date: currentDate,
+          driver_id: driver.driver_id,
+          crate_small_issued:
+            driver.crate_small_issued + (manualInsertedData?.crateSmall || 0),
+          crate_big_issued:
+            driver.crate_big_issued + (manualInsertedData?.crateBig || 0),
+          crate_small_received:
+            manualData?.crateSmall || driver.crate_small_received,
+          crate_big_received: manualData?.crateBig || driver.crate_big_received,
+        });
+      });
+
+      // Create crate records for manual drivers
+      manualDrivers.forEach((driver) => {
+        const manualData = driverReceivedCrates[driver.name];
+        const manualInsertedData = driverManualCrates[driver.name];
+
+        cratesToSave.push({
+          date: currentDate,
+          driver_id: driver.driver_id,
+          crate_small_issued: manualInsertedData?.crateSmall || 0,
+          crate_big_issued: manualInsertedData?.crateBig || 0,
+          crate_small_received: manualData?.crateSmall || 0,
+          crate_big_received: manualData?.crateBig || 0,
+        });
+      });
+
+      await upsertCrates.mutateAsync(cratesToSave);
+
+      // Show success message
+      toast({
+        title: "Úspěch",
+        description: "Data o přepravkách byla uložena",
+      });
+    } catch (error) {
+      console.error("Error saving crates:", error);
+      toast({
+        title: "Chyba",
+        description: "Nepodařilo se uložit data o přepravkách",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingCrates(false);
+    }
+  };
   const error = activeTab === "custom" ? monthError : periodError;
   const isLoading = activeTab === "custom" ? monthLoading : periodLoading;
 
@@ -904,6 +1142,7 @@ export function OrdersExpeditionTable({
   const [selectedOZ, setSelectedOZ] = useState<string>("all");
 
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   // Get unique paid_by values from orders
   const uniquePaidByValues = useMemo(() => {
@@ -1233,6 +1472,15 @@ export function OrdersExpeditionTable({
                   <SelectItem value="no_oz">Bez Obchod.zástupce</SelectItem>
                 </SelectContent>
               </Select>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsDriverDialogOpen(true)}
+              >
+                <Container className="h-4 w-4 mr-2" />
+                Přehled řidičů
+              </Button>
 
               <Badge
                 variant="secondary"
@@ -1598,6 +1846,7 @@ export function OrdersExpeditionTable({
                         <Printer className="h-4 w-4 mr-2" />
                         Výroba baget
                       </Button>
+
                       <Button
                         variant="outline"
                         size="sm"
@@ -1736,6 +1985,597 @@ export function OrdersExpeditionTable({
                     columns={columns}
                     setSelectedOrderId={setSelectedOrderId}
                   />
+
+                  <Dialog
+                    open={isDriverDialogOpen}
+                    onOpenChange={setIsDriverDialogOpen}
+                  >
+                    <DialogContent className="max-w-4xl">
+                      <DialogHeader>
+                        <DialogTitle>
+                          Přehled řidičů -{" "}
+                          {period === "custom" && date
+                            ? isSpecificDay
+                              ? format(date, "dd.MM.yyyy")
+                              : format(date, "LLLL yyyy", { locale: cs })
+                            : period === "today"
+                              ? format(new Date(), "dd.MM.yyyy")
+                              : period === "tomorrow"
+                                ? format(
+                                    new Date(Date.now() + 24 * 60 * 60 * 1000),
+                                    "dd.MM.yyyy"
+                                  )
+                                : period === "afterTomorrow"
+                                  ? format(
+                                      new Date(
+                                        Date.now() + 2 * 24 * 60 * 60 * 1000
+                                      ),
+                                      "dd.MM.yyyy"
+                                    )
+                                  : period === "week"
+                                    ? `Tento týden (${format(new Date(), "dd.MM")} - ${format(new Date(Date.now() + 6 * 24 * 60 * 60 * 1000), "dd.MM.yyyy")})`
+                                    : period === "nextWeek"
+                                      ? `Příští týden (${format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), "dd.MM")} - ${format(new Date(Date.now() + 13 * 24 * 60 * 60 * 1000), "dd.MM.yyyy")})`
+                                      : period === "month"
+                                        ? format(new Date(), "LLLL yyyy", {
+                                            locale: cs,
+                                          })
+                                        : period === "lastMonth"
+                                          ? format(
+                                              new Date(
+                                                new Date().getFullYear(),
+                                                new Date().getMonth() - 1,
+                                                1
+                                              ),
+                                              "LLLL yyyy",
+                                              { locale: cs }
+                                            )
+                                          : period}
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="mt-4">
+                        <div className="flex justify-between items-center mb-4">
+                          <div className="flex items-center gap-4">
+                            <div className="text-sm text-muted-foreground">
+                              {currentDate
+                                ? `Datum: ${new Date(currentDate).toLocaleDateString("cs-CZ")}`
+                                : "Vyberte datum pro uložení dat"}
+                            </div>
+                            {!isAddingDriver ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsAddingDriver(true)}
+                                className="text-green-600 border-green-600 hover:bg-green-50"
+                              >
+                                + Přidat řidiče
+                              </Button>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <Select
+                                  value={selectedDriverId}
+                                  onValueChange={setSelectedDriverId}
+                                >
+                                  <SelectTrigger className="w-48">
+                                    <SelectValue placeholder="Vyberte řidiče" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {driverUsers
+                                      ?.filter(
+                                        (driver) =>
+                                          !manualDrivers.some(
+                                            (manual) =>
+                                              manual.driver_id === driver.id
+                                          ) &&
+                                          !calculateDriverStats(
+                                            filteredPeriodOrders
+                                          ).some(
+                                            (orderDriver) =>
+                                              orderDriver.driver_id ===
+                                              driver.id
+                                          )
+                                      )
+                                      .map((driver) => (
+                                        <SelectItem
+                                          key={driver.id}
+                                          value={driver.id}
+                                        >
+                                          {driver.full_name}
+                                        </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
+                                <Button
+                                  size="sm"
+                                  onClick={handleAddDriver}
+                                  disabled={!selectedDriverId}
+                                  className="bg-green-600 hover:bg-green-700"
+                                >
+                                  Přidat
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setIsAddingDriver(false);
+                                    setSelectedDriverId("");
+                                  }}
+                                >
+                                  Zrušit
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                          <Button
+                            onClick={handleSaveCrates}
+                            disabled={!currentDate || isSavingCrates}
+                            className="bg-orange-600 hover:bg-orange-700"
+                          >
+                            {isSavingCrates ? "Ukládám..." : "Uložit data"}
+                          </Button>
+                        </div>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Řidič</TableHead>
+                              <TableHead className="text-center">
+                                Ostaní vydané
+                              </TableHead>
+                              <TableHead className="text-center">
+                                Vydané přepravky
+                              </TableHead>
+                              <TableHead className="text-center">
+                                Vrácené přepravky
+                              </TableHead>
+                              <TableHead className="text-center">
+                                Vrácené
+                              </TableHead>
+                              <TableHead className="text-center">
+                                Rozdíl
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {/* Regular drivers from orders */}
+                            {calculateDriverStats(filteredPeriodOrders).map(
+                              (driver, index) => (
+                                <TableRow key={index}>
+                                  <TableCell className="font-medium">
+                                    {driver.name}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <div className="flex justify-center gap-2">
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        className="w-16 h-8 text-center [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
+                                        value={
+                                          driverManualCrates[driver.name]
+                                            ?.crateSmall || 0
+                                        }
+                                        onFocus={(e) => e.target.select()}
+                                        onChange={(e) => {
+                                          const value =
+                                            parseInt(e.target.value) || 0;
+                                          setDriverManualCrates((prev) => ({
+                                            ...prev,
+                                            [driver.name]: {
+                                              ...prev[driver.name],
+                                              crateSmall: value,
+                                              crateBig:
+                                                prev[driver.name]?.crateBig ||
+                                                0,
+                                            },
+                                          }));
+                                        }}
+                                      />
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        className="w-16 h-8 text-center [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
+                                        value={
+                                          driverManualCrates[driver.name]
+                                            ?.crateBig || 0
+                                        }
+                                        onFocus={(e) => e.target.select()}
+                                        onChange={(e) => {
+                                          const value =
+                                            parseInt(e.target.value) || 0;
+                                          setDriverManualCrates((prev) => ({
+                                            ...prev,
+                                            [driver.name]: {
+                                              ...prev[driver.name],
+                                              crateSmall:
+                                                prev[driver.name]?.crateSmall ||
+                                                0,
+                                              crateBig: value,
+                                            },
+                                          }));
+                                        }}
+                                      />
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <div className="flex justify-center gap-2">
+                                      <Badge
+                                        variant="outline"
+                                        className="text-yellow-700"
+                                      >
+                                        {driver.crateSmall}
+                                        <Container size={16} className="ml-1" />
+                                      </Badge>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-red-800"
+                                      >
+                                        {driver.crateBig}
+                                        <Container size={20} className="ml-1" />
+                                      </Badge>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <div className="flex justify-center gap-2">
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-yellow-700"
+                                      >
+                                        {driver.crateSmallReceived}
+                                        <Container size={16} className="ml-1" />
+                                      </Badge>
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-red-800"
+                                      >
+                                        {driver.crateBigReceived}
+                                        <Container size={20} className="ml-1" />
+                                      </Badge>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <div className="flex justify-center gap-2">
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        className="w-16 h-8 text-center [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
+                                        value={
+                                          driverReceivedCrates[driver.name]
+                                            ?.crateSmall || 0
+                                        }
+                                        onFocus={(e) => e.target.select()}
+                                        onChange={(e) => {
+                                          const value =
+                                            parseInt(e.target.value) || 0;
+                                          setDriverReceivedCrates((prev) => ({
+                                            ...prev,
+                                            [driver.name]: {
+                                              ...prev[driver.name],
+                                              crateSmall: value,
+                                              crateBig:
+                                                prev[driver.name]?.crateBig ||
+                                                0,
+                                            },
+                                          }));
+                                        }}
+                                      />
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        className="w-16 h-8 text-center [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
+                                        value={
+                                          driverReceivedCrates[driver.name]
+                                            ?.crateBig || 0
+                                        }
+                                        onFocus={(e) => e.target.select()}
+                                        onChange={(e) => {
+                                          const value =
+                                            parseInt(e.target.value) || 0;
+                                          setDriverReceivedCrates((prev) => ({
+                                            ...prev,
+                                            [driver.name]: {
+                                              ...prev[driver.name],
+                                              crateSmall:
+                                                prev[driver.name]?.crateSmall ||
+                                                0,
+                                              crateBig: value,
+                                            },
+                                          }));
+                                        }}
+                                      />
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <div className="flex justify-center gap-2">
+                                      <Badge
+                                        variant="outline"
+                                        className={`${
+                                          (driverReceivedCrates[driver.name]
+                                            ?.crateSmall || 0) -
+                                            (driver.crateSmall +
+                                              (driverManualCrates[driver.name]
+                                                ?.crateSmall || 0)) >
+                                          0
+                                            ? "text-green-700 border-green-700"
+                                            : (driverReceivedCrates[driver.name]
+                                                  ?.crateSmall || 0) -
+                                                  (driver.crateSmall +
+                                                    (driverManualCrates[
+                                                      driver.name
+                                                    ]?.crateSmall || 0)) <
+                                                0
+                                              ? "text-red-700 border-red-700"
+                                              : "text-gray-700"
+                                        }`}
+                                      >
+                                        {(driverReceivedCrates[driver.name]
+                                          ?.crateSmall || 0) -
+                                          (driver.crateSmall +
+                                            (driverManualCrates[driver.name]
+                                              ?.crateSmall || 0))}
+                                        <Container size={16} className="ml-1" />
+                                      </Badge>
+                                      <Badge
+                                        variant="outline"
+                                        className={`${
+                                          (driverReceivedCrates[driver.name]
+                                            ?.crateBig || 0) -
+                                            (driver.crateBig +
+                                              (driverManualCrates[driver.name]
+                                                ?.crateBig || 0)) >
+                                          0
+                                            ? "text-green-700 border-green-700"
+                                            : (driverReceivedCrates[driver.name]
+                                                  ?.crateBig || 0) -
+                                                  (driver.crateBig +
+                                                    (driverManualCrates[
+                                                      driver.name
+                                                    ]?.crateBig || 0)) <
+                                                0
+                                              ? "text-red-700 border-red-700"
+                                              : "text-gray-700"
+                                        }`}
+                                      >
+                                        {(driverReceivedCrates[driver.name]
+                                          ?.crateBig || 0) -
+                                          (driver.crateBig +
+                                            (driverManualCrates[driver.name]
+                                              ?.crateBig || 0))}
+                                        <Container size={20} className="ml-1" />
+                                      </Badge>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            )}
+
+                            {/* Manual drivers */}
+                            {manualDrivers.map((driver) => (
+                              <TableRow
+                                key={`manual-${driver.id}`}
+                                className="bg-green-50"
+                              >
+                                <TableCell className="font-medium flex items-center gap-2">
+                                  {driver.name}
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleRemoveDriver(driver.id)
+                                    }
+                                    className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-100"
+                                  >
+                                    ×
+                                  </Button>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center gap-2">
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      className="w-16 h-8 text-center [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
+                                      value={
+                                        driverManualCrates[driver.name]
+                                          ?.crateSmall || 0
+                                      }
+                                      onFocus={(e) => e.target.select()}
+                                      onChange={(e) => {
+                                        const value =
+                                          parseInt(e.target.value) || 0;
+                                        setDriverManualCrates((prev) => ({
+                                          ...prev,
+                                          [driver.name]: {
+                                            ...prev[driver.name],
+                                            crateSmall: value,
+                                            crateBig:
+                                              prev[driver.name]?.crateBig || 0,
+                                          },
+                                        }));
+                                      }}
+                                    />
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      className="w-16 h-8 text-center [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
+                                      value={
+                                        driverManualCrates[driver.name]
+                                          ?.crateBig || 0
+                                      }
+                                      onFocus={(e) => e.target.select()}
+                                      onChange={(e) => {
+                                        const value =
+                                          parseInt(e.target.value) || 0;
+                                        setDriverManualCrates((prev) => ({
+                                          ...prev,
+                                          [driver.name]: {
+                                            ...prev[driver.name],
+                                            crateSmall:
+                                              prev[driver.name]?.crateSmall ||
+                                              0,
+                                            crateBig: value,
+                                          },
+                                        }));
+                                      }}
+                                    />
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center gap-2">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-yellow-700"
+                                    >
+                                      0
+                                      <Container size={16} className="ml-1" />
+                                    </Badge>
+                                    <Badge
+                                      variant="outline"
+                                      className="text-red-800"
+                                    >
+                                      0
+                                      <Container size={20} className="ml-1" />
+                                    </Badge>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center gap-2">
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-yellow-700"
+                                    >
+                                      0
+                                      <Container size={16} className="ml-1" />
+                                    </Badge>
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-red-800"
+                                    >
+                                      0
+                                      <Container size={20} className="ml-1" />
+                                    </Badge>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center gap-2">
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      className="w-16 h-8 text-center [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
+                                      value={
+                                        driverReceivedCrates[driver.name]
+                                          ?.crateSmall || 0
+                                      }
+                                      onFocus={(e) => e.target.select()}
+                                      onChange={(e) => {
+                                        const value =
+                                          parseInt(e.target.value) || 0;
+                                        setDriverReceivedCrates((prev) => ({
+                                          ...prev,
+                                          [driver.name]: {
+                                            ...prev[driver.name],
+                                            crateSmall: value,
+                                            crateBig:
+                                              prev[driver.name]?.crateBig || 0,
+                                          },
+                                        }));
+                                      }}
+                                    />
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      className="w-16 h-8 text-center [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
+                                      value={
+                                        driverReceivedCrates[driver.name]
+                                          ?.crateBig || 0
+                                      }
+                                      onFocus={(e) => e.target.select()}
+                                      onChange={(e) => {
+                                        const value =
+                                          parseInt(e.target.value) || 0;
+                                        setDriverReceivedCrates((prev) => ({
+                                          ...prev,
+                                          [driver.name]: {
+                                            ...prev[driver.name],
+                                            crateSmall:
+                                              prev[driver.name]?.crateSmall ||
+                                              0,
+                                            crateBig: value,
+                                          },
+                                        }));
+                                      }}
+                                    />
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center gap-2">
+                                    <Badge
+                                      variant="outline"
+                                      className={`${
+                                        (driverReceivedCrates[driver.name]
+                                          ?.crateSmall || 0) -
+                                          (driverManualCrates[driver.name]
+                                            ?.crateSmall || 0) >
+                                        0
+                                          ? "text-green-700 border-green-700"
+                                          : (driverReceivedCrates[driver.name]
+                                                ?.crateSmall || 0) -
+                                                (driverManualCrates[driver.name]
+                                                  ?.crateSmall || 0) <
+                                              0
+                                            ? "text-red-700 border-red-700"
+                                            : "text-gray-700"
+                                      }`}
+                                    >
+                                      {(driverReceivedCrates[driver.name]
+                                        ?.crateSmall || 0) -
+                                        (driverManualCrates[driver.name]
+                                          ?.crateSmall || 0)}
+                                      <Container size={16} className="ml-1" />
+                                    </Badge>
+                                    <Badge
+                                      variant="outline"
+                                      className={`${
+                                        (driverReceivedCrates[driver.name]
+                                          ?.crateBig || 0) -
+                                          (driverManualCrates[driver.name]
+                                            ?.crateBig || 0) >
+                                        0
+                                          ? "text-green-700 border-green-700"
+                                          : (driverReceivedCrates[driver.name]
+                                                ?.crateBig || 0) -
+                                                (driverManualCrates[driver.name]
+                                                  ?.crateBig || 0) <
+                                              0
+                                            ? "text-red-700 border-red-700"
+                                            : "text-gray-700"
+                                      }`}
+                                    >
+                                      {(driverReceivedCrates[driver.name]
+                                        ?.crateBig || 0) -
+                                        (driverManualCrates[driver.name]
+                                          ?.crateBig || 0)}
+                                      <Container size={20} className="ml-1" />
+                                    </Badge>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+
+                            {calculateDriverStats(filteredPeriodOrders)
+                              .length === 0 &&
+                              manualDrivers.length === 0 && (
+                                <TableRow>
+                                  <TableCell
+                                    colSpan={6}
+                                    className="text-center text-muted-foreground"
+                                  >
+                                    Žádní řidiči nenalezeni
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </TabsContent>
               );
             })}

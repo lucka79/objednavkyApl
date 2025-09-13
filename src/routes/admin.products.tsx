@@ -31,7 +31,7 @@ function AdminProducts() {
           -moz-appearance: textfield;
         }
       `}</style>
-      <main className="h-full w-full flex flex-col md:flex-row gap-2 p-2 sm:px-6 md:px-[20px] lg:px-[40px] sm:py-0">
+      <main className="h-full w-full flex flex-col md:flex-row gap-0 p-0 sm:px-0 md:px-0 lg:px-0 sm:py-0">
         <div className="flex-1 md:w-1/2 lg:flex-1 h-full overflow-y-auto overflow-x-hidden">
           <ProductCategory />
         </div>

@@ -66,6 +66,7 @@ export function Navbar() {
                     <Link to="/store/orders" className="hover:text-gray-300">
                       Prodejna
                     </Link>
+
                     <Link to="/store/settings" className="hover:text-gray-300">
                       <div
                         className={cn(
@@ -102,7 +103,12 @@ export function Navbar() {
                     <Link to="/expedition" className="hover:text-gray-300">
                       Expedice
                     </Link>
-
+                    <Link
+                      to="/expedition/transfers"
+                      className="hover:text-gray-300"
+                    >
+                      Převodky surovin
+                    </Link>
                     <Link
                       to="/expedition/create"
                       className="hover:text-gray-300"
@@ -119,9 +125,6 @@ export function Navbar() {
                     </Link>
                     <Link to="/user/orders" className="hover:text-gray-300">
                       Objednávky
-                    </Link>
-                    <Link to="/user/transfers" className="hover:text-gray-300">
-                      Transfery
                     </Link>
 
                     <Link to="/cart" className="hover:text-gray-300">

@@ -34,7 +34,7 @@ function AdminOrders() {
   return (
     <TooltipProvider>
       <div className="h-full w-full flex">
-        <nav className="flex flex-col gap-2 p-2 border-r bg-background print:hidden">
+        <nav className="flex flex-col gap-0 p-2 border-r bg-background print:hidden">
           <Button
             variant={activeView === "orders" ? "outline" : "ghost"}
             size="icon"
@@ -65,8 +65,8 @@ function AdminOrders() {
           </Tooltip>
         </nav>
 
-        <main className="flex-1 grid h-full w-full items-start gap-4 p-2 sm:px-6 sm:py-0 md:gap-8 lg:grid-cols-3 xl:grid-cols-3">
-          <div className="grid h-full auto-rows-max items-start gap-2 md:gap-8 lg:col-span-4">
+        <main className="flex-1 grid h-full w-full items-start gap-0 p-0 sm:px-0 sm:py-0 md:gap-0 lg:grid-cols-3 xl:grid-cols-3">
+          <div className="grid h-full auto-rows-max items-start gap-0 md:gap-0 lg:col-span-6">
             <div className="h-full overflow-y-auto overflow-x-hidden">
               {activeView === "orders" && (
                 <OrdersTable selectedProductId={null} />

@@ -1160,7 +1160,7 @@ export function OrdersTable({
   if (error) return <div>Error loading orders</div>;
 
   return (
-    <>
+    <div>
       <Card className="my-0 p-4 print:border-none print:shadow-none print:absolute print:top-0 print:left-0 print:right-0 print:m-0 print:h-auto print:overflow-visible print:transform-none">
         <div className="space-y-4 overflow-x-auto print:!m-0">
           <div className="space-y-2 print:hidden">
@@ -1169,7 +1169,7 @@ export function OrdersTable({
                 placeholder="Search orders..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
-                className="max-w-sm"
+                className="w-[200px]"
               />
 
               <Select
@@ -1198,30 +1198,6 @@ export function OrdersTable({
                   ))}
                 </SelectContent>
               </Select>
-
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "w-[240px] justify-start text-left font-normal",
-                      !date && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? format(date, "PPP") : <span>Vyberte datum</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={setDate}
-                    initialFocus
-                    locale={cs}
-                  />
-                </PopoverContent>
-              </Popover>
 
               <Select value={selectedOZ} onValueChange={setSelectedOZ}>
                 <SelectTrigger className="w-[200px]">
@@ -1283,7 +1259,7 @@ export function OrdersTable({
                 onValueChange={setSelectedProductId}
                 onOpenChange={() => setSearchQuery("")}
               >
-                <SelectTrigger className="w-full max-w-sm">
+                <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Výrobky v objednávkách..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -1431,24 +1407,52 @@ export function OrdersTable({
               setActiveTab(value);
             }}
           >
-            <TabsList className="print:hidden">
-              {[
-                { value: "tomorrow", label: "Zítra" },
-                { value: "afterTomorrow", label: "Pozítří" },
-                { value: "today", label: "Dnes" },
-                { value: "week", label: "Tento týden" },
-                { value: "nextWeek", label: "Příští týden" },
-                { value: "month", label: "Tento měsíc" },
-                { value: "lastMonth", label: "Minulý měsíc" },
-              ].map((tab) => (
-                <TabsTrigger key={tab.value} value={tab.value}>
-                  {tab.label}{" "}
-                  <Badge variant="outline" className="ml-2">
-                    {filterOrdersByDate(orders || [], tab.value as any).length}
-                  </Badge>
-                </TabsTrigger>
-              ))}
-            </TabsList>
+            <div className="flex items-center gap-4 mb-4 print:hidden">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-[150px] justify-start text-left font-normal",
+                      !date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date ? format(date, "PPP") : <span>Vyberte datum</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={setDate}
+                    initialFocus
+                    locale={cs}
+                  />
+                </PopoverContent>
+              </Popover>
+              <TabsList>
+                {[
+                  { value: "tomorrow", label: "Zítra" },
+                  { value: "afterTomorrow", label: "Pozítří" },
+                  { value: "today", label: "Dnes" },
+                  { value: "week", label: "Tento týden" },
+                  { value: "nextWeek", label: "Příští týden" },
+                  { value: "month", label: "Tento měsíc" },
+                  { value: "lastMonth", label: "Minulý měsíc" },
+                ].map((tab) => (
+                  <TabsTrigger key={tab.value} value={tab.value}>
+                    {tab.label}{" "}
+                    <Badge variant="outline" className="ml-2">
+                      {
+                        filterOrdersByDate(orders || [], tab.value as any)
+                          .length
+                      }
+                    </Badge>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
 
             {[
               "today",
@@ -1710,7 +1714,7 @@ export function OrdersTable({
           <ProductPrintWrapper ref={productPrintRef} orders={selectedOrders} />
         </div>
       )} */}
-    </>
+    </div>
   );
 }
 
