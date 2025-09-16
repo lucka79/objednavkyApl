@@ -497,28 +497,29 @@ export function CratesOverviewDialog({
                               <tr style="background-color: #f3f4f6; font-weight: bold;">
                                 <td class="font-semibold">CELKEM:</td>
                                 <td class="text-center">
-                                  <span class="badge badge-outline text-yellow-700 border-yellow-700">${totals.manualIssuedSmall} M</span>
-                                  <span class="badge badge-outline text-red-800 border-red-800">${totals.manualIssuedBig} V</span>
+                                  ${totals.manualIssuedSmall} M / ${totals.manualIssuedBig} V
                                 </td>
                                 <td class="text-center">
-                                  <span class="badge badge-outline text-yellow-700 border-yellow-700">${totals.electronicIssuedSmall} M</span>
-                                  <span class="badge badge-outline text-red-800 border-red-800">${totals.electronicIssuedBig} V</span>
+                                  ${totals.electronicIssuedSmall} M / ${totals.electronicIssuedBig} V
                                 </td>
                                 <td class="text-center">
-                                  <span class="badge badge-secondary text-yellow-700">${totals.electronicReceivedSmall} M</span>
-                                  <span class="badge badge-secondary text-red-800">${totals.electronicReceivedBig} V</span>
+                                  ${totals.electronicReceivedSmall} M / ${totals.electronicReceivedBig} V
                                 </td>
                                 <td class="text-center">
-                                  <span class="badge badge-outline text-yellow-700 border-yellow-700">${totals.manualReceivedSmall} M</span>
-                                  <span class="badge badge-outline text-red-800 border-red-800">${totals.manualReceivedBig} V</span>
+                                  ${(() => {
+                                    if (
+                                      totals.manualReceivedSmall === 0 &&
+                                      totals.manualReceivedBig === 0
+                                    )
+                                      return "-";
+                                    return `${totals.manualReceivedSmall} M / ${totals.manualReceivedBig} V`;
+                                  })()}
                                 </td>
                                 <td class="text-center">
-                                  <span class="badge badge-secondary text-yellow-700">${totals.totalReceivedSmall} M</span>
-                                  <span class="badge badge-secondary text-red-800">${totals.totalReceivedBig} V</span>
+                                  ${totals.totalReceivedSmall} M / ${totals.totalReceivedBig} V
                                 </td>
                                 <td class="text-center">
-                                  <span class="badge badge-outline text-yellow-700">${totals.manualIssuedSmall + totals.electronicIssuedSmall - totals.totalReceivedSmall} M</span>
-                                  <span class="badge badge-outline text-red-800">${totals.manualIssuedBig + totals.electronicIssuedBig - totals.totalReceivedBig} V</span>
+                                  ${totals.manualIssuedSmall + totals.electronicIssuedSmall - totals.totalReceivedSmall} M / ${totals.manualIssuedBig + totals.electronicIssuedBig - totals.totalReceivedBig} V
                                 </td>
                               </tr>
                             </thead>
@@ -529,52 +530,48 @@ export function CratesOverviewDialog({
                                 <tr>
                                   <td class="font-medium">${driver.name}</td>
                                   <td class="text-center">
-                                    <span class="badge badge-outline text-yellow-700 border-yellow-700">${driverManualCrates[driver.name]?.crateSmall || 0} M</span>
-                                    <span class="badge badge-outline text-red-800 border-red-800">${driverManualCrates[driver.name]?.crateBig || 0} V</span>
+                                    ${driverManualCrates[driver.name]?.crateSmall || 0} M / ${driverManualCrates[driver.name]?.crateBig || 0} V
                                   </td>
                                   <td class="text-center">
-                                    <span class="badge badge-outline text-yellow-700 border-yellow-700">${driver.crateSmall} M</span>
-                                    <span class="badge badge-outline text-red-800 border-red-800">${driver.crateBig} V</span>
+                                    ${driver.crateSmall} M / ${driver.crateBig} V
                                   </td>
                                   <td class="text-center">
-                                    <span class="badge badge-secondary text-yellow-700">${driver.crateSmallReceived} M</span>
-                                    <span class="badge badge-secondary text-red-800">${driver.crateBigReceived} V</span>
+                                    ${driver.crateSmallReceived} M / ${driver.crateBigReceived} V
                                   </td>
                                   <td class="text-center">
-                                    <span class="badge badge-outline text-yellow-700 border-yellow-700">${(driverReceivedCrates[driver.name]?.crateSmall || 0) - (driver.crateSmallReceived || 0)} M</span>
-                                    <span class="badge badge-outline text-red-800 border-red-800">${(driverReceivedCrates[driver.name]?.crateBig || 0) - (driver.crateBigReceived || 0)} V</span>
+                                    ${(() => {
+                                      const manualSmall =
+                                        (driverReceivedCrates[driver.name]
+                                          ?.crateSmall || 0) -
+                                        (driver.crateSmallReceived || 0);
+                                      const manualBig =
+                                        (driverReceivedCrates[driver.name]
+                                          ?.crateBig || 0) -
+                                        (driver.crateBigReceived || 0);
+                                      if (manualSmall === 0 && manualBig === 0)
+                                        return "-";
+                                      return `${manualSmall} M / ${manualBig} V`;
+                                    })()}
                                   </td>
                                   <td class="text-center">
-                                    <span class="badge badge-secondary text-yellow-700">${driverReceivedCrates[driver.name]?.crateSmall || 0}${driver.crateSmallReceived > 0 ? ` (${driver.crateSmallReceived})` : ""} M</span>
-                                    <span class="badge badge-secondary text-red-800">${driverReceivedCrates[driver.name]?.crateBig || 0}${driver.crateBigReceived > 0 ? ` (${driver.crateBigReceived})` : ""} V</span>
+                                    ${driverReceivedCrates[driver.name]?.crateSmall || 0}${driver.crateSmallReceived > 0 ? ` (${driver.crateSmallReceived})` : ""} M / ${driverReceivedCrates[driver.name]?.crateBig || 0}${driver.crateBigReceived > 0 ? ` (${driver.crateBigReceived})` : ""} V
                                   </td>
                                   <td class="text-center">
-                                    <span class="badge badge-outline ${driver.crateSmall + (driverManualCrates[driver.name]?.crateSmall || 0) - (driverReceivedCrates[driver.name]?.crateSmall || 0) > 0 ? "text-red-700 border-red-700" : driver.crateSmall + (driverManualCrates[driver.name]?.crateSmall || 0) - (driverReceivedCrates[driver.name]?.crateSmall || 0) < 0 ? "text-green-700 border-green-700" : "text-gray-700"}">${(() => {
-                                      const diff =
+                                    ${(() => {
+                                      const diffSmall =
                                         driver.crateSmall +
                                         (driverManualCrates[driver.name]
                                           ?.crateSmall || 0) -
                                         (driverReceivedCrates[driver.name]
                                           ?.crateSmall || 0);
-                                      return diff > 0
-                                        ? `-${diff}`
-                                        : diff < 0
-                                          ? `+${Math.abs(diff)}`
-                                          : diff;
-                                    })()} M</span>
-                                    <span class="badge badge-outline ${driver.crateBig + (driverManualCrates[driver.name]?.crateBig || 0) - (driverReceivedCrates[driver.name]?.crateBig || 0) > 0 ? "text-red-700 border-red-700" : driver.crateBig + (driverManualCrates[driver.name]?.crateBig || 0) - (driverReceivedCrates[driver.name]?.crateBig || 0) < 0 ? "text-green-700 border-green-700" : "text-gray-700"}">${(() => {
-                                      const diff =
+                                      const diffBig =
                                         driver.crateBig +
                                         (driverManualCrates[driver.name]
                                           ?.crateBig || 0) -
                                         (driverReceivedCrates[driver.name]
                                           ?.crateBig || 0);
-                                      return diff > 0
-                                        ? `-${diff}`
-                                        : diff < 0
-                                          ? `+${Math.abs(diff)}`
-                                          : diff;
-                                    })()} V</span>
+                                      return `${diffSmall > 0 ? `-${diffSmall}` : diffSmall < 0 ? `+${Math.abs(diffSmall)}` : diffSmall} M / ${diffBig > 0 ? `-${diffBig}` : diffBig < 0 ? `+${Math.abs(diffBig)}` : diffBig} V`;
+                                    })()}
                                   </td>
                                 </tr>
                               `
@@ -586,50 +583,44 @@ export function CratesOverviewDialog({
                                 <tr class="bg-green-50">
                                   <td class="font-medium text-green-600">${driver.name} (ručně přidaný)</td>
                                   <td class="text-center">
-                                    <span class="badge badge-outline text-yellow-700 border-yellow-700">${driverManualCrates[driver.name]?.crateSmall || 0} M</span>
-                                    <span class="badge badge-outline text-red-800 border-red-800">${driverManualCrates[driver.name]?.crateBig || 0} V</span>
+                                    ${driverManualCrates[driver.name]?.crateSmall || 0} M / ${driverManualCrates[driver.name]?.crateBig || 0} V
                                   </td>
                                   <td class="text-center">
-                                    <span class="badge badge-outline text-yellow-700 border-yellow-700">0 M</span>
-                                    <span class="badge badge-outline text-red-800 border-red-800">0 V</span>
+                                    0 M / 0 V
                                   </td>
                                   <td class="text-center">
-                                    <span class="badge badge-secondary text-yellow-700">0 M</span>
-                                    <span class="badge badge-secondary text-red-800">0 V</span>
+                                    0 M / 0 V
                                   </td>
                                   <td class="text-center">
-                                    <span class="badge badge-outline text-yellow-700 border-yellow-700">${driverReceivedCrates[driver.name]?.crateSmall || 0} M</span>
-                                    <span class="badge badge-outline text-red-800 border-red-800">${driverReceivedCrates[driver.name]?.crateBig || 0} V</span>
+                                    ${(() => {
+                                      const manualSmall =
+                                        driverReceivedCrates[driver.name]
+                                          ?.crateSmall || 0;
+                                      const manualBig =
+                                        driverReceivedCrates[driver.name]
+                                          ?.crateBig || 0;
+                                      if (manualSmall === 0 && manualBig === 0)
+                                        return "-";
+                                      return `${manualSmall} M / ${manualBig} V`;
+                                    })()}
                                   </td>
                                   <td class="text-center">
-                                    <span class="badge badge-secondary text-yellow-700">${driverReceivedCrates[driver.name]?.crateSmall || 0} M</span>
-                                    <span class="badge badge-secondary text-red-800">${driverReceivedCrates[driver.name]?.crateBig || 0} V</span>
+                                    ${driverReceivedCrates[driver.name]?.crateSmall || 0} M / ${driverReceivedCrates[driver.name]?.crateBig || 0} V
                                   </td>
                                   <td class="text-center">
-                                    <span class="badge badge-outline ${(driverManualCrates[driver.name]?.crateSmall || 0) - (driverReceivedCrates[driver.name]?.crateSmall || 0) > 0 ? "text-red-700 border-red-700" : (driverManualCrates[driver.name]?.crateSmall || 0) - (driverReceivedCrates[driver.name]?.crateSmall || 0) < 0 ? "text-green-700 border-green-700" : "text-gray-700"}">${(() => {
-                                      const diff =
+                                    ${(() => {
+                                      const diffSmall =
                                         (driverManualCrates[driver.name]
                                           ?.crateSmall || 0) -
                                         (driverReceivedCrates[driver.name]
                                           ?.crateSmall || 0);
-                                      return diff > 0
-                                        ? `-${diff}`
-                                        : diff < 0
-                                          ? `+${Math.abs(diff)}`
-                                          : diff;
-                                    })()} M</span>
-                                    <span class="badge badge-outline ${(driverManualCrates[driver.name]?.crateBig || 0) - (driverReceivedCrates[driver.name]?.crateBig || 0) > 0 ? "text-red-700 border-red-700" : (driverManualCrates[driver.name]?.crateBig || 0) - (driverReceivedCrates[driver.name]?.crateBig || 0) < 0 ? "text-green-700 border-green-700" : "text-gray-700"}">${(() => {
-                                      const diff =
+                                      const diffBig =
                                         (driverManualCrates[driver.name]
                                           ?.crateBig || 0) -
                                         (driverReceivedCrates[driver.name]
                                           ?.crateBig || 0);
-                                      return diff > 0
-                                        ? `-${diff}`
-                                        : diff < 0
-                                          ? `+${Math.abs(diff)}`
-                                          : diff;
-                                    })()} V</span>
+                                      return `${diffSmall > 0 ? `-${diffSmall}` : diffSmall < 0 ? `+${Math.abs(diffSmall)}` : diffSmall} M / ${diffBig > 0 ? `-${diffBig}` : diffBig < 0 ? `+${Math.abs(diffBig)}` : diffBig} V`;
+                                    })()}
                                   </td>
                                 </tr>
                               `
