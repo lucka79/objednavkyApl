@@ -34,9 +34,9 @@ const CategoryBadges = ({
   const buyerCategories = categories.filter((category) => category.buyer);
 
   return (
-    <div className="w-full rounded-md border p-2">
+    <div className="w-full rounded-md border p-0">
       {/* Grid layout for all screen sizes */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 2xl:grid-cols-8">
+      <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 md:grid-cols-6 2xl:grid-cols-8">
         <Button
           key="all"
           variant="outline"

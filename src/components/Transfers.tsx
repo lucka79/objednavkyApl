@@ -8,9 +8,11 @@ export default function Transfers() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Transfers</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Objednávky / Převodky surovin
+          </h1>
           <p className="text-muted-foreground">
-            Manage ingredient transfers between users
+            Zobrazují se všechny objednávky surovin.
           </p>
         </div>
         <TransferForm />

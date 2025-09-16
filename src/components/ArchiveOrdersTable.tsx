@@ -67,6 +67,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useDriverUsers } from "@/hooks/useProfiles";
 import { useAuthStore } from "@/lib/supabase";
+import { CratesOverviewDialog } from "./CratesOverviewDialog";
 import { cs } from "date-fns/locale";
 
 import { ProductSummaryPrint } from "./ProductSummaryPrint";
@@ -978,6 +979,7 @@ export function ArchiveOrdersTable() {
   const { data: driverUsers } = useDriverUsers();
   const [table, setTable] = useState<any>(null);
   const [selectedWeek, setSelectedWeek] = useState<Date>(new Date());
+  const [isDriverDialogOpen, setIsDriverDialogOpen] = useState(false);
 
   // Helper function to get week number and date range
   const getWeekInfo = (date: Date) => {
@@ -2288,6 +2290,15 @@ export function ArchiveOrdersTable() {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => setIsDriverDialogOpen(true)}
+                    className="border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white"
+                  >
+                    <Container className="h-4 w-4 mr-2" />
+                    Přehled PŘEPRAVEK
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => {
                       const selectedOrders =
                         table.getFilteredSelectedRowModel().rows.length > 0
@@ -2580,6 +2591,18 @@ export function ArchiveOrdersTable() {
       </Card>
 
       <div className="w-full"></div>
+
+      <CratesOverviewDialog
+        isOpen={isDriverDialogOpen}
+        onOpenChange={setIsDriverDialogOpen}
+        orders={filteredOrders}
+        currentDate={isSpecificDay ? date.toISOString().split("T")[0] : null}
+        period={
+          isSpecificDay
+            ? date.toISOString().split("T")[0].split("-").reverse().join(".")
+            : format(date, "LLLL yyyy", { locale: cs })
+        }
+      />
     </>
   );
 }
