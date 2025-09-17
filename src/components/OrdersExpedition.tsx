@@ -1789,34 +1789,60 @@ export function OrdersExpeditionTable({
                     period={
                       period === "custom" && date
                         ? isSpecificDay
-                          ? date
-                              .toISOString()
-                              .split("T")[0]
-                              .split("-")
-                              .reverse()
-                              .join(".")
+                          ? (() => {
+                              const year = date.getFullYear();
+                              const month = String(
+                                date.getMonth() + 1
+                              ).padStart(2, "0");
+                              const day = String(date.getDate()).padStart(
+                                2,
+                                "0"
+                              );
+                              return `${day}.${month}.${year}`;
+                            })()
                           : format(date, "LLLL yyyy", { locale: cs })
                         : period === "today"
-                          ? new Date()
-                              .toISOString()
-                              .split("T")[0]
-                              .split("-")
-                              .reverse()
-                              .join(".")
+                          ? (() => {
+                              const today = new Date();
+                              const year = today.getFullYear();
+                              const month = String(
+                                today.getMonth() + 1
+                              ).padStart(2, "0");
+                              const day = String(today.getDate()).padStart(
+                                2,
+                                "0"
+                              );
+                              return `${day}.${month}.${year}`;
+                            })()
                           : period === "tomorrow"
-                            ? new Date(Date.now() + 24 * 60 * 60 * 1000)
-                                .toISOString()
-                                .split("T")[0]
-                                .split("-")
-                                .reverse()
-                                .join(".")
+                            ? (() => {
+                                const tomorrow = new Date(
+                                  Date.now() + 24 * 60 * 60 * 1000
+                                );
+                                const year = tomorrow.getFullYear();
+                                const month = String(
+                                  tomorrow.getMonth() + 1
+                                ).padStart(2, "0");
+                                const day = String(tomorrow.getDate()).padStart(
+                                  2,
+                                  "0"
+                                );
+                                return `${day}.${month}.${year}`;
+                              })()
                             : period === "afterTomorrow"
-                              ? new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
-                                  .toISOString()
-                                  .split("T")[0]
-                                  .split("-")
-                                  .reverse()
-                                  .join(".")
+                              ? (() => {
+                                  const afterTomorrow = new Date(
+                                    Date.now() + 2 * 24 * 60 * 60 * 1000
+                                  );
+                                  const year = afterTomorrow.getFullYear();
+                                  const month = String(
+                                    afterTomorrow.getMonth() + 1
+                                  ).padStart(2, "0");
+                                  const day = String(
+                                    afterTomorrow.getDate()
+                                  ).padStart(2, "0");
+                                  return `${day}.${month}.${year}`;
+                                })()
                               : period === "week"
                                 ? `Tento týden (${format(new Date(), "dd.MM")} - ${format(new Date(Date.now() + 6 * 24 * 60 * 60 * 1000), "dd.MM.yyyy")})`
                                 : period === "nextWeek"

@@ -298,12 +298,45 @@ export function CratesOverviewDialog({
         stats.crate_big_issued += order.crateBig || 0;
         stats.crate_small_received += order.crateSmallReceived || 0;
         stats.crate_big_received += order.crateBigReceived || 0;
+      } else {
+        // Handle orders without drivers
+        const noDriverId = "no-driver";
+        const noDriverName = "Bez řidiče";
+
+        if (!driverStats.has(noDriverId)) {
+          driverStats.set(noDriverId, {
+            name: noDriverName,
+            driver_id: noDriverId,
+            driver_name: noDriverName,
+            crateSmall: 0,
+            crateBig: 0,
+            crateSmallReceived: 0,
+            crateBigReceived: 0,
+            crate_small_issued: 0,
+            crate_big_issued: 0,
+            crate_small_received: 0,
+            crate_big_received: 0,
+          });
+        }
+
+        const stats = driverStats.get(noDriverId);
+        stats.crateSmall += order.crateSmall || 0;
+        stats.crateBig += order.crateBig || 0;
+        stats.crateSmallReceived += order.crateSmallReceived || 0;
+        stats.crateBigReceived += order.crateBigReceived || 0;
+        stats.crate_small_issued += order.crateSmall || 0;
+        stats.crate_big_issued += order.crateBig || 0;
+        stats.crate_small_received += order.crateSmallReceived || 0;
+        stats.crate_big_received += order.crateBigReceived || 0;
       }
     });
 
-    return Array.from(driverStats.values()).sort((a, b) =>
-      a.name.localeCompare(b.name, "cs")
-    );
+    return Array.from(driverStats.values()).sort((a, b) => {
+      // Put "Bez řidiče" at the end
+      if (a.name === "Bez řidiče") return 1;
+      if (b.name === "Bez řidiče") return -1;
+      return a.name.localeCompare(b.name, "cs");
+    });
   };
 
   const driverStats = useMemo(() => calculateDriverStats(orders), [orders]);
@@ -519,7 +552,17 @@ export function CratesOverviewDialog({
                                   ${totals.totalReceivedSmall} M / ${totals.totalReceivedBig} V
                                 </td>
                                 <td class="text-center">
-                                  ${totals.manualIssuedSmall + totals.electronicIssuedSmall - totals.totalReceivedSmall} M / ${totals.manualIssuedBig + totals.electronicIssuedBig - totals.totalReceivedBig} V
+                                  ${(() => {
+                                    const diffSmall =
+                                      totals.manualIssuedSmall +
+                                      totals.electronicIssuedSmall -
+                                      totals.totalReceivedSmall;
+                                    const diffBig =
+                                      totals.manualIssuedBig +
+                                      totals.electronicIssuedBig -
+                                      totals.totalReceivedBig;
+                                    return `${diffSmall > 0 ? `-${diffSmall}` : diffSmall < 0 ? `+${Math.abs(diffSmall)}` : diffSmall} M / ${diffBig > 0 ? `-${diffBig}` : diffBig < 0 ? `+${Math.abs(diffBig)}` : diffBig} V`;
+                                  })()}
                                 </td>
                               </tr>
                             </thead>
@@ -527,8 +570,8 @@ export function CratesOverviewDialog({
                               ${driverStats
                                 .map(
                                   (driver) => `
-                                <tr>
-                                  <td class="font-medium">${driver.name}</td>
+                                <tr${driver.name === "Bez řidiče" ? ' style="background-color: #fef3c7;"' : ""}>
+                                  <td class="font-medium${driver.name === "Bez řidiče" ? " text-amber-600" : ""}">${driver.name}</td>
                                   <td class="text-center">
                                     ${driverManualCrates[driver.name]?.crateSmall || 0} M / ${driverManualCrates[driver.name]?.crateBig || 0} V
                                   </td>
@@ -747,15 +790,31 @@ export function CratesOverviewDialog({
                   <TableCell className="text-center">
                     <div className="flex justify-center gap-2">
                       <Badge variant="outline" className="text-yellow-700">
-                        {totals.manualIssuedSmall +
-                          totals.electronicIssuedSmall -
-                          totals.totalReceivedSmall}
+                        {(() => {
+                          const diffSmall =
+                            totals.manualIssuedSmall +
+                            totals.electronicIssuedSmall -
+                            totals.totalReceivedSmall;
+                          return diffSmall > 0
+                            ? `-${diffSmall}`
+                            : diffSmall < 0
+                              ? `+${Math.abs(diffSmall)}`
+                              : diffSmall;
+                        })()}
                         <Container size={16} className="ml-1" />
                       </Badge>
                       <Badge variant="outline" className="text-red-800">
-                        {totals.manualIssuedBig +
-                          totals.electronicIssuedBig -
-                          totals.totalReceivedBig}
+                        {(() => {
+                          const diffBig =
+                            totals.manualIssuedBig +
+                            totals.electronicIssuedBig -
+                            totals.totalReceivedBig;
+                          return diffBig > 0
+                            ? `-${diffBig}`
+                            : diffBig < 0
+                              ? `+${Math.abs(diffBig)}`
+                              : diffBig;
+                        })()}
                         <Container size={20} className="ml-1" />
                       </Badge>
                     </div>
@@ -765,8 +824,17 @@ export function CratesOverviewDialog({
               <TableBody>
                 {/* Regular drivers from orders */}
                 {driverStats.map((driver, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{driver.name}</TableCell>
+                  <TableRow
+                    key={index}
+                    className={
+                      driver.name === "Bez řidiče" ? "bg-amber-50" : ""
+                    }
+                  >
+                    <TableCell
+                      className={`font-medium ${driver.name === "Bez řidiče" ? "text-amber-600" : ""}`}
+                    >
+                      {driver.name}
+                    </TableCell>
                     <TableCell className="text-center">
                       <div className="flex justify-center gap-2">
                         <Input
