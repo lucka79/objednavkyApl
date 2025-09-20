@@ -68,7 +68,7 @@ export const OrderPrint = ({ orders }: { orders: Order[] }) => {
                       index === Math.floor(array.length / 2) - 1;
 
                     return (
-                      <React.Fragment key={`${order.id}-${item.product.name}`}>
+                      <React.Fragment key={`${order.id}-${index}`}>
                         <tr>
                           <td className="border-b py-1">{item.product.code}</td>
                           <td className="border-b py-1">{item.product.name}</td>

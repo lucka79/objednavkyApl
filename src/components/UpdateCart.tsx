@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import XLSX from "xlsx-js-style";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import {
   Lock,
   Unlock,
   Edit,
+  Upload,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -41,6 +43,7 @@ import { useIsOrderInvoiced } from "@/hooks/useInvoices";
 import { useOrderLockStore } from "@/providers/orderLockStore";
 import { useUpdateInvoiceTotal } from "@/hooks/useInvoices";
 import { useQueryClient } from "@tanstack/react-query";
+// import { removeDiacritics } from "@/utils/removeDiacritics";
 
 interface OrderItem {
   id: number;
@@ -215,6 +218,11 @@ export default function UpdateCart({
   const [editingPriceItem, setEditingPriceItem] = useState<OrderItem | null>(
     null
   );
+  const [fileInputRef, setFileInputRef] = useState<HTMLInputElement | null>(
+    null
+  );
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [isDebugOpen, setIsDebugOpen] = useState(false);
   const { mutate: updateOrderItems } = useUpdateOrderItems();
   const { mutate: updateOrder } = useUpdateOrder();
   const { mutate: updateOrderTotal } = useUpdateOrderTotal();
@@ -539,6 +547,365 @@ export default function UpdateCart({
     return { checked, unchecked };
   };
 
+  const addDebugLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugLogs((prev) => [...prev, `[${timestamp}] ${message}`]);
+  };
+
+  const addItemsToOrder = async (
+    items: { quantity: number; product_id: number }[]
+  ) => {
+    if (isReadOnly) {
+      addDebugLog("✗ Cannot add items - order is locked");
+      toast({
+        title: "Order is locked",
+        description: "This order is part of an invoice and cannot be modified.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      addDebugLog(`Adding ${items.length} items to order...`);
+
+      // Get product details for the items
+      const productIds = items.map((item) => item.product_id);
+      const { data: products, error: productsError } = await supabase
+        .from("products")
+        .select("id, name, price, priceMobil, priceBuyer")
+        .in("id", productIds);
+
+      if (productsError) {
+        addDebugLog(
+          `✗ Error fetching product details: ${productsError.message}`
+        );
+        throw new Error("Failed to fetch product details");
+      }
+
+      addDebugLog(`Fetched details for ${products?.length || 0} products`);
+
+      // Combine duplicate products by summing quantities
+      const combinedItems = new Map<
+        number,
+        { quantity: number; product_id: number }
+      >();
+
+      items.forEach((item) => {
+        if (combinedItems.has(item.product_id)) {
+          const existing = combinedItems.get(item.product_id)!;
+          existing.quantity += item.quantity;
+          addDebugLog(
+            `Combining duplicate product ID ${item.product_id}: ${existing.quantity - item.quantity} + ${item.quantity} = ${existing.quantity}`
+          );
+        } else {
+          combinedItems.set(item.product_id, { ...item });
+        }
+      });
+
+      addDebugLog(
+        `Combined ${items.length} items into ${combinedItems.size} unique products`
+      );
+
+      // Create order items with appropriate pricing
+      const orderItemsToInsert = Array.from(combinedItems.values())
+        .map((item) => {
+          const product = products?.find((p) => p.id === item.product_id);
+          if (!product) {
+            addDebugLog(`✗ Product not found for ID ${item.product_id}`);
+            return null;
+          }
+
+          // Always use buyer price for uploaded products
+          let price = product.priceBuyer;
+
+          addDebugLog(
+            `Using buyer price: ${price} (regular: ${product.price}, mobil: ${product.priceMobil}, buyer: ${product.priceBuyer})`
+          );
+
+          addDebugLog(
+            `✓ Adding ${item.quantity}x ${product.name} (ID: ${item.product_id}) at ${price} Kč each`
+          );
+
+          return {
+            order_id: orderId,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            price: price,
+            checked: false,
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
+
+      if (orderItemsToInsert.length === 0) {
+        addDebugLog("✗ No valid items to insert");
+        return;
+      }
+
+      // First, delete existing order items for this order
+      addDebugLog("Deleting existing order items...");
+      const { error: deleteError } = await supabase
+        .from("order_items")
+        .delete()
+        .eq("order_id", orderId);
+
+      if (deleteError) {
+        addDebugLog(
+          `✗ Error deleting existing order items: ${deleteError.message}`
+        );
+        throw new Error("Failed to delete existing order items");
+      }
+
+      addDebugLog("✓ Existing order items deleted");
+
+      // Insert new order items
+      const { error: insertError } = await supabase
+        .from("order_items")
+        .insert(orderItemsToInsert);
+
+      if (insertError) {
+        addDebugLog(`✗ Error inserting order items: ${insertError.message}`);
+        throw new Error("Failed to insert order items");
+      }
+
+      addDebugLog(
+        `✓ Successfully added ${orderItemsToInsert.length} items to order`
+      );
+
+      // Update order total (replace total since we deleted all existing items)
+      const newTotal = orderItemsToInsert.reduce(
+        (sum, item) => sum + item.quantity * item.price,
+        0
+      );
+      addDebugLog(`Setting order total to ${newTotal} Kč (replaced all items)`);
+
+      await updateOrder({
+        id: orderId,
+        updatedFields: {
+          total: newTotal,
+        },
+      });
+
+      // Refresh the order items
+      await onUpdate();
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["expeditionOrders"] });
+
+      addDebugLog("✓ Order updated successfully");
+
+      toast({
+        title: "Položky přidány",
+        description: `Úspěšně přidáno ${orderItemsToInsert.length} položek do objednávky.`,
+        variant: "default",
+      });
+    } catch (error) {
+      const err = error as Error;
+      addDebugLog(`✗ Error adding items: ${err.message}`);
+      console.error("Error adding items to order:", err);
+
+      toast({
+        title: "Chyba",
+        description: "Nepodařilo se přidat položky do objednávky.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFileUpload = () => {
+    setDebugLogs([]);
+    setIsDebugOpen(true);
+    if (fileInputRef) {
+      fileInputRef.click();
+    }
+  };
+
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      try {
+        addDebugLog("Starting file upload process...");
+        console.log("Starting file upload process...");
+
+        // First, fetch all products from database
+        addDebugLog("Fetching products from database...");
+        console.log("Fetching products from database...");
+        const { data: products, error: productsError } = await supabase
+          .from("products")
+          .select("id, name")
+          .eq("active", true);
+
+        if (productsError) {
+          addDebugLog(`Database error: ${productsError.message}`);
+          console.error("Database error:", productsError);
+          throw new Error("Failed to fetch products");
+        }
+
+        addDebugLog(`Fetched ${products?.length || 0} products from database`);
+        console.log("Fetched products:", products?.length || 0);
+
+        // Products fetched for validation and logging
+        addDebugLog(
+          `Products fetched for validation: ${products?.length || 0} entries`
+        );
+
+        addDebugLog("Reading Excel file...");
+        console.log("Reading Excel file...");
+        const data = await file.arrayBuffer();
+        addDebugLog(`File data size: ${data.byteLength} bytes`);
+        console.log("File data size:", data.byteLength);
+
+        const workbook = XLSX.read(data, { type: "array" });
+        addDebugLog(`Workbook sheets: ${workbook.SheetNames.join(", ")}`);
+        console.log("Workbook sheets:", workbook.SheetNames);
+
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        // Parse with headers to get proper column names
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        addDebugLog(`Parsed Excel data: ${jsonData.length} rows`);
+        console.log("Parsed Excel data:", jsonData.length, "rows");
+        console.log("Sample row:", jsonData[0]);
+        console.log("Available columns:", Object.keys(jsonData[0] || {}));
+
+        // Show all available column names
+        if (jsonData.length > 0) {
+          const columnNames = Object.keys(jsonData[0] as Record<string, any>);
+          addDebugLog(`Available column names: ${columnNames.join(", ")}`);
+          console.log("All column names:", columnNames);
+        }
+
+        const items: { quantity: number; product_id: number }[] = [];
+        const notFoundProducts: string[] = [];
+
+        addDebugLog("Processing rows...");
+        console.log("Processing rows...");
+        jsonData.forEach((row: any, index: number) => {
+          // Skip the first row if it's the header row (contains "data-quantity")
+          if (
+            index === 0 &&
+            String(Object.values(row)[0]).toLowerCase() === "data-quantity"
+          ) {
+            addDebugLog("⚠ Skipping header row (Row 1)");
+            return;
+          }
+
+          // Get values from the row - your Excel has: data-quantity, product name, data-product-id
+          const rowValues = Object.values(row);
+          const quantity = parseInt(String(rowValues[0] || "0")); // First column: data-quantity
+          const productName = String(rowValues[1] || "").trim(); // Second column: product name
+          const productIdFromExcel = parseInt(String(rowValues[2] || "0")); // Third column: data-product-id
+
+          addDebugLog(
+            `Row ${index + 1}: quantity=${quantity}, product="${productName}", productIdFromExcel=${productIdFromExcel}`
+          );
+          console.log(`Row ${index + 1}:`, {
+            quantity,
+            productName,
+            productIdFromExcel,
+            row,
+            availableKeys: Object.keys(row),
+            allValues: Object.values(row),
+          });
+
+          if (quantity > 0 && productIdFromExcel > 0) {
+            // Find the product in the fetched products array using the ID from Excel
+            const product = products?.find((p) => p.id === productIdFromExcel);
+
+            if (product) {
+              items.push({ quantity, product_id: product.id });
+              addDebugLog(
+                `✓ Added item: ${quantity}x product ID ${product.id} (${product.name})`
+              );
+              console.log(
+                `Added item: ${quantity}x product ID ${product.id} (${product.name})`
+              );
+            } else {
+              notFoundProducts.push(
+                `ID ${productIdFromExcel} (Name: ${productName})`
+              );
+              addDebugLog(
+                `✗ Product not found for ID ${productIdFromExcel} (Name: "${productName}")`
+              );
+              console.log(
+                `Product not found: ID ${productIdFromExcel} (Name: "${productName}")`
+              );
+            }
+          } else {
+            addDebugLog(
+              `⚠ Skipping row ${index + 1}: invalid quantity (${quantity}) or product ID (${productIdFromExcel})`
+            );
+            console.log(
+              `Skipping row ${index + 1}: invalid quantity (${quantity}) or product ID (${productIdFromExcel})`
+            );
+          }
+        });
+
+        addDebugLog(
+          `Processing complete. Found ${items.length} items, ${notFoundProducts.length} not found`
+        );
+        console.log("Processing complete. Results:", {
+          itemsFound: items.length,
+          notFoundProductsCount: notFoundProducts.length,
+          parsedItems: items,
+          notFoundProductsList: notFoundProducts,
+        });
+
+        if (items.length > 0) {
+          addDebugLog(`✓ Success! Parsed ${items.length} items`);
+          console.log("Parsed items:", items);
+
+          // Add items to the order
+          await addItemsToOrder(items);
+
+          const message =
+            notFoundProducts.length > 0
+              ? `Nalezeno ${items.length} položek. Nenalezené produkty: ${notFoundProducts.join(", ")}`
+              : `Nalezeno ${items.length} položek`;
+
+          toast({
+            title: "Soubor načten",
+            description: message,
+            variant: notFoundProducts.length > 0 ? "destructive" : "default",
+          });
+        } else {
+          addDebugLog("✗ No items found in file");
+          console.log("No items found in file");
+          toast({
+            title: "Chyba při načítání",
+            description:
+              "Nenalezeny žádné položky v souboru. Zkontrolujte, že první sloupec obsahuje množství a druhý název produktu.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        const err = error as Error;
+        addDebugLog(`✗ Error: ${err.message}`);
+        console.error("Error details:", {
+          error: err,
+          message: err.message,
+          stack: err.stack,
+          type: err.constructor.name,
+        });
+
+        let errorMessage = "Nepodařilo se načíst soubor.";
+        if (err.message.includes("Failed to fetch products")) {
+          errorMessage = "Nepodařilo se načíst produkty z databáze.";
+        } else if (err.message.includes("invalid zip")) {
+          errorMessage =
+            "Neplatný formát Excel souboru. Použijte prosím .xlsx formát.";
+        }
+
+        toast({
+          title: "Chyba při načítání",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
+    }
+    // Reset the input value so the same file can be selected again
+    event.target.value = "";
+  };
+
   // Add refetch interval effect
   useEffect(() => {
     // Refetch orders every 30 seconds while component is mounted
@@ -588,6 +955,17 @@ export default function UpdateCart({
                 Připravit {getCheckboxCounts().unchecked}
               </Badge>
               <div className="flex gap-2 ml-auto">
+                {user?.role === "admin" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleFileUpload}
+                    disabled={isReadOnly}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Nahrát
+                  </Button>
+                )}
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm" disabled={isReadOnly}>
@@ -613,7 +991,7 @@ export default function UpdateCart({
           {/* Content */}
           <div>
             {!orderItems || orderItems.length === 0 ? (
-              <p>No items in order.</p>
+              <div>No items in order.</div>
             ) : (
               orderItems.map((item) => (
                 <div
@@ -622,7 +1000,7 @@ export default function UpdateCart({
                     item.quantity === 0
                       ? "text-gray-400 scale-95 print:hidden"
                       : ""
-                  } ${item.price === 0 ? "bg-yellow-50 " : ""}`}
+                  } ${item.price === 0 ? "bg-yellow-50 33" : ""}`}
                 >
                   {(user?.role === "admin" ||
                     user?.role === "expedition" ||
@@ -777,6 +1155,62 @@ export default function UpdateCart({
           }
         }}
       />
+
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={setFileInputRef}
+        onChange={handleFileSelect}
+        style={{ display: "none" }}
+        accept=".xls,.xlsx"
+      />
+
+      {/* Debug Modal */}
+      <Dialog open={isDebugOpen} onOpenChange={setIsDebugOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Debug - File Upload Process</DialogTitle>
+            <DialogDescription>
+              Real-time logs of the file upload and parsing process
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-black text-green-400 p-4 rounded-lg font-mono text-sm max-h-[60vh] overflow-y-auto">
+            {debugLogs.length === 0 ? (
+              <div className="text-gray-500">Waiting for file upload...</div>
+            ) : (
+              debugLogs.map((log, index) => (
+                <div key={index} className="mb-1">
+                  {log}
+                </div>
+              ))
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const logsText = debugLogs.join("\n");
+                navigator.clipboard.writeText(logsText);
+                toast({
+                  title: "Logs copied",
+                  description: "Debug logs copied to clipboard",
+                });
+              }}
+              disabled={debugLogs.length === 0}
+            >
+              Copy Logs
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setDebugLogs([])}
+              disabled={debugLogs.length === 0}
+            >
+              Clear Logs
+            </Button>
+            <Button onClick={() => setIsDebugOpen(false)}>Close</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
