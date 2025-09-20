@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { format } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -49,26 +50,20 @@ export function CratesOverviewDialog({
   currentDate,
   period,
 }: CratesOverviewDialogProps) {
-  console.log("CratesOverviewDialog - currentDate:", currentDate);
-  console.log("CratesOverviewDialog - period:", period);
-
-  // Clean date function to remove time components and timezone issues
-  const cleanDate = (dateStr: string | null) => {
-    if (!dateStr) return null;
-    // Remove any time components and take only the date part
-    const dateOnly = dateStr.split("T")[0];
-    console.log("cleanDate - input:", dateStr, "output:", dateOnly);
-    return dateOnly;
-  };
-
-  // Format date for display without timezone conversion
+  // Format date for display
   const formatDateForDisplay = (dateStr: string | null) => {
     if (!dateStr) return "Není vybráno";
-    const dateOnly = cleanDate(dateStr);
-    if (!dateOnly) return "Není vybráno";
+    console.log("CratesOverviewDialog - formatting date:", dateStr);
     // Split by '-' and reverse to get DD.MM.YYYY format
-    return dateOnly.split("-").reverse().join(".");
+    return dateStr.split("-").reverse().join(".");
   };
+
+  // Debug logs for incoming props
+  console.log("CratesOverviewDialog - received props:", {
+    currentDate,
+    period,
+    ordersCount: orders?.length,
+  });
   const [driverReceivedCrates, setDriverReceivedCrates] = useState<
     Record<string, { crateSmall: number; crateBig: number }>
   >({});
@@ -100,16 +95,16 @@ export function CratesOverviewDialog({
         { crateSmall: number; crateBig: number }
       > = {};
 
-      // First, initialize with returned crates from orders for all drivers
+      // Initialize empty map for manually returned crates
       const driverStats = calculateCrateStatsFromOrders(orders || []);
       driverStats.forEach((driver) => {
         cratesMap[driver.driver_name] = {
-          crateSmall: driver.crate_small_received,
-          crateBig: driver.crate_big_received,
+          crateSmall: 0, // Start with 0 for manual returns
+          crateBig: 0, // Start with 0 for manual returns
         };
       });
 
-      // Then, override with existing database values if they exist
+      // Then, load manually returned crates from database
       if (existingCrates) {
         existingCrates.forEach((crate) => {
           // Find driver name from orders
@@ -117,28 +112,18 @@ export function CratesOverviewDialog({
             (order) => order.driver?.id === crate.driver_id
           )?.driver;
           if (driver) {
+            // For manually returned crates, we use the values directly from the database
+            // These are the manually entered values, separate from order returns
             cratesMap[driver.full_name] = {
-              crateSmall: crate.crate_small_received,
-              crateBig: crate.crate_big_received,
+              crateSmall: crate.crate_small_received || 0,
+              crateBig: crate.crate_big_received || 0,
             };
 
-            // Calculate manually inserted crates (issued - original issued from orders)
-            const originalDriverStats = driverStats.find(
-              (d) => d.driver_id === crate.driver_id
-            );
-            if (originalDriverStats) {
-              manualCratesMap[driver.full_name] = {
-                crateSmall: Math.max(
-                  0,
-                  crate.crate_small_issued -
-                    originalDriverStats.crate_small_issued
-                ),
-                crateBig: Math.max(
-                  0,
-                  crate.crate_big_issued - originalDriverStats.crate_big_issued
-                ),
-              };
-            }
+            // For manually issued crates
+            manualCratesMap[driver.full_name] = {
+              crateSmall: crate.crate_small_issued || 0,
+              crateBig: crate.crate_big_issued || 0,
+            };
           }
         });
       }
@@ -209,9 +194,8 @@ export function CratesOverviewDialog({
         const manualData = driverReceivedCrates[driver.driver_name];
         const manualInsertedData = driverManualCrates[driver.driver_name];
 
-        // Use the current date directly to avoid timezone issues
-        const dateToSave =
-          currentDate || new Date().toISOString().split("T")[0];
+        // Use the current date directly
+        const dateToSave = currentDate || format(new Date(), "yyyy-MM-dd");
 
         cratesToSave.push({
           date: dateToSave,
@@ -231,9 +215,8 @@ export function CratesOverviewDialog({
         const manualData = driverReceivedCrates[driver.name];
         const manualInsertedData = driverManualCrates[driver.name];
 
-        // Use the current date directly to avoid timezone issues
-        const dateToSave =
-          currentDate || new Date().toISOString().split("T")[0];
+        // Use the current date directly
+        const dateToSave = currentDate || format(new Date(), "yyyy-MM-dd");
 
         cratesToSave.push({
           date: dateToSave,
@@ -377,28 +360,29 @@ export function CratesOverviewDialog({
       ),
       manualReceivedSmall: allDrivers.reduce(
         (sum, driver) =>
-          sum +
-          ((driverReceivedCrates[driver.name]?.crateSmall || 0) -
-            (driver.crateSmallReceived || 0)),
+          sum + (driverReceivedCrates[driver.name]?.crateSmall || 0),
         0
       ),
       manualReceivedBig: allDrivers.reduce(
         (sum, driver) =>
-          sum +
-          ((driverReceivedCrates[driver.name]?.crateBig || 0) -
-            (driver.crateBigReceived || 0)),
-        0
-      ),
-      totalReceivedSmall: allDrivers.reduce(
-        (sum, driver) =>
-          sum + (driverReceivedCrates[driver.name]?.crateSmall || 0),
-        0
-      ),
-      totalReceivedBig: allDrivers.reduce(
-        (sum, driver) =>
           sum + (driverReceivedCrates[driver.name]?.crateBig || 0),
         0
       ),
+      totalReceivedSmall: allDrivers.reduce((sum, driver) => {
+        const manualReceived =
+          driverReceivedCrates[driver.name]?.crateSmall || 0;
+        const electronicReceived =
+          regularDrivers.find((d) => d.name === driver.name)
+            ?.crateSmallReceived || 0;
+        return sum + manualReceived + electronicReceived;
+      }, 0),
+      totalReceivedBig: allDrivers.reduce((sum, driver) => {
+        const manualReceived = driverReceivedCrates[driver.name]?.crateBig || 0;
+        const electronicReceived =
+          regularDrivers.find((d) => d.name === driver.name)
+            ?.crateBigReceived || 0;
+        return sum + manualReceived + electronicReceived;
+      }, 0),
     };
   }, [driverStats, manualDrivers, driverManualCrates, driverReceivedCrates]);
 
@@ -522,6 +506,7 @@ export function CratesOverviewDialog({
                                 <th>Řidič</th>
                                 <th class="text-center">Ostaní vydané přepr.</th>
                                 <th class="text-center">Vydané přep. e.DL</th>
+                                <th class="text-center">Celkem vydané</th>
                                 <th class="text-center">Vrácené přep. e.DL</th>
                                 <th class="text-center">Vrácené přep. ručně</th>
                                 <th class="text-center">Celkem vrácené</th>
@@ -530,10 +515,28 @@ export function CratesOverviewDialog({
                               <tr style="background-color: #f3f4f6; font-weight: bold;">
                                 <td class="font-semibold">CELKEM:</td>
                                 <td class="text-center">
-                                  ${totals.manualIssuedSmall} M / ${totals.manualIssuedBig} V
+                                  ${(() => {
+                                    if (
+                                      totals.manualIssuedSmall === 0 &&
+                                      totals.manualIssuedBig === 0
+                                    )
+                                      return "-";
+                                    return `${totals.manualIssuedSmall} M / ${totals.manualIssuedBig} V`;
+                                  })()}
                                 </td>
                                 <td class="text-center">
                                   ${totals.electronicIssuedSmall} M / ${totals.electronicIssuedBig} V
+                                </td>
+                                <td class="text-center">
+                                  ${(() => {
+                                    const totalSmall =
+                                      totals.manualIssuedSmall +
+                                      totals.electronicIssuedSmall;
+                                    const totalBig =
+                                      totals.manualIssuedBig +
+                                      totals.electronicIssuedBig;
+                                    return `${totalSmall} M / ${totalBig} V`;
+                                  })()}
                                 </td>
                                 <td class="text-center">
                                   ${totals.electronicReceivedSmall} M / ${totals.electronicReceivedBig} V
@@ -553,14 +556,17 @@ export function CratesOverviewDialog({
                                 </td>
                                 <td class="text-center">
                                   ${(() => {
-                                    const diffSmall =
+                                    const totalIssuedSmall =
                                       totals.manualIssuedSmall +
-                                      totals.electronicIssuedSmall -
+                                      totals.electronicIssuedSmall;
+                                    const totalIssuedBig =
+                                      totals.manualIssuedBig +
+                                      totals.electronicIssuedBig;
+                                    const diffSmall =
+                                      totalIssuedSmall -
                                       totals.totalReceivedSmall;
                                     const diffBig =
-                                      totals.manualIssuedBig +
-                                      totals.electronicIssuedBig -
-                                      totals.totalReceivedBig;
+                                      totalIssuedBig - totals.totalReceivedBig;
                                     return `${diffSmall > 0 ? `-${diffSmall}` : diffSmall < 0 ? `+${Math.abs(diffSmall)}` : diffSmall} M / ${diffBig > 0 ? `-${diffBig}` : diffBig < 0 ? `+${Math.abs(diffBig)}` : diffBig} V`;
                                   })()}
                                 </td>
@@ -573,10 +579,35 @@ export function CratesOverviewDialog({
                                 <tr${driver.name === "Bez řidiče" ? ' style="background-color: #fef3c7;"' : ""}>
                                   <td class="font-medium${driver.name === "Bez řidiče" ? " text-amber-600" : ""}">${driver.name}</td>
                                   <td class="text-center">
-                                    ${driverManualCrates[driver.name]?.crateSmall || 0} M / ${driverManualCrates[driver.name]?.crateBig || 0} V
+                                    ${(() => {
+                                      const manualSmall =
+                                        driverManualCrates[driver.name]
+                                          ?.crateSmall || 0;
+                                      const manualBig =
+                                        driverManualCrates[driver.name]
+                                          ?.crateBig || 0;
+                                      if (manualSmall === 0 && manualBig === 0)
+                                        return "-";
+                                      return `${manualSmall} M / ${manualBig} V`;
+                                    })()}
                                   </td>
                                   <td class="text-center">
                                     ${driver.crateSmall} M / ${driver.crateBig} V
+                                  </td>
+                                  <td class="text-center">
+                                    ${(() => {
+                                      const manualSmall =
+                                        driverManualCrates[driver.name]
+                                          ?.crateSmall || 0;
+                                      const manualBig =
+                                        driverManualCrates[driver.name]
+                                          ?.crateBig || 0;
+                                      const totalSmall =
+                                        manualSmall + driver.crateSmall;
+                                      const totalBig =
+                                        manualBig + driver.crateBig;
+                                      return `${totalSmall} M / ${totalBig} V`;
+                                    })()}
                                   </td>
                                   <td class="text-center">
                                     ${driver.crateSmallReceived} M / ${driver.crateBigReceived} V
@@ -584,13 +615,11 @@ export function CratesOverviewDialog({
                                   <td class="text-center">
                                     ${(() => {
                                       const manualSmall =
-                                        (driverReceivedCrates[driver.name]
-                                          ?.crateSmall || 0) -
-                                        (driver.crateSmallReceived || 0);
+                                        driverReceivedCrates[driver.name]
+                                          ?.crateSmall || 0;
                                       const manualBig =
-                                        (driverReceivedCrates[driver.name]
-                                          ?.crateBig || 0) -
-                                        (driver.crateBigReceived || 0);
+                                        driverReceivedCrates[driver.name]
+                                          ?.crateBig || 0;
                                       if (manualSmall === 0 && manualBig === 0)
                                         return "-";
                                       return `${manualSmall} M / ${manualBig} V`;
@@ -601,18 +630,26 @@ export function CratesOverviewDialog({
                                   </td>
                                   <td class="text-center">
                                     ${(() => {
-                                      const diffSmall =
+                                      const totalIssuedSmall =
                                         driver.crateSmall +
                                         (driverManualCrates[driver.name]
-                                          ?.crateSmall || 0) -
-                                        (driverReceivedCrates[driver.name]
                                           ?.crateSmall || 0);
-                                      const diffBig =
+                                      const totalIssuedBig =
                                         driver.crateBig +
                                         (driverManualCrates[driver.name]
-                                          ?.crateBig || 0) -
-                                        (driverReceivedCrates[driver.name]
                                           ?.crateBig || 0);
+                                      const totalReceivedSmall =
+                                        (driverReceivedCrates[driver.name]
+                                          ?.crateSmall || 0) +
+                                        (driver.crateSmallReceived || 0);
+                                      const totalReceivedBig =
+                                        (driverReceivedCrates[driver.name]
+                                          ?.crateBig || 0) +
+                                        (driver.crateBigReceived || 0);
+                                      const diffSmall =
+                                        totalIssuedSmall - totalReceivedSmall;
+                                      const diffBig =
+                                        totalIssuedBig - totalReceivedBig;
                                       return `${diffSmall > 0 ? `-${diffSmall}` : diffSmall < 0 ? `+${Math.abs(diffSmall)}` : diffSmall} M / ${diffBig > 0 ? `-${diffBig}` : diffBig < 0 ? `+${Math.abs(diffBig)}` : diffBig} V`;
                                     })()}
                                   </td>
@@ -626,10 +663,31 @@ export function CratesOverviewDialog({
                                 <tr class="bg-green-50">
                                   <td class="font-medium text-green-600">${driver.name} (ručně přidaný)</td>
                                   <td class="text-center">
-                                    ${driverManualCrates[driver.name]?.crateSmall || 0} M / ${driverManualCrates[driver.name]?.crateBig || 0} V
+                                    ${(() => {
+                                      const manualSmall =
+                                        driverManualCrates[driver.name]
+                                          ?.crateSmall || 0;
+                                      const manualBig =
+                                        driverManualCrates[driver.name]
+                                          ?.crateBig || 0;
+                                      if (manualSmall === 0 && manualBig === 0)
+                                        return "-";
+                                      return `${manualSmall} M / ${manualBig} V`;
+                                    })()}
                                   </td>
                                   <td class="text-center">
                                     0 M / 0 V
+                                  </td>
+                                  <td class="text-center">
+                                    ${(() => {
+                                      const manualSmall =
+                                        driverManualCrates[driver.name]
+                                          ?.crateSmall || 0;
+                                      const manualBig =
+                                        driverManualCrates[driver.name]
+                                          ?.crateBig || 0;
+                                      return `${manualSmall} M / ${manualBig} V`;
+                                    })()}
                                   </td>
                                   <td class="text-center">
                                     0 M / 0 V
@@ -652,16 +710,22 @@ export function CratesOverviewDialog({
                                   </td>
                                   <td class="text-center">
                                     ${(() => {
+                                      const totalIssuedSmall =
+                                        driverManualCrates[driver.name]
+                                          ?.crateSmall || 0;
+                                      const totalIssuedBig =
+                                        driverManualCrates[driver.name]
+                                          ?.crateBig || 0;
+                                      const totalReceivedSmall =
+                                        driverReceivedCrates[driver.name]
+                                          ?.crateSmall || 0;
+                                      const totalReceivedBig =
+                                        driverReceivedCrates[driver.name]
+                                          ?.crateBig || 0;
                                       const diffSmall =
-                                        (driverManualCrates[driver.name]
-                                          ?.crateSmall || 0) -
-                                        (driverReceivedCrates[driver.name]
-                                          ?.crateSmall || 0);
+                                        totalIssuedSmall - totalReceivedSmall;
                                       const diffBig =
-                                        (driverManualCrates[driver.name]
-                                          ?.crateBig || 0) -
-                                        (driverReceivedCrates[driver.name]
-                                          ?.crateBig || 0);
+                                        totalIssuedBig - totalReceivedBig;
                                       return `${diffSmall > 0 ? `-${diffSmall}` : diffSmall < 0 ? `+${Math.abs(diffSmall)}` : diffSmall} M / ${diffBig > 0 ? `-${diffBig}` : diffBig < 0 ? `+${Math.abs(diffBig)}` : diffBig} V`;
                                     })()}
                                   </td>
@@ -716,6 +780,7 @@ export function CratesOverviewDialog({
                   <TableHead className="text-center">
                     Vydané přepravky e.DL
                   </TableHead>
+                  <TableHead className="text-center">Celkem vydané</TableHead>
                   <TableHead className="text-center">
                     Vrácené přepravky e.DL
                   </TableHead>
@@ -747,6 +812,19 @@ export function CratesOverviewDialog({
                       </Badge>
                       <Badge variant="outline" className="text-red-800">
                         {totals.electronicIssuedBig}
+                        <Container size={20} className="ml-1" />
+                      </Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex justify-center gap-2">
+                      <Badge variant="outline" className="text-yellow-700">
+                        {totals.manualIssuedSmall +
+                          totals.electronicIssuedSmall}
+                        <Container size={16} className="ml-1" />
+                      </Badge>
+                      <Badge variant="outline" className="text-red-800">
+                        {totals.manualIssuedBig + totals.electronicIssuedBig}
                         <Container size={20} className="ml-1" />
                       </Badge>
                     </div>
@@ -791,10 +869,11 @@ export function CratesOverviewDialog({
                     <div className="flex justify-center gap-2">
                       <Badge variant="outline" className="text-yellow-700">
                         {(() => {
-                          const diffSmall =
+                          const totalIssuedSmall =
                             totals.manualIssuedSmall +
-                            totals.electronicIssuedSmall -
-                            totals.totalReceivedSmall;
+                            totals.electronicIssuedSmall;
+                          const diffSmall =
+                            totalIssuedSmall - totals.totalReceivedSmall;
                           return diffSmall > 0
                             ? `-${diffSmall}`
                             : diffSmall < 0
@@ -805,10 +884,10 @@ export function CratesOverviewDialog({
                       </Badge>
                       <Badge variant="outline" className="text-red-800">
                         {(() => {
+                          const totalIssuedBig =
+                            totals.manualIssuedBig + totals.electronicIssuedBig;
                           const diffBig =
-                            totals.manualIssuedBig +
-                            totals.electronicIssuedBig -
-                            totals.totalReceivedBig;
+                            totalIssuedBig - totals.totalReceivedBig;
                           return diffBig > 0
                             ? `-${diffBig}`
                             : diffBig < 0
@@ -891,6 +970,20 @@ export function CratesOverviewDialog({
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex justify-center gap-2">
+                        <Badge variant="outline" className="text-yellow-700">
+                          {(driverManualCrates[driver.name]?.crateSmall || 0) +
+                            driver.crateSmall}
+                          <Container size={16} className="ml-1" />
+                        </Badge>
+                        <Badge variant="outline" className="text-red-800">
+                          {(driverManualCrates[driver.name]?.crateBig || 0) +
+                            driver.crateBig}
+                          <Container size={20} className="ml-1" />
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex justify-center gap-2">
                         <Badge variant="secondary" className="text-yellow-700">
                           {driver.crateSmallReceived}
                           <Container size={16} className="ml-1" />
@@ -908,19 +1001,16 @@ export function CratesOverviewDialog({
                           min="0"
                           className="w-16 h-8 text-center [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
                           value={
-                            (driverReceivedCrates[driver.name]?.crateSmall ||
-                              0) - (driver.crateSmallReceived || 0)
+                            driverReceivedCrates[driver.name]?.crateSmall || 0
                           }
                           onFocus={(e) => e.target.select()}
                           onChange={(e) => {
                             const value = parseInt(e.target.value) || 0;
-                            const totalValue =
-                              value + (driver.crateSmallReceived || 0);
                             setDriverReceivedCrates((prev) => ({
                               ...prev,
                               [driver.name]: {
                                 ...prev[driver.name],
-                                crateSmall: totalValue,
+                                crateSmall: value,
                                 crateBig: prev[driver.name]?.crateBig || 0,
                               },
                             }));
@@ -931,20 +1021,17 @@ export function CratesOverviewDialog({
                           min="0"
                           className="w-16 h-8 text-center [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
                           value={
-                            (driverReceivedCrates[driver.name]?.crateBig || 0) -
-                            (driver.crateBigReceived || 0)
+                            driverReceivedCrates[driver.name]?.crateBig || 0
                           }
                           onFocus={(e) => e.target.select()}
                           onChange={(e) => {
                             const value = parseInt(e.target.value) || 0;
-                            const totalValue =
-                              value + (driver.crateBigReceived || 0);
                             setDriverReceivedCrates((prev) => ({
                               ...prev,
                               [driver.name]: {
                                 ...prev[driver.name],
                                 crateSmall: prev[driver.name]?.crateSmall || 0,
-                                crateBig: totalValue,
+                                crateBig: value,
                               },
                             }));
                           }}
@@ -990,50 +1077,53 @@ export function CratesOverviewDialog({
                           }`}
                         >
                           {(() => {
-                            const diff =
+                            const totalIssuedSmall =
                               driver.crateSmall +
                               (driverManualCrates[driver.name]?.crateSmall ||
-                                0) -
-                              (driverReceivedCrates[driver.name]?.crateSmall ||
                                 0);
-                            return diff > 0
-                              ? `-${diff}`
-                              : diff < 0
-                                ? `+${Math.abs(diff)}`
-                                : diff;
+                            const totalReceivedSmall =
+                              (driverReceivedCrates[driver.name]?.crateSmall ||
+                                0) + (driver.crateSmallReceived || 0);
+                            const diffSmall =
+                              totalIssuedSmall - totalReceivedSmall;
+                            return diffSmall > 0
+                              ? `-${diffSmall}`
+                              : diffSmall < 0
+                                ? `+${Math.abs(diffSmall)}`
+                                : diffSmall;
                           })()}
                           <Container size={16} className="ml-1" />
                         </Badge>
                         <Badge
                           variant="outline"
-                          className={`${
-                            driver.crateBig +
-                              (driverManualCrates[driver.name]?.crateBig || 0) -
+                          className={`${(() => {
+                            const totalIssuedBig =
+                              driver.crateBig +
+                              (driverManualCrates[driver.name]?.crateBig || 0);
+                            const totalReceivedBig =
                               (driverReceivedCrates[driver.name]?.crateBig ||
-                                0) >
-                            0
+                                0) + (driver.crateBigReceived || 0);
+                            const diffBig = totalIssuedBig - totalReceivedBig;
+                            return diffBig > 0
                               ? "text-red-700 border-red-700"
-                              : driver.crateBig +
-                                    (driverManualCrates[driver.name]
-                                      ?.crateBig || 0) -
-                                    (driverReceivedCrates[driver.name]
-                                      ?.crateBig || 0) <
-                                  0
+                              : diffBig < 0
                                 ? "text-green-700 border-green-700"
-                                : "text-gray-700"
-                          }`}
+                                : "text-gray-700";
+                          })()}`}
                         >
                           {(() => {
-                            const diff =
+                            const totalIssuedBig =
                               driver.crateBig +
-                              (driverManualCrates[driver.name]?.crateBig || 0) -
+                              (driverManualCrates[driver.name]?.crateBig || 0);
+                            const totalReceivedBig =
                               (driverReceivedCrates[driver.name]?.crateBig ||
-                                0);
-                            return diff > 0
-                              ? `-${diff}`
-                              : diff < 0
-                                ? `+${Math.abs(diff)}`
-                                : diff;
+                                0) + (driver.crateBigReceived || 0);
+                            const diffBig = totalIssuedBig - totalReceivedBig;
+                            return diffBig > 0
+                              ? `-${diffBig}`
+                              : diffBig < 0
+                                ? `+${Math.abs(diffBig)}`
+                                : diffBig;
                           })()}
                           <Container size={20} className="ml-1" />
                         </Badge>
@@ -1106,6 +1196,18 @@ export function CratesOverviewDialog({
                         </Badge>
                         <Badge variant="outline" className="text-red-800">
                           0
+                          <Container size={20} className="ml-1" />
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex justify-center gap-2">
+                        <Badge variant="outline" className="text-yellow-700">
+                          {driverManualCrates[driver.name]?.crateSmall || 0}
+                          <Container size={16} className="ml-1" />
+                        </Badge>
+                        <Badge variant="outline" className="text-red-800">
+                          {driverManualCrates[driver.name]?.crateBig || 0}
                           <Container size={20} className="ml-1" />
                         </Badge>
                       </div>

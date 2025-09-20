@@ -883,32 +883,20 @@ export function OrdersExpeditionTable({
   // Get order counts for tab badges
   const { data: orderCounts } = fetchOrderCountsByPeriod();
 
-  // Get current date for crates tracking (avoid timezone issues)
+  // Get current date for crates tracking
   const currentDate = useMemo(() => {
     if (activeTab === "custom" && date) {
-      // Use local date formatting to avoid timezone conversion
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
+      // Use date-fns format to avoid timezone issues
+      return format(date, "yyyy-MM-dd");
     } else if (activeTab === "today") {
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, "0");
-      const day = String(today.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
+      return format(new Date(), "yyyy-MM-dd");
     } else if (activeTab === "tomorrow") {
-      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      const year = tomorrow.getFullYear();
-      const month = String(tomorrow.getMonth() + 1).padStart(2, "0");
-      const day = String(tomorrow.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
+      return format(new Date(Date.now() + 24 * 60 * 60 * 1000), "yyyy-MM-dd");
     } else if (activeTab === "afterTomorrow") {
-      const afterTomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
-      const year = afterTomorrow.getFullYear();
-      const month = String(afterTomorrow.getMonth() + 1).padStart(2, "0");
-      const day = String(afterTomorrow.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
+      return format(
+        new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+        "yyyy-MM-dd"
+      );
     }
     return null;
   }, [activeTab, date]);
@@ -1789,59 +1777,32 @@ export function OrdersExpeditionTable({
                     period={
                       period === "custom" && date
                         ? isSpecificDay
-                          ? (() => {
-                              const year = date.getFullYear();
-                              const month = String(
-                                date.getMonth() + 1
-                              ).padStart(2, "0");
-                              const day = String(date.getDate()).padStart(
-                                2,
-                                "0"
-                              );
-                              return `${day}.${month}.${year}`;
-                            })()
+                          ? currentDate
+                            ? (() => {
+                                const [year, month, day] =
+                                  currentDate.split("-");
+                                return `${day}.${month}.${year}`;
+                              })()
+                            : format(date, "dd.MM.yyyy")
                           : format(date, "LLLL yyyy", { locale: cs })
                         : period === "today"
                           ? (() => {
                               const today = new Date();
-                              const year = today.getFullYear();
-                              const month = String(
-                                today.getMonth() + 1
-                              ).padStart(2, "0");
-                              const day = String(today.getDate()).padStart(
-                                2,
-                                "0"
-                              );
-                              return `${day}.${month}.${year}`;
+                              return format(today, "dd.MM.yyyy");
                             })()
                           : period === "tomorrow"
                             ? (() => {
                                 const tomorrow = new Date(
                                   Date.now() + 24 * 60 * 60 * 1000
                                 );
-                                const year = tomorrow.getFullYear();
-                                const month = String(
-                                  tomorrow.getMonth() + 1
-                                ).padStart(2, "0");
-                                const day = String(tomorrow.getDate()).padStart(
-                                  2,
-                                  "0"
-                                );
-                                return `${day}.${month}.${year}`;
+                                return format(tomorrow, "dd.MM.yyyy");
                               })()
                             : period === "afterTomorrow"
                               ? (() => {
                                   const afterTomorrow = new Date(
                                     Date.now() + 2 * 24 * 60 * 60 * 1000
                                   );
-                                  const year = afterTomorrow.getFullYear();
-                                  const month = String(
-                                    afterTomorrow.getMonth() + 1
-                                  ).padStart(2, "0");
-                                  const day = String(
-                                    afterTomorrow.getDate()
-                                  ).padStart(2, "0");
-                                  return `${day}.${month}.${year}`;
+                                  return format(afterTomorrow, "dd.MM.yyyy");
                                 })()
                               : period === "week"
                                 ? `Tento týden (${format(new Date(), "dd.MM")} - ${format(new Date(Date.now() + 6 * 24 * 60 * 60 * 1000), "dd.MM.yyyy")})`

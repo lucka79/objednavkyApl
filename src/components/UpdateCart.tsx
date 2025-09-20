@@ -556,7 +556,7 @@ export default function UpdateCart({
     items: { quantity: number; product_id: number }[]
   ) => {
     if (isReadOnly) {
-      addDebugLog("✗ Cannot add items - order is locked");
+      addDebugLog("✗ Nelze přidat položky - objednávka je uzamčena");
       toast({
         title: "Order is locked",
         description: "This order is part of an invoice and cannot be modified.",
@@ -566,7 +566,7 @@ export default function UpdateCart({
     }
 
     try {
-      addDebugLog(`Adding ${items.length} items to order...`);
+      addDebugLog(`Přidávám ${items.length} položek do objednávky...`);
 
       // Get product details for the items
       const productIds = items.map((item) => item.product_id);
@@ -577,12 +577,12 @@ export default function UpdateCart({
 
       if (productsError) {
         addDebugLog(
-          `✗ Error fetching product details: ${productsError.message}`
+          `✗ Chyba při načítání detailů produktů: ${productsError.message}`
         );
         throw new Error("Failed to fetch product details");
       }
 
-      addDebugLog(`Fetched details for ${products?.length || 0} products`);
+      addDebugLog(`Načteny detaily pro ${products?.length || 0} produktů`);
 
       // Combine duplicate products by summing quantities
       const combinedItems = new Map<
@@ -595,7 +595,7 @@ export default function UpdateCart({
           const existing = combinedItems.get(item.product_id)!;
           existing.quantity += item.quantity;
           addDebugLog(
-            `Combining duplicate product ID ${item.product_id}: ${existing.quantity - item.quantity} + ${item.quantity} = ${existing.quantity}`
+            `Kombinuji duplicitní produkt ID ${item.product_id}: ${existing.quantity - item.quantity} + ${item.quantity} = ${existing.quantity}`
           );
         } else {
           combinedItems.set(item.product_id, { ...item });
@@ -603,7 +603,7 @@ export default function UpdateCart({
       });
 
       addDebugLog(
-        `Combined ${items.length} items into ${combinedItems.size} unique products`
+        `Zkombinováno ${items.length} položek do ${combinedItems.size} unikátních produktů`
       );
 
       // Create order items with appropriate pricing
@@ -611,7 +611,7 @@ export default function UpdateCart({
         .map((item) => {
           const product = products?.find((p) => p.id === item.product_id);
           if (!product) {
-            addDebugLog(`✗ Product not found for ID ${item.product_id}`);
+            addDebugLog(`✗ Produkt nenalezen pro ID ${item.product_id}`);
             return null;
           }
 
@@ -619,11 +619,11 @@ export default function UpdateCart({
           let price = product.priceBuyer;
 
           addDebugLog(
-            `Using buyer price: ${price} (regular: ${product.price}, mobil: ${product.priceMobil}, buyer: ${product.priceBuyer})`
+            `Používám kupní cenu: ${price} (běžná: ${product.price}, mobil: ${product.priceMobil}, kupní: ${product.priceBuyer})`
           );
 
           addDebugLog(
-            `✓ Adding ${item.quantity}x ${product.name} (ID: ${item.product_id}) at ${price} Kč each`
+            `✓ Přidávám ${item.quantity}x ${product.name} (ID: ${item.product_id}) za ${price} Kč za kus`
           );
 
           return {
@@ -637,12 +637,12 @@ export default function UpdateCart({
         .filter((item): item is NonNullable<typeof item> => item !== null);
 
       if (orderItemsToInsert.length === 0) {
-        addDebugLog("✗ No valid items to insert");
+        addDebugLog("✗ Žádné platné položky k vložení");
         return;
       }
 
       // First, delete existing order items for this order
-      addDebugLog("Deleting existing order items...");
+      addDebugLog("Mažu existující položky objednávky...");
       const { error: deleteError } = await supabase
         .from("order_items")
         .delete()
@@ -650,12 +650,12 @@ export default function UpdateCart({
 
       if (deleteError) {
         addDebugLog(
-          `✗ Error deleting existing order items: ${deleteError.message}`
+          `✗ Chyba při mazání existujících položek objednávky: ${deleteError.message}`
         );
         throw new Error("Failed to delete existing order items");
       }
 
-      addDebugLog("✓ Existing order items deleted");
+      addDebugLog("✓ Existující položky objednávky smazány");
 
       // Insert new order items
       const { error: insertError } = await supabase
@@ -663,12 +663,14 @@ export default function UpdateCart({
         .insert(orderItemsToInsert);
 
       if (insertError) {
-        addDebugLog(`✗ Error inserting order items: ${insertError.message}`);
+        addDebugLog(
+          `✗ Chyba při vkládání položek objednávky: ${insertError.message}`
+        );
         throw new Error("Failed to insert order items");
       }
 
       addDebugLog(
-        `✓ Successfully added ${orderItemsToInsert.length} items to order`
+        `✓ Úspěšně přidáno ${orderItemsToInsert.length} položek do objednávky`
       );
 
       // Update order total (replace total since we deleted all existing items)
@@ -676,7 +678,9 @@ export default function UpdateCart({
         (sum, item) => sum + item.quantity * item.price,
         0
       );
-      addDebugLog(`Setting order total to ${newTotal} Kč (replaced all items)`);
+      addDebugLog(
+        `Nastavuji celkovou částku objednávky na ${newTotal} Kč (nahrazeny všechny položky)`
+      );
 
       await updateOrder({
         id: orderId,
@@ -690,7 +694,7 @@ export default function UpdateCart({
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["expeditionOrders"] });
 
-      addDebugLog("✓ Order updated successfully");
+      addDebugLog("✓ Objednávka úspěšně aktualizována");
 
       toast({
         title: "Položky přidány",
@@ -699,7 +703,7 @@ export default function UpdateCart({
       });
     } catch (error) {
       const err = error as Error;
-      addDebugLog(`✗ Error adding items: ${err.message}`);
+      addDebugLog(`✗ Chyba při přidávání položek: ${err.message}`);
       console.error("Error adding items to order:", err);
 
       toast({
@@ -724,11 +728,11 @@ export default function UpdateCart({
     const file = event.target.files?.[0];
     if (file) {
       try {
-        addDebugLog("Starting file upload process...");
+        addDebugLog("Spouštím proces nahrávání souboru...");
         console.log("Starting file upload process...");
 
         // First, fetch all products from database
-        addDebugLog("Fetching products from database...");
+        addDebugLog("Načítám produkty z databáze...");
         console.log("Fetching products from database...");
         const { data: products, error: productsError } = await supabase
           .from("products")
@@ -736,33 +740,33 @@ export default function UpdateCart({
           .eq("active", true);
 
         if (productsError) {
-          addDebugLog(`Database error: ${productsError.message}`);
+          addDebugLog(`Chyba databáze: ${productsError.message}`);
           console.error("Database error:", productsError);
           throw new Error("Failed to fetch products");
         }
 
-        addDebugLog(`Fetched ${products?.length || 0} products from database`);
+        addDebugLog(`Načteno ${products?.length || 0} produktů z databáze`);
         console.log("Fetched products:", products?.length || 0);
 
         // Products fetched for validation and logging
         addDebugLog(
-          `Products fetched for validation: ${products?.length || 0} entries`
+          `Produkty načteny pro validaci: ${products?.length || 0} záznamů`
         );
 
-        addDebugLog("Reading Excel file...");
+        addDebugLog("Čtu Excel soubor...");
         console.log("Reading Excel file...");
         const data = await file.arrayBuffer();
-        addDebugLog(`File data size: ${data.byteLength} bytes`);
+        addDebugLog(`Velikost dat souboru: ${data.byteLength} bytů`);
         console.log("File data size:", data.byteLength);
 
         const workbook = XLSX.read(data, { type: "array" });
-        addDebugLog(`Workbook sheets: ${workbook.SheetNames.join(", ")}`);
+        addDebugLog(`Listy sešitu: ${workbook.SheetNames.join(", ")}`);
         console.log("Workbook sheets:", workbook.SheetNames);
 
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         // Parse with headers to get proper column names
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        addDebugLog(`Parsed Excel data: ${jsonData.length} rows`);
+        addDebugLog(`Načtena Excel data: ${jsonData.length} řádků`);
         console.log("Parsed Excel data:", jsonData.length, "rows");
         console.log("Sample row:", jsonData[0]);
         console.log("Available columns:", Object.keys(jsonData[0] || {}));
@@ -770,14 +774,14 @@ export default function UpdateCart({
         // Show all available column names
         if (jsonData.length > 0) {
           const columnNames = Object.keys(jsonData[0] as Record<string, any>);
-          addDebugLog(`Available column names: ${columnNames.join(", ")}`);
+          addDebugLog(`Dostupné názvy sloupců: ${columnNames.join(", ")}`);
           console.log("All column names:", columnNames);
         }
 
         const items: { quantity: number; product_id: number }[] = [];
         const notFoundProducts: string[] = [];
 
-        addDebugLog("Processing rows...");
+        addDebugLog("Zpracovávám řádky...");
         console.log("Processing rows...");
         jsonData.forEach((row: any, index: number) => {
           // Skip the first row if it's the header row (contains "data-quantity")
@@ -785,7 +789,7 @@ export default function UpdateCart({
             index === 0 &&
             String(Object.values(row)[0]).toLowerCase() === "data-quantity"
           ) {
-            addDebugLog("⚠ Skipping header row (Row 1)");
+            addDebugLog("⚠ Přeskakuji hlavičkový řádek (Řádek 1)");
             return;
           }
 
@@ -796,7 +800,7 @@ export default function UpdateCart({
           const productIdFromExcel = parseInt(String(rowValues[2] || "0")); // Third column: data-product-id
 
           addDebugLog(
-            `Row ${index + 1}: quantity=${quantity}, product="${productName}", productIdFromExcel=${productIdFromExcel}`
+            `Řádek ${index + 1}: množství=${quantity}, produkt="${productName}", ID_produktu=${productIdFromExcel}`
           );
           console.log(`Row ${index + 1}:`, {
             quantity,
@@ -814,17 +818,17 @@ export default function UpdateCart({
             if (product) {
               items.push({ quantity, product_id: product.id });
               addDebugLog(
-                `✓ Added item: ${quantity}x product ID ${product.id} (${product.name})`
+                `✓ Přidána položka: ${quantity}x ID produktu ${product.id} (${product.name})`
               );
               console.log(
                 `Added item: ${quantity}x product ID ${product.id} (${product.name})`
               );
             } else {
               notFoundProducts.push(
-                `ID ${productIdFromExcel} (Name: ${productName})`
+                `ID ${productIdFromExcel} (Název: ${productName})`
               );
               addDebugLog(
-                `✗ Product not found for ID ${productIdFromExcel} (Name: "${productName}")`
+                `✗ Produkt nenalezen pro ID ${productIdFromExcel} (Název: "${productName}")`
               );
               console.log(
                 `Product not found: ID ${productIdFromExcel} (Name: "${productName}")`
@@ -832,7 +836,7 @@ export default function UpdateCart({
             }
           } else {
             addDebugLog(
-              `⚠ Skipping row ${index + 1}: invalid quantity (${quantity}) or product ID (${productIdFromExcel})`
+              `⚠ Přeskakuji řádek ${index + 1}: neplatné množství (${quantity}) nebo ID produktu (${productIdFromExcel})`
             );
             console.log(
               `Skipping row ${index + 1}: invalid quantity (${quantity}) or product ID (${productIdFromExcel})`
@@ -841,7 +845,7 @@ export default function UpdateCart({
         });
 
         addDebugLog(
-          `Processing complete. Found ${items.length} items, ${notFoundProducts.length} not found`
+          `Zpracování dokončeno. Nalezeno ${items.length} položek, ${notFoundProducts.length} nenalezeno`
         );
         console.log("Processing complete. Results:", {
           itemsFound: items.length,
@@ -851,7 +855,7 @@ export default function UpdateCart({
         });
 
         if (items.length > 0) {
-          addDebugLog(`✓ Success! Parsed ${items.length} items`);
+          addDebugLog(`✓ Úspěch! Zpracováno ${items.length} položek`);
           console.log("Parsed items:", items);
 
           // Add items to the order
@@ -868,7 +872,7 @@ export default function UpdateCart({
             variant: notFoundProducts.length > 0 ? "destructive" : "default",
           });
         } else {
-          addDebugLog("✗ No items found in file");
+          addDebugLog("✗ V souboru nebyly nalezeny žádné položky");
           console.log("No items found in file");
           toast({
             title: "Chyba při načítání",
@@ -879,7 +883,7 @@ export default function UpdateCart({
         }
       } catch (error) {
         const err = error as Error;
-        addDebugLog(`✗ Error: ${err.message}`);
+        addDebugLog(`✗ Chyba: ${err.message}`);
         console.error("Error details:", {
           error: err,
           message: err.message,
@@ -1169,14 +1173,14 @@ export default function UpdateCart({
       <Dialog open={isDebugOpen} onOpenChange={setIsDebugOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh]">
           <DialogHeader>
-            <DialogTitle>Debug - File Upload Process</DialogTitle>
+            <DialogTitle>Ladění - Proces nahrávání souboru</DialogTitle>
             <DialogDescription>
-              Real-time logs of the file upload and parsing process
+              Logy v reálném čase pro proces nahrávání a zpracování souboru
             </DialogDescription>
           </DialogHeader>
           <div className="bg-black text-green-400 p-4 rounded-lg font-mono text-sm max-h-[60vh] overflow-y-auto">
             {debugLogs.length === 0 ? (
-              <div className="text-gray-500">Waiting for file upload...</div>
+              <div className="text-gray-500">Čekám na nahrání souboru...</div>
             ) : (
               debugLogs.map((log, index) => (
                 <div key={index} className="mb-1">
@@ -1192,22 +1196,22 @@ export default function UpdateCart({
                 const logsText = debugLogs.join("\n");
                 navigator.clipboard.writeText(logsText);
                 toast({
-                  title: "Logs copied",
-                  description: "Debug logs copied to clipboard",
+                  title: "Logy zkopírovány",
+                  description: "Ladící logy zkopírovány do schránky",
                 });
               }}
               disabled={debugLogs.length === 0}
             >
-              Copy Logs
+              Kopírovat logy
             </Button>
             <Button
               variant="outline"
               onClick={() => setDebugLogs([])}
               disabled={debugLogs.length === 0}
             >
-              Clear Logs
+              Vymazat logy
             </Button>
-            <Button onClick={() => setIsDebugOpen(false)}>Close</Button>
+            <Button onClick={() => setIsDebugOpen(false)}>Zavřít</Button>
           </div>
         </DialogContent>
       </Dialog>

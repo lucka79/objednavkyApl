@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import { supabase, useAuthStore } from '@/lib/supabase';
 import { InsertTables, Order, OrderItem } from '../../types';
 // import { useToast } from "@/hooks/use-toast";
@@ -1221,37 +1222,41 @@ export const useOrdersByMonth = (selectedDate?: Date, specificDay?: boolean) => 
       let startDate, endDate;
       
       if (specificDay) {
-        // For specific day, adjust for timezone
-        startDate = new Date(Date.UTC(
+        // Use local dates to avoid timezone issues
+        startDate = new Date(
           selectedDate.getFullYear(),
           selectedDate.getMonth(),
-          selectedDate.getDate()
-        ));
-        endDate = new Date(Date.UTC(
+          selectedDate.getDate(),
+          0, 0, 0
+        );
+        endDate = new Date(
           selectedDate.getFullYear(),
           selectedDate.getMonth(),
-          selectedDate.getDate() + 1
-        ));
+          selectedDate.getDate() + 1,
+          0, 0, 0
+        );
       } else {
-        // For month view
-        startDate = new Date(Date.UTC(
+        // For month view, also use local dates
+        startDate = new Date(
           selectedDate.getFullYear(),
           selectedDate.getMonth(),
-          1
-        ));
-        endDate = new Date(Date.UTC(
+          1,
+          0, 0, 0
+        );
+        endDate = new Date(
           selectedDate.getFullYear(),
           selectedDate.getMonth() + 1,
-          1
-        ));
+          1,
+          0, 0, 0
+        );
       }
 
       // Update queries to use the new date range
       const { count, error: countError } = await supabase
         .from('orders')
         .select('*', { count: 'exact', head: true })
-        .gte('date', startDate.toISOString())
-        .lt('date', endDate.toISOString());
+        .gte('date', format(startDate, 'yyyy-MM-dd'))
+        .lt('date', format(endDate, 'yyyy-MM-dd'));
 
       if (countError) throw countError;
 
@@ -1292,8 +1297,8 @@ export const useOrdersByMonth = (selectedDate?: Date, specificDay?: boolean) => 
                 role
               )
             `)
-            .gte('date', startDate.toISOString())
-            .lt('date', endDate.toISOString())
+            .gte('date', format(startDate, 'yyyy-MM-dd'))
+            .lt('date', format(endDate, 'yyyy-MM-dd'))
             .order('date', { ascending: false })
             .order('user(full_name)', { ascending: true })
             .range(page * pageSize, (page + 1) * pageSize - 1)

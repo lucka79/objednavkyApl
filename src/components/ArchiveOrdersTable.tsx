@@ -1551,13 +1551,31 @@ export function ArchiveOrdersTable() {
   // Add calendar component
   const handleDateSelect = (newDate: Date | undefined) => {
     if (newDate) {
-      setDate(newDate);
+      // Set to noon to avoid timezone issues
+      const localDate = new Date(
+        newDate.getFullYear(),
+        newDate.getMonth(),
+        newDate.getDate(),
+        12,
+        0,
+        0
+      );
+      setDate(localDate);
       setIsSpecificDay(true);
     }
   };
 
   const handleMonthSelect = (newDate: Date) => {
-    setDate(newDate);
+    // Set to noon to avoid timezone issues
+    const localDate = new Date(
+      newDate.getFullYear(),
+      newDate.getMonth(),
+      newDate.getDate(),
+      12,
+      0,
+      0
+    );
+    setDate(localDate);
     setIsSpecificDay(false);
   };
 
@@ -2592,14 +2610,26 @@ export function ArchiveOrdersTable() {
 
       <div className="w-full"></div>
 
+      {/* Add debug logs for date values */}
+      {console.log("ArchiveOrdersTable - selected date:", date)}
+      {console.log(
+        "ArchiveOrdersTable - currentDate prop:",
+        isSpecificDay ? date.toISOString().split("T")[0] : null
+      )}
+      {console.log(
+        "ArchiveOrdersTable - period prop:",
+        isSpecificDay
+          ? date.toISOString().split("T")[0].split("-").reverse().join(".")
+          : format(date, "LLLL yyyy", { locale: cs })
+      )}
       <CratesOverviewDialog
         isOpen={isDriverDialogOpen}
         onOpenChange={setIsDriverDialogOpen}
         orders={filteredOrders}
-        currentDate={isSpecificDay ? date.toISOString().split("T")[0] : null}
+        currentDate={isSpecificDay ? format(date, "yyyy-MM-dd") : null}
         period={
           isSpecificDay
-            ? date.toISOString().split("T")[0].split("-").reverse().join(".")
+            ? format(date, "dd.MM.yyyy")
             : format(date, "LLLL yyyy", { locale: cs })
         }
       />
