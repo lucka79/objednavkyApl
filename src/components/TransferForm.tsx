@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Trash2, Plus, Package, FileText, ArrowRightLeft } from "lucide-react";
 import { useCreateTransfer, TransferInsert } from "@/hooks/useTransfers";
 import { useIngredients } from "@/hooks/useIngredients";
-import { useUsers } from "@/hooks/useProfiles";
+import { useUsers, useExpeditionUser } from "@/hooks/useProfiles";
 import { useAuthStore } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { removeDiacritics } from "@/utils/removeDiacritics";
@@ -154,6 +154,7 @@ function IngredientPickerModal({
 export default function TransferForm({ onSuccess }: TransferFormProps) {
   const { user } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
+  const [senderId, setSenderId] = useState<string>("");
   const [receiverId, setReceiverId] = useState<string>("");
   const [transferDate, setTransferDate] = useState<string>(
     new Date().toISOString().split("T")[0]
@@ -164,6 +165,7 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
 
   const { data: ingredientsData } = useIngredients();
   const { data: profiles = [] } = useUsers();
+  const { data: expeditionUser } = useExpeditionUser();
 
   const ingredients = ingredientsData?.ingredients || [];
   const categories = ingredientsData?.categories || [];
@@ -173,8 +175,21 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
   const availableReceivers = profiles.filter(
     (profile) =>
       profile.id !== user?.id &&
+      profile.id !== senderId &&
       ["user", "store", "expedition", "admin"].includes(profile.role)
   );
+
+  // Available senders (store users and expedition)
+  const availableSenders = profiles.filter((profile) =>
+    ["store", "expedition"].includes(profile.role)
+  );
+
+  // Set default sender when expedition user is loaded
+  useEffect(() => {
+    if (expeditionUser && !senderId) {
+      setSenderId(expeditionUser.id);
+    }
+  }, [expeditionUser, senderId]);
 
   // Ingredient management functions
   const removeTransferItem = (index: number) => {
@@ -230,6 +245,15 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!senderId) {
+      toast({
+        title: "Chyba",
+        description: "Prosím vyberte odesílatele",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!receiverId) {
       toast({
         title: "Chyba",
@@ -266,7 +290,7 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
     try {
       const transferData: TransferInsert = {
         date: transferDate,
-        sender_id: user?.id || "",
+        sender_id: senderId,
         receiver_id: receiverId,
         transfer_items: validItems.map((item) => ({
           ...item,
@@ -278,10 +302,11 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
 
       toast({
         title: "Úspěch",
-        description: "Transfer byl úspěšně vytvořen",
+        description: "Převod surovin byl úspěšně vytvořen",
       });
 
       // Reset form
+      setSenderId(expeditionUser?.id || "");
       setReceiverId("");
       setTransferDate(new Date().toISOString().split("T")[0]);
       setTransferItems([]);
@@ -292,7 +317,8 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
       console.error("Error creating transfer:", error);
       toast({
         title: "Chyba",
-        description: "Nepodařilo se vytvořit transfer. Zkuste to prosím znovu.",
+        description:
+          "Nepodařilo se vytvořit převod surovin. Zkuste to prosím znovu.",
         variant: "destructive",
       });
     } finally {
@@ -303,6 +329,7 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
   const handleClose = () => {
     if (!isSubmitting) {
       setIsOpen(false);
+      setSenderId(expeditionUser?.id || "");
       setReceiverId("");
       setTransferItems([]);
     }
@@ -314,14 +341,14 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
         <DialogTrigger asChild>
           <Button>
             <Plus className="h-4 w-4 mr-2" />
-            Vytvořit transfer
+            Vytvořit převod surovin
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ArrowRightLeft className="h-5 w-5" />
-              Nový transfer
+              Nový převod surovin
             </DialogTitle>
           </DialogHeader>
 
@@ -329,7 +356,9 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
             {/* Basic Information */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Informace o transferu</CardTitle>
+                <CardTitle className="text-lg">
+                  Informace o převodu surovin
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -351,7 +380,7 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="date">Datum transferu *</Label>
+                    <Label htmlFor="date">Datum převodu surovin </Label>
                     <Input
                       id="date"
                       type="date"
@@ -361,6 +390,33 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
                     />
                   </div>
                 </div>
+
+                {/* Sender Selection */}
+                <div className="space-y-2">
+                  <Label htmlFor="sender">Odesílatel</Label>
+                  <Select value={senderId} onValueChange={setSenderId} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Vyberte odesílatele" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableSenders.map((sender) => (
+                        <SelectItem key={sender.id} value={sender.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{sender.full_name || sender.username}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {sender.role}
+                            </Badge>
+                            {sender.id === expeditionUser?.id && (
+                              <Badge variant="secondary" className="text-xs">
+                                Výchozí
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </CardContent>
             </Card>
 
@@ -368,7 +424,7 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center justify-between">
-                  Položky transferu
+                  Položky převodu surovin
                   <Button
                     type="button"
                     size="sm"
@@ -427,9 +483,9 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
                           const selectedIngredient = ingredients.find(
                             (ing) => ing.id === item.ingredient_id
                           );
-                          const category = categories.find(
-                            (cat) => cat.id === selectedIngredient?.category_id
-                          );
+                          // const category = categories.find(
+                          //   (cat) => cat.id === selectedIngredient?.category_id
+                          // );
 
                           return (
                             <div
@@ -456,16 +512,35 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
                                 <Input
                                   type="number"
                                   step="0.001"
-                                  value={item.quantity}
-                                  onChange={(e) =>
-                                    updateTransferItem(
-                                      index,
-                                      "quantity",
-                                      parseFloat(e.target.value) || 0
-                                    )
+                                  value={
+                                    item.quantity === 0 ? "" : item.quantity
                                   }
-                                  className="mt-1 w-24 appearance-none no-spinner"
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (value === "") {
+                                      updateTransferItem(index, "quantity", 0);
+                                    } else {
+                                      const numValue = parseFloat(value);
+                                      if (!isNaN(numValue) && numValue >= 0) {
+                                        updateTransferItem(
+                                          index,
+                                          "quantity",
+                                          numValue
+                                        );
+                                      }
+                                    }
+                                  }}
+                                  className={`mt-1 w-24 appearance-none no-spinner ${
+                                    user?.role !== "expedition" &&
+                                    user?.role !== "admin"
+                                      ? "bg-gray-100 cursor-not-allowed"
+                                      : ""
+                                  }`}
                                   placeholder="0"
+                                  disabled={
+                                    user?.role !== "expedition" &&
+                                    user?.role !== "admin"
+                                  }
                                 />
                               </div>
                               <div className="md:col-span-1 text-sm text-muted-foreground">
@@ -485,11 +560,11 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
                                   ? `${(item.quantity * selectedIngredient.kiloPerUnit * selectedIngredient.price).toFixed(2)} Kč`
                                   : "0.00 Kč"}
                               </div>
-                              <div className="md:col-span-2">
+                              {/* <div className="md:col-span-2">
                                 <Badge variant="outline" className="text-xs">
                                   {category ? category.name : "Uncategorized"}
                                 </Badge>
-                              </div>
+                              </div> */}
                               <div className="md:col-span-1 flex justify-end items-center">
                                 <Button
                                   type="button"
@@ -512,7 +587,7 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
                 {transferItems.length > 0 && (
                   <div className="mt-6 p-4 bg-orange-100 border border-orange-200 rounded-md">
                     <h4 className="font-semibold text-orange-800 mb-2">
-                      Souhrn transferu
+                      Souhrn převodu surovin
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                       <div>
@@ -561,7 +636,7 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
                 }
                 className="bg-orange-600 hover:bg-orange-700"
               >
-                {isSubmitting ? "Vytváření..." : "Vytvořit transfer"}
+                {isSubmitting ? "Vytváření..." : "Vytvořit objednávku"}
               </Button>
             </div>
           </form>

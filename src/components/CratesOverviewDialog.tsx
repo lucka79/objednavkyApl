@@ -638,18 +638,32 @@ export function CratesOverviewDialog({
                                         driver.crateBig +
                                         (driverManualCrates[driver.name]
                                           ?.crateBig || 0);
-                                      const totalReceivedSmall =
-                                        (driverReceivedCrates[driver.name]
-                                          ?.crateSmall || 0) +
-                                        (driver.crateSmallReceived || 0);
-                                      const totalReceivedBig =
-                                        (driverReceivedCrates[driver.name]
-                                          ?.crateBig || 0) +
-                                        (driver.crateBigReceived || 0);
+                                      const manualReceivedSmall =
+                                        driverReceivedCrates[driver.name]
+                                          ?.crateSmall || 0;
+                                      const manualReceivedBig =
+                                        driverReceivedCrates[driver.name]
+                                          ?.crateBig || 0;
+                                      const electronicReceivedSmall =
+                                        driver.crateSmallReceived || 0;
+                                      const electronicReceivedBig =
+                                        driver.crateBigReceived || 0;
+
+                                      // If manual returned is 0, use electronic returned, else use manual returned
+                                      const usedReceivedSmall =
+                                        manualReceivedSmall === 0
+                                          ? electronicReceivedSmall
+                                          : manualReceivedSmall;
+                                      const usedReceivedBig =
+                                        manualReceivedBig === 0
+                                          ? electronicReceivedBig
+                                          : manualReceivedBig;
+
                                       const diffSmall =
-                                        totalIssuedSmall - totalReceivedSmall;
+                                        totalIssuedSmall - usedReceivedSmall;
                                       const diffBig =
-                                        totalIssuedBig - totalReceivedBig;
+                                        totalIssuedBig - usedReceivedBig;
+
                                       return `${diffSmall > 0 ? `-${diffSmall}` : diffSmall < 0 ? `+${Math.abs(diffSmall)}` : diffSmall} M / ${diffBig > 0 ? `-${diffBig}` : diffBig < 0 ? `+${Math.abs(diffBig)}` : diffBig} V`;
                                     })()}
                                   </td>
@@ -716,16 +730,23 @@ export function CratesOverviewDialog({
                                       const totalIssuedBig =
                                         driverManualCrates[driver.name]
                                           ?.crateBig || 0;
-                                      const totalReceivedSmall =
+                                      const manualReceivedSmall =
                                         driverReceivedCrates[driver.name]
                                           ?.crateSmall || 0;
-                                      const totalReceivedBig =
+                                      const manualReceivedBig =
                                         driverReceivedCrates[driver.name]
                                           ?.crateBig || 0;
+
+                                      // For manual drivers, always use manual returned (no electronic returned)
+                                      const usedReceivedSmall =
+                                        manualReceivedSmall;
+                                      const usedReceivedBig = manualReceivedBig;
+
                                       const diffSmall =
-                                        totalIssuedSmall - totalReceivedSmall;
+                                        totalIssuedSmall - usedReceivedSmall;
                                       const diffBig =
-                                        totalIssuedBig - totalReceivedBig;
+                                        totalIssuedBig - usedReceivedBig;
+
                                       return `${diffSmall > 0 ? `-${diffSmall}` : diffSmall < 0 ? `+${Math.abs(diffSmall)}` : diffSmall} M / ${diffBig > 0 ? `-${diffBig}` : diffBig < 0 ? `+${Math.abs(diffBig)}` : diffBig} V`;
                                     })()}
                                   </td>
@@ -1081,11 +1102,20 @@ export function CratesOverviewDialog({
                               driver.crateSmall +
                               (driverManualCrates[driver.name]?.crateSmall ||
                                 0);
-                            const totalReceivedSmall =
-                              (driverReceivedCrates[driver.name]?.crateSmall ||
-                                0) + (driver.crateSmallReceived || 0);
+                            const manualReceivedSmall =
+                              driverReceivedCrates[driver.name]?.crateSmall ||
+                              0;
+                            const electronicReceivedSmall =
+                              driver.crateSmallReceived || 0;
+
+                            // If manual returned is 0, use electronic returned, else use manual returned
+                            const usedReceivedSmall =
+                              manualReceivedSmall === 0
+                                ? electronicReceivedSmall
+                                : manualReceivedSmall;
                             const diffSmall =
-                              totalIssuedSmall - totalReceivedSmall;
+                              totalIssuedSmall - usedReceivedSmall;
+
                             return diffSmall > 0
                               ? `-${diffSmall}`
                               : diffSmall < 0
@@ -1115,10 +1145,18 @@ export function CratesOverviewDialog({
                             const totalIssuedBig =
                               driver.crateBig +
                               (driverManualCrates[driver.name]?.crateBig || 0);
-                            const totalReceivedBig =
-                              (driverReceivedCrates[driver.name]?.crateBig ||
-                                0) + (driver.crateBigReceived || 0);
-                            const diffBig = totalIssuedBig - totalReceivedBig;
+                            const manualReceivedBig =
+                              driverReceivedCrates[driver.name]?.crateBig || 0;
+                            const electronicReceivedBig =
+                              driver.crateBigReceived || 0;
+
+                            // If manual returned is 0, use electronic returned, else use manual returned
+                            const usedReceivedBig =
+                              manualReceivedBig === 0
+                                ? electronicReceivedBig
+                                : manualReceivedBig;
+                            const diffBig = totalIssuedBig - usedReceivedBig;
+
                             return diffBig > 0
                               ? `-${diffBig}`
                               : diffBig < 0

@@ -404,6 +404,26 @@ export const useSupplierUsers = () => {
   });
 };
 
+// Get expedition user by email
+export const useExpeditionUser = () => {
+  return useQuery({
+    queryKey: ["expeditionUser"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("email", "aplica.pekarna@gmail.com")
+        .eq("role", "expedition")
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+  });
+};
+
 // Geocoding mutation
 export const updateUserGeocoding = () => {
   const queryClient = useQueryClient();
