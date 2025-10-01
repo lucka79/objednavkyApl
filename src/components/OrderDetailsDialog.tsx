@@ -216,12 +216,33 @@ export function OrderDetailsDialog() {
         updatedFields: { status },
       },
       {
-        onSuccess: () => {
+        onSuccess: async () => {
           console.log("Status update successful:", {
             orderId: selectedOrderId,
             status,
             timestamp: new Date().toISOString(),
           });
+
+          // Manually track the change since trigger isn't working
+          try {
+            const { error } = await supabase.from("order_changes").insert({
+              order_id: selectedOrderId,
+              user_id: user?.id,
+              change_type: "status_change",
+              field_name: "status",
+              old_value: orders?.[0]?.status || "",
+              new_value: status,
+            });
+
+            if (error) {
+              console.error("Failed to track status change:", error);
+            } else {
+              console.log("Status change tracked successfully");
+            }
+          } catch (error) {
+            console.error("Error tracking status change:", error);
+          }
+
           // Refetch order after successful status update
           refetch();
         },
@@ -247,19 +268,44 @@ export function OrderDetailsDialog() {
     const delta = value - oldValue;
     const userId = orders[0].user.id;
 
-    console.log("Update Crates:", {
+    console.log("OrderDetailsDialog - Update Crates:", {
       type,
       oldValue,
       newValue: value,
       delta,
       userId,
+      orderId: selectedOrderId,
     });
 
     // Update order
+    console.log("OrderDetailsDialog - Calling updateOrder for crate change...");
     await updateOrder({
       id: selectedOrderId!,
       updatedFields: { [type]: Math.max(0, value) },
     });
+    console.log("OrderDetailsDialog - Crate update completed successfully");
+
+    // Manually track the change since trigger isn't working
+    try {
+      const { error } = await supabase.from("order_changes").insert({
+        order_id: selectedOrderId,
+        user_id: user?.id,
+        change_type: type.includes("Received")
+          ? `${type.replace("Received", "")}_received_change`
+          : `${type}_change`,
+        field_name: type,
+        old_value: oldValue.toString(),
+        new_value: value.toString(),
+      });
+
+      if (error) {
+        console.error("Failed to track crate change:", error);
+      } else {
+        console.log("Crate change tracked successfully");
+      }
+    } catch (error) {
+      console.error("Error tracking crate change:", error);
+    }
 
     // Get current profile totals
     const { data: profile } = await supabase
@@ -393,14 +439,64 @@ export function OrderDetailsDialog() {
                       </span>
                       <Select
                         value={order.driver?.id || "none"}
-                        onValueChange={(value) =>
-                          updateOrder({
+                        onValueChange={async (value) => {
+                          const oldDriverId = order.driver?.id;
+                          const newDriverId = value === "none" ? null : value;
+
+                          console.log("OrderDetailsDialog - Update Driver:", {
+                            orderId: order.id,
+                            oldDriverId,
+                            newDriverId,
+                          });
+                          console.log(
+                            "OrderDetailsDialog - Calling updateOrder for driver change..."
+                          );
+                          await updateOrder({
                             id: order.id,
                             updatedFields: {
-                              driver_id: value === "none" ? null : value,
+                              driver_id: newDriverId,
                             },
-                          })
-                        }
+                          });
+                          console.log(
+                            "OrderDetailsDialog - Driver update completed successfully"
+                          );
+
+                          // Manually track the change since trigger isn't working
+                          try {
+                            // Get driver names for display
+                            const oldDriverName =
+                              order.driver?.full_name || "Žádný řidič";
+                            const newDriverName = newDriverId
+                              ? driverUsers?.find((d) => d.id === newDriverId)
+                                  ?.full_name || "Neznámý řidič"
+                              : "Žádný řidič";
+
+                            const { error } = await supabase
+                              .from("order_changes")
+                              .insert({
+                                order_id: order.id,
+                                user_id: user?.id,
+                                change_type: "driver_change",
+                                field_name: "driver_id",
+                                old_value: oldDriverName,
+                                new_value: newDriverName,
+                              });
+
+                            if (error) {
+                              console.error(
+                                "Failed to track driver change:",
+                                error
+                              );
+                            } else {
+                              console.log("Driver change tracked successfully");
+                            }
+                          } catch (error) {
+                            console.error(
+                              "Error tracking driver change:",
+                              error
+                            );
+                          }
+                        }}
                       >
                         <SelectTrigger className="w-[180px]">
                           <SelectValue placeholder="Vyberte řidiče" />

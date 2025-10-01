@@ -176,11 +176,16 @@ export function Navbar() {
                   </>
                 )}
 
-                <Button variant="secondary" onClick={handleSignOut}>
-                  <Link to="/" className="hover:text-gray-300">
-                    Sign out
-                  </Link>
-                </Button>
+                <div className="flex items-center gap-4">
+                  <span className="text-sm text-muted-foreground">
+                    {user.full_name || user.email}
+                  </span>
+                  <Button variant="secondary" onClick={handleSignOut}>
+                    <Link to="/" className="hover:text-gray-300">
+                      Odhlásit
+                    </Link>
+                  </Button>
+                </div>
               </>
             ) : (
               <>

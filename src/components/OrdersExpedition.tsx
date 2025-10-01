@@ -24,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useState, useMemo, useEffect, useRef, forwardRef } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useOrderStore } from "@/providers/orderStore";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -55,7 +55,9 @@ import {
 } from "@/components/ui/select";
 import { fetchActiveProducts } from "@/hooks/useProducts";
 
-import { Trash2 } from "lucide-react";
+import { Trash2, Eye } from "lucide-react";
+import OrderChangesDialog from "@/components/OrderChangesDialog";
+import { useOrderChanges } from "@/hooks/useOrderChanges";
 
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -97,16 +99,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { CratesOverviewDialog } from "./CratesOverviewDialog";
 
-const ProductPrintWrapper = forwardRef<HTMLDivElement, { orders: Order[] }>(
-  ({ orders }, ref) => (
-    <div ref={ref} className="p-8">
-      <ProductSummaryPrint orders={orders} />
-    </div>
-  )
-);
-
-ProductPrintWrapper.displayName = "ProductPrintWrapper";
-
 // Removed filterOrdersByDate function - now fetching orders by period directly from database
 
 const calculateCrateSums = (orders: Order[]) => {
@@ -122,6 +114,10 @@ const calculateCrateSums = (orders: Order[]) => {
   );
 };
 
+interface OrdersExpeditionTableProps {
+  selectedProductId: string | null;
+}
+
 const roleTranslations: Record<string, string> = {
   admin: "Administrátor",
   user: "Uživatel",
@@ -133,519 +129,623 @@ const roleTranslations: Record<string, string> = {
   all: "Všichni odběratelé",
 };
 
-const columns: ColumnDef<Order>[] = [
-  {
-    id: "select",
-    header: ({ table }) => (
-      <div className="flex items-center gap-2 w-[40px]">
-        <Checkbox
-          checked={table.getIsAllPageRowsSelected()}
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
-          className="border-orange-500 data-[state=checked]:bg-orange-500 data-[state=checked]:text-white"
-        />
-        {table.getFilteredSelectedRowModel().rows.length > 0 && (
-          <Badge variant="secondary">
-            {table.getFilteredSelectedRowModel().rows.length}
-          </Badge>
-        )}
-      </div>
-    ),
-    cell: ({ row }) => (
-      <div className="w-[40px]">
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-          onClick={(e) => e.stopPropagation()}
-          className="border-orange-500 data-[state=checked]:bg-orange-500 data-[state=checked]:text-white"
-        />
-      </div>
-    ),
-  },
-  {
-    accessorKey: "date",
-    header: () => <div className=""></div>,
-    cell: ({ row }) => (
-      <div className="w-[80px]">
-        {new Date(row.original.date).toLocaleDateString()}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "id",
-    header: () => <div className=""></div>,
-    cell: ({ row }) => <div className="w-[60px]">{row.original.id}</div>,
-  },
-  {
-    accessorKey: "crateSmall",
-    header: () => <div className="print:hidden"></div>,
-    cell: ({ row }) => (
-      <div className="flex items-center w-[50px] text-right print:hidden">
-        <Badge variant="outline" className="text-yellow-700 ml-auto">
-          {row.original.crateSmall}
-          <Container size={16} className="ml-2" />
-        </Badge>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "crateBig",
-    header: () => <div className="print:hidden"></div>,
-    cell: ({ row }) => (
-      <div className="flex items-center w-[50px] justify-end print:hidden">
-        <Badge variant="outline" className="text-red-800">
-          {row.original.crateBig}
-          <Container size={20} className="ml-2" />
-        </Badge>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "user.full_name",
-    header: () => <div className=""></div>,
-    cell: ({ row }) => (
-      <div className="w-[180px]">{row.original.user.full_name}</div>
-    ),
-  },
-  {
-    accessorKey: "paid_by",
-    header: () => <div className=""></div>,
-    cell: ({ row }) => <div className="w-[60px]">{row.original.paid_by}</div>,
-  },
-  {
-    accessorKey: "driver.full_name",
-    header: () => <div className=""></div>,
-    cell: ({ row }) => (
-      <div className="w-[80px]">{row.original.driver?.full_name || "-"}</div>
-    ),
-  },
-  {
-    accessorKey: "note",
-    header: () => <div className=""></div>,
-    cell: ({ row }) => (
-      <div className="flex justify-center w-[40px]">
-        {row.original.note && row.original.note !== "-" && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger>
-                <StickyNote size={16} className="text-orange-500" />
-              </TooltipTrigger>
-              <TooltipContent className="bg-orange-500 text-white border-orange-500">
-                <p>{row.original.note}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "total",
-    header: () => {
-      const user = useAuthStore((state) => state.user);
-      return user?.role === "admin" ? <div className=""></div> : null;
-    },
-    cell: ({ row }) => {
-      const user = useAuthStore((state) => state.user);
-      return user?.role === "admin" ? (
-        <div className="w-[80px] text-right">
-          {row.original.total.toFixed(2)} Kč
-        </div>
-      ) : null;
-    },
-  },
-  {
-    accessorKey: "crateSmallReceived",
-    header: () => <div className="print:hidden"></div>,
-    cell: ({ row }) => (
-      <div className="flex items-center w-[50px] text-right print:hidden">
-        <Badge variant="outline" className="text-yellow-700 ml-auto">
-          {row.original.crateSmallReceived}
-          <Container size={16} className="mx-1" />
-        </Badge>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "crateBigReceived",
-    header: () => <div className="print:hidden"></div>,
-    cell: ({ row }) => (
-      <div className="flex items-center w-[50px] justify-end print:hidden">
-        <Badge variant="outline" className="text-red-800">
-          {row.original.crateBigReceived}
-          <Container size={20} className="mx-1" />
-        </Badge>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "status",
-    header: () => <div className=""></div>,
-    cell: ({ row }) => {
-      const allCount = row.original.order_items?.length || 0;
-      row.original.order_items?.filter((item) => item.checked).length || 0;
-      const checkedCount =
-        row.original.order_items?.filter((item) => item.checked).length || 0;
-      const uncheckedCount =
-        row.original.order_items?.filter((item) => !item.checked).length || 0;
-      const zeroQuantityCount =
-        row.original.order_items?.filter((item) => item.quantity === 0)
-          .length || 0;
-      const nonZeroQuantityCount =
-        row.original.order_items?.filter((item) => item.quantity > 0).length ||
-        0;
+export function OrdersExpeditionTable({
+  selectedProductId: initialProductId,
+}: OrdersExpeditionTableProps) {
+  const [activeTab, setActiveTab] = useState<
+    | "today"
+    | "tomorrow"
+    | "afterTomorrow"
+    | "week"
+    | "nextWeek"
+    | "month"
+    | "lastMonth"
+    | "custom"
+  >("tomorrow");
+  const [date, setDate] = useState<Date>();
+  const [isSpecificDay, setIsSpecificDay] = useState(false);
+  const [isDriverDialogOpen, setIsDriverDialogOpen] = useState(false);
+  const [isChangesDialogOpen, setIsChangesDialogOpen] = useState(false);
+  const [selectedChangeOrderId, setSelectedChangeOrderId] = useState<
+    number | null
+  >(null);
+  const { data: orderChanges = [], error: orderChangesError } = useOrderChanges(
+    selectedChangeOrderId || undefined
+  );
 
-      return (
-        <div className="w-[220px] text-right flex justify-end gap-2 items-center">
-          {checkedCount > 0 && (
-            <Badge variant="outline" className="border-green-700 bg-green-400">
-              {checkedCount} / {nonZeroQuantityCount}
+  useEffect(() => {
+    if (orderChangesError) {
+      console.error(
+        "OrdersExpedition - Error loading order changes:",
+        orderChangesError
+      );
+    }
+    console.log("OrdersExpedition - Order changes loaded:", {
+      selectedChangeOrderId,
+      orderChangesCount: orderChanges?.length,
+      orderChanges: orderChanges?.slice(0, 3), // Show first 3 changes
+      error: orderChangesError,
+    });
+  }, [selectedChangeOrderId, orderChanges, orderChangesError]);
+
+  const columns: ColumnDef<Order>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <div className="flex items-center gap-2 w-[40px]">
+          <Checkbox
+            checked={table.getIsAllPageRowsSelected()}
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+            aria-label="Select all"
+            className="border-orange-500 data-[state=checked]:bg-orange-500 data-[state=checked]:text-white"
+          />
+          {table.getFilteredSelectedRowModel().rows.length > 0 && (
+            <Badge variant="secondary">
+              {table.getFilteredSelectedRowModel().rows.length}
             </Badge>
           )}
-          {uncheckedCount > 0 && (
-            <Badge variant="outline" className="border-amber-700 bg-amber-400">
-              {uncheckedCount}
-            </Badge>
+        </div>
+      ),
+      cell: ({ row }) => (
+        <div className="w-[40px]">
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+            onClick={(e) => e.stopPropagation()}
+            className="border-orange-500 data-[state=checked]:bg-orange-500 data-[state=checked]:text-white"
+          />
+        </div>
+      ),
+    },
+    {
+      accessorKey: "date",
+      header: () => <div className=""></div>,
+      cell: ({ row }) => (
+        <div className="w-[80px]">
+          {new Date(row.original.date).toLocaleDateString()}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "id",
+      header: () => <div className=""></div>,
+      cell: ({ row }) => <div className="w-[60px]">{row.original.id}</div>,
+    },
+    {
+      accessorKey: "crateSmall",
+      header: () => <div className="print:hidden"></div>,
+      cell: ({ row }) => (
+        <div className="flex items-center w-[50px] text-right print:hidden">
+          <Badge variant="outline" className="text-yellow-700 ml-auto">
+            {row.original.crateSmall}
+            <Container size={16} className="ml-2" />
+          </Badge>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "crateBig",
+      header: () => <div className="print:hidden"></div>,
+      cell: ({ row }) => (
+        <div className="flex items-center w-[50px] justify-end print:hidden">
+          <Badge variant="outline" className="text-red-800">
+            {row.original.crateBig}
+            <Container size={20} className="ml-2" />
+          </Badge>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "user.full_name",
+      header: () => <div className=""></div>,
+      cell: ({ row }) => (
+        <div className="w-[180px]">{row.original.user.full_name}</div>
+      ),
+    },
+    {
+      accessorKey: "paid_by",
+      header: () => <div className=""></div>,
+      cell: ({ row }) => <div className="w-[60px]">{row.original.paid_by}</div>,
+    },
+    {
+      accessorKey: "driver.full_name",
+      header: () => <div className=""></div>,
+      cell: ({ row }) => (
+        <div className="w-[80px]">{row.original.driver?.full_name || "-"}</div>
+      ),
+    },
+    {
+      accessorKey: "note",
+      header: () => <div className=""></div>,
+      cell: ({ row }) => (
+        <div className="flex justify-center w-[40px]">
+          {row.original.note && row.original.note !== "-" && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <StickyNote size={16} className="text-orange-500" />
+                </TooltipTrigger>
+                <TooltipContent className="bg-orange-500 text-white border-orange-500">
+                  <p>{row.original.note}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
-          {zeroQuantityCount > 0 && (
-            <Badge variant="outline" className="border-red-700 bg-red-400">
-              {zeroQuantityCount} / {allCount}
-              {/* <Flag size={14} /> */}
-            </Badge>
-          )}
-          <Badge
-            variant="outline"
-            className={cn(
-              "w-[80px] text-center",
-              row.original.status === "Expedice R" ||
-                row.original.status === "New"
-                ? "bg-orange-600 text-white"
-                : row.original.status === "Expedice O"
-                  ? "bg-orange-800 text-white"
-                  : row.original.status === "Přeprava"
-                    ? "bg-sky-600 text-white"
-                    : ""
-            )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "total",
+      header: () => {
+        const user = useAuthStore((state) => state.user);
+        return user?.role === "admin" ? <div className=""></div> : null;
+      },
+      cell: ({ row }) => {
+        const user = useAuthStore((state) => state.user);
+        return user?.role === "admin" ? (
+          <div className="w-[80px] text-right">
+            {row.original.total.toFixed(2)} Kč
+          </div>
+        ) : null;
+      },
+    },
+    {
+      accessorKey: "changes",
+      header: () => <div className="w-[40px]"></div>,
+      cell: ({ row }) => (
+        <div className="flex justify-center w-[40px]">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedChangeOrderId(row.original.id);
+              setIsChangesDialogOpen(true);
+            }}
+            className="h-8 w-8 p-0"
           >
-            {row.original.status}
+            <Eye className="h-4 w-4 text-orange-500" />
+          </Button>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "crateSmallReceived",
+      header: () => <div className="print:hidden"></div>,
+      cell: ({ row }) => (
+        <div className="flex items-center w-[50px] text-right print:hidden">
+          <Badge variant="outline" className="text-yellow-700 ml-auto">
+            {row.original.crateSmallReceived}
+            <Container size={16} className="mx-1" />
           </Badge>
         </div>
-      );
+      ),
     },
-  },
-  {
-    id: "actions",
-    header: () => <div className="w-[60px]"></div>,
-    cell: ({ row }) => {
-      const order = row.original;
-      const deleteOrder = useDeleteOrder();
-      const { toast } = useToast();
-      const user = useAuthStore((state) => state.user);
-      const { unlockOrder, lockOrder, isOrderUnlocked } = useOrderLockStore();
-      const canUnlock = user?.role === "admin";
-
-      const toggleLock = () => {
-        if (!canUnlock) return;
-        const isUnlocked = isOrderUnlocked(order.id);
-        if (isUnlocked) {
-          lockOrder(order.id);
-        } else {
-          unlockOrder(order.id);
-        }
-        toast({
-          title: isUnlocked ? "Order locked" : "Order unlocked",
-          description: isUnlocked
-            ? "The order has been locked"
-            : "The order is now unlocked. You can make changes.",
-          variant: isUnlocked ? "default" : "destructive",
-        });
-      };
-
-      const handleDelete = async () => {
-        try {
-          await deleteOrder.mutateAsync(order.id);
-          toast({
-            title: "Success",
-            description: "Order deleted successfully",
-          });
-        } catch (error) {
-          console.error("Failed to delete order:", error);
-          toast({
-            title: "Error",
-            description: "Failed to delete order",
-            variant: "destructive",
-          });
-        }
-      };
-
-      return (
-        <div className="w-[60px] flex justify-end gap-2">
-          {canUnlock && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleLock}
-              className={
-                order.isLocked ? "text-muted-foreground" : "text-red-600"
-              }
-            >
-              {order.isLocked ? (
-                <Lock className="h-4 w-4" />
-              ) : (
-                <Unlock className="h-4 w-4" />
-              )}
-            </Button>
-          )}
-          {user?.role === "admin" && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                  disabled={order.isLocked}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>
-                    Opravdu smazat objednávku?
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Tato akce je nevratná. Smaže se objednávka a všechny
-                    přiřazené položky.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Zrušit</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDelete}
-                    className="bg-red-700 hover:bg-red-800"
-                  >
-                    Smazat
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
+    {
+      accessorKey: "crateBigReceived",
+      header: () => <div className="print:hidden"></div>,
+      cell: ({ row }) => (
+        <div className="flex items-center w-[50px] justify-end print:hidden">
+          <Badge variant="outline" className="text-red-800">
+            {row.original.crateBigReceived}
+            <Container size={20} className="mx-1" />
+          </Badge>
         </div>
-      );
+      ),
     },
-  },
-];
+    {
+      accessorKey: "status",
+      header: () => <div className=""></div>,
+      cell: ({ row }) => {
+        const allCount = row.original.order_items?.length || 0;
+        row.original.order_items?.filter((item) => item.checked).length || 0;
+        const checkedCount =
+          row.original.order_items?.filter((item) => item.checked).length || 0;
+        const uncheckedCount =
+          row.original.order_items?.filter((item) => !item.checked).length || 0;
+        const zeroQuantityCount =
+          row.original.order_items?.filter((item) => item.quantity === 0)
+            .length || 0;
+        const nonZeroQuantityCount =
+          row.original.order_items?.filter((item) => item.quantity > 0)
+            .length || 0;
 
-interface OrdersExpeditionTableProps {
-  selectedProductId: string | null;
-}
+        return (
+          <div className="w-[220px] text-right flex justify-end gap-2 items-center">
+            {checkedCount > 0 && (
+              <Badge
+                variant="outline"
+                className="border-green-700 bg-green-400"
+              >
+                {checkedCount} / {nonZeroQuantityCount}
+              </Badge>
+            )}
+            {uncheckedCount > 0 && (
+              <Badge
+                variant="outline"
+                className="border-amber-700 bg-amber-400"
+              >
+                {uncheckedCount}
+              </Badge>
+            )}
+            {zeroQuantityCount > 0 && (
+              <Badge variant="outline" className="border-red-700 bg-red-400">
+                {zeroQuantityCount} / {allCount}
+                {/* <Flag size={14} /> */}
+              </Badge>
+            )}
+            <Badge
+              variant="outline"
+              className={cn(
+                "w-[80px] text-center",
+                row.original.status === "Expedice R" ||
+                  row.original.status === "New"
+                  ? "bg-orange-600 text-white"
+                  : row.original.status === "Expedice O"
+                    ? "bg-orange-800 text-white"
+                    : row.original.status === "Přeprava"
+                      ? "bg-sky-600 text-white"
+                      : ""
+              )}
+            >
+              {row.original.status}
+            </Badge>
+          </div>
+        );
+      },
+    },
+    {
+      id: "actions",
+      header: () => <div className="w-[60px]"></div>,
+      cell: ({ row }) => {
+        const order = row.original;
+        const deleteOrder = useDeleteOrder();
+        const { toast } = useToast();
+        const user = useAuthStore((state) => state.user);
+        const { unlockOrder, lockOrder, isOrderUnlocked } = useOrderLockStore();
+        const canUnlock = user?.role === "admin";
 
-// Add this component for the print summary
-function PrintSummary({
-  orders,
-  period,
-  globalFilter,
-}: {
-  orders: Order[];
-  period: string;
-  globalFilter: string;
-}) {
-  const authUser = useAuthStore((state) => state.user);
-  const isAdmin = authUser?.role === "admin";
+        const toggleLock = () => {
+          if (!canUnlock) return;
+          const isUnlocked = isOrderUnlocked(order.id);
+          if (isUnlocked) {
+            lockOrder(order.id);
+          } else {
+            unlockOrder(order.id);
+          }
+          toast({
+            title: isUnlocked ? "Order locked" : "Order unlocked",
+            description: isUnlocked
+              ? "The order has been locked"
+              : "The order is now unlocked. You can make changes.",
+            variant: isUnlocked ? "default" : "destructive",
+          });
+        };
 
-  // Filter orders based on globalFilter first
-  const filteredOrders = orders.filter((order) => {
-    if (!globalFilter) return true;
-    const searchTerm = globalFilter.toLowerCase();
+        const handleDelete = async () => {
+          // Additional safety check - only admins can delete
+          if (user?.role !== "admin") {
+            toast({
+              title: "Unauthorized",
+              description: "Only administrators can delete orders",
+              variant: "destructive",
+            });
+            return;
+          }
 
-    // Search in order items
-    const matchesProducts = order.order_items.some((item) =>
-      item.product.name.toLowerCase().includes(searchTerm)
+          // Check if order is locked
+          if (order.isLocked) {
+            toast({
+              title: "Order Locked",
+              description: "Cannot delete a locked order. Unlock it first.",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          try {
+            await deleteOrder.mutateAsync(order.id);
+            toast({
+              title: "Success",
+              description: `Order #${order.id} deleted successfully`,
+            });
+          } catch (error) {
+            console.error("Failed to delete order:", error);
+            toast({
+              title: "Error",
+              description: "Failed to delete order. Please try again.",
+              variant: "destructive",
+            });
+          }
+        };
+
+        return (
+          <div className="w-[60px] flex justify-end gap-2">
+            {canUnlock && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleLock}
+                className={
+                  order.isLocked ? "text-muted-foreground" : "text-red-600"
+                }
+              >
+                {order.isLocked ? (
+                  <Lock className="h-4 w-4" />
+                ) : (
+                  <Unlock className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+            {user?.role === "admin" && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                    disabled={order.isLocked}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Opravdu smazat objednávku #{order.id}?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      <div className="space-y-2">
+                        <p>
+                          Tato akce je nevratná. Smaže se objednávka a všechny
+                          přiřazené položky.
+                        </p>
+                        <div className="bg-yellow-50 p-2 rounded border-l-4 border-yellow-400">
+                          <p className="text-sm font-medium">Objednávka:</p>
+                          <p className="text-sm">
+                            Zákazník: {order.user.full_name}
+                          </p>
+                          <p className="text-sm">
+                            Datum: {new Date(order.date).toLocaleDateString()}
+                          </p>
+                          <p className="text-sm">
+                            Celkem: {order.total.toFixed(2)} Kč
+                          </p>
+                        </div>
+                      </div>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Zrušit</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      className="bg-red-700 hover:bg-red-800"
+                    >
+                      Smazat
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+        );
+      },
+    },
+  ];
+
+  // interface OrdersExpeditionTableProps {
+  //   selectedProductId: string | null;
+  // }
+
+  // Add this component for the print summary
+  function PrintSummary({
+    orders,
+    period,
+    globalFilter,
+  }: {
+    orders: Order[];
+    period: string;
+    globalFilter: string;
+  }) {
+    const authUser = useAuthStore((state) => state.user);
+    const isAdmin = authUser?.role === "admin";
+
+    // Filter orders based on globalFilter first
+    const filteredOrders = orders.filter((order) => {
+      if (!globalFilter) return true;
+      const searchTerm = globalFilter.toLowerCase();
+
+      // Search in order items
+      const matchesProducts = order.order_items.some((item) =>
+        item.product.name.toLowerCase().includes(searchTerm)
+      );
+
+      // Search in customer name
+      const matchesCustomer = order.user.full_name
+        ?.toLowerCase()
+        .includes(searchTerm);
+
+      return matchesProducts || matchesCustomer;
+    });
+
+    // Group items by product name and price
+    const totals = filteredOrders.reduce(
+      (acc, order) => {
+        order.order_items.forEach((item) => {
+          if (item.quantity > 0) {
+            // Calculate price based on order user's role
+            const calculatedPrice =
+              order.user?.role === "mobil" || order.user?.role === "driver"
+                ? item.product.priceMobil
+                : order.user?.role === "store" ||
+                    order.user?.role === "buyer" ||
+                    order.user?.role === "admin"
+                  ? item.product.priceBuyer
+                  : item.product.price;
+
+            // Only consider items with quantity > 0
+            const key = `${item.product.name}-${calculatedPrice}`;
+            if (!acc[key]) {
+              acc[key] = {
+                name: item.product.name,
+                price: calculatedPrice,
+                quantity: 0,
+                total: 0,
+              };
+            }
+            acc[key].quantity += item.quantity;
+            acc[key].total += item.quantity * calculatedPrice;
+          }
+        });
+        return acc;
+      },
+      {} as Record<
+        string,
+        { name: string; price: number; quantity: number; total: number }
+      >
     );
 
-    // Search in customer name
-    const matchesCustomer = order.user.full_name
-      ?.toLowerCase()
-      .includes(searchTerm);
+    // Convert to array and sort by name
+    const sortedTotals = Object.values(totals).sort((a, b) =>
+      a.name.localeCompare(b.name, "cs")
+    );
 
-    return matchesProducts || matchesCustomer;
-  });
+    // Calculate grand total
+    const totalAmount = sortedTotals.reduce((sum, item) => sum + item.total, 0);
 
-  // Group items by product name and price
-  const totals = filteredOrders.reduce(
-    (acc, order) => {
-      order.order_items.forEach((item) => {
-        if (item.quantity > 0) {
-          // Calculate price based on order user's role
-          const calculatedPrice =
-            order.user?.role === "mobil" || order.user?.role === "driver"
-              ? item.product.priceMobil
-              : order.user?.role === "store" ||
-                  order.user?.role === "buyer" ||
-                  order.user?.role === "admin"
-                ? item.product.priceBuyer
-                : item.product.price;
+    // Calculate crate totals (unchanged)
+    const crateTotals = filteredOrders.reduce(
+      (sums, order) => ({
+        crateSmall: sums.crateSmall + (order.crateSmall || 0),
+        crateBig: sums.crateBig + (order.crateBig || 0),
+        crateSmallReceived:
+          sums.crateSmallReceived + (order.crateSmallReceived || 0),
+        crateBigReceived: sums.crateBigReceived + (order.crateBigReceived || 0),
+      }),
+      { crateSmall: 0, crateBig: 0, crateSmallReceived: 0, crateBigReceived: 0 }
+    );
 
-          // Only consider items with quantity > 0
-          const key = `${item.product.name}-${calculatedPrice}`;
-          if (!acc[key]) {
-            acc[key] = {
-              name: item.product.name,
-              price: calculatedPrice,
-              quantity: 0,
-              total: 0,
-            };
-          }
-          acc[key].quantity += item.quantity;
-          acc[key].total += item.quantity * calculatedPrice;
-        }
-      });
-      return acc;
-    },
-    {} as Record<
-      string,
-      { name: string; price: number; quantity: number; total: number }
-    >
-  );
+    return (
+      <div className="hidden print:block mt-8 p-4">
+        <h2 className="text-xl font-bold mb-4">Souhrn objednávek - {period}</h2>
 
-  // Convert to array and sort by name
-  const sortedTotals = Object.values(totals).sort((a, b) =>
-    a.name.localeCompare(b.name, "cs")
-  );
-
-  // Calculate grand total
-  const totalAmount = sortedTotals.reduce((sum, item) => sum + item.total, 0);
-
-  // Calculate crate totals (unchanged)
-  const crateTotals = filteredOrders.reduce(
-    (sums, order) => ({
-      crateSmall: sums.crateSmall + (order.crateSmall || 0),
-      crateBig: sums.crateBig + (order.crateBig || 0),
-      crateSmallReceived:
-        sums.crateSmallReceived + (order.crateSmallReceived || 0),
-      crateBigReceived: sums.crateBigReceived + (order.crateBigReceived || 0),
-    }),
-    { crateSmall: 0, crateBig: 0, crateSmallReceived: 0, crateBigReceived: 0 }
-  );
-
-  return (
-    <div className="hidden print:block mt-8 p-4">
-      <h2 className="text-xl font-bold mb-4">Souhrn objednávek - {period}</h2>
-
-      {/* Product Summary Table */}
-      <table className="w-full mb-8">
-        <thead>
-          <tr className="border-b">
-            <th className="text-left py-2">Produkt</th>
-            <th className="text-right py-2">Množství</th>
-            {isAdmin && (
-              <>
-                <th className="text-right py-2">Cena</th>
-                <th className="text-right py-2">Celkem</th>
-              </>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {sortedTotals.map((item, index) => (
-            <tr
-              key={`${item.name}-${item.price}-${index}`}
-              className="border-b"
-            >
-              <td className="py-2">{item.name}</td>
-              <td className="text-right py-2">{item.quantity}</td>
+        {/* Product Summary Table */}
+        <table className="w-full mb-8">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left py-2">Produkt</th>
+              <th className="text-right py-2">Množství</th>
               {isAdmin && (
                 <>
-                  <td className="text-right py-2">
-                    {item.price.toFixed(2)} Kč
-                  </td>
-                  <td className="text-right py-2">
-                    {item.total.toFixed(2)} Kč
-                  </td>
+                  <th className="text-right py-2">Cena</th>
+                  <th className="text-right py-2">Celkem</th>
                 </>
               )}
             </tr>
-          ))}
-          {isAdmin && (
-            <tr className="font-bold">
-              <td colSpan={2} className="py-2 text-right">
-                Celková suma:
-              </td>
-              <td colSpan={2} className="text-right py-2">
-                {totalAmount.toFixed(2)} Kč
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-
-      {/* Detailed Orders Table */}
-      <h3 className="text-lg font-bold mb-4">Seznam objednávek</h3>
-      <table className="w-full mb-8">
-        <thead>
-          <tr className="border-b">
-            <th className="text-left py-2">Datum</th>
-            <th className="text-left py-2">ID</th>
-            <th className="text-left py-2">Odběratel</th>
-            {isAdmin && <th className="text-right py-2">Celkem</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {filteredOrders
-            .sort(
-              (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-            )
-            .map((order) => (
-              <tr key={order.id} className="border-b">
-                <td className="py-2">
-                  {new Date(order.date).toLocaleDateString()}
-                </td>
-                <td className="py-2">{order.id}</td>
-                <td className="py-2">{order.user.full_name}</td>
+          </thead>
+          <tbody>
+            {sortedTotals.map((item, index) => (
+              <tr
+                key={`${item.name}-${item.price}-${index}`}
+                className="border-b"
+              >
+                <td className="py-2">{item.name}</td>
+                <td className="text-right py-2">{item.quantity}</td>
                 {isAdmin && (
-                  <td className="text-right py-2">
-                    {order.total.toFixed(2)} Kč
-                  </td>
+                  <>
+                    <td className="text-right py-2">
+                      {item.price.toFixed(2)} Kč
+                    </td>
+                    <td className="text-right py-2">
+                      {item.total.toFixed(2)} Kč
+                    </td>
+                  </>
                 )}
               </tr>
             ))}
-        </tbody>
-      </table>
+            {isAdmin && (
+              <tr className="font-bold">
+                <td colSpan={2} className="py-2 text-right">
+                  Celková suma:
+                </td>
+                <td colSpan={2} className="text-right py-2">
+                  {totalAmount.toFixed(2)} Kč
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
 
-      {/* Crates Summary */}
-      <div className="mt-4 border-t pt-4">
-        <h3 className="font-bold mb-2">Přepravky:</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p>Vydané přepravky:</p>
-            <p>Malé: {crateTotals.crateSmall}</p>
-            <p>Velké: {crateTotals.crateBig}</p>
-          </div>
-          <div>
-            <p>Vrácené přepravky:</p>
-            <p>Malé: {crateTotals.crateSmallReceived}</p>
-            <p>Velké: {crateTotals.crateBigReceived}</p>
+        {/* Detailed Orders Table */}
+        <h3 className="text-lg font-bold mb-4">Seznam objednávek</h3>
+        <table className="w-full mb-8">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left py-2">Datum</th>
+              <th className="text-left py-2">ID</th>
+              <th className="text-left py-2">Odběratel</th>
+              {isAdmin && <th className="text-right py-2">Celkem</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {filteredOrders
+              .sort(
+                (a, b) =>
+                  new Date(a.date).getTime() - new Date(b.date).getTime()
+              )
+              .map((order) => (
+                <tr key={order.id} className="border-b">
+                  <td className="py-2">
+                    {new Date(order.date).toLocaleDateString()}
+                  </td>
+                  <td className="py-2">{order.id}</td>
+                  <td className="py-2">{order.user.full_name}</td>
+                  {isAdmin && (
+                    <td className="text-right py-2">
+                      {order.total.toFixed(2)} Kč
+                    </td>
+                  )}
+                </tr>
+              ))}
+          </tbody>
+        </table>
+
+        {/* Crates Summary */}
+        <div className="mt-4 border-t pt-4">
+          <h3 className="font-bold mb-2">Přepravky:</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p>Vydané přepravky:</p>
+              <p>Malé: {crateTotals.crateSmall}</p>
+              <p>Velké: {crateTotals.crateBig}</p>
+            </div>
+            <div>
+              <p>Vrácené přepravky:</p>
+              <p>Malé: {crateTotals.crateSmallReceived}</p>
+              <p>Velké: {crateTotals.crateBigReceived}</p>
+            </div>
           </div>
         </div>
+
+        <div className="text-right text-sm text-gray-500 mt-4">
+          Vytištěno: {new Date().toLocaleString()}
+        </div>
       </div>
+    );
+  }
 
-      <div className="text-right text-sm text-gray-500 mt-4">
-        Vytištěno: {new Date().toLocaleString()}
-      </div>
-    </div>
-  );
-}
+  // 1. Create print function
+  const printProductSummary = async (orders: Order[]) => {
+    try {
+      const orderIds = orders.map((order) => order.id);
+      const completeOrders = await fetchOrdersForPrinting(orderIds);
 
-// 1. Create print function
-const printProductSummary = async (orders: Order[]) => {
-  try {
-    const orderIds = orders.map((order) => order.id);
-    const completeOrders = await fetchOrdersForPrinting(orderIds);
-
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(`
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(`
         <html>
         <head>
           <title>Výroba pekaři</title>
@@ -661,22 +761,22 @@ const printProductSummary = async (orders: Order[]) => {
           </body>
         </html>
       `);
-      printWindow.document.close();
-      printWindow.print();
+        printWindow.document.close();
+        printWindow.print();
+      }
+    } catch (error) {
+      console.error("Error printing donuts:", error);
     }
-  } catch (error) {
-    console.error("Error printing donuts:", error);
-  }
-};
+  };
 
-const printCategoryDonuts = async (orders: Order[]) => {
-  try {
-    const orderIds = orders.map((order) => order.id);
-    const completeOrders = await fetchOrdersForPrinting(orderIds);
+  const printCategoryDonuts = async (orders: Order[]) => {
+    try {
+      const orderIds = orders.map((order) => order.id);
+      const completeOrders = await fetchOrdersForPrinting(orderIds);
 
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(`
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(`
         <html>
         <head>
           <title>Výroba koblih</title>
@@ -692,22 +792,22 @@ const printCategoryDonuts = async (orders: Order[]) => {
           </body>
         </html>
       `);
-      printWindow.document.close();
-      printWindow.print();
+        printWindow.document.close();
+        printWindow.print();
+      }
+    } catch (error) {
+      console.error("Error printing donuts:", error);
     }
-  } catch (error) {
-    console.error("Error printing donuts:", error);
-  }
-};
+  };
 
-const printCategorySweets = async (orders: Order[]) => {
-  try {
-    const orderIds = orders.map((order) => order.id);
-    const completeOrders = await fetchOrdersForPrinting(orderIds);
+  const printCategorySweets = async (orders: Order[]) => {
+    try {
+      const orderIds = orders.map((order) => order.id);
+      const completeOrders = await fetchOrdersForPrinting(orderIds);
 
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(`
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(`
         <html>
         <head>
           <title>Výroba dortů a čajových výrobků</title>
@@ -723,23 +823,23 @@ const printCategorySweets = async (orders: Order[]) => {
           </body>
         </html>
       `);
-      printWindow.document.close();
-      printWindow.print();
+        printWindow.document.close();
+        printWindow.print();
+      }
+    } catch (error) {
+      console.error("Error printing sweets:", error);
     }
-  } catch (error) {
-    console.error("Error printing sweets:", error);
-  }
-};
+  };
 
-const printCategoryBagets = async (orders: Order[]) => {
-  try {
-    const orderIds = orders.map((order) => order.id);
-    const completeOrders = await fetchOrdersForPrinting(orderIds);
-    const currentSelectedDriver = useOrderStore.getState().selectedDriver; // Get current driver from store
+  const printCategoryBagets = async (orders: Order[]) => {
+    try {
+      const orderIds = orders.map((order) => order.id);
+      const completeOrders = await fetchOrdersForPrinting(orderIds);
+      const currentSelectedDriver = useOrderStore.getState().selectedDriver; // Get current driver from store
 
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(`
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(`
         <html>
           <head>
             <title>Výroba baget</title>
@@ -760,19 +860,19 @@ const printCategoryBagets = async (orders: Order[]) => {
           </body>
         </html>
       `);
-      printWindow.document.close();
-      printWindow.print();
+        printWindow.document.close();
+        printWindow.print();
+      }
+    } catch (error) {
+      console.error("Error printing bagets:", error);
     }
-  } catch (error) {
-    console.error("Error printing bagets:", error);
-  }
-};
+  };
 
-const printReportBuyerOrders = (orders: Order[]) => {
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) return;
+  const printReportBuyerOrders = (orders: Order[]) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
 
-  printWindow.document.write(`
+    printWindow.document.write(`
     <html>
       <head>
         <title>Tisk reportu objednávek</title>
@@ -790,15 +890,15 @@ const printReportBuyerOrders = (orders: Order[]) => {
     </html>
   `);
 
-  printWindow.document.close();
-  printWindow.print();
-};
+    printWindow.document.close();
+    printWindow.print();
+  };
 
-const printReportProducts = (orders: Order[]) => {
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) return;
+  const printReportProducts = (orders: Order[]) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
 
-  printWindow.document.write(`
+    printWindow.document.write(`
     <html>
       <head>
         <title>Tisk reportu výrobků</title>
@@ -816,15 +916,15 @@ const printReportProducts = (orders: Order[]) => {
     </html>
   `);
 
-  printWindow.document.close();
-  printWindow.print();
-};
+    printWindow.document.close();
+    printWindow.print();
+  };
 
-const printReportBuyersSummary = (orders: Order[]) => {
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) return;
+  const printReportBuyersSummary = (orders: Order[]) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
 
-  printWindow.document.write(`
+    printWindow.document.write(`
     <html>
       <head>
         <title>Tisk reportu odběratelů</title>
@@ -842,29 +942,11 @@ const printReportBuyersSummary = (orders: Order[]) => {
     </html>
   `);
 
-  printWindow.document.close();
-  printWindow.print();
-};
+    printWindow.document.close();
+    printWindow.print();
+  };
 
-// Removed isOrderInDate function - no longer needed with period-based fetching
-
-export function OrdersExpeditionTable({
-  selectedProductId: initialProductId,
-}: OrdersExpeditionTableProps) {
-  const [selectedOrders] = useState<Order[]>([]);
-  const [activeTab, setActiveTab] = useState<
-    | "today"
-    | "tomorrow"
-    | "afterTomorrow"
-    | "week"
-    | "nextWeek"
-    | "month"
-    | "lastMonth"
-    | "custom"
-  >("tomorrow");
-  const [date, setDate] = useState<Date>();
-  const [isSpecificDay, setIsSpecificDay] = useState(false);
-  const [isDriverDialogOpen, setIsDriverDialogOpen] = useState(false);
+  // Removed isOrderInDate function - no longer needed with period-based fetching
 
   // Use the optimized hook that fetches orders by period
   const {
@@ -1103,9 +1185,6 @@ export function OrdersExpeditionTable({
     }
   };
 
-  // 1. Add print state
-  const [isPrinting] = useState(false);
-  const productPrintRef = useRef<HTMLDivElement>(null);
   const authUser = useAuthStore((state) => state.user);
 
   // 2. Update print handler
@@ -1825,18 +1904,24 @@ export function OrdersExpeditionTable({
                                       : period
                     }
                   />
+
+                  {selectedChangeOrderId && (
+                    <OrderChangesDialog
+                      orderId={selectedChangeOrderId}
+                      isOpen={isChangesDialogOpen}
+                      onClose={() => {
+                        setIsChangesDialogOpen(false);
+                        setSelectedChangeOrderId(null);
+                      }}
+                      changes={orderChanges}
+                    />
+                  )}
                 </TabsContent>
               );
             })}
           </Tabs>
         </div>
       </Card>
-
-      {isPrinting && (
-        <div style={{ position: "fixed", top: "-9999px", left: "-9999px" }}>
-          <ProductPrintWrapper ref={productPrintRef} orders={selectedOrders} />
-        </div>
-      )}
     </>
   );
 }

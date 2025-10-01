@@ -146,6 +146,50 @@ export type Database = {
         }
         Relationships: []
       }
+      crates: {
+        Row: {
+          crate_big_issued: number | null
+          crate_big_received: number | null
+          crate_small_issued: number | null
+          crate_small_received: number | null
+          created_at: string | null
+          date: string
+          driver_id: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          crate_big_issued?: number | null
+          crate_big_received?: number | null
+          crate_small_issued?: number | null
+          crate_small_received?: number | null
+          created_at?: string | null
+          date: string
+          driver_id?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          crate_big_issued?: number | null
+          crate_big_received?: number | null
+          crate_small_issued?: number | null
+          crate_small_received?: number | null
+          created_at?: string | null
+          date?: string
+          driver_id?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crates_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       device_printer_settings: {
         Row: {
           created_at: string | null
@@ -781,6 +825,64 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "network_status_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_changes: {
+        Row: {
+          change_type: string
+          created_at: string
+          field_name: string | null
+          id: number
+          item_id: number | null
+          new_value: string | null
+          old_value: string | null
+          order_id: number | null
+          user_id: string | null
+        }
+        Insert: {
+          change_type: string
+          created_at?: string
+          field_name?: string | null
+          id?: number
+          item_id?: number | null
+          new_value?: string | null
+          old_value?: string | null
+          order_id?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          change_type?: string
+          created_at?: string
+          field_name?: string | null
+          id?: number
+          item_id?: number | null
+          new_value?: string | null
+          old_value?: string | null
+          order_id?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_changes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_changes_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_changes_user_id_fkey1"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"

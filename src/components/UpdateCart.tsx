@@ -346,6 +346,14 @@ export default function UpdateCart({
       const currentItem = orderItems.find((item) => item.id === itemId);
       if (!currentItem) return;
 
+      console.log("UpdateCart - Updating quantity:", {
+        itemId,
+        oldQuantity: currentItem.quantity,
+        newQuantity,
+        productName: currentItem.product.name,
+        orderId,
+      });
+
       // Update local state immediately for better UX
       setOrderItems((prevItems) =>
         prevItems.map((item) =>
@@ -354,6 +362,7 @@ export default function UpdateCart({
       );
 
       // Batch database updates
+      console.log("UpdateCart - Calling updateOrderItems and updateOrder...");
       await Promise.all([
         updateOrderItems({
           id: itemId,
@@ -371,6 +380,7 @@ export default function UpdateCart({
           },
         }),
       ]);
+      console.log("UpdateCart - Database updates completed successfully");
 
       if (isLocked) {
         const { data: invoice } = await supabase
@@ -403,6 +413,14 @@ export default function UpdateCart({
       const currentItem = orderItems.find((item) => item.id === itemId);
       if (!currentItem) return;
 
+      console.log("UpdateCart - Updating price:", {
+        itemId,
+        oldPrice: currentItem.price,
+        newPrice,
+        productName: currentItem.product.name,
+        orderId,
+      });
+
       // Update local state immediately for better UX
       setOrderItems((prevItems) =>
         prevItems.map((item) =>
@@ -411,13 +429,16 @@ export default function UpdateCart({
       );
 
       // Update the order item price
+      console.log("UpdateCart - Calling updateOrderItems for price change...");
       await updateOrderItems({
         id: itemId,
         updatedFields: { price: newPrice },
       });
 
       // Update the order total
+      console.log("UpdateCart - Calling updateOrderTotal...");
       updateOrderTotal(orderId);
+      console.log("UpdateCart - Price update completed successfully");
 
       if (isLocked) {
         const { data: invoice } = await supabase
@@ -480,18 +501,29 @@ export default function UpdateCart({
       const currentItem = orderItems.find((item) => item.id === itemId);
       if (!currentItem) return;
 
-      console.log("Current item:", currentItem);
-      console.log(`Updating status to ${checked ? "Hotovo" : "Připravit"}`);
+      console.log("UpdateCart - Updating checked status:", {
+        itemId,
+        oldChecked: currentItem.checked,
+        newChecked: checked,
+        productName: currentItem.product.name,
+        orderId,
+      });
 
       // Try to update the item with timeout
       const updatePromise = new Promise(async (resolve, reject) => {
         try {
+          console.log(
+            "UpdateCart - Calling updateOrderItems for checked status..."
+          );
           await updateOrderItems({
             id: itemId,
             updatedFields: {
               checked,
             },
           });
+          console.log(
+            "UpdateCart - Checked status update completed successfully"
+          );
           resolve(true);
         } catch (error) {
           reject(error);
