@@ -251,9 +251,33 @@ export function IngredientsTable() {
       <TableCell>
         <div className="flex items-center gap-1">
           <span className="text-sm">
-            {(supplierUsers || []).find(
-              (u: any) => u.id === ingredient.supplier_id
-            )?.full_name || "—"}
+            {(() => {
+              // Get the active supplier's name
+              const activeSupplier = ingredient.ingredient_supplier_codes?.find(
+                (code: any) => code.is_active
+              );
+              const supplierId =
+                activeSupplier?.supplier_id || ingredient.supplier_id;
+              return (
+                (supplierUsers || []).find((u: any) => u.id === supplierId)
+                  ?.full_name || "—"
+              );
+            })()}
+          </span>
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-1">
+          <span className="text-sm font-mono">
+            {(() => {
+              // Get the active supplier's product code
+              const activeSupplier = ingredient.ingredient_supplier_codes?.find(
+                (code: any) => code.is_active
+              );
+              return (
+                activeSupplier?.product_code || ingredient.product_code || "—"
+              );
+            })()}
           </span>
         </div>
       </TableCell>
@@ -269,7 +293,14 @@ export function IngredientsTable() {
       <TableCell className="text-right">
         <div className="flex items-center gap-1 justify-end">
           <span className="text-sm">
-            {ingredient.price ? `${ingredient.price.toFixed(2)} Kč` : "—"}
+            {(() => {
+              // Get the active supplier's price
+              const activeSupplier = ingredient.ingredient_supplier_codes?.find(
+                (code: any) => code.is_active
+              );
+              const price = activeSupplier?.price || ingredient.price;
+              return price ? `${price.toFixed(2)} Kč` : "—";
+            })()}
           </span>
         </div>
       </TableCell>
@@ -463,6 +494,7 @@ export function IngredientsTable() {
                           <TableRow>
                             <TableHead>Název</TableHead>
                             <TableHead>Dodavatel</TableHead>
+                            <TableHead>Kód</TableHead>
                             <TableHead>Jednotka</TableHead>
                             <TableHead className="text-right">
                               kg/Jednotka
@@ -482,7 +514,7 @@ export function IngredientsTable() {
                           {/* Add fake empty row to help with border display */}
                           <TableRow className="h-0">
                             <TableCell
-                              colSpan={12}
+                              colSpan={13}
                               className="p-0 border-0"
                             ></TableCell>
                           </TableRow>
@@ -508,6 +540,7 @@ export function IngredientsTable() {
                     <TableRow>
                       <TableHead>Název</TableHead>
                       <TableHead>Dodavatel</TableHead>
+                      <TableHead>Kód</TableHead>
                       <TableHead>Jednotka</TableHead>
                       <TableHead className="text-right">kg/Jednotka</TableHead>
                       <TableHead className="text-right">Cena</TableHead>
@@ -525,7 +558,7 @@ export function IngredientsTable() {
                     {/* Add fake empty row to help with border display */}
                     <TableRow className="h-0">
                       <TableCell
-                        colSpan={12}
+                        colSpan={13}
                         className="p-0 border-0"
                       ></TableCell>
                     </TableRow>

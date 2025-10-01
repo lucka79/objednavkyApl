@@ -343,6 +343,54 @@ export type Database = {
         }
         Relationships: []
       }
+      ingredient_supplier_codes: {
+        Row: {
+          created_at: string | null
+          id: number
+          ingredient_id: number
+          is_active: boolean | null
+          price: number
+          product_code: string
+          supplier_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          ingredient_id: number
+          is_active?: boolean | null
+          price: number
+          product_code: string
+          supplier_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          ingredient_id?: number
+          is_active?: boolean | null
+          price?: number
+          product_code?: string
+          supplier_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingredient_supplier_codes_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingredient_supplier_codes_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingredients: {
         Row: {
           active: boolean
@@ -360,6 +408,7 @@ export type Database = {
           name: string
           package: number | null
           price: number | null
+          product_code: number | null
           protein: number
           salt: number
           saturates: number
@@ -385,6 +434,7 @@ export type Database = {
           name: string
           package?: number | null
           price?: number | null
+          product_code?: number | null
           protein?: number
           salt?: number
           saturates?: number
@@ -410,6 +460,7 @@ export type Database = {
           name?: string
           package?: number | null
           price?: number | null
+          product_code?: number | null
           protein?: number
           salt?: number
           saturates?: number
@@ -1786,6 +1837,10 @@ export type Database = {
         }[]
       }
       cleanup_expired_device_triggers: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      cleanup_old_order_changes: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }

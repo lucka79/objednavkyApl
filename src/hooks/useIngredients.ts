@@ -7,6 +7,7 @@ export interface Ingredient {
   active: boolean;
   category_id: number | null;
   ean: string | null;
+  product_code: string | null;
   kiloPerUnit: number;
   package: number | null;
   price: number | null;
@@ -26,6 +27,14 @@ export interface Ingredient {
   salt: number;
   element: string | null;
   supplier_id: string | null;
+  // Multiple supplier codes
+  supplier_codes?: Array<{
+    id?: number;
+    supplier_id: string;
+    product_code: string;
+    price: number;
+    is_active: boolean;
+  }>;
 }
 
 export interface IngredientCategory {
@@ -36,6 +45,15 @@ export interface IngredientCategory {
 
 export interface IngredientWithCategory extends Ingredient {
   ingredient_categories: IngredientCategory | null;
+  ingredient_supplier_codes?: Array<{
+    id: number;
+    supplier_id: string;
+    product_code: string;
+    price: number;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+  }>;
 }
 
 export const useIngredients = () => {

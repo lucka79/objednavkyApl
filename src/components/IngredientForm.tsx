@@ -20,9 +20,17 @@ import {
 import { useIngredientStore } from "@/stores/ingredientStore";
 // import { IngredientWithCategory } from "@/hooks/useIngredients";
 import { detectAllergens } from "@/utils/allergenDetection";
-import { X, Save, Plus, Type } from "lucide-react";
+import { X, Save, Plus, Type, Trash2, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupplierUsers } from "@/hooks/useProfiles";
+
+interface SupplierCode {
+  id?: number;
+  supplier_id: string;
+  product_code: string;
+  price: number;
+  is_active: boolean;
+}
 
 interface IngredientFormData {
   name: string;
@@ -33,6 +41,7 @@ interface IngredientFormData {
   package: number | null;
   vat: number | null;
   ean: string | null;
+  product_code: string | null;
   active: boolean;
   storeOnly: boolean;
   // Nutritional fields
@@ -47,6 +56,8 @@ interface IngredientFormData {
   salt: number;
   element: string | null;
   supplier_id: string | null;
+  // Multiple supplier codes
+  supplier_codes: SupplierCode[];
 }
 
 const initialFormData: IngredientFormData = {
@@ -56,8 +67,9 @@ const initialFormData: IngredientFormData = {
   kiloPerUnit: 1,
   price: null,
   package: null,
-  vat: null,
+  vat: 21,
   ean: null,
+  product_code: null,
   active: true,
   storeOnly: false,
   kJ: 0,
@@ -71,6 +83,7 @@ const initialFormData: IngredientFormData = {
   salt: 0,
   element: null,
   supplier_id: null,
+  supplier_codes: [],
 };
 
 const COMMON_UNITS = ["kg", "l", "ks"];
@@ -107,6 +120,12 @@ export function IngredientForm() {
   useEffect(() => {
     if (isFormOpen) {
       if (isEditMode && selectedIngredient) {
+        console.log("Loading ingredient for edit:", selectedIngredient);
+        console.log(
+          "Supplier codes from ingredient:",
+          selectedIngredient.ingredient_supplier_codes
+        );
+
         setFormData({
           name: selectedIngredient.name,
           category_id: selectedIngredient.category_id,
@@ -116,6 +135,7 @@ export function IngredientForm() {
           package: selectedIngredient.package,
           vat: selectedIngredient.vat,
           ean: selectedIngredient.ean,
+          product_code: selectedIngredient.product_code,
           active: selectedIngredient.active,
           storeOnly: selectedIngredient.storeOnly,
           kJ: selectedIngredient.kJ,
@@ -129,6 +149,15 @@ export function IngredientForm() {
           salt: selectedIngredient.salt,
           element: selectedIngredient.element,
           supplier_id: selectedIngredient.supplier_id || null,
+          supplier_codes: (
+            selectedIngredient.ingredient_supplier_codes || []
+          ).map((code) => ({
+            id: code.id,
+            supplier_id: code.supplier_id,
+            product_code: code.product_code,
+            price: code.price,
+            is_active: code.is_active,
+          })),
         });
       } else {
         setFormData(initialFormData);
@@ -143,6 +172,67 @@ export function IngredientForm() {
       clearError();
     }
   }, [isFormOpen, clearError]);
+
+  // Auto-add main supplier to supplier_codes only when form opens or supplier changes
+  useEffect(() => {
+    if (
+      formData.supplier_id &&
+      supplierUsers &&
+      formData.supplier_codes.length === 0
+    ) {
+      // Only add main supplier if no supplier codes exist yet
+      const mainSupplier = supplierUsers.find(
+        (u) => u.id === formData.supplier_id
+      );
+
+      if (mainSupplier) {
+        const newCodes = [
+          {
+            supplier_id: formData.supplier_id,
+            product_code: "",
+            price: formData.price || 0,
+            is_active: true, // Main supplier is always active
+          },
+        ];
+        handleInputChange("supplier_codes", newCodes);
+      }
+    }
+  }, [formData.supplier_id, supplierUsers]);
+
+  // Update main price when active supplier changes
+  useEffect(() => {
+    if (formData.supplier_codes.length > 0) {
+      const activeSupplier = formData.supplier_codes.find(
+        (code) => code.is_active
+      );
+      if (activeSupplier && activeSupplier.price !== formData.price) {
+        console.log(
+          "Updating main price from active supplier:",
+          activeSupplier.price
+        );
+        handleInputChange("price", activeSupplier.price);
+      }
+    }
+  }, [formData.supplier_codes]);
+
+  // Sync main supplier with active supplier in supplier codes
+  useEffect(() => {
+    if (formData.supplier_codes.length > 0) {
+      const activeSupplier = formData.supplier_codes.find(
+        (code) => code.is_active
+      );
+      if (
+        activeSupplier &&
+        activeSupplier.supplier_id !== formData.supplier_id
+      ) {
+        console.log(
+          "Syncing main supplier with active supplier:",
+          activeSupplier.supplier_id
+        );
+        handleInputChange("supplier_id", activeSupplier.supplier_id);
+      }
+    }
+  }, [formData.supplier_codes]);
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -242,6 +332,14 @@ export function IngredientForm() {
   };
 
   const allergens = detectAllergens(formData.element);
+
+  // Helper function to get price from active supplier codes
+  const getPriceFromActiveSupplier = (): number | null => {
+    const activeSupplier = formData.supplier_codes.find(
+      (code) => code.is_active
+    );
+    return activeSupplier ? activeSupplier.price : null;
+  };
 
   return (
     <Dialog open={isFormOpen} onOpenChange={handleClose}>
@@ -343,32 +441,6 @@ export function IngredientForm() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-
-              {/* Supplier selection */}
-              <div className="space-y-2">
-                <Label htmlFor="supplier">Dodavatel</Label>
-                <Select
-                  value={formData.supplier_id ?? "none"}
-                  onValueChange={(value) =>
-                    handleInputChange(
-                      "supplier_id",
-                      value === "none" ? null : value
-                    )
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Vyberte dodavatele" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    <SelectItem value="none">Bez dodavatele</SelectItem>
-                    {(supplierUsers || []).map((u: any) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -477,70 +549,380 @@ export function IngredientForm() {
             </CardContent>
           </Card>
 
-          {/* Pricing */}
+          {/* Basic Product Info */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Cenové informace</CardTitle>
+              <CardTitle className="text-lg">
+                Základní informace o produktu
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="price">Cena (Kč)</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    step="0.01"
-                    value={formData.price || ""}
-                    onChange={(e) =>
-                      handleInputChange(
-                        "price",
-                        e.target.value ? parseFloat(e.target.value) : null
-                      )
-                    }
-                    placeholder="0.00"
-                    className={`[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${validationErrors.price ? "border-red-500" : ""}`}
-                  />
-                  {validationErrors.price && (
-                    <p className="text-sm text-red-500">
-                      {validationErrors.price}
-                    </p>
-                  )}
+              <div className="flex items-center justify-between">
+                <Label htmlFor="vat">DPH</Label>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="vat-12"
+                      name="vat"
+                      value="12"
+                      checked={formData.vat === 12}
+                      onChange={() => handleInputChange("vat", 12)}
+                      className="text-orange-600 focus:ring-orange-500"
+                    />
+                    <Label htmlFor="vat-12" className="text-sm">
+                      12%
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="vat-21"
+                      name="vat"
+                      value="21"
+                      checked={formData.vat === 21}
+                      onChange={() => handleInputChange("vat", 21)}
+                      className="text-orange-600 focus:ring-orange-500"
+                    />
+                    <Label htmlFor="vat-21" className="text-sm">
+                      21%
+                    </Label>
+                  </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
 
-                <div className="space-y-2">
-                  <Label htmlFor="vat">DPH (%)</Label>
-                  <Input
-                    id="vat"
-                    type="number"
-                    step="0.1"
-                    value={formData.vat || ""}
-                    onChange={(e) =>
-                      handleInputChange(
-                        "vat",
-                        e.target.value ? parseFloat(e.target.value) : null
-                      )
-                    }
-                    placeholder="21"
-                    className={`[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${validationErrors.vat ? "border-red-500" : ""}`}
-                  />
-                  {validationErrors.vat && (
-                    <p className="text-sm text-red-500">
-                      {validationErrors.vat}
-                    </p>
+          {/* Supplier Codes */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                Dodavatelé a ceny
+                {formData.supplier_codes.length > 0 && (
+                  <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                    {formData.supplier_codes.length} dodavatel
+                    {formData.supplier_codes.length > 1 ? "ů" : ""}
+                  </span>
+                )}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Nastavte hlavního dodavatele a přidejte alternativní dodavatele
+                s různými cenami. Aktivní dodavatel se používá pro výpočet cen v
+                receptech.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Main Supplier Selection */}
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Star className="h-4 w-4 text-blue-600" />
+                    <Label className="text-sm font-medium text-blue-800">
+                      Hlavní dodavatel
+                    </Label>
+                  </div>
+
+                  <Select
+                    value={formData.supplier_id ?? "none"}
+                    onValueChange={(value) => {
+                      const newSupplierId = value === "none" ? null : value;
+                      handleInputChange("supplier_id", newSupplierId);
+
+                      // If we have supplier codes, update the active one
+                      if (newSupplierId && formData.supplier_codes.length > 0) {
+                        const newCodes = formData.supplier_codes.map(
+                          (code) => ({
+                            ...code,
+                            is_active: code.supplier_id === newSupplierId,
+                          })
+                        );
+                        handleInputChange("supplier_codes", newCodes);
+
+                        // Update the main price to match the active supplier's price
+                        const activeSupplier = newCodes.find(
+                          (code) => code.is_active
+                        );
+                        if (activeSupplier) {
+                          handleInputChange("price", activeSupplier.price);
+                        }
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Vyberte hlavního dodavatele" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      <SelectItem value="none">Bez dodavatele</SelectItem>
+                      {(supplierUsers || []).map((u: any) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {formData.supplier_codes.length > 0 && (
+                    <div className="p-2 bg-green-50 border border-green-200 rounded-md">
+                      <p className="text-xs text-green-700">
+                        ⭐ Aktivní dodavatel:{" "}
+                        {formData.supplier_codes.find((code) => code.is_active)
+                          ?.supplier_id
+                          ? supplierUsers?.find(
+                              (u) =>
+                                u.id ===
+                                formData.supplier_codes.find(
+                                  (code) => code.is_active
+                                )?.supplier_id
+                            )?.full_name
+                          : "Není nastaven"}{" "}
+                        - Cena:{" "}
+                        {getPriceFromActiveSupplier()
+                          ? `${getPriceFromActiveSupplier()} Kč`
+                          : "Není nastavena"}
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="ean">EAN kód</Label>
-                <Input
-                  id="ean"
-                  value={formData.ean || ""}
-                  onChange={(e) =>
-                    handleInputChange("ean", e.target.value || null)
-                  }
-                  placeholder="1234567890123"
-                />
+              <div className="space-y-4">
+                {formData.supplier_codes.map((supplierCode, index) => {
+                  const isMainSupplier =
+                    supplierCode.supplier_id === formData.supplier_id;
+                  const supplierName =
+                    supplierUsers?.find(
+                      (u) => u.id === supplierCode.supplier_id
+                    )?.full_name || "Neznámý dodavatel";
+
+                  return (
+                    <div
+                      key={index}
+                      className={`p-4 border rounded-lg ${isMainSupplier ? "bg-blue-50 border-blue-200" : "bg-gray-50"}`}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Star
+                            className={`h-4 w-4 ${supplierCode.is_active ? "text-yellow-500 fill-current" : "text-gray-400"}`}
+                          />
+                          <span className="font-medium">
+                            {isMainSupplier
+                              ? "Hlavní dodavatel"
+                              : "Alternativní dodavatel"}
+                          </span>
+                          {isMainSupplier && (
+                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                              Z Cenových informací
+                            </span>
+                          )}
+                        </div>
+                        {!isMainSupplier && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const newCodes = formData.supplier_codes.filter(
+                                (_, i) => i !== index
+                              );
+                              handleInputChange("supplier_codes", newCodes);
+                            }}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {isMainSupplier && (
+                          <span className="text-xs text-gray-500">
+                            Nelze smazat - hlavní dodavatel
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label>Dodavatel</Label>
+                          {isMainSupplier ? (
+                            <div className="p-2 bg-blue-50 border border-blue-200 rounded-md">
+                              <span className="text-sm font-medium text-blue-800">
+                                {supplierName}
+                              </span>
+                              <p className="text-xs text-blue-600 mt-1">
+                                Hlavní dodavatel z Cenových informací
+                              </p>
+                            </div>
+                          ) : (
+                            <Select
+                              value={supplierCode.supplier_id}
+                              onValueChange={(value) => {
+                                const newCodes = [...formData.supplier_codes];
+                                newCodes[index].supplier_id = value;
+                                handleInputChange("supplier_codes", newCodes);
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Vyberte dodavatele" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(supplierUsers || []).map((u: any) => (
+                                  <SelectItem key={u.id} value={u.id}>
+                                    {u.full_name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Kód produktu</Label>
+                          <Input
+                            value={supplierCode.product_code}
+                            onChange={(e) => {
+                              const newCodes = [...formData.supplier_codes];
+                              newCodes[index].product_code = e.target.value;
+                              handleInputChange("supplier_codes", newCodes);
+                            }}
+                            placeholder="např. 0101"
+                            className="font-mono"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Cena (Kč)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={supplierCode.price}
+                            onChange={(e) => {
+                              const newCodes = [...formData.supplier_codes];
+                              newCodes[index].price =
+                                parseFloat(e.target.value) || 0;
+                              handleInputChange("supplier_codes", newCodes);
+                            }}
+                            placeholder="0.00"
+                            className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center gap-2">
+                        {!isMainSupplier && (
+                          <Button
+                            type="button"
+                            variant={
+                              supplierCode.is_active ? "default" : "outline"
+                            }
+                            size="sm"
+                            onClick={() => {
+                              const newCodes = formData.supplier_codes.map(
+                                (code, i) => ({
+                                  ...code,
+                                  is_active: i === index,
+                                })
+                              );
+                              handleInputChange("supplier_codes", newCodes);
+                            }}
+                            className="text-xs"
+                          >
+                            <Star className="h-3 w-3 mr-1" />
+                            {supplierCode.is_active
+                              ? "Aktivní"
+                              : "Nastavit jako aktivní"}
+                          </Button>
+                        )}
+                        {isMainSupplier && (
+                          <span className="text-xs text-gray-500">
+                            Hlavní dodavatel je vždy aktivní
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      // Filter out suppliers that are already in supplier_codes
+                      const availableSuppliers = (supplierUsers || []).filter(
+                        (supplier: any) =>
+                          !formData.supplier_codes.some(
+                            (code) => code.supplier_id === supplier.id
+                          )
+                      );
+
+                      if (availableSuppliers.length > 0) {
+                        const newCodes = [
+                          ...formData.supplier_codes,
+                          {
+                            supplier_id: availableSuppliers[0].id,
+                            product_code: "",
+                            price: 0,
+                            is_active: false,
+                          },
+                        ];
+                        handleInputChange("supplier_codes", newCodes);
+                      }
+                    }}
+                    className="flex-1"
+                    disabled={!supplierUsers || supplierUsers.length === 0}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Přidat dodavatele
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="default"
+                    onClick={async () => {
+                      try {
+                        // Save supplier codes to database immediately
+                        if (isEditMode && selectedIngredient) {
+                          // Update existing ingredient with supplier codes
+                          await updateIngredient(selectedIngredient.id, {
+                            supplier_codes: formData.supplier_codes,
+                          });
+                        } else {
+                          // For new ingredients, the supplier codes will be saved with the main form
+                          toast({
+                            title: "Info",
+                            description:
+                              "Dodavatelé budou uloženi při vytvoření ingredience",
+                          });
+                          return;
+                        }
+
+                        toast({
+                          title: "Úspěch",
+                          description: "Změny dodavatelů byly uloženy",
+                        });
+                      } catch (error) {
+                        toast({
+                          title: "Chyba",
+                          description: "Nepodařilo se uložit dodavatele",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                    className="flex-1"
+                    disabled={formData.supplier_codes.length === 0}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Uložit změny
+                  </Button>
+                </div>
+
+                {formData.supplier_codes.length === 0 &&
+                  formData.supplier_id && (
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                      <p className="text-sm text-yellow-800">
+                        💡 Hlavní dodavatel z "Cenových informací" se
+                        automaticky přidá do této sekce.
+                      </p>
+                    </div>
+                  )}
               </div>
             </CardContent>
           </Card>

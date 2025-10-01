@@ -48,11 +48,25 @@ export const useIngredientStore = create<IngredientStore>((set, get) => ({
         .from("ingredients")
         .select(`
           *,
-          ingredient_categories!ingredients_category_id_fkey(*)
+          ingredient_categories!ingredients_category_id_fkey(*),
+          ingredient_supplier_codes(
+            id,
+            supplier_id,
+            product_code,
+            price,
+            is_active,
+            created_at,
+            updated_at
+          )
         `)
         .order("name", { ascending: true });
 
       if (ingredientsError) throw ingredientsError;
+
+      console.log("Fetched ingredients with supplier codes:", ingredients);
+      if (ingredients && ingredients.length > 0) {
+        console.log("First ingredient supplier codes:", ingredients[0].ingredient_supplier_codes);
+      }
 
       set({ 
         ingredients: ingredients as IngredientWithCategory[],
@@ -88,11 +102,33 @@ export const useIngredientStore = create<IngredientStore>((set, get) => ({
   createIngredient: async (ingredient) => {
     set({ isLoading: true, error: null });
     try {
-      const { error } = await supabase
+      // Separate supplier_codes from other ingredient data
+      const { supplier_codes, ...ingredientData } = ingredient as any;
+      
+      const { data: newIngredient, error } = await supabase
         .from("ingredients")
-        .insert([ingredient]);
+        .insert([ingredientData])
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Handle supplier codes if provided
+      if (supplier_codes && supplier_codes.length > 0) {
+        const codesToInsert = supplier_codes.map((code: any) => ({
+          ingredient_id: newIngredient.id,
+          supplier_id: code.supplier_id,
+          product_code: code.product_code,
+          price: code.price,
+          is_active: code.is_active
+        }));
+
+        const { error: insertError } = await supabase
+          .from("ingredient_supplier_codes")
+          .insert(codesToInsert);
+
+        if (insertError) throw insertError;
+      }
 
       // Refresh ingredients list
       await get().fetchIngredients();
@@ -109,12 +145,44 @@ export const useIngredientStore = create<IngredientStore>((set, get) => ({
   updateIngredient: async (id, updates) => {
     set({ isLoading: true, error: null });
     try {
-      const { error } = await supabase
+      // Separate supplier_codes from other updates
+      const { supplier_codes, ...ingredientUpdates } = updates as any;
+      
+      // Update the main ingredient record
+      const { error: ingredientError } = await supabase
         .from("ingredients")
-        .update(updates)
+        .update(ingredientUpdates)
         .eq("id", id);
 
-      if (error) throw error;
+      if (ingredientError) throw ingredientError;
+
+      // Handle supplier codes if provided
+      if (supplier_codes !== undefined) {
+        // Delete existing supplier codes for this ingredient
+        const { error: deleteError } = await supabase
+          .from("ingredient_supplier_codes")
+          .delete()
+          .eq("ingredient_id", id);
+
+        if (deleteError) throw deleteError;
+
+        // Insert new supplier codes if any
+        if (supplier_codes && supplier_codes.length > 0) {
+          const codesToInsert = supplier_codes.map((code: any) => ({
+            ingredient_id: id,
+            supplier_id: code.supplier_id,
+            product_code: code.product_code,
+            price: code.price,
+            is_active: code.is_active
+          }));
+
+          const { error: insertError } = await supabase
+            .from("ingredient_supplier_codes")
+            .insert(codesToInsert);
+
+          if (insertError) throw insertError;
+        }
+      }
 
       // Refresh ingredients list
       await get().fetchIngredients();
