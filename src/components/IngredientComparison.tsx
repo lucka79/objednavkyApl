@@ -1,7 +1,10 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -21,11 +24,21 @@ import {
   Download,
 } from "lucide-react";
 
-export function SupplierCodeManager() {
+export function IngredientComparison() {
   const { data: allSupplierCodes, isLoading } = useAllSupplierCodes();
   const { data: allIngredients } = useIngredients();
   //   const { data: supplierUsers } = useSupplierUsers();
-  //   const [supplierFilter] = useState<string>("all");
+
+  // State for selected suppliers
+  const [selectedSuppliers, setSelectedSuppliers] = useState<Set<string>>(
+    new Set()
+  );
+
+  // State for including ingredients without suppliers
+  const [
+    includeIngredientsWithoutSuppliers,
+    setIncludeIngredientsWithoutSuppliers,
+  ] = useState(true);
 
   // Group supplier codes by supplier
   const groupedBySupplier = allSupplierCodes?.reduce(
@@ -120,7 +133,7 @@ export function SupplierCodeManager() {
       };
 
     // Get all ingredients and sort by category
-    const ingredients = allIngredients.ingredients.sort((a, b) => {
+    let ingredients = allIngredients.ingredients.sort((a, b) => {
       // Sort by category name first, then by ingredient name
       const categoryA = a.ingredient_categories?.name || "Bez kategorie";
       const categoryB = b.ingredient_categories?.name || "Bez kategorie";
@@ -133,10 +146,16 @@ export function SupplierCodeManager() {
     });
 
     // Get unique suppliers and sort by number of ingredients
-    const suppliers = Object.values(groupedBySupplier || {})
+    const allSuppliers = Object.values(groupedBySupplier || {})
       .map(({ supplier, codes }) => ({ supplier, count: codes.length }))
       .sort((a, b) => b.count - a.count) // Sort by count descending
       .map(({ supplier }) => supplier);
+
+    // Filter suppliers based on selection (if none selected, show all)
+    const suppliers =
+      selectedSuppliers.size > 0
+        ? allSuppliers.filter((supplier) => selectedSuppliers.has(supplier.id))
+        : allSuppliers;
 
     // Create matrix: ingredient_id -> supplier_id -> code data
     const matrix: Record<number, Record<string, any>> = {};
@@ -155,13 +174,27 @@ export function SupplierCodeManager() {
         Object.keys(matrix[ingredient.id]).length === 0
     );
 
+    // Filter ingredients based on whether to include ingredients without suppliers
+    if (!includeIngredientsWithoutSuppliers) {
+      ingredients = ingredients.filter(
+        (ingredient) =>
+          matrix[ingredient.id] && Object.keys(matrix[ingredient.id]).length > 0
+      );
+    }
+
     return {
       ingredients,
       suppliers,
       matrix,
       ingredientsWithoutSuppliers,
     };
-  }, [allSupplierCodes, allIngredients, groupedBySupplier]);
+  }, [
+    allSupplierCodes,
+    allIngredients,
+    groupedBySupplier,
+    selectedSuppliers,
+    includeIngredientsWithoutSuppliers,
+  ]);
 
   // CSV export function
   const exportToCSV = () => {
@@ -173,7 +206,8 @@ export function SupplierCodeManager() {
       "Jednotka",
       "Kategorie",
       ...matrixData.suppliers.map((supplier) => `${supplier.full_name} (Cena)`),
-      ...(matrixData.ingredientsWithoutSuppliers.length > 0
+      ...(includeIngredientsWithoutSuppliers &&
+      matrixData.ingredientsWithoutSuppliers.length > 0
         ? ["Hlavní cena"]
         : []),
     ];
@@ -194,6 +228,7 @@ export function SupplierCodeManager() {
 
       // Add main price data if ingredient has no suppliers
       if (
+        includeIngredientsWithoutSuppliers &&
         matrixData.ingredientsWithoutSuppliers.some(
           (ing) => ing.id === ingredient.id
         )
@@ -227,14 +262,185 @@ export function SupplierCodeManager() {
 
   if (isLoading) {
     return (
-      <Card className="p-6">
-        <div className="text-center py-8">Načítání kódů dodavatelů...</div>
-      </Card>
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-5 w-5" />
+                <Skeleton className="h-6 w-48" />
+              </div>
+              <Skeleton className="h-8 w-24" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Table skeleton */}
+              <div className="overflow-x-auto">
+                <div className="min-w-full">
+                  {/* Header skeleton */}
+                  <div className="flex border-b">
+                    <Skeleton className="h-12 w-48 sticky left-0 bg-white z-10" />
+                    <Skeleton className="h-12 w-32 flex-1" />
+                    <Skeleton className="h-12 w-32 flex-1" />
+                    <Skeleton className="h-12 w-32 flex-1" />
+                    <Skeleton className="h-12 w-32 flex-1" />
+                  </div>
+                  {/* Rows skeleton */}
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="flex border-b">
+                      <Skeleton className="h-16 w-48 sticky left-0 bg-white z-10" />
+                      <Skeleton className="h-16 w-32 flex-1" />
+                      <Skeleton className="h-16 w-32 flex-1" />
+                      <Skeleton className="h-16 w-32 flex-1" />
+                      <Skeleton className="h-16 w-32 flex-1" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Additional skeleton card */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-5 w-5" />
+              <Skeleton className="h-6 w-40" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="p-4 border border-gray-200 rounded-lg">
+                  <Skeleton className="h-5 w-32 mb-2" />
+                  <Skeleton className="h-4 w-20 mb-2" />
+                  <Skeleton className="h-3 w-24 mb-2" />
+                  <Skeleton className="h-6 w-20" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
+  // Get all available suppliers for the filter
+  const allAvailableSuppliers = useMemo(() => {
+    if (!groupedBySupplier) return [];
+    return Object.values(groupedBySupplier)
+      .map(({ supplier, codes }) => ({ supplier, count: codes.length }))
+      .sort((a, b) => b.count - a.count)
+      .map(({ supplier }) => supplier);
+  }, [groupedBySupplier]);
+
+  // Handle supplier selection
+  const handleSupplierToggle = (supplierId: string) => {
+    setSelectedSuppliers((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(supplierId)) {
+        newSet.delete(supplierId);
+      } else {
+        newSet.add(supplierId);
+      }
+      return newSet;
+    });
+  };
+
+  // Handle select all/none
+  const handleSelectAll = () => {
+    if (selectedSuppliers.size === allAvailableSuppliers.length) {
+      setSelectedSuppliers(new Set());
+    } else {
+      setSelectedSuppliers(new Set(allAvailableSuppliers.map((s) => s.id)));
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Supplier Selection */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ArrowRightLeft className="h-5 w-5" />
+            Výběr dodavatelů pro porovnání
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="select-all"
+                    checked={
+                      selectedSuppliers.size === allAvailableSuppliers.length &&
+                      allAvailableSuppliers.length > 0
+                    }
+                    onCheckedChange={handleSelectAll}
+                  />
+                  <Label htmlFor="select-all" className="font-medium">
+                    {selectedSuppliers.size === allAvailableSuppliers.length
+                      ? "Odznačit vše"
+                      : "Vybrat vše"}
+                  </Label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="include-without-suppliers"
+                    checked={includeIngredientsWithoutSuppliers}
+                    onCheckedChange={(checked) =>
+                      setIncludeIngredientsWithoutSuppliers(checked === true)
+                    }
+                  />
+                  <Label
+                    htmlFor="include-without-suppliers"
+                    className="font-medium"
+                  >
+                    Zahrnout suroviny bez dodavatelů
+                  </Label>
+                </div>
+              </div>
+              <Badge variant="outline">
+                {selectedSuppliers.size > 0
+                  ? `${selectedSuppliers.size} vybráno`
+                  : "Všechny dodavatelé"}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {allAvailableSuppliers.map((supplier) => (
+                <div
+                  key={supplier.id}
+                  className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50"
+                >
+                  <Checkbox
+                    id={`supplier-${supplier.id}`}
+                    checked={selectedSuppliers.has(supplier.id)}
+                    onCheckedChange={() => handleSupplierToggle(supplier.id)}
+                  />
+                  <Label
+                    htmlFor={`supplier-${supplier.id}`}
+                    className="flex-1 cursor-pointer"
+                  >
+                    <div className="font-medium">{supplier.full_name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {Object.values(groupedBySupplier || {}).find(
+                        (group) => group.supplier.id === supplier.id
+                      )?.codes.length || 0}{" "}
+                      surovin
+                    </div>
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -287,22 +493,23 @@ export function SupplierCodeManager() {
                         </div>
                       </TableHead>
                     ))}
-                    {matrixData.ingredientsWithoutSuppliers.length > 0 && (
-                      <TableHead className="text-center min-w-[150px] bg-orange-50">
-                        <div className="flex flex-col items-center gap-1">
-                          <span className="font-medium text-sm text-orange-800">
-                            Bez dodavatele
-                          </span>
-                          <Badge
-                            variant="outline"
-                            className="text-xs text-orange-600 border-orange-300"
-                          >
-                            {matrixData.ingredientsWithoutSuppliers.length}{" "}
-                            surovin
-                          </Badge>
-                        </div>
-                      </TableHead>
-                    )}
+                    {includeIngredientsWithoutSuppliers &&
+                      matrixData.ingredientsWithoutSuppliers.length > 0 && (
+                        <TableHead className="text-center min-w-[150px] bg-orange-50">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="font-medium text-sm text-orange-800">
+                              Bez dodavatele
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className="text-xs text-orange-600 border-orange-300"
+                            >
+                              {matrixData.ingredientsWithoutSuppliers.length}{" "}
+                              surovin
+                            </Badge>
+                          </div>
+                        </TableHead>
+                      )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -333,7 +540,8 @@ export function SupplierCodeManager() {
                           <TableCell
                             colSpan={
                               matrixData.suppliers.length +
-                              (matrixData.ingredientsWithoutSuppliers.length > 0
+                              (includeIngredientsWithoutSuppliers &&
+                              matrixData.ingredientsWithoutSuppliers.length > 0
                                 ? 2
                                 : 1)
                             }
@@ -457,30 +665,31 @@ export function SupplierCodeManager() {
                             })}
 
                             {/* Show ingredient's main price when no supplier codes exist */}
-                            {matrixData.ingredientsWithoutSuppliers.some(
-                              (ing) => ing.id === ingredient.id
-                            ) && (
-                              <TableCell className="text-center bg-orange-50">
-                                <div className="space-y-2">
-                                  <div className="flex flex-col items-center gap-1">
-                                    <code className="bg-orange-100 px-2 py-1 rounded text-xs font-mono">
-                                      {ingredient.product_code || "—"}
-                                    </code>
-                                    <div className="font-medium text-orange-600">
-                                      {ingredient.price
-                                        ? `${ingredient.price.toFixed(2)} Kč`
-                                        : "—"}
+                            {includeIngredientsWithoutSuppliers &&
+                              matrixData.ingredientsWithoutSuppliers.some(
+                                (ing) => ing.id === ingredient.id
+                              ) && (
+                                <TableCell className="text-center bg-orange-50">
+                                  <div className="space-y-2">
+                                    <div className="flex flex-col items-center gap-1">
+                                      <code className="bg-orange-100 px-2 py-1 rounded text-xs font-mono">
+                                        {ingredient.product_code || "—"}
+                                      </code>
+                                      <div className="font-medium text-orange-600">
+                                        {ingredient.price
+                                          ? `${ingredient.price.toFixed(2)} Kč`
+                                          : "—"}
+                                      </div>
                                     </div>
-                                  </div>
-                                  {/* <Badge
+                                    {/* <Badge
                               variant="outline"
                               className="text-xs text-orange-600 border-orange-300"
                             >
                               Hlavní cena
                             </Badge> */}
-                                </div>
-                              </TableCell>
-                            )}
+                                  </div>
+                                </TableCell>
+                              )}
                           </TableRow>
                         ))}
                       </React.Fragment>

@@ -3,8 +3,8 @@ import { useAuthStore } from "@/lib/supabase";
 import { IngredientQuantityOverview } from "@/components/IngredientQuantityOverview";
 import { InvoiceUploadDialog } from "@/components/InvoiceUploadDialog";
 import { DocumentAIDebug } from "@/components/DocumentAIDebug";
-import { SupplierCodeManager } from "@/components/SupplierCodeManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { IngredientComparison } from "@/components/IngredientComparison";
 
 export const Route = createFileRoute("/admin/ingredients-overview")({
   component: AdminIngredientsOverview,
@@ -32,7 +32,9 @@ function AdminIngredientsOverview() {
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Přehled zásob</TabsTrigger>
-          <TabsTrigger value="supplier-codes">Kódy dodavatelů</TabsTrigger>
+          <TabsTrigger value="supplier-codes">
+            Srovnávač cen surovin
+          </TabsTrigger>
           <TabsTrigger value="invoices">Faktury</TabsTrigger>
           <TabsTrigger value="debug">Debug Parser</TabsTrigger>
         </TabsList>
@@ -42,7 +44,7 @@ function AdminIngredientsOverview() {
         </TabsContent>
 
         <TabsContent value="supplier-codes" className="mt-6">
-          <SupplierCodeManager />
+          <IngredientComparison />
         </TabsContent>
 
         <TabsContent value="invoices" className="mt-6">
