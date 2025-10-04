@@ -29,6 +29,8 @@ export const useIngredientSupplierCodes = (ingredientId?: number) => {
           supplier:profiles!ingredient_supplier_codes_supplier_id_fkey(id, full_name)
         `)
         .eq("ingredient_id", ingredientId)
+        .order("supplier_id", { ascending: true })
+        .order("product_code", { ascending: true })
         .order("created_at", { ascending: true });
 
       if (error) throw error;
@@ -143,5 +145,66 @@ export const useActiveIngredientSupplierCode = (ingredientId?: number) => {
       return data as IngredientSupplierCode | null;
     },
     enabled: !!ingredientId,
+  });
+};
+
+// Hook to get supplier codes grouped by supplier for an ingredient
+export const useIngredientSupplierCodesGrouped = (ingredientId?: number) => {
+  return useQuery({
+    queryKey: ["ingredientSupplierCodesGrouped", ingredientId],
+    queryFn: async () => {
+      if (!ingredientId) return {};
+      
+      const { data, error } = await supabase
+        .from("ingredient_supplier_codes")
+        .select(`
+          *,
+          supplier:profiles!ingredient_supplier_codes_supplier_id_fkey(id, full_name)
+        `)
+        .eq("ingredient_id", ingredientId)
+        .order("supplier_id", { ascending: true })
+        .order("product_code", { ascending: true });
+
+      if (error) throw error;
+      
+      // Group by supplier_id
+      const grouped = (data as IngredientSupplierCode[]).reduce((acc, code) => {
+        const supplierId = code.supplier_id;
+        if (!acc[supplierId]) {
+          acc[supplierId] = {
+            supplier: code.supplier,
+            codes: []
+          };
+        }
+        acc[supplierId].codes.push(code);
+        return acc;
+      }, {} as Record<string, { supplier: any; codes: IngredientSupplierCode[] }>);
+      
+      return grouped;
+    },
+    enabled: !!ingredientId,
+  });
+};
+
+// Hook to get all supplier codes across all ingredients
+export const useAllSupplierCodes = () => {
+  return useQuery({
+    queryKey: ["allSupplierCodes"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ingredient_supplier_codes")
+        .select(`
+          *,
+          supplier:profiles!ingredient_supplier_codes_supplier_id_fkey(id, full_name),
+          ingredient:ingredients!ingredient_supplier_codes_ingredient_id_fkey(id, name, unit, ingredient_categories(name), price, product_code)
+        `)
+        .order("supplier_id", { ascending: true })
+        .order("ingredient_id", { ascending: true });
+
+      if (error) throw error;
+      return data as (IngredientSupplierCode & {
+        ingredient: { id: number; name: string; unit: string; ingredient_categories: { name: string } | null; price: number | null; product_code: string | null };
+      })[];
+    },
   });
 };

@@ -156,6 +156,7 @@ export function Navbar() {
                     >
                       Suroviny
                     </Link>
+
                     <Link to="/admin/recipes" className="hover:text-gray-300">
                       Recepty
                     </Link>
@@ -165,6 +166,12 @@ export function Navbar() {
 
                     {user.email === "l.batelkova@gmail.com" && (
                       <>
+                        <Link
+                          to="/admin/ingredients-overview"
+                          className="hover:text-gray-300"
+                        >
+                          Přehled zásob
+                        </Link>
                         <Link
                           to="/admin/invoices"
                           className="hover:text-gray-300"

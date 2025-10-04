@@ -395,8 +395,8 @@ export const useSupplierUsers = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, supplier, active")
-        .eq("supplier", true)
+        .select("id, full_name, role, active")
+        .eq("role", "supplier")
         .order("full_name", { ascending: true });
       if (error) throw error;
       return (data || []).filter((u) => u.full_name);

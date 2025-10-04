@@ -35,6 +35,7 @@ import { Route as AdminRecipesImport } from './routes/admin.recipes'
 import { Route as AdminProductsImport } from './routes/admin.products'
 import { Route as AdminOrdersImport } from './routes/admin.orders'
 import { Route as AdminInvoicesImport } from './routes/admin.invoices'
+import { Route as AdminIngredientsOverviewImport } from './routes/admin.ingredients-overview'
 import { Route as AdminIngredientsImport } from './routes/admin.ingredients'
 import { Route as AdminCreateImport } from './routes/admin.create'
 import { Route as AdminArchiveImport } from './routes/admin.archive'
@@ -162,6 +163,11 @@ const AdminInvoicesRoute = AdminInvoicesImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
+const AdminIngredientsOverviewRoute = AdminIngredientsOverviewImport.update({
+  path: '/admin/ingredients-overview',
+  getParentRoute: () => rootRoute,
+} as any)
+
 const AdminIngredientsRoute = AdminIngredientsImport.update({
   path: '/admin/ingredients',
   getParentRoute: () => rootRoute,
@@ -247,6 +253,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/ingredients'
       fullPath: '/admin/ingredients'
       preLoaderRoute: typeof AdminIngredientsImport
+      parentRoute: typeof rootRoute
+    }
+    '/admin/ingredients-overview': {
+      id: '/admin/ingredients-overview'
+      path: '/admin/ingredients-overview'
+      fullPath: '/admin/ingredients-overview'
+      preLoaderRoute: typeof AdminIngredientsOverviewImport
       parentRoute: typeof rootRoute
     }
     '/admin/invoices': {
@@ -409,6 +422,7 @@ export interface FileRoutesByFullPath {
   '/admin/archive': typeof AdminArchiveRoute
   '/admin/create': typeof AdminCreateRoute
   '/admin/ingredients': typeof AdminIngredientsRoute
+  '/admin/ingredients-overview': typeof AdminIngredientsOverviewRoute
   '/admin/invoices': typeof AdminInvoicesRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
@@ -440,6 +454,7 @@ export interface FileRoutesByTo {
   '/admin/archive': typeof AdminArchiveRoute
   '/admin/create': typeof AdminCreateRoute
   '/admin/ingredients': typeof AdminIngredientsRoute
+  '/admin/ingredients-overview': typeof AdminIngredientsOverviewRoute
   '/admin/invoices': typeof AdminInvoicesRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
@@ -472,6 +487,7 @@ export interface FileRoutesById {
   '/admin/archive': typeof AdminArchiveRoute
   '/admin/create': typeof AdminCreateRoute
   '/admin/ingredients': typeof AdminIngredientsRoute
+  '/admin/ingredients-overview': typeof AdminIngredientsOverviewRoute
   '/admin/invoices': typeof AdminInvoicesRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
@@ -505,6 +521,7 @@ export interface FileRouteTypes {
     | '/admin/archive'
     | '/admin/create'
     | '/admin/ingredients'
+    | '/admin/ingredients-overview'
     | '/admin/invoices'
     | '/admin/orders'
     | '/admin/products'
@@ -535,6 +552,7 @@ export interface FileRouteTypes {
     | '/admin/archive'
     | '/admin/create'
     | '/admin/ingredients'
+    | '/admin/ingredients-overview'
     | '/admin/invoices'
     | '/admin/orders'
     | '/admin/products'
@@ -565,6 +583,7 @@ export interface FileRouteTypes {
     | '/admin/archive'
     | '/admin/create'
     | '/admin/ingredients'
+    | '/admin/ingredients-overview'
     | '/admin/invoices'
     | '/admin/orders'
     | '/admin/products'
@@ -597,6 +616,7 @@ export interface RootRouteChildren {
   AdminArchiveRoute: typeof AdminArchiveRoute
   AdminCreateRoute: typeof AdminCreateRoute
   AdminIngredientsRoute: typeof AdminIngredientsRoute
+  AdminIngredientsOverviewRoute: typeof AdminIngredientsOverviewRoute
   AdminInvoicesRoute: typeof AdminInvoicesRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminProductsRoute: typeof AdminProductsRouteWithChildren
@@ -627,6 +647,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminArchiveRoute: AdminArchiveRoute,
   AdminCreateRoute: AdminCreateRoute,
   AdminIngredientsRoute: AdminIngredientsRoute,
+  AdminIngredientsOverviewRoute: AdminIngredientsOverviewRoute,
   AdminInvoicesRoute: AdminInvoicesRoute,
   AdminOrdersRoute: AdminOrdersRoute,
   AdminProductsRoute: AdminProductsRouteWithChildren,
@@ -668,6 +689,7 @@ export const routeTree = rootRoute
         "/admin/archive",
         "/admin/create",
         "/admin/ingredients",
+        "/admin/ingredients-overview",
         "/admin/invoices",
         "/admin/orders",
         "/admin/products",
@@ -714,6 +736,9 @@ export const routeTree = rootRoute
     },
     "/admin/ingredients": {
       "filePath": "admin.ingredients.tsx"
+    },
+    "/admin/ingredients-overview": {
+      "filePath": "admin.ingredients-overview.tsx"
     },
     "/admin/invoices": {
       "filePath": "admin.invoices.tsx"

@@ -30,6 +30,7 @@ import {
   Trash2,
   FileText,
   ZapIcon,
+  ArrowRightLeft,
 } from "lucide-react";
 import { IngredientForm } from "./IngredientForm";
 import {
@@ -250,33 +251,123 @@ export function IngredientsTable() {
       <TableCell className="font-medium">{ingredient.name}</TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
-          <span className="text-sm">
-            {(() => {
-              // Get the active supplier's name
-              const activeSupplier = ingredient.ingredient_supplier_codes?.find(
-                (code: any) => code.is_active
+          {(() => {
+            // Debug logging
+            if (ingredient.name === "Rostlinná šlehačka") {
+              console.log("Debug - Full ingredient object:", ingredient);
+              console.log(
+                "Debug - Supplier codes:",
+                ingredient.ingredient_supplier_codes
               );
-              const supplierId =
-                activeSupplier?.supplier_id || ingredient.supplier_id;
-              return (
-                (supplierUsers || []).find((u: any) => u.id === supplierId)
-                  ?.full_name || "—"
+              console.log(
+                "Debug - Supplier codes length:",
+                ingredient.ingredient_supplier_codes?.length
               );
-            })()}
-          </span>
+              console.log(
+                "Debug - Has multiple suppliers check:",
+                ingredient.ingredient_supplier_codes &&
+                  ingredient.ingredient_supplier_codes.length > 1
+              );
+            }
+
+            // Group codes by supplier to check for multiple suppliers
+            const supplierGroups =
+              ingredient.ingredient_supplier_codes?.reduce(
+                (acc: any, code: any) => {
+                  if (!acc[code.supplier_id]) {
+                    acc[code.supplier_id] = [];
+                  }
+                  acc[code.supplier_id].push(code);
+                  return acc;
+                },
+                {} as Record<string, any[]>
+              ) || {};
+
+            const hasMultipleSupplierGroups =
+              Object.keys(supplierGroups).length > 1;
+            const hasMultipleCodes =
+              ingredient.ingredient_supplier_codes &&
+              ingredient.ingredient_supplier_codes.length > 1;
+
+            // Get the active supplier's name, or fall back to the first supplier if none are active
+            const activeSupplier = ingredient.ingredient_supplier_codes?.find(
+              (code: any) => code.is_active
+            );
+
+            // If no active supplier, use the first supplier or main supplier
+            const supplierId =
+              activeSupplier?.supplier_id ||
+              ingredient.ingredient_supplier_codes?.[0]?.supplier_id ||
+              ingredient.supplier_id;
+
+            const supplierName =
+              (supplierUsers || []).find((u: any) => u.id === supplierId)
+                ?.full_name || "—";
+
+            return (
+              <>
+                {(hasMultipleSupplierGroups || hasMultipleCodes) && (
+                  <ArrowRightLeft className="h-3 w-3 text-blue-600" />
+                )}
+                <span className="text-sm">{supplierName}</span>
+                {hasMultipleCodes && (
+                  <Badge
+                    variant="outline"
+                    className="text-xs bg-white-100 text-orange-600 border-orange-300 ml-1"
+                  >
+                    {ingredient.ingredient_supplier_codes.length}
+                  </Badge>
+                )}
+              </>
+            );
+          })()}
         </div>
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
           <span className="text-sm font-mono">
             {(() => {
-              // Get the active supplier's product code
+              // Get the active supplier's product code, or fall back to first supplier
               const activeSupplier = ingredient.ingredient_supplier_codes?.find(
                 (code: any) => code.is_active
               );
-              return (
-                activeSupplier?.product_code || ingredient.product_code || "—"
-              );
+
+              // If no active supplier, use the first supplier
+              const supplierToUse =
+                activeSupplier || ingredient.ingredient_supplier_codes?.[0];
+
+              // Debug logging
+              if (ingredient.name === "Rostlinná šlehačka") {
+                console.log("Debug - Active supplier:", activeSupplier);
+                console.log("Debug - Supplier to use:", supplierToUse);
+                console.log(
+                  "Debug - Product code from supplier:",
+                  supplierToUse?.product_code
+                );
+                console.log(
+                  "Debug - Main product code:",
+                  ingredient.product_code
+                );
+              }
+
+              const productCode = supplierToUse?.product_code || "Bez kódu";
+
+              // If there are multiple codes, show indicator
+              if (
+                ingredient.ingredient_supplier_codes &&
+                ingredient.ingredient_supplier_codes.length > 1
+              ) {
+                return (
+                  <span className="flex items-center gap-1">
+                    <span>{productCode}</span>
+                    <span className="text-xs text-blue-600">
+                      +{ingredient.ingredient_supplier_codes.length - 1}
+                    </span>
+                  </span>
+                );
+              }
+
+              return productCode;
             })()}
           </span>
         </div>
@@ -294,12 +385,55 @@ export function IngredientsTable() {
         <div className="flex items-center gap-1 justify-end">
           <span className="text-sm">
             {(() => {
-              // Get the active supplier's price
+              // Get the active supplier's price, or fall back to first supplier
               const activeSupplier = ingredient.ingredient_supplier_codes?.find(
                 (code: any) => code.is_active
               );
-              const price = activeSupplier?.price || ingredient.price;
-              return price ? `${price.toFixed(2)} Kč` : "—";
+
+              // If no active supplier, use the first supplier
+              const supplierToUse =
+                activeSupplier || ingredient.ingredient_supplier_codes?.[0];
+              const price = supplierToUse?.price || ingredient.price;
+
+              // Debug logging
+              if (ingredient.name === "Rostlinná šlehačka") {
+                console.log("Debug - Active supplier:", activeSupplier);
+                console.log("Debug - Supplier to use:", supplierToUse);
+                console.log(
+                  "Debug - Price from supplier:",
+                  supplierToUse?.price
+                );
+                console.log("Debug - Main price:", ingredient.price);
+                console.log("Debug - Final price:", price);
+              }
+
+              const priceText = price ? `${price.toFixed(2)} Kč` : "—";
+
+              // If there are multiple codes, show price range
+              if (
+                ingredient.ingredient_supplier_codes &&
+                ingredient.ingredient_supplier_codes.length > 1
+              ) {
+                const prices = ingredient.ingredient_supplier_codes
+                  .map((code: any) => code.price)
+                  .filter((price: any) => price > 0)
+                  .sort((a: any, b: any) => a - b);
+
+                if (prices.length > 1) {
+                  const minPrice = prices[0];
+                  const maxPrice = prices[prices.length - 1];
+                  return (
+                    <span className="flex items-center gap-1">
+                      <span>{priceText}</span>
+                      <span className="text-xs text-blue-600">
+                        ({minPrice.toFixed(2)}-{maxPrice.toFixed(2)})
+                      </span>
+                    </span>
+                  );
+                }
+              }
+
+              return priceText;
             })()}
           </span>
         </div>
