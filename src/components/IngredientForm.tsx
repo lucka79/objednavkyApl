@@ -273,28 +273,28 @@ export function IngredientForm() {
   }, [formData.price, formData.product_code, formData.supplier_id]);
 
   // Sync ingredient price and product_code with main supplier when supplier codes change
+  // Only sync if there's exactly one supplier code (main supplier only)
   useEffect(() => {
-    if (formData.supplier_codes.length > 0) {
-      const mainSupplier = formData.supplier_codes.find(
-        (code) => code.supplier_id === formData.supplier_id
-      );
+    if (
+      formData.supplier_codes.length === 1 &&
+      formData.supplier_codes[0].supplier_id === formData.supplier_id
+    ) {
+      const mainSupplier = formData.supplier_codes[0];
 
-      if (mainSupplier) {
-        const needsUpdate =
-          mainSupplier.price !== formData.price ||
-          mainSupplier.product_code !== formData.product_code;
+      const needsUpdate =
+        mainSupplier.price !== formData.price ||
+        mainSupplier.product_code !== formData.product_code;
 
-        if (needsUpdate) {
-          console.log("Syncing ingredient with main supplier data:", {
-            price: mainSupplier.price,
-            product_code: mainSupplier.product_code,
-          });
-          if (mainSupplier.price !== formData.price) {
-            handleInputChange("price", mainSupplier.price);
-          }
-          if (mainSupplier.product_code !== formData.product_code) {
-            handleInputChange("product_code", mainSupplier.product_code);
-          }
+      if (needsUpdate) {
+        console.log("Syncing ingredient with main supplier data:", {
+          price: mainSupplier.price,
+          product_code: mainSupplier.product_code,
+        });
+        if (mainSupplier.price !== formData.price) {
+          handleInputChange("price", mainSupplier.price);
+        }
+        if (mainSupplier.product_code !== formData.product_code) {
+          handleInputChange("product_code", mainSupplier.product_code);
         }
       }
     }
@@ -718,7 +718,7 @@ export function IngredientForm() {
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Main Supplier Selection */}
+              {/* Main Supplier Selection - Merged with supplier codes */}
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
@@ -726,86 +726,214 @@ export function IngredientForm() {
                     <Label className="text-sm font-medium text-blue-800">
                       Hlavní dodavatel
                     </Label>
+                    {formData.supplier_id && (
+                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                        {supplierUsers?.find(
+                          (u) => u.id === formData.supplier_id
+                        )?.full_name || "Neznámý dodavatel"}
+                      </span>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label>Dodavatel</Label>
-                      <Select
-                        value={formData.supplier_id ?? "none"}
-                        onValueChange={(value) => {
-                          const newSupplierId = value === "none" ? null : value;
-                          handleInputChange("supplier_id", newSupplierId);
+                  <div className="space-y-2">
+                    <Label>Dodavatel</Label>
+                    <Select
+                      value={formData.supplier_id || "none"}
+                      onValueChange={(value) => {
+                        const newSupplierId = value === "none" ? null : value;
+                        handleInputChange("supplier_id", newSupplierId);
 
-                          // If we have supplier codes, update the active one
-                          if (
-                            newSupplierId &&
-                            formData.supplier_codes.length > 0
-                          ) {
-                            const newCodes = formData.supplier_codes.map(
-                              (code) => ({
-                                ...code,
-                                is_active: code.supplier_id === newSupplierId,
-                              })
-                            );
-                            handleInputChange("supplier_codes", newCodes);
+                        // If we have supplier codes, update the active one
+                        if (formData.supplier_codes.length > 0) {
+                          const newCodes = formData.supplier_codes.map(
+                            (code) => ({
+                              ...code,
+                              is_active: code.supplier_id === newSupplierId,
+                            })
+                          );
+                          handleInputChange("supplier_codes", newCodes);
 
-                            // Update the main price to match the active supplier's price
-                            const activeSupplier = newCodes.find(
-                              (code) => code.is_active
-                            );
-                            if (activeSupplier) {
-                              handleInputChange("price", activeSupplier.price);
-                            }
+                          // Update the main price to match the active supplier's price
+                          const activeSupplier = newCodes.find(
+                            (code) => code.is_active
+                          );
+                          if (activeSupplier) {
+                            handleInputChange("price", activeSupplier.price);
                           }
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Vyberte hlavního dodavatele" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-60">
-                          <SelectItem value="none">Bez dodavatele</SelectItem>
-                          {(supplierUsers || []).map((u: any) => (
-                            <SelectItem key={u.id} value={u.id}>
-                              {u.full_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Kód produktu</Label>
-                      <Input
-                        value={formData.product_code || ""}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "product_code",
-                            e.target.value || null
-                          )
                         }
-                        placeholder="např. 0101"
-                        className="font-mono"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Cena (Kč)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={formData.price || ""}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "price",
-                            e.target.value ? parseFloat(e.target.value) : null
-                          )
-                        }
-                        placeholder="0.00"
-                        className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                    </div>
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Vyberte hlavního dodavatele" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        <SelectItem value="none">Bez dodavatele</SelectItem>
+                        {(supplierUsers || []).map((u: any) => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {u.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
+
+                  {/* Main supplier codes section */}
+                  {formData.supplier_id &&
+                    (() => {
+                      const mainSupplierCodes = formData.supplier_codes.filter(
+                        (code) => code.supplier_id === formData.supplier_id
+                      );
+
+                      if (mainSupplierCodes.length > 0) {
+                        return (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-sm font-medium">
+                                Kódy hlavního dodavatele
+                              </Label>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const newCodes = [
+                                    ...formData.supplier_codes,
+                                    {
+                                      supplier_id: formData.supplier_id,
+                                      product_code: "",
+                                      price: 0,
+                                      is_active: false,
+                                    },
+                                  ];
+                                  handleInputChange("supplier_codes", newCodes);
+                                }}
+                                className="text-xs"
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Přidat další kód
+                              </Button>
+                            </div>
+
+                            {mainSupplierCodes.map((supplierCode) => {
+                              const originalIndex =
+                                formData.supplier_codes.findIndex(
+                                  (code) => code === supplierCode
+                                );
+
+                              return (
+                                <div
+                                  key={originalIndex}
+                                  className="grid grid-cols-1 md:grid-cols-4 gap-4 p-3 bg-white border rounded-md"
+                                >
+                                  <div className="space-y-2">
+                                    <Label>Kód produktu</Label>
+                                    <Input
+                                      value={supplierCode.product_code}
+                                      onChange={(e) => {
+                                        const newCodes = [
+                                          ...formData.supplier_codes,
+                                        ];
+                                        newCodes[originalIndex].product_code =
+                                          e.target.value;
+                                        handleInputChange(
+                                          "supplier_codes",
+                                          newCodes
+                                        );
+                                      }}
+                                      placeholder="např. 0101"
+                                      className="font-mono"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>Cena (Kč)</Label>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={supplierCode.price}
+                                      onChange={(e) => {
+                                        const newCodes = [
+                                          ...formData.supplier_codes,
+                                        ];
+                                        newCodes[originalIndex].price =
+                                          parseFloat(e.target.value) || 0;
+                                        handleInputChange(
+                                          "supplier_codes",
+                                          newCodes
+                                        );
+                                      }}
+                                      placeholder="0.00"
+                                      className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>Status</Label>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        type="button"
+                                        variant={
+                                          supplierCode.is_active
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                        size="sm"
+                                        onClick={() => {
+                                          const newCodes =
+                                            formData.supplier_codes.map(
+                                              (code, i) => ({
+                                                ...code,
+                                                is_active: i === originalIndex,
+                                              })
+                                            );
+                                          handleInputChange(
+                                            "supplier_codes",
+                                            newCodes
+                                          );
+                                        }}
+                                        className="text-xs"
+                                      >
+                                        <Star className="h-3 w-3 mr-1" />
+                                        {supplierCode.is_active
+                                          ? "Aktivní"
+                                          : "Nastavit"}
+                                      </Button>
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>Akce</Label>
+                                    <div className="flex items-center gap-2">
+                                      {mainSupplierCodes.length > 1 && (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => {
+                                            const newCodes =
+                                              formData.supplier_codes.filter(
+                                                (_, i) => i !== originalIndex
+                                              );
+                                            handleInputChange(
+                                              "supplier_codes",
+                                              newCodes
+                                            );
+                                          }}
+                                          className="text-red-600 hover:text-red-800"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
 
                   {formData.supplier_codes.length > 0 && (
                     <div className="p-2 bg-green-50 border border-green-200 rounded-md">
@@ -862,17 +990,18 @@ export function IngredientForm() {
                     >
                   );
 
-                  return Object.entries(groupedCodes).map(
-                    ([supplierId, { supplier, codes }]) => {
-                      const isMainSupplier =
-                        supplierId === formData.supplier_id;
+                  return Object.entries(groupedCodes)
+                    .filter(
+                      ([supplierId]) => supplierId !== formData.supplier_id
+                    ) // Exclude main supplier
+                    .map(([supplierId, { supplier, codes }]) => {
                       const supplierName =
                         supplier?.full_name || "Neznámý dodavatel";
 
                       return (
                         <div
                           key={supplierId}
-                          className={`p-4 border rounded-lg ${isMainSupplier ? "bg-blue-50 border-blue-200" : "bg-gray-50"}`}
+                          className="p-4 border rounded-lg bg-gray-50"
                         >
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
@@ -880,9 +1009,7 @@ export function IngredientForm() {
                                 className={`h-4 w-4 ${codes.some((c) => c.is_active) ? "text-yellow-500 fill-current" : "text-gray-400"}`}
                               />
                               <span className="font-medium">
-                                {isMainSupplier
-                                  ? "Hlavní dodavatel"
-                                  : "Alternativní dodavatel"}
+                                Alternativní dodavatel
                               </span>
                               <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
                                 {supplierName}
@@ -891,31 +1018,21 @@ export function IngredientForm() {
                                 {codes.length} kód{codes.length > 1 ? "ů" : ""}
                               </span>
                             </div>
-                            {!isMainSupplier && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  const newCodes =
-                                    formData.supplier_codes.filter(
-                                      (_, i) =>
-                                        !codes.some(
-                                          (c) => c.originalIndex === i
-                                        )
-                                    );
-                                  handleInputChange("supplier_codes", newCodes);
-                                }}
-                                className="text-red-600 hover:text-red-800"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {isMainSupplier && (
-                              <span className="text-xs text-gray-500">
-                                Nelze smazat - hlavní dodavatel
-                              </span>
-                            )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const newCodes = formData.supplier_codes.filter(
+                                  (_, i) =>
+                                    !codes.some((c) => c.originalIndex === i)
+                                );
+                                handleInputChange("supplier_codes", newCodes);
+                              }}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
 
                           <div className="space-y-3">
@@ -1007,7 +1124,7 @@ export function IngredientForm() {
                                 <div className="space-y-2">
                                   <Label>Akce</Label>
                                   <div className="flex items-center gap-2">
-                                    {!isMainSupplier && codes.length > 1 && (
+                                    {codes.length > 1 && (
                                       <Button
                                         type="button"
                                         variant="ghost"
@@ -1027,11 +1144,6 @@ export function IngredientForm() {
                                       >
                                         <Trash2 className="h-4 w-4" />
                                       </Button>
-                                    )}
-                                    {isMainSupplier && (
-                                      <span className="text-xs text-gray-500">
-                                        Hlavní dodavatel
-                                      </span>
                                     )}
                                   </div>
                                 </div>
@@ -1064,8 +1176,7 @@ export function IngredientForm() {
                           </div>
                         </div>
                       );
-                    }
-                  );
+                    });
                 })()}
 
                 <div className="flex gap-2">

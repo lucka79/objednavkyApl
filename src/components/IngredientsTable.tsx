@@ -313,7 +313,7 @@ export function IngredientsTable() {
                 {hasMultipleCodes && (
                   <Badge
                     variant="outline"
-                    className="text-xs bg-white-100 text-orange-600 border-orange-300 ml-1"
+                    className="text-xs bg-neutral-50 text-orange-600 border-orange-300 ml-1"
                   >
                     {ingredient.ingredient_supplier_codes.length}
                   </Badge>
