@@ -196,6 +196,37 @@ export function IngredientComparison() {
     includeIngredientsWithoutSuppliers,
   ]);
 
+  // Get all available suppliers for the filter
+  const allAvailableSuppliers = useMemo(() => {
+    if (!groupedBySupplier) return [];
+    return Object.values(groupedBySupplier)
+      .map(({ supplier, codes }) => ({ supplier, count: codes.length }))
+      .sort((a, b) => b.count - a.count)
+      .map(({ supplier }) => supplier);
+  }, [groupedBySupplier]);
+
+  // Handle supplier selection
+  const handleSupplierToggle = (supplierId: string) => {
+    setSelectedSuppliers((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(supplierId)) {
+        newSet.delete(supplierId);
+      } else {
+        newSet.add(supplierId);
+      }
+      return newSet;
+    });
+  };
+
+  // Handle select all/none
+  const handleSelectAll = () => {
+    if (selectedSuppliers.size === allAvailableSuppliers.length) {
+      setSelectedSuppliers(new Set());
+    } else {
+      setSelectedSuppliers(new Set(allAvailableSuppliers.map((s) => s.id)));
+    }
+  };
+
   // CSV export function
   const exportToCSV = () => {
     if (!matrixData.ingredients.length || !matrixData.suppliers.length) return;
@@ -204,11 +235,15 @@ export function IngredientComparison() {
     const headers = [
       "Surovina",
       "Jednotka",
+      "Balení",
       "Kategorie",
       ...matrixData.suppliers.map((supplier) => `${supplier.full_name} (Cena)`),
+      ...matrixData.suppliers.map(
+        (supplier) => `${supplier.full_name} (Aktualizováno)`
+      ),
       ...(includeIngredientsWithoutSuppliers &&
       matrixData.ingredientsWithoutSuppliers.length > 0
-        ? ["Hlavní cena"]
+        ? ["Hlavní cena", "Hlavní cena (Aktualizováno)"]
         : []),
     ];
 
@@ -217,6 +252,7 @@ export function IngredientComparison() {
       const row = [
         ingredient.name,
         ingredient.unit,
+        ingredient.package || "",
         ingredient.ingredient_categories?.name || "Bez kategorie",
       ];
 
@@ -224,6 +260,16 @@ export function IngredientComparison() {
       matrixData.suppliers.forEach((supplier) => {
         const code = matrixData.matrix[ingredient.id]?.[supplier.id];
         row.push(code?.price ? `${code.price.toFixed(2)} Kč` : "");
+      });
+
+      // Add supplier update dates for each supplier
+      matrixData.suppliers.forEach((supplier) => {
+        const code = matrixData.matrix[ingredient.id]?.[supplier.id];
+        row.push(
+          code?.updated_at
+            ? new Date(code.updated_at).toLocaleDateString("cs-CZ")
+            : ""
+        );
       });
 
       // Add main price data if ingredient has no suppliers
@@ -234,6 +280,13 @@ export function IngredientComparison() {
         )
       ) {
         row.push(ingredient.price ? `${ingredient.price.toFixed(2)} Kč` : "");
+        row.push(
+          (ingredient as any).updated_at
+            ? new Date((ingredient as any).updated_at).toLocaleDateString(
+                "cs-CZ"
+              )
+            : ""
+        );
       }
 
       return row;
@@ -326,37 +379,6 @@ export function IngredientComparison() {
       </div>
     );
   }
-
-  // Get all available suppliers for the filter
-  const allAvailableSuppliers = useMemo(() => {
-    if (!groupedBySupplier) return [];
-    return Object.values(groupedBySupplier)
-      .map(({ supplier, codes }) => ({ supplier, count: codes.length }))
-      .sort((a, b) => b.count - a.count)
-      .map(({ supplier }) => supplier);
-  }, [groupedBySupplier]);
-
-  // Handle supplier selection
-  const handleSupplierToggle = (supplierId: string) => {
-    setSelectedSuppliers((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(supplierId)) {
-        newSet.delete(supplierId);
-      } else {
-        newSet.add(supplierId);
-      }
-      return newSet;
-    });
-  };
-
-  // Handle select all/none
-  const handleSelectAll = () => {
-    if (selectedSuppliers.size === allAvailableSuppliers.length) {
-      setSelectedSuppliers(new Set());
-    } else {
-      setSelectedSuppliers(new Set(allAvailableSuppliers.map((s) => s.id)));
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -567,6 +589,11 @@ export function IngredientComparison() {
                                 </div>
                                 <div className="text-sm text-muted-foreground">
                                   {ingredient.unit}
+                                  {ingredient.package && (
+                                    <span className="ml-2 text-xs bg-gray-100 px-2 py-1 rounded">
+                                      Balení: {ingredient.package}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </TableCell>
@@ -610,6 +637,49 @@ export function IngredientComparison() {
                                             ? `${code.price.toFixed(2)} Kč`
                                             : "—"}
                                         </div>
+                                        {code.updated_at && (
+                                          <div className="text-xs text-muted-foreground">
+                                            <div>
+                                              {new Date(
+                                                code.updated_at
+                                              ).toLocaleDateString("cs-CZ", {
+                                                day: "2-digit",
+                                                month: "2-digit",
+                                                year: "2-digit",
+                                              })}
+                                            </div>
+                                            <div
+                                              className={`text-xs ${
+                                                Math.floor(
+                                                  (Date.now() -
+                                                    new Date(
+                                                      code.updated_at
+                                                    ).getTime()) /
+                                                    (1000 * 60 * 60 * 24)
+                                                ) > 30
+                                                  ? "text-red-600"
+                                                  : Math.floor(
+                                                        (Date.now() -
+                                                          new Date(
+                                                            code.updated_at
+                                                          ).getTime()) /
+                                                          (1000 * 60 * 60 * 24)
+                                                      ) > 7
+                                                    ? "text-orange-600"
+                                                    : "text-green-600"
+                                              }`}
+                                            >
+                                              {Math.floor(
+                                                (Date.now() -
+                                                  new Date(
+                                                    code.updated_at
+                                                  ).getTime()) /
+                                                  (1000 * 60 * 60 * 24)
+                                              )}{" "}
+                                              dní
+                                            </div>
+                                          </div>
+                                        )}
                                         {comparison &&
                                           comparison.codes.length > 1 && (
                                             <div className="flex items-center justify-center">
@@ -680,6 +750,53 @@ export function IngredientComparison() {
                                           ? `${ingredient.price.toFixed(2)} Kč`
                                           : "—"}
                                       </div>
+                                      {(ingredient as any).updated_at && (
+                                        <div className="text-xs text-muted-foreground">
+                                          <div>
+                                            {new Date(
+                                              (ingredient as any).updated_at
+                                            ).toLocaleDateString("cs-CZ", {
+                                              day: "2-digit",
+                                              month: "2-digit",
+                                              year: "2-digit",
+                                            })}
+                                          </div>
+                                          <div
+                                            className={`text-xs ${
+                                              Math.floor(
+                                                (Date.now() -
+                                                  new Date(
+                                                    (
+                                                      ingredient as any
+                                                    ).updated_at
+                                                  ).getTime()) /
+                                                  (1000 * 60 * 60 * 24)
+                                              ) > 30
+                                                ? "text-red-600"
+                                                : Math.floor(
+                                                      (Date.now() -
+                                                        new Date(
+                                                          (
+                                                            ingredient as any
+                                                          ).updated_at
+                                                        ).getTime()) /
+                                                        (1000 * 60 * 60 * 24)
+                                                    ) > 7
+                                                  ? "text-orange-600"
+                                                  : "text-green-600"
+                                            }`}
+                                          >
+                                            {Math.floor(
+                                              (Date.now() -
+                                                new Date(
+                                                  (ingredient as any).updated_at
+                                                ).getTime()) /
+                                                (1000 * 60 * 60 * 24)
+                                            )}{" "}
+                                            dní
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                     {/* <Badge
                               variant="outline"

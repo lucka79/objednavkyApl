@@ -1179,39 +1179,65 @@ export function IngredientForm() {
                     });
                 })()}
 
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      // Filter out suppliers that are already in supplier_codes
-                      const availableSuppliers = (supplierUsers || []).filter(
-                        (supplier: any) =>
-                          !formData.supplier_codes.some(
-                            (code) => code.supplier_id === supplier.id
+                <div className="space-y-2">
+                  <Label>Přidat nového dodavatele</Label>
+                  <div className="flex gap-2">
+                    <Select
+                      value=""
+                      onValueChange={(supplierId) => {
+                        if (supplierId) {
+                          const newCodes = [
+                            ...formData.supplier_codes,
+                            {
+                              supplier_id: supplierId,
+                              product_code: "",
+                              price: 0,
+                              is_active: false,
+                            },
+                          ];
+                          handleInputChange("supplier_codes", newCodes);
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Vyberte dodavatele" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {(supplierUsers || [])
+                          .filter(
+                            (supplier: any) =>
+                              !formData.supplier_codes.some(
+                                (code) => code.supplier_id === supplier.id
+                              )
                           )
+                          .map((supplier: any) => (
+                            <SelectItem key={supplier.id} value={supplier.id}>
+                              {supplier.full_name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {(() => {
+                    const availableSuppliers = (supplierUsers || []).filter(
+                      (supplier: any) =>
+                        !formData.supplier_codes.some(
+                          (code) => code.supplier_id === supplier.id
+                        )
+                    );
+
+                    if (availableSuppliers.length === 0) {
+                      return (
+                        <p className="text-sm text-muted-foreground">
+                          Všichni dostupní dodavatelé jsou již přidáni.
+                        </p>
                       );
+                    }
+                    return null;
+                  })()}
+                </div>
 
-                      if (availableSuppliers.length > 0) {
-                        const newCodes = [
-                          ...formData.supplier_codes,
-                          {
-                            supplier_id: availableSuppliers[0].id,
-                            product_code: "",
-                            price: 0,
-                            is_active: false,
-                          },
-                        ];
-                        handleInputChange("supplier_codes", newCodes);
-                      }
-                    }}
-                    className="flex-1"
-                    disabled={!supplierUsers || supplierUsers.length === 0}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Přidat nového dodavatele
-                  </Button>
-
+                <div className="flex gap-2">
                   <Button
                     type="button"
                     variant="default"
