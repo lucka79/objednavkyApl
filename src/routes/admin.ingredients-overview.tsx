@@ -5,6 +5,7 @@ import { InvoiceUploadDialog } from "@/components/InvoiceUploadDialog";
 import { DocumentAIDebug } from "@/components/DocumentAIDebug";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IngredientComparison } from "@/components/IngredientComparison";
+import { ReceivedInvoices } from "@/components/ReceivedInvoices";
 
 export const Route = createFileRoute("/admin/ingredients-overview")({
   component: AdminIngredientsOverview,
@@ -48,11 +49,7 @@ function AdminIngredientsOverview() {
         </TabsContent>
 
         <TabsContent value="invoices" className="mt-6">
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">
-              Funkce pro správu faktur bude přidána později.
-            </p>
-          </div>
+          <ReceivedInvoices />
         </TabsContent>
 
         <TabsContent value="debug" className="mt-6">

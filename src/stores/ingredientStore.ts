@@ -54,6 +54,7 @@ export const useIngredientStore = create<IngredientStore>((set, get) => ({
             supplier_id,
             product_code,
             price,
+            package,
             is_active,
             created_at,
             updated_at
@@ -120,6 +121,7 @@ export const useIngredientStore = create<IngredientStore>((set, get) => ({
           supplier_id: code.supplier_id,
           product_code: code.product_code,
           price: code.price,
+          package: code.package,
           is_active: code.is_active
         }));
 
@@ -173,6 +175,7 @@ export const useIngredientStore = create<IngredientStore>((set, get) => ({
             supplier_id: code.supplier_id,
             product_code: code.product_code,
             price: code.price,
+            package: code.package,
             is_active: code.is_active
           }));
 

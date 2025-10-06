@@ -33,6 +33,7 @@ export interface Ingredient {
     supplier_id: string;
     product_code: string;
     price: number;
+    package: number | null;
     is_active: boolean;
   }>;
 }
@@ -60,13 +61,15 @@ export const useIngredients = () => {
   return useQuery({
     queryKey: ["ingredients"],
     queryFn: async () => {
-      // Fetch ingredients with their categories
+      // Fetch ingredients with their categories and supplier codes
       const { data: ingredients, error: ingredientsError } = await supabase
         .from("ingredients")
         .select(`
           *,
-          ingredient_categories!ingredients_category_id_fkey(*)
+          ingredient_categories!ingredients_category_id_fkey(*),
+          ingredient_supplier_codes(*)
         `)
+        .eq("store_only", false)
         .order("name", { ascending: true });
 
       if (ingredientsError) throw ingredientsError;

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useIngredientStore } from "@/stores/ingredientStore";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Search,
   Package,
@@ -29,79 +29,86 @@ import {
   AlertTriangle,
   CheckCircle,
   FileText,
+  RefreshCw,
 } from "lucide-react";
 
 import { removeDiacritics } from "@/utils/removeDiacritics";
-
-import { useSupplierUsers } from "@/hooks/useProfiles";
-
-interface IngredientQuantity {
-  id: number;
-  name: string;
-  currentQuantity: number;
-  unit: string;
-  category: string;
-  supplier: string;
-  lastUpdated: string;
-  status: "low" | "normal" | "high";
-  price: number;
-  totalValue: number;
-}
+import {
+  useIngredientQuantities,
+  useInitializeIngredientQuantities,
+} from "@/hooks/useIngredientQuantities";
+import { useIngredients } from "@/hooks/useIngredients";
+import { useToast } from "@/hooks/use-toast";
+import { useUsers } from "@/hooks/useProfiles";
+import { supabase } from "@/lib/supabase";
 
 export function IngredientQuantityOverview() {
-  const {
-    ingredients,
-    categories,
-    isLoading,
-    error,
-    fetchIngredients,
-    fetchCategories,
-  } = useIngredientStore();
-
   const [globalFilter, setGlobalFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("overview");
-  const { data: supplierUsers } = useSupplierUsers();
+  const [selectedUserId, setSelectedUserId] = useState(
+    "e597fcc9-7ce8-407d-ad1a-fdace061e42f"
+  );
+  const [inventoryDate, setInventoryDate] = useState<string | null>(null);
 
-  // Mock quantity data - in real implementation, this would come from your database
-  const mockQuantities: IngredientQuantity[] = useMemo(() => {
-    if (!ingredients) return [];
+  // Fetch real data from database
+  const { data: quantities, isLoading, error } = useIngredientQuantities();
+  const { data: ingredients } = useIngredients();
+  const { data: allUsers } = useUsers();
+  const { toast } = useToast();
+  const initializeQuantities = useInitializeIngredientQuantities();
 
-    return ingredients.map((ingredient) => {
-      // Generate mock quantity data
-      const currentQuantity = Math.random() * 100;
+  // Get categories from ingredients data
+  const categories = useMemo(() => {
+    if (!ingredients?.ingredients) return [];
+
+    const categoryMap = new Map();
+    ingredients.ingredients.forEach((ingredient: any) => {
+      if (ingredient.ingredient_categories) {
+        categoryMap.set(
+          ingredient.ingredient_categories.id,
+          ingredient.ingredient_categories
+        );
+      }
+    });
+
+    return Array.from(categoryMap.values());
+  }, [ingredients]);
+
+  // Transform quantities data for display
+  const transformedQuantities = useMemo(() => {
+    if (!quantities) return [];
+
+    return quantities.map((qty) => {
       const status =
-        currentQuantity < 10 ? "low" : currentQuantity > 80 ? "high" : "normal";
-      const price = ingredient.price || 0;
+        qty.current_quantity < 10
+          ? "low"
+          : qty.current_quantity > 80
+            ? "high"
+            : "normal";
+      const price = qty.ingredient?.price || 0;
 
       return {
-        id: ingredient.id,
-        name: ingredient.name,
-        currentQuantity,
-        unit: ingredient.unit,
-        category: ingredient.ingredient_categories?.name || "Bez kategorie",
-        supplier:
-          (supplierUsers || []).find(
-            (u: any) => u.id === ingredient.supplier_id
-          )?.full_name || "—",
-        lastUpdated: new Date().toISOString(),
+        id: qty.id,
+        ingredientId: qty.ingredient_id,
+        name: qty.ingredient?.name || "Neznámá surovina",
+        currentQuantity: qty.current_quantity,
+        unit: qty.unit,
+        category:
+          qty.ingredient?.ingredient_categories?.name || "Bez kategorie",
+        supplier: qty.ingredient?.supplier?.full_name || "—",
+        lastUpdated: qty.last_updated,
         status,
         price,
-        totalValue: currentQuantity * price,
+        totalValue: qty.current_quantity * price,
       };
     });
-  }, [ingredients, supplierUsers]);
-
-  // Load data on mount
-  useEffect(() => {
-    fetchIngredients();
-    fetchCategories();
-  }, [fetchIngredients, fetchCategories]);
+  }, [quantities]);
 
   // Filter ingredients based on search, category, and status
   const filteredQuantities = useMemo(() => {
-    return mockQuantities.filter((item) => {
+    return transformedQuantities.filter((item) => {
       const searchLower = removeDiacritics(globalFilter.toLowerCase());
       const nameMatch = removeDiacritics(item.name.toLowerCase()).includes(
         searchLower
@@ -125,7 +132,7 @@ export function IngredientQuantityOverview() {
 
       return searchMatch && categoryFilterMatch && statusFilterMatch;
     });
-  }, [mockQuantities, globalFilter, categoryFilter, statusFilter]);
+  }, [transformedQuantities, globalFilter, categoryFilter, statusFilter]);
 
   // Calculate summary statistics
   const summaryStats = useMemo(() => {
@@ -175,10 +182,56 @@ export function IngredientQuantityOverview() {
     }
   };
 
+  const handleInitializeInventory = async () => {
+    try {
+      await initializeQuantities.mutateAsync(selectedUserId);
+      const selectedUser = allUsers?.find(
+        (user: any) => user.id === selectedUserId
+      );
+
+      // Fetch the inventory date for display
+      const { data: inventory } = await supabase
+        .from("inventories")
+        .select("date")
+        .eq("user_id", selectedUserId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (inventory?.date) {
+        setInventoryDate(inventory.date);
+      }
+
+      toast({
+        title: "Úspěch",
+        description: `Zásoby byly úspěšně inicializovány z inventory_items pro uživatele ${selectedUser?.full_name || selectedUserId}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Chyba",
+        description: "Nepodařilo se inicializovat zásoby z inventory_items",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <Card className="p-6">
-        <div className="text-center py-8">Načítání přehledu surovin...</div>
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-64" />
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i}>
+                <CardContent className="p-4">
+                  <Skeleton className="h-4 w-24 mb-2" />
+                  <Skeleton className="h-8 w-16" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <Skeleton className="h-64 w-full" />
+        </div>
       </Card>
     );
   }
@@ -187,7 +240,68 @@ export function IngredientQuantityOverview() {
     return (
       <Card className="p-6">
         <div className="text-center py-8 text-red-600">
-          Chyba při načítání surovin: {error}
+          Chyba při načítání zásob: {error.message}
+        </div>
+      </Card>
+    );
+  }
+
+  if (!quantities || quantities.length === 0) {
+    return (
+      <Card className="p-6">
+        <div className="text-center py-12">
+          <div className="mx-auto w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mb-4">
+            <Package className="h-8 w-8 text-orange-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Žádné zásoby nebyly nalezeny
+          </h3>
+          <p className="text-gray-600 mb-4">
+            Pro zobrazení zásob je potřeba inicializovat databázi z
+            inventory_items pro vybraného uživatele.
+          </p>
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                <SelectTrigger className="w-80">
+                  <SelectValue placeholder="Vyberte uživatele" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(allUsers || []).map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-3 justify-center">
+              <Button
+                onClick={handleInitializeInventory}
+                disabled={initializeQuantities.isPending}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                {initializeQuantities.isPending ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Inicializuji...
+                  </>
+                ) : (
+                  <>
+                    <Package className="h-4 w-4 mr-2" />
+                    Inicializovat zásoby
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={() => window.location.reload()}
+                variant="outline"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Obnovit
+              </Button>
+            </div>
+          </div>
         </div>
       </Card>
     );
@@ -206,6 +320,55 @@ export function IngredientQuantityOverview() {
                 {summaryStats.lowStock} | Celková hodnota:{" "}
                 {summaryStats.totalValue.toFixed(2)} Kč
               </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Uživatel:{" "}
+                {allUsers?.find((user) => user.id === selectedUserId)
+                  ?.full_name || selectedUserId}
+                {inventoryDate && (
+                  <span className="ml-2">
+                    | Datum inventury:{" "}
+                    {new Date(inventoryDate).toLocaleDateString("cs-CZ")}
+                  </span>
+                )}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Select
+                value={selectedUserId}
+                onValueChange={(value) => {
+                  setSelectedUserId(value);
+                  setInventoryDate(null);
+                }}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Vyberte uživatele" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(allUsers || []).map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={handleInitializeInventory}
+                disabled={initializeQuantities.isPending}
+                variant="outline"
+                size="sm"
+              >
+                {initializeQuantities.isPending ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Inicializuji...
+                  </>
+                ) : (
+                  <>
+                    <Package className="h-4 w-4 mr-2" />
+                    Reinit zásoby
+                  </>
+                )}
+              </Button>
             </div>
           </div>
 
@@ -282,7 +445,7 @@ export function IngredientQuantityOverview() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Všechny kategorie</SelectItem>
-                {categories.map((category) => (
+                {categories.map((category: any) => (
                   <SelectItem key={category.id} value={category.name}>
                     {category.name}
                   </SelectItem>

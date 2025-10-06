@@ -343,12 +343,51 @@ export type Database = {
         }
         Relationships: []
       }
+      ingredient_quantities: {
+        Row: {
+          created_at: string | null
+          current_quantity: number
+          id: string
+          ingredient_id: number
+          last_updated: string | null
+          unit: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_quantity?: number
+          id?: string
+          ingredient_id: number
+          last_updated?: string | null
+          unit: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_quantity?: number
+          id?: string
+          ingredient_id?: number
+          last_updated?: string | null
+          unit?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingredient_quantities_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingredient_supplier_codes: {
         Row: {
           created_at: string | null
           id: number
           ingredient_id: number
           is_active: boolean | null
+          package: number | null
           price: number
           product_code: string
           supplier_id: string
@@ -359,6 +398,7 @@ export type Database = {
           id?: number
           ingredient_id: number
           is_active?: boolean | null
+          package?: number | null
           price: number
           product_code: string
           supplier_id: string
@@ -369,6 +409,7 @@ export type Database = {
           id?: number
           ingredient_id?: number
           is_active?: boolean | null
+          package?: number | null
           price?: number
           product_code?: string
           supplier_id?: string
@@ -408,7 +449,7 @@ export type Database = {
           name: string
           package: number | null
           price: number | null
-          product_code: number | null
+          product_code: string | null
           protein: number
           salt: number
           saturates: number
@@ -434,7 +475,7 @@ export type Database = {
           name: string
           package?: number | null
           price?: number | null
-          product_code?: number | null
+          product_code?: string | null
           protein?: number
           salt?: number
           saturates?: number
@@ -460,7 +501,7 @@ export type Database = {
           name?: string
           package?: number | null
           price?: number | null
-          product_code?: number | null
+          product_code?: string | null
           protein?: number
           salt?: number
           saturates?: number
@@ -629,18 +670,14 @@ export type Database = {
           confidence_score: number | null
           created_at: string | null
           created_by: string | null
-          currency: string | null
-          due_date: string | null
           id: string
           invoice_date: string | null
           invoice_number: string
           net_amount: number | null
           original_image_url: string | null
-          payment_method: string | null
           payment_terms: string | null
           processed_document_url: string | null
           processing_errors: string[] | null
-          processing_status: string | null
           raw_document_ai_response: Json | null
           supplier_address: string | null
           supplier_id: string | null
@@ -654,18 +691,14 @@ export type Database = {
           confidence_score?: number | null
           created_at?: string | null
           created_by?: string | null
-          currency?: string | null
-          due_date?: string | null
           id?: string
           invoice_date?: string | null
           invoice_number: string
           net_amount?: number | null
           original_image_url?: string | null
-          payment_method?: string | null
           payment_terms?: string | null
           processed_document_url?: string | null
           processing_errors?: string[] | null
-          processing_status?: string | null
           raw_document_ai_response?: Json | null
           supplier_address?: string | null
           supplier_id?: string | null
@@ -679,18 +712,14 @@ export type Database = {
           confidence_score?: number | null
           created_at?: string | null
           created_by?: string | null
-          currency?: string | null
-          due_date?: string | null
           id?: string
           invoice_date?: string | null
           invoice_number?: string
           net_amount?: number | null
           original_image_url?: string | null
-          payment_method?: string | null
           payment_terms?: string | null
           processed_document_url?: string | null
           processing_errors?: string[] | null
-          processing_status?: string | null
           raw_document_ai_response?: Json | null
           supplier_address?: string | null
           supplier_id?: string | null
@@ -721,7 +750,6 @@ export type Database = {
         Row: {
           bounding_box: Json | null
           created_at: string | null
-          description: string
           id: string
           invoice_received_id: string | null
           line_number: number | null
@@ -740,7 +768,6 @@ export type Database = {
         Insert: {
           bounding_box?: Json | null
           created_at?: string | null
-          description: string
           id?: string
           invoice_received_id?: string | null
           line_number?: number | null
@@ -759,7 +786,6 @@ export type Database = {
         Update: {
           bounding_box?: Json | null
           created_at?: string | null
-          description?: string
           id?: string
           invoice_received_id?: string | null
           line_number?: number | null
@@ -1852,6 +1878,10 @@ export type Database = {
         Args: { device_id: string }
         Returns: undefined
       }
+      get_ingredient_quantity: {
+        Args: { p_ingredient_id: number }
+        Returns: number
+      }
       get_invoice_stats: {
         Args: { user_id_param?: string }
         Returns: {
@@ -1881,6 +1911,10 @@ export type Database = {
       gtrgm_out: {
         Args: { "": unknown }
         Returns: unknown
+      }
+      initialize_ingredient_quantities: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       log_network_status: {
         Args: { status_data: Json }
@@ -1914,6 +1948,14 @@ export type Database = {
         Args: { device_id: string }
         Returns: undefined
       }
+      update_ingredient_quantity: {
+        Args: {
+          p_ingredient_id: number
+          p_operation_type: string
+          p_quantity_change: number
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       groupUser:
@@ -1924,6 +1966,7 @@ export type Database = {
         | "store"
         | "mobil"
         | "buyer"
+        | "supplier"
         | "seller"
       paidByType: "Hotov─Ť" | "Kartou" | "P┼Ö├şkazem" | "-"
     }
@@ -2061,6 +2104,7 @@ export const Constants = {
         "store",
         "mobil",
         "buyer",
+        "supplier",
         "seller",
       ],
       paidByType: ["Hotov─Ť", "Kartou", "P┼Ö├şkazem", "-"],

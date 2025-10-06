@@ -29,6 +29,7 @@ interface SupplierCode {
   supplier_id: string;
   product_code: string;
   price: number;
+  package: number | null;
   is_active: boolean;
 }
 
@@ -156,6 +157,7 @@ export function IngredientForm() {
             supplier_id: code.supplier_id,
             product_code: code.product_code,
             price: code.price,
+            package: (code as any).package || null,
             is_active: code.is_active,
           })),
         });
@@ -200,6 +202,7 @@ export function IngredientForm() {
             supplier_id: formData.supplier_id,
             product_code: "",
             price: formData.price || 0,
+            package: formData.package,
             is_active: true, // Main supplier is always active
           },
         ];
@@ -419,7 +422,7 @@ export function IngredientForm() {
             {isEditMode ? (
               <>
                 <Save className="h-5 w-5" />
-                Upravit surovinu
+                {formData.name || "Upravit surovinu"}
               </>
             ) : (
               <>
@@ -604,25 +607,20 @@ export function IngredientForm() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="package">Balení</Label>
-                  <Input
-                    id="package"
-                    type="number"
-                    value={formData.package || ""}
-                    onChange={(e) =>
-                      handleInputChange(
-                        "package",
-                        e.target.value ? parseInt(e.target.value) : null
-                      )
-                    }
-                    placeholder="např. 25"
-                    className={`[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${validationErrors.package ? "border-red-500" : ""}`}
-                  />
-                  {validationErrors.package && (
-                    <p className="text-sm text-red-500">
-                      {validationErrors.package}
-                    </p>
-                  )}
+                  <Label>Balení</Label>
+                  <div className="p-2 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-600">
+                    {(() => {
+                      // Get package from active supplier first, then fallback to ingredient package
+                      const activeSupplier = formData.supplier_codes.find(
+                        (code) => code.is_active
+                      );
+                      const packageValue =
+                        activeSupplier?.package || formData.package;
+                      return packageValue
+                        ? `${packageValue}`
+                        : "Není nastaveno";
+                    })()}
+                  </div>
                 </div>
               </div>
 
@@ -802,6 +800,7 @@ export function IngredientForm() {
                                       supplier_id: formData.supplier_id,
                                       product_code: "",
                                       price: 0,
+                                      package: null,
                                       is_active: false,
                                     },
                                   ];
@@ -823,7 +822,7 @@ export function IngredientForm() {
                               return (
                                 <div
                                   key={originalIndex}
-                                  className="grid grid-cols-1 md:grid-cols-4 gap-4 p-3 bg-white border rounded-md"
+                                  className="grid grid-cols-1 md:grid-cols-5 gap-4 p-3 bg-white border rounded-md"
                                 >
                                   <div className="space-y-2">
                                     <Label>Kód produktu</Label>
@@ -840,7 +839,6 @@ export function IngredientForm() {
                                           newCodes
                                         );
                                       }}
-                                      placeholder="např. 0101"
                                       className="font-mono"
                                     />
                                   </div>
@@ -863,7 +861,30 @@ export function IngredientForm() {
                                         );
                                       }}
                                       placeholder="0.00"
-                                      className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                      className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>Balení</Label>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={supplierCode.package || ""}
+                                      onChange={(e) => {
+                                        const newCodes = [
+                                          ...formData.supplier_codes,
+                                        ];
+                                        newCodes[originalIndex].package = e
+                                          .target.value
+                                          ? parseFloat(e.target.value)
+                                          : null;
+                                        handleInputChange(
+                                          "supplier_codes",
+                                          newCodes
+                                        );
+                                      }}
+                                      className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
                                     />
                                   </div>
 
@@ -1039,7 +1060,7 @@ export function IngredientForm() {
                             {codes.map((supplierCode) => (
                               <div
                                 key={supplierCode.originalIndex}
-                                className="grid grid-cols-1 md:grid-cols-4 gap-4 p-3 bg-white border rounded-md"
+                                className="grid grid-cols-1 md:grid-cols-5 gap-4 p-3 bg-white border rounded-md"
                               >
                                 <div className="space-y-2">
                                   <Label>Kód produktu</Label>
@@ -1057,7 +1078,6 @@ export function IngredientForm() {
                                         newCodes
                                       );
                                     }}
-                                    placeholder="např. 0101"
                                     className="font-mono"
                                   />
                                 </div>
@@ -1081,7 +1101,31 @@ export function IngredientForm() {
                                       );
                                     }}
                                     placeholder="0.00"
-                                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label>Balení</Label>
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={supplierCode.package || ""}
+                                    onChange={(e) => {
+                                      const newCodes = [
+                                        ...formData.supplier_codes,
+                                      ];
+                                      newCodes[
+                                        supplierCode.originalIndex
+                                      ].package = e.target.value
+                                        ? parseFloat(e.target.value)
+                                        : null;
+                                      handleInputChange(
+                                        "supplier_codes",
+                                        newCodes
+                                      );
+                                    }}
+                                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
                                   />
                                 </div>
 
@@ -1163,6 +1207,7 @@ export function IngredientForm() {
                                     supplier_id: supplierId,
                                     product_code: "",
                                     price: 0,
+                                    package: null,
                                     is_active: false,
                                   },
                                 ];
@@ -1192,6 +1237,7 @@ export function IngredientForm() {
                               supplier_id: supplierId,
                               product_code: "",
                               price: 0,
+                              package: null,
                               is_active: false,
                             },
                           ];

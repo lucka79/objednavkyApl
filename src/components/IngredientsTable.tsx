@@ -104,9 +104,19 @@ export function IngredientsTable() {
         categoryName,
         ingredients: ingredients
           .sort((a, b) => a.name.localeCompare(b.name))
-          .filter((ing) =>
-            supplierFilter === "all" ? true : ing.supplier_id === supplierFilter
-          ),
+          .filter((ing) => {
+            if (supplierFilter === "all") return true;
+
+            // Check main supplier_id
+            if (ing.supplier_id === supplierFilter) return true;
+
+            // Check if supplier exists in ingredient_supplier_codes
+            const hasSupplierInCodes = ing.ingredient_supplier_codes?.some(
+              (code: any) => code.supplier_id === supplierFilter
+            );
+
+            return hasSupplierInCodes;
+          }),
       }));
   }, [ingredients, supplierFilter]);
 
@@ -192,9 +202,19 @@ export function IngredientsTable() {
           ingredient.ingredient_categories?.name || "Bez kategorie";
         return categoryName === categoryFilter;
       })
-      .filter((ing) =>
-        supplierFilter === "all" ? true : ing.supplier_id === supplierFilter
-      )
+      .filter((ing) => {
+        if (supplierFilter === "all") return true;
+
+        // Check main supplier_id
+        if (ing.supplier_id === supplierFilter) return true;
+
+        // Check if supplier exists in ingredient_supplier_codes
+        const hasSupplierInCodes = ing.ingredient_supplier_codes?.some(
+          (code: any) => code.supplier_id === supplierFilter
+        );
+
+        return hasSupplierInCodes;
+      })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [
     ingredients,
@@ -442,7 +462,19 @@ export function IngredientsTable() {
         <div className="flex items-center gap-1">
           <Package className="h-3 w-3 text-muted-foreground" />
           <span className="text-sm">
-            {ingredient.package ? `${ingredient.package}` : "—"}
+            {(() => {
+              // Get the active supplier's package, or fall back to ingredient package
+              const activeSupplier = ingredient.ingredient_supplier_codes?.find(
+                (code: any) => code.is_active
+              );
+
+              // If no active supplier, use the first supplier
+              const supplierToUse =
+                activeSupplier || ingredient.ingredient_supplier_codes?.[0];
+
+              const packageValue = supplierToUse?.package || ingredient.package;
+              return packageValue ? `${packageValue}` : "—";
+            })()}
           </span>
         </div>
       </TableCell>

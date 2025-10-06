@@ -7,6 +7,7 @@ export interface IngredientSupplierCode {
   supplier_id: string;
   product_code: string;
   price: number;
+  package: number | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
