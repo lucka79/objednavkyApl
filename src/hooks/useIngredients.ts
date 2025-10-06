@@ -69,7 +69,7 @@ export const useIngredients = () => {
           ingredient_categories!ingredients_category_id_fkey(*),
           ingredient_supplier_codes(*)
         `)
-        .eq("store_only", false)
+        .eq("storeOnly", false)
         .order("name", { ascending: true });
 
       if (ingredientsError) throw ingredientsError;

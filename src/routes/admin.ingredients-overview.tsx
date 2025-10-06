@@ -6,6 +6,8 @@ import { DocumentAIDebug } from "@/components/DocumentAIDebug";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IngredientComparison } from "@/components/IngredientComparison";
 import { ReceivedInvoices } from "@/components/ReceivedInvoices";
+import { DailyConsumptionCalculator } from "@/components/DailyConsumptionCalculator";
+import { DailyProductionPlanner } from "@/components/DailyProductionPlanner";
 
 export const Route = createFileRoute("/admin/ingredients-overview")({
   component: AdminIngredientsOverview,
@@ -31,11 +33,13 @@ function AdminIngredientsOverview() {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Přehled zásob</TabsTrigger>
           <TabsTrigger value="supplier-codes">
             Srovnávač cen surovin
           </TabsTrigger>
+          <TabsTrigger value="consumption">Spotřeba</TabsTrigger>
+          <TabsTrigger value="production">Produkce</TabsTrigger>
           <TabsTrigger value="invoices">Faktury</TabsTrigger>
           <TabsTrigger value="debug">Debug Parser</TabsTrigger>
         </TabsList>
@@ -46,6 +50,14 @@ function AdminIngredientsOverview() {
 
         <TabsContent value="supplier-codes" className="mt-6">
           <IngredientComparison />
+        </TabsContent>
+
+        <TabsContent value="consumption" className="mt-6">
+          <DailyConsumptionCalculator />
+        </TabsContent>
+
+        <TabsContent value="production" className="mt-6">
+          <DailyProductionPlanner />
         </TabsContent>
 
         <TabsContent value="invoices" className="mt-6">
