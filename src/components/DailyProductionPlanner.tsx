@@ -795,7 +795,7 @@ export function DailyProductionPlanner() {
                     recipeName: string;
                     totalQuantity: number;
                     productCount: number;
-                    products: Array<{ name: string; quantity: number }>;
+                    products: Map<string, number>;
                   }
                 >();
 
@@ -811,17 +811,21 @@ export function DailyProductionPlanner() {
                       recipeName,
                       totalQuantity: 0,
                       productCount: 0,
-                      products: [],
+                      products: new Map<string, number>(), // Use Map to sum quantities by product name
                     });
                   }
 
                   const recipeData = recipeMap.get(recipeKey)!;
                   recipeData.totalQuantity += item.plannedQuantity;
                   recipeData.productCount += 1;
-                  recipeData.products.push({
-                    name: item.productName,
-                    quantity: item.plannedQuantity,
-                  });
+
+                  // Sum quantities for products with the same name
+                  const currentQuantity =
+                    recipeData.products.get(item.productName) || 0;
+                  recipeData.products.set(
+                    item.productName,
+                    currentQuantity + item.plannedQuantity
+                  );
 
                   // Debug logging
                   console.log(
@@ -838,7 +842,7 @@ export function DailyProductionPlanner() {
                         </CardTitle>
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary">
-                            {recipeData.productCount} produktů
+                            {recipeData.products.size} produktů
                           </Badge>
                           <Badge variant="outline">
                             {recipeData.totalQuantity} ks celkem
@@ -847,17 +851,21 @@ export function DailyProductionPlanner() {
                       </CardHeader>
                       <CardContent className="pt-0">
                         <div className="space-y-2 max-h-48 overflow-y-auto">
-                          {recipeData.products.map((product, productIndex) => (
-                            <div
-                              key={productIndex}
-                              className="flex justify-between items-center text-sm"
-                            >
-                              <span className="truncate">{product.name}</span>
-                              <span className="text-muted-foreground font-mono">
-                                {product.quantity} ks
-                              </span>
-                            </div>
-                          ))}
+                          {Array.from(recipeData.products.entries())
+                            .sort(([nameA], [nameB]) =>
+                              nameA.localeCompare(nameB)
+                            )
+                            .map(([productName, quantity], productIndex) => (
+                              <div
+                                key={productIndex}
+                                className="flex justify-between items-center text-sm"
+                              >
+                                <span className="truncate">{productName}</span>
+                                <span className="text-muted-foreground font-mono">
+                                  {quantity} ks
+                                </span>
+                              </div>
+                            ))}
                         </div>
                       </CardContent>
                     </Card>

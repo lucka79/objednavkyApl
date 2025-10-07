@@ -70,7 +70,7 @@ BEGIN
             END IF;
             
             -- Create new baker production
-            INSERT INTO bakers (date, user_id, recipe_id, status, notes, created_at, updated_at)
+            INSERT INTO bakers (date, user_id, recipe_id, status,  created_at, updated_at)
             VALUES (
                 target_date,
                 target_user_id,
@@ -86,7 +86,7 @@ BEGIN
             UPDATE bakers
             SET 
                 status = 'planned',
-                notes = 'Automaticky aktualizováno z objednávek pro recept: ' || recipe_data.recipe_name,
+               
                 updated_at = NOW() AT TIME ZONE 'Europe/Prague'
             WHERE id = baker_id_found;
         END IF;
@@ -94,20 +94,13 @@ BEGIN
         -- Delete existing baker_items for this baker
         DELETE FROM baker_items WHERE production_id = baker_id_found;
 
-        -- Sum all products for this recipe before inserting
-        DECLARE
-            total_ingredient_needed NUMERIC := 0;
-            product_breakdown TEXT := '';
-        BEGIN
-            -- Calculate total ingredient needed for all products in this recipe
+        -- Insert baker_items for each product in this recipe
+        FOR baker_item IN
             SELECT 
-                COALESCE(SUM(oi.quantity * COALESCE(pp.quantity, 1.0)), 0),
-                STRING_AGG(
-                    p.name || '(' || oi.quantity || '×' || COALESCE(pp.quantity, 1.0) || '=' || 
-                    ROUND(oi.quantity * COALESCE(pp.quantity, 1.0), 2) || ')',
-                    ', '
-                )
-            INTO total_ingredient_needed, product_breakdown
+                oi.product_id,
+                SUM(oi.quantity) as total_ordered,
+                COALESCE(pp.quantity, 1.0) as part_quantity,
+                SUM(oi.quantity * COALESCE(pp.quantity, 1.0)) as total_ingredient_needed
             FROM order_items oi
             JOIN products p ON oi.product_id = p.id
             JOIN orders o ON oi.order_id = o.id
@@ -117,30 +110,28 @@ BEGIN
             AND (
                 (recipe_id_found = 0 AND pp.recipe_id IS NULL) OR 
                 (recipe_id_found > 0 AND pp.recipe_id = recipe_id_found)
+            )
+            GROUP BY oi.product_id, COALESCE(pp.quantity, 1.0)
+            HAVING SUM(oi.quantity) > 0
+        LOOP
+            -- Insert baker_item for this product
+            INSERT INTO baker_items (
+                production_id,
+                product_id,
+                planned_quantity,
+                recipe_quantity,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                baker_id_found,
+                baker_item.product_id,
+                GREATEST(1, CEIL(baker_item.total_ingredient_needed)),
+                GREATEST(1, CEIL(baker_item.total_ingredient_needed)),
+                NOW() AT TIME ZONE 'Europe/Prague',
+                NOW() AT TIME ZONE 'Europe/Prague'
             );
-            
-            -- Insert single baker_item with summed quantities
-            IF total_ingredient_needed > 0 THEN
-                INSERT INTO baker_items (
-                    production_id,
-                    product_id,
-                    planned_quantity,
-                    recipe_quantity,
-                    notes,
-                    created_at,
-                    updated_at
-                )
-                VALUES (
-                    baker_id_found,
-                    NULL, -- No specific product since we're summing all
-                    GREATEST(1, CEIL(total_ingredient_needed)),
-                    GREATEST(1, CEIL(total_ingredient_needed)),
-                    'Sum of all products: ' || COALESCE(product_breakdown, 'No products'),
-                    NOW() AT TIME ZONE 'Europe/Prague',
-                    NOW() AT TIME ZONE 'Europe/Prague'
-                );
-            END IF;
-        END;
+        END LOOP;
 
         -- Return summary for this baker
         baker_id := baker_id_found;
