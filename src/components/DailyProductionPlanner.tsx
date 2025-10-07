@@ -10,17 +10,10 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Calendar as CalendarIcon,
   Package,
   Plus,
   RefreshCw,
@@ -28,11 +21,9 @@ import {
   AlertTriangle,
   Bug,
 } from "lucide-react";
-import { format } from "date-fns";
-import { cs } from "date-fns/locale";
+import { format, addDays, subDays } from "date-fns";
 
 import { useDailyProductionPlanner } from "@/hooks/useDailyProductionPlanner";
-import { useAvailableProductionDates } from "@/hooks/useAvailableProductionDates";
 import { useManualBakerSync } from "@/hooks/useBakerSync";
 
 interface ProductionItem {
@@ -57,22 +48,26 @@ export function DailyProductionPlanner() {
 
   const manualBakerSync = useManualBakerSync();
 
+  // Generate date options (today, yesterday, 2 days ago, 3 days ago, 4 days ago)
+  const dateOptions = useMemo(() => {
+    const today = new Date();
+    return [
+      { date: today, label: "Dnes" },
+      { date: subDays(today, 1), label: "Včera" },
+      { date: subDays(today, 2), label: format(subDays(today, 2), "dd.MM.") },
+      { date: subDays(today, 3), label: format(subDays(today, 3), "dd.MM.") },
+      { date: subDays(today, 4), label: format(subDays(today, 4), "dd.MM.") },
+      { date: addDays(today, 1), label: "Zítra" },
+      { date: addDays(today, 2), label: format(addDays(today, 2), "dd.MM.") },
+    ];
+  }, []);
+
   // Fetch daily production planning data
   const {
     data: productionData,
     isLoading,
     error,
   } = useDailyProductionPlanner(selectedDate);
-
-  // Fetch available production dates
-  const { data: availableDates } = useAvailableProductionDates();
-
-  // Check if a date has production data
-  const hasProductionData = (date: Date) => {
-    if (!availableDates) return false;
-    const dateStr = date.toISOString().split("T")[0];
-    return availableDates.includes(dateStr);
-  };
 
   // Calculate production summary
   const productionSummary = useMemo(() => {
@@ -378,6 +373,168 @@ export function DailyProductionPlanner() {
     }
   };
 
+  const handleDebugRecipe114 = async () => {
+    console.log("=== DEBUGGING RECIPE 114 (ALL PRODUCTS) ===");
+
+    try {
+      const { supabase } = await import("@/lib/supabase");
+      const today = selectedDate.toISOString().split("T")[0];
+
+      console.log(`\nSelected Date: ${today}`);
+      console.log("\n1. ALL PRODUCTS USING RECIPE 114:");
+      const { data: allProductsForRecipe, error: productsError } =
+        await supabase
+          .from("product_parts")
+          .select(
+            `
+            product_id,
+            quantity,
+            products!product_parts_product_id_fkey(
+              id,
+              name,
+              category_id,
+              categories!inner(id, name)
+            )
+          `
+          )
+          .eq("recipe_id", 114);
+
+      if (productsError) {
+        console.error("Error fetching products for recipe 114:", productsError);
+        return;
+      }
+
+      console.log("All products using recipe 114:", allProductsForRecipe);
+      console.log(
+        "Number of products with recipe 114:",
+        allProductsForRecipe?.length || 0
+      );
+
+      if (allProductsForRecipe && allProductsForRecipe.length > 0) {
+        console.log("Product details:");
+        allProductsForRecipe.forEach((p, i) => {
+          console.log(
+            `  ${i + 1}. Product ID: ${p.product_id}, Name: ${p.products?.[0]?.name}, Quantity: ${p.quantity}`
+          );
+        });
+      }
+
+      const productIds = allProductsForRecipe?.map((p) => p.product_id) || [];
+      if (productIds.length === 0) {
+        console.log("❌ No products found for recipe 114");
+        return;
+      }
+
+      console.log("Product IDs to search:", productIds);
+
+      console.log("\n2. ALL ORDERS FOR RECIPE 114 PRODUCTS TODAY:");
+      const { data: allOrders, error: ordersError } = await supabase
+        .from("order_items")
+        .select(
+          `
+          id,
+          product_id,
+          quantity,
+          orders!inner(id, date, user_id, status)
+        `
+        )
+        .in("product_id", productIds)
+        .eq("orders.date", today);
+
+      if (ordersError) {
+        console.error("Error fetching orders:", ordersError);
+        return;
+      }
+
+      console.log("All orders for recipe 114 products today:", allOrders);
+      console.log("Number of orders found:", allOrders?.length || 0);
+
+      // Debug: Check if there are any orders for these products on ANY date
+      const { data: allOrdersAnyDate } = await supabase
+        .from("order_items")
+        .select(
+          `
+          id,
+          product_id,
+          quantity,
+          orders!inner(id, date)
+        `
+        )
+        .in("product_id", productIds)
+        .limit(10);
+
+      console.log(
+        "Orders for these products on ANY date (sample):",
+        allOrdersAnyDate
+      );
+      if (allOrdersAnyDate && allOrdersAnyDate.length > 0) {
+        const dates = [
+          ...new Set(allOrdersAnyDate.map((o) => (o as any).orders?.date)),
+        ];
+        console.log("Dates with orders for these products:", dates);
+      }
+
+      console.log("\n3. CALCULATION BY PRODUCT:");
+      const productTotals = new Map();
+
+      for (const order of allOrders || []) {
+        const productId = order.product_id;
+        if (!productTotals.has(productId)) {
+          productTotals.set(productId, {
+            product_id: productId,
+            total_ordered: 0,
+            product_name:
+              allProductsForRecipe?.find((p) => p.product_id === productId)
+                ?.products?.[0]?.name || "Unknown",
+          });
+        }
+        productTotals.get(productId).total_ordered += order.quantity;
+      }
+
+      console.log("Product totals:", Array.from(productTotals.values()));
+
+      console.log("\n4. SUM OF ALL PRODUCTS USING RECIPE 114:");
+      const totalProductsOrdered = Array.from(productTotals.values()).reduce(
+        (sum, product) => sum + product.total_ordered,
+        0
+      );
+      console.log(`Total products ordered: ${totalProductsOrdered} units`);
+      console.log(`Number of different products: ${productTotals.size}`);
+
+      console.log("\n5. TOTAL INGREDIENT CALCULATION FOR RECIPE 114:");
+      let totalIngredientNeeded = 0;
+
+      for (const [productId, productData] of productTotals) {
+        const productPart = allProductsForRecipe?.find(
+          (p) => p.product_id === productId
+        );
+        if (productPart) {
+          const ingredientForThisProduct =
+            productData.total_ordered * parseFloat(productPart.quantity);
+          totalIngredientNeeded += ingredientForThisProduct;
+
+          console.log(
+            `${productData.product_name}: ${productData.total_ordered} units × ${productPart.quantity} = ${ingredientForThisProduct} ingredient`
+          );
+        }
+      }
+
+      const plannedQuantity = Math.max(1, Math.ceil(totalIngredientNeeded));
+      console.log(`\nTOTAL INGREDIENT NEEDED: ${totalIngredientNeeded}`);
+      console.log(`PLANNED QUANTITY (ceiled): ${plannedQuantity}`);
+
+      if (plannedQuantity >= 1) {
+        console.log("✅ This should pass the constraint check");
+      } else {
+        console.log("❌ This would fail the constraint check");
+      }
+
+      console.log("\n=== RECIPE 114 DEBUG COMPLETE ===");
+    } catch (error) {
+      console.error("Recipe 114 debug failed:", error);
+    }
+  };
+
   const getStatusIcon = (item: ProductionItem) => {
     if (item.isCompleted) {
       return <CheckCircle className="h-4 w-4 text-green-500" />;
@@ -460,37 +617,6 @@ export function DailyProductionPlanner() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-48 justify-start">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {format(selectedDate, "dd.MM.yyyy", { locale: cs })}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <div className="p-3">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={(date) => date && setSelectedDate(date)}
-                    initialFocus
-                    modifiers={{
-                      hasProduction: (date) => hasProductionData(date),
-                    }}
-                    modifiersClassNames={{
-                      hasProduction:
-                        "bg-orange-100 text-orange-700 font-semibold",
-                    }}
-                  />
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-orange-100 rounded"></div>
-                      <span>Dny s produkčními daty</span>
-                    </div>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
             <Button
               onClick={handleManualSync}
               disabled={manualBakerSync.isPending || isLoading}
@@ -522,8 +648,39 @@ export function DailyProductionPlanner() {
               <Bug className="h-4 w-4 mr-2" />
               Debug Recipe 92
             </Button>
+            <Button
+              onClick={handleDebugRecipe114}
+              className="bg-yellow-600 hover:bg-yellow-700"
+            >
+              <Bug className="h-4 w-4 mr-2" />
+              Debug Recipe 114
+            </Button>
           </div>
         </div>
+
+        {/* Date Tabs */}
+        <Tabs
+          value={selectedDate.toISOString().split("T")[0]}
+          onValueChange={(value) => {
+            const option = dateOptions.find(
+              (opt) => opt.date.toISOString().split("T")[0] === value
+            );
+            if (option) {
+              setSelectedDate(new Date(option.date));
+            }
+          }}
+        >
+          <TabsList className="w-full justify-start">
+            {dateOptions.map((option) => (
+              <TabsTrigger
+                key={option.date.toISOString()}
+                value={option.date.toISOString().split("T")[0]}
+              >
+                {option.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
         {/* Summary Cards */}
         {productionSummary && (
@@ -616,7 +773,7 @@ export function DailyProductionPlanner() {
                   }
 
                   const recipeData = recipeMap.get(recipeKey)!;
-                  recipeData.totalQuantity += item.plannedQuantity;
+                  recipeData.totalQuantity += item.totalOrdered;
                   recipeData.productCount += 1;
 
                   // Sum quantities for products with the same name
@@ -624,20 +781,26 @@ export function DailyProductionPlanner() {
                     recipeData.products.get(item.productName) || 0;
                   recipeData.products.set(
                     item.productName,
-                    currentQuantity + item.plannedQuantity
+                    currentQuantity + item.totalOrdered
                   );
 
                   // Debug logging
                   console.log(
-                    `Recipe card: ${recipeName} - Product: ${item.productName} - Planned Quantity: ${item.plannedQuantity}`
+                    `Recipe card: ${recipeName} - Product: ${item.productName} - Ordered Quantity: ${item.totalOrdered}`
                   );
                 });
 
-                return Array.from(recipeMap.values()).map(
-                  (recipeData, index) => (
+                return Array.from(recipeMap.values())
+                  .sort((a, b) => a.recipeName.localeCompare(b.recipeName))
+                  .map((recipeData, index) => (
                     <Card key={index}>
                       <CardHeader className="pb-3">
                         <CardTitle className="text-lg">
+                          {recipeData.recipeId && (
+                            <span className="text-sm font-mono text-muted-foreground mr-2">
+                              #{recipeData.recipeId}
+                            </span>
+                          )}
                           {recipeData.recipeName}
                         </CardTitle>
                         <div className="flex items-center gap-2">
@@ -669,8 +832,7 @@ export function DailyProductionPlanner() {
                         </div>
                       </CardContent>
                     </Card>
-                  )
-                );
+                  ));
               })()}
             </div>
           </div>
