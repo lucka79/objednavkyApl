@@ -26,15 +26,12 @@ import {
   RefreshCw,
   CheckCircle,
   AlertTriangle,
-  Factory,
   Bug,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cs } from "date-fns/locale";
 
-import { useToast } from "@/hooks/use-toast";
 import { useDailyProductionPlanner } from "@/hooks/useDailyProductionPlanner";
-import { useCreateBakerProduction } from "@/hooks/useBakerProductions";
 import { useAvailableProductionDates } from "@/hooks/useAvailableProductionDates";
 import { useManualBakerSync } from "@/hooks/useBakerSync";
 
@@ -57,10 +54,7 @@ interface ProductionItem {
 
 export function DailyProductionPlanner() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [isCreating, setIsCreating] = useState(false);
-  const [isCreatingFromOrders, setIsCreatingFromOrders] = useState(false);
-  const { toast } = useToast();
-  const createBakerProduction = useCreateBakerProduction();
+
   const manualBakerSync = useManualBakerSync();
 
   // Fetch daily production planning data
@@ -103,166 +97,6 @@ export function DailyProductionPlanner() {
       productsWithoutRecipes,
     };
   }, [productionData]);
-
-  const handleCreateProduction = async () => {
-    if (!productionData) return;
-
-    setIsCreating(true);
-    try {
-      // Group products by recipe for better organization
-      const productsByRecipe = productionData.reduce(
-        (acc, item) => {
-          const recipeKey = item.recipeId
-            ? `recipe_${item.recipeId}`
-            : "no_recipe";
-          if (!acc[recipeKey]) {
-            acc[recipeKey] = {
-              recipeId: item.recipeId,
-              recipeName: item.recipeName || "Bez receptu",
-              products: [],
-            };
-          }
-          acc[recipeKey].products.push(item);
-          return acc;
-        },
-        {} as Record<
-          string,
-          { recipeId?: number; recipeName: string; products: ProductionItem[] }
-        >
-      );
-
-      // Create baker production for each recipe
-      const productionPromises = Object.entries(productsByRecipe).map(
-        async ([, recipeData]) => {
-          if (!recipeData.recipeId) {
-            console.warn(
-              `No recipe found for products: ${recipeData.products.map((p) => p.productName).join(", ")}`
-            );
-            return null;
-          }
-
-          // Create baker production
-          const bakerData = {
-            date: selectedDate.toISOString().split("T")[0],
-            recipe_id: recipeData.recipeId,
-            status: "planned",
-            notes: `Automaticky vytvořené pro recept: ${recipeData.recipeName}`,
-          };
-
-          const bakerResult =
-            await createBakerProduction.mutateAsync(bakerData);
-
-          if (!bakerResult) return null;
-
-          // Create baker items for each product
-          const bakerItems = recipeData.products.map((product) => ({
-            production_id: bakerResult.id,
-            product_id: product.productId,
-            planned_quantity: product.plannedQuantity,
-            recipe_quantity: product.plannedQuantity,
-          }));
-
-          return { baker: bakerResult, items: bakerItems };
-        }
-      );
-
-      const results = await Promise.all(productionPromises);
-      const successfulResults = results.filter(Boolean);
-
-      toast({
-        title: "Úspěch",
-        description: `Vytvořeno ${successfulResults.length} produkčních plánů pro ${productionData.length} produktů`,
-      });
-    } catch (error) {
-      toast({
-        title: "Chyba",
-        description: "Nepodařilo se vytvořit produkční plány",
-        variant: "destructive",
-      });
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  const handleCreateFromOrders = async () => {
-    if (!productionData) return;
-
-    setIsCreatingFromOrders(true);
-    try {
-      // Group products by recipe for better organization
-      const productsByRecipe = productionData.reduce(
-        (acc, item) => {
-          const recipeKey = item.recipeId
-            ? `recipe_${item.recipeId}`
-            : "no_recipe";
-          if (!acc[recipeKey]) {
-            acc[recipeKey] = {
-              recipeId: item.recipeId,
-              recipeName: item.recipeName || "Bez receptu",
-              products: [],
-            };
-          }
-          acc[recipeKey].products.push(item);
-          return acc;
-        },
-        {} as Record<
-          string,
-          { recipeId?: number; recipeName: string; products: ProductionItem[] }
-        >
-      );
-
-      // Create baker production for each recipe
-      const productionPromises = Object.entries(productsByRecipe).map(
-        async ([, recipeData]) => {
-          if (!recipeData.recipeId) {
-            console.warn(
-              `No recipe found for products: ${recipeData.products.map((p) => p.productName).join(", ")}`
-            );
-            return null;
-          }
-
-          // Create baker production
-          const bakerData = {
-            date: selectedDate.toISOString().split("T")[0],
-            recipe_id: recipeData.recipeId,
-            status: "planned",
-            notes: `Vytvořeno z objednávek pro recept: ${recipeData.recipeName}`,
-          };
-
-          const bakerResult =
-            await createBakerProduction.mutateAsync(bakerData);
-
-          if (!bakerResult) return null;
-
-          // Create baker items for each product
-          const bakerItems = recipeData.products.map((product) => ({
-            production_id: bakerResult.id,
-            product_id: product.productId,
-            planned_quantity: product.totalOrdered, // Use ordered quantity
-            recipe_quantity: product.totalOrdered,
-          }));
-
-          return { baker: bakerResult, items: bakerItems };
-        }
-      );
-
-      const results = await Promise.all(productionPromises);
-      const successfulResults = results.filter(Boolean);
-
-      toast({
-        title: "Úspěch",
-        description: `Vytvořeno ${successfulResults.length} produkčních plánů z objednávek pro ${productionData.length} produktů`,
-      });
-    } catch (error) {
-      toast({
-        title: "Chyba",
-        description: "Nepodařilo se vytvořit produkční plány z objednávek",
-        variant: "destructive",
-      });
-    } finally {
-      setIsCreatingFromOrders(false);
-    }
-  };
 
   const handleManualSync = async () => {
     try {
@@ -658,40 +492,6 @@ export function DailyProductionPlanner() {
               </PopoverContent>
             </Popover>
             <Button
-              onClick={handleCreateProduction}
-              disabled={isCreating || isLoading}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {isCreating ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Vytvářím...
-                </>
-              ) : (
-                <>
-                  <Factory className="h-4 w-4 mr-2" />
-                  Vytvořit produkci
-                </>
-              )}
-            </Button>
-            <Button
-              onClick={handleCreateFromOrders}
-              disabled={isCreatingFromOrders || isLoading}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {isCreatingFromOrders ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Vytvářím z objednávek...
-                </>
-              ) : (
-                <>
-                  <Package className="h-4 w-4 mr-2" />
-                  Vytvořit z objednávek
-                </>
-              )}
-            </Button>
-            <Button
               onClick={handleManualSync}
               disabled={manualBakerSync.isPending || isLoading}
               className="bg-purple-600 hover:bg-purple-700"
@@ -957,16 +757,6 @@ export function DailyProductionPlanner() {
               <div>Načítání: {isLoading ? "Ano" : "Ne"}</div>
               <div>Chyba: {error ? (error as Error).message : "Žádná"}</div>
               <div>Počet dat: {productionData?.length || 0}</div>
-              <div>Vytváření produkce: {isCreating ? "Ano" : "Ne"}</div>
-              <div>
-                Vytváření z objednávek: {isCreatingFromOrders ? "Ano" : "Ne"}
-              </div>
-              <div>
-                Tlačítka povolena:{" "}
-                {!isLoading && !isCreating && !isCreatingFromOrders
-                  ? "Ano"
-                  : "Ne"}
-              </div>
             </div>
             <div className="mt-4">
               Žádné objednávky nebo produkční plány nebyly nalezeny pro vybraný
