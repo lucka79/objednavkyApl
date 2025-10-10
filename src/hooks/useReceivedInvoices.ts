@@ -5,6 +5,7 @@ export interface ReceivedInvoice {
   id: string;
   invoice_number: string;
   supplier_id: string | null;
+  receiver_id: string | null;
   invoice_date: string | null;
   total_amount: number | null;
   processing_status: string | null;
@@ -12,6 +13,10 @@ export interface ReceivedInvoice {
   created_at: string | null;
   updated_at: string | null;
   supplier?: {
+    id: string;
+    full_name: string;
+  };
+  receiver?: {
     id: string;
     full_name: string;
   };
@@ -45,6 +50,7 @@ export const useReceivedInvoices = () => {
           .select(`
             *,
             supplier:profiles!invoices_received_supplier_id_fkey(id, full_name),
+            receiver:profiles!invoices_received_receiver_id_fkey(id, full_name),
             items:items_received(
               *,
               ingredient:ingredients!items_received_matched_ingredient_id_fkey(id, name, unit)
@@ -150,26 +156,32 @@ export const useUpdateReceivedInvoice = () => {
   return useMutation({
     mutationFn: async ({
       id,
-      data,
+      receiver_id,
     }: {
-      id: number;
-      data: Partial<{
-        invoice_number: string;
-        supplier_id: string;
-        received_date: string;
-        status: string;
-        notes: string;
-        total_amount: number;
-      }>;
+      id: string;
+      receiver_id?: string;
     }) => {
+      const updateData: any = {};
+      
+      if (receiver_id !== undefined) {
+        updateData.receiver_id = receiver_id || null;
+      }
+
+      console.log("Updating invoice:", { id, updateData });
+
       const { data: invoice, error } = await supabase
         .from("invoices_received")
-        .update(data)
+        .update(updateData)
         .eq("id", id)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error updating invoice:", error);
+        throw error;
+      }
+      
+      console.log("Invoice updated successfully:", invoice);
       return invoice;
     },
     onSuccess: () => {

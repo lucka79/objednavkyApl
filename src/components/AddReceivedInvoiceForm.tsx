@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +22,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useIngredients } from "@/hooks/useIngredients";
-import { useSupplierUsers } from "@/hooks/useProfiles";
+import { useUsers } from "@/hooks/useProfiles";
+import { useAuthStore } from "@/lib/supabase";
 import { Plus, Trash2, Package } from "lucide-react";
 import { removeDiacritics } from "@/utils/removeDiacritics";
 
@@ -36,6 +37,7 @@ interface InvoiceItem {
 interface InvoiceFormData {
   invoice_number: string;
   supplier_id: string;
+  receiver_id: string;
   received_date: string;
   notes: string;
   items: InvoiceItem[];
@@ -44,6 +46,7 @@ interface InvoiceFormData {
 const initialFormData: InvoiceFormData = {
   invoice_number: "",
   supplier_id: "",
+  receiver_id: "",
   received_date: new Date().toISOString().split("T")[0],
   notes: "",
   items: [],
@@ -198,7 +201,96 @@ export function AddReceivedInvoiceForm() {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
 
   const { data: allIngredients } = useIngredients();
-  const { data: supplierUsers } = useSupplierUsers();
+  const { data: allUsers } = useUsers();
+  const user = useAuthStore((state) => state.user);
+
+  // Filter for store users only
+  const storeUsers = allUsers?.filter((user) => user.role === "store") || [];
+
+  // Filter for supplier users only
+  const supplierUsers =
+    allUsers?.filter((user) => user.role === "supplier") || [];
+
+  // Set default receiver for all user types
+  useEffect(() => {
+    console.log("useEffect triggered:", {
+      user: user?.role,
+      storeUsersLength: storeUsers.length,
+      currentReceiver: formData.receiver_id,
+      isOpen,
+    });
+
+    if (user && storeUsers.length > 0 && isOpen && !formData.receiver_id) {
+      let defaultReceiverId: string | null = null;
+
+      if (user.role === "store") {
+        // For store users, use themselves as receiver
+        defaultReceiverId = user.id;
+        console.log("Store user setting themselves as receiver:", user.id);
+      } else if (user.role === "admin" || user.role === "expedition") {
+        // For admin/expedition users, use "Aplica - Pekárna výrobna"
+        const aplicaUser = storeUsers.find(
+          (storeUser) => storeUser.full_name === "Aplica - Pekárna výrobna"
+        );
+        if (aplicaUser) {
+          defaultReceiverId = aplicaUser.id;
+          console.log(
+            "Admin/expedition user setting Aplica as receiver:",
+            aplicaUser.id
+          );
+        }
+      }
+
+      if (defaultReceiverId) {
+        console.log("Setting default receiver:", defaultReceiverId);
+        setFormData((prev) => ({
+          ...prev,
+          receiver_id: defaultReceiverId,
+        }));
+      }
+    }
+  }, [user, storeUsers, isOpen]);
+
+  // Set default receiver when dialog opens
+  useEffect(() => {
+    if (isOpen && user && !formData.receiver_id) {
+      console.log("Dialog opened, checking for default receiver");
+      // Small delay to ensure storeUsers are loaded
+      const timer = setTimeout(() => {
+        if (storeUsers.length > 0) {
+          let defaultReceiverId: string | null = null;
+
+          if (user.role === "store") {
+            // For store users, use themselves as receiver
+            defaultReceiverId = user.id;
+            console.log("Store user setting themselves as receiver:", user.id);
+          } else if (user.role === "admin" || user.role === "expedition") {
+            // For admin/expedition users, use "Aplica - Pekárna výrobna"
+            const aplicaUser = storeUsers.find(
+              (storeUser) => storeUser.full_name === "Aplica - Pekárna výrobna"
+            );
+            if (aplicaUser) {
+              defaultReceiverId = aplicaUser.id;
+              console.log(
+                "Admin/expedition user setting Aplica as receiver:",
+                aplicaUser.id
+              );
+            }
+          }
+
+          if (defaultReceiverId) {
+            console.log("Setting default receiver:", defaultReceiverId);
+            setFormData((prev) => ({
+              ...prev,
+              receiver_id: defaultReceiverId,
+            }));
+          }
+        }
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, user, storeUsers, formData.receiver_id]);
 
   // Filter ingredients by selected supplier using ingredient_supplier_codes
   const availableIngredients =
@@ -230,6 +322,7 @@ export function AddReceivedInvoiceForm() {
         .insert({
           invoice_number: data.invoice_number,
           supplier_id: data.supplier_id,
+          receiver_id: data.receiver_id,
           invoice_date: data.received_date,
           total_amount,
           supplier_name: null, // Will be populated from supplier lookup
@@ -286,6 +379,10 @@ export function AddReceivedInvoiceForm() {
 
     if (!formData.supplier_id) {
       errors.supplier_id = "Dodavatel je povinný";
+    }
+
+    if (!formData.receiver_id) {
+      errors.receiver_id = "Příjemce je povinný";
     }
 
     if (!formData.received_date) {
@@ -448,7 +545,7 @@ export function AddReceivedInvoiceForm() {
                       <SelectValue placeholder="Vyberte dodavatele" />
                     </SelectTrigger>
                     <SelectContent>
-                      {(supplierUsers || []).map((supplier) => (
+                      {supplierUsers.map((supplier) => (
                         <SelectItem key={supplier.id} value={supplier.id}>
                           {supplier.full_name}
                         </SelectItem>
@@ -458,6 +555,36 @@ export function AddReceivedInvoiceForm() {
                   {validationErrors.supplier_id && (
                     <p className="text-sm text-red-500">
                       {validationErrors.supplier_id}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="receiver">Příjemce *</Label>
+                  <Select
+                    value={formData.receiver_id}
+                    onValueChange={(value) =>
+                      handleInputChange("receiver_id", value)
+                    }
+                  >
+                    <SelectTrigger
+                      className={
+                        validationErrors.receiver_id ? "border-red-500" : ""
+                      }
+                    >
+                      <SelectValue placeholder="Vyberte příjemce" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {storeUsers.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {validationErrors.receiver_id && (
+                    <p className="text-sm text-red-500">
+                      {validationErrors.receiver_id}
                     </p>
                   )}
                 </div>

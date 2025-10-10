@@ -180,6 +180,120 @@ export function IngredientQuantityOverview() {
       return data || [];
     },
   });
+
+  // Fetch received invoices data for the selected month and user
+  const { data: receivedInvoicesData } = useQuery({
+    queryKey: ["receivedInvoices", selectedUserId, selectedMonth.toISOString()],
+    queryFn: async () => {
+      const firstDayOfMonth = new Date(
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth(),
+        1
+      );
+      const lastDayOfMonth = new Date(
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth() + 1,
+        0
+      );
+
+      // If selected month is current month, use today as end date
+      const today = new Date();
+      const isCurrentMonth =
+        selectedMonth.getFullYear() === today.getFullYear() &&
+        selectedMonth.getMonth() === today.getMonth();
+
+      const endDate = isCurrentMonth ? today : lastDayOfMonth;
+
+      const formatLocalDate = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      };
+
+      const startDateStr = formatLocalDate(firstDayOfMonth);
+      const endDateStr = formatLocalDate(endDate);
+
+      const { data, error } = await supabase
+        .from("invoices_received")
+        .select(
+          `
+          id,
+          invoice_date,
+          created_by,
+          receiver_id,
+          items_received (
+            id,
+            quantity,
+            matched_ingredient_id
+          )
+        `
+        )
+        .eq("receiver_id", selectedUserId)
+        .gte("invoice_date", startDateStr)
+        .lte("invoice_date", endDateStr);
+
+      if (error) {
+        console.error("Error fetching received invoices:", error);
+        throw error;
+      }
+
+      console.log("=== RECEIVED INVOICES QUERY DEBUG ===");
+      console.log("Query params:", {
+        selectedUserId,
+        startDateStr,
+        endDateStr,
+      });
+      console.log("Raw data from query:", data);
+
+      if (!data || data.length === 0) {
+        console.log("No received invoices found");
+        return [];
+      }
+
+      // Aggregate quantities by ingredient_id
+      const ingredientQuantities = new Map<number, number>();
+
+      data.forEach((invoice: any) => {
+        console.log("Processing invoice:", invoice);
+        if (invoice.items_received) {
+          console.log("Invoice has items_received:", invoice.items_received);
+          invoice.items_received.forEach((item: any) => {
+            const ingredientId = item.matched_ingredient_id;
+            const quantity = item.quantity || 0;
+            console.log(
+              `Processing item: ingredientId=${ingredientId}, quantity=${quantity}`
+            );
+
+            if (ingredientQuantities.has(ingredientId)) {
+              ingredientQuantities.set(
+                ingredientId,
+                ingredientQuantities.get(ingredientId)! + quantity
+              );
+            } else {
+              ingredientQuantities.set(ingredientId, quantity);
+            }
+          });
+        } else {
+          console.log("Invoice has no items_received");
+        }
+      });
+
+      const result = Array.from(ingredientQuantities.entries()).map(
+        ([ingredientId, totalQuantity]) => ({
+          ingredientId,
+          totalQuantity,
+        })
+      );
+
+      console.log("Final aggregated result:", result);
+      console.log("=== END RECEIVED INVOICES QUERY DEBUG ===");
+
+      return result;
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    enabled: !!selectedUserId,
+  });
   // Fetch monthly consumption data from daily_ingredient_consumption table
   const { data: monthlyConsumption } = useQuery({
     queryKey: ["monthlyConsumptionForOverview", selectedMonth.toISOString()],
@@ -304,6 +418,22 @@ export function IngredientQuantityOverview() {
       });
     }
 
+    // Create a map of received invoices data for quick lookup
+    const receivedInvoicesMap = new Map<number, number>();
+    if (receivedInvoicesData) {
+      console.log("=== RECEIVED INVOICES DEBUG ===");
+      console.log("Received invoices data:", receivedInvoicesData);
+      receivedInvoicesData.forEach((invoice) => {
+        console.log("Processing invoice:", invoice);
+        receivedInvoicesMap.set(invoice.ingredientId, invoice.totalQuantity);
+      });
+      console.log(
+        "Received invoices map:",
+        Array.from(receivedInvoicesMap.entries())
+      );
+      console.log("=== END RECEIVED INVOICES DEBUG ===");
+    }
+
     // Create a map of suppliers for quick lookup
     const supplierMap = new Map<string, string>();
     if (suppliers) {
@@ -332,6 +462,16 @@ export function IngredientQuantityOverview() {
           // Create new entry
           const price = ingredient?.price || 0;
           const monthlyConsumption = consumptionMap.get(ingredientId) || 0;
+          const receivedInvoicesQuantity =
+            receivedInvoicesMap.get(ingredientId) || 0;
+
+          // Debug received invoices quantity
+          if (ingredientId && receivedInvoicesMap.has(ingredientId)) {
+            console.log(
+              `Found received invoices for ingredient ${ingredientId}:`,
+              receivedInvoicesQuantity
+            );
+          }
 
           // Find active supplier from ingredient_supplier_codes
           const activeSupplierCode =
@@ -348,6 +488,7 @@ export function IngredientQuantityOverview() {
             name: ingredient?.name || "Neznámá surovina",
             currentQuantity: item.quantity || 0,
             monthlyConsumption,
+            receivedInvoicesQuantity,
             unit: ingredient?.unit || "kg",
             category:
               ingredient?.ingredient_categories?.name || "Bez kategorie",
@@ -394,7 +535,13 @@ export function IngredientQuantityOverview() {
           a.name.localeCompare(b.name)
         ),
       }));
-  }, [inventoryItems, monthlyConsumption, showZeroQuantities, suppliers]);
+  }, [
+    inventoryItems,
+    monthlyConsumption,
+    receivedInvoicesData,
+    showZeroQuantities,
+    suppliers,
+  ]);
 
   // Filter grouped ingredients based on search, category, and status
   const filteredGroupedQuantities = useMemo(() => {
@@ -890,6 +1037,17 @@ export function IngredientQuantityOverview() {
                                 </span>
                               </div>
                             </TableHead>
+                            <TableHead className="text-right w-[140px]">
+                              <div className="flex flex-col items-end">
+                                <span>Přijaté faktury</span>
+                                <span className="text-xs text-muted-foreground font-normal">
+                                  {selectedMonth.getFullYear()}-
+                                  {String(
+                                    selectedMonth.getMonth() + 1
+                                  ).padStart(2, "0")}
+                                </span>
+                              </div>
+                            </TableHead>
                             <TableHead className="text-right w-[100px]">
                               Cena
                             </TableHead>
@@ -925,6 +1083,11 @@ export function IngredientQuantityOverview() {
                               <TableCell className="text-right">
                                 <span className="text-sm font-mono text-blue-600">
                                   {item.monthlyConsumption.toFixed(1)}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span className="text-sm font-mono text-green-600">
+                                  {item.receivedInvoicesQuantity.toFixed(1)}
                                 </span>
                               </TableCell>
                               <TableCell className="text-right">
@@ -987,6 +1150,18 @@ export function IngredientQuantityOverview() {
                         </div>
                       </TableHead>
                       <TableHead className="w-[100px]">Jednotka</TableHead>
+                      <TableHead className="text-right w-[140px]">
+                        <div className="flex flex-col items-end">
+                          <span>Přijaté faktury</span>
+                          <span className="text-xs text-muted-foreground font-normal">
+                            {selectedMonth.getFullYear()}-
+                            {String(selectedMonth.getMonth() + 1).padStart(
+                              2,
+                              "0"
+                            )}
+                          </span>
+                        </div>
+                      </TableHead>
                       <TableHead className="text-right w-[100px]">
                         Cena
                       </TableHead>
@@ -1025,6 +1200,11 @@ export function IngredientQuantityOverview() {
                               <Scale className="h-3 w-3 text-muted-foreground" />
                               <span className="text-sm">{item.unit}</span>
                             </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className="text-sm font-mono text-green-600">
+                              {item.receivedInvoicesQuantity.toFixed(1)}
+                            </span>
                           </TableCell>
                           <TableCell className="text-right">
                             <span className="text-sm">

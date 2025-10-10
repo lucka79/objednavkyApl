@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,13 +34,17 @@ import {
   User,
   Eye,
   Trash2,
+  Edit,
+  Save,
+  X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-import { useSupplierUsers } from "@/hooks/useProfiles";
+import { useUsers } from "@/hooks/useProfiles";
 import {
   useReceivedInvoices,
   useDeleteReceivedInvoice,
+  useUpdateReceivedInvoice,
   ReceivedInvoice,
 } from "@/hooks/useReceivedInvoices";
 import { AddReceivedInvoiceForm } from "./AddReceivedInvoiceForm";
@@ -51,14 +54,26 @@ export function ReceivedInvoices() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
+  const [receiverFilter, setReceiverFilter] = useState("all");
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
   // const [statusFilter, setStatusFilter] = useState("all");
   const [selectedInvoice, setSelectedInvoice] =
     useState<ReceivedInvoice | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    receiver_id: "",
+  });
 
-  const { data: supplierUsers } = useSupplierUsers();
+  const { data: allUsers } = useUsers();
   const { data: invoices, isLoading } = useReceivedInvoices();
   const deleteInvoiceMutation = useDeleteReceivedInvoice();
+  const updateInvoiceMutation = useUpdateReceivedInvoice();
+
+  // Filter users by role
+  const storeUsers = allUsers?.filter((user) => user.role === "store") || [];
+  const supplierUsers =
+    allUsers?.filter((user) => user.role === "supplier") || [];
 
   // Filter invoices based on search and filters
   const filteredInvoices = useMemo(() => {
@@ -71,17 +86,36 @@ export function ReceivedInvoices() {
           .includes(searchTerm.toLowerCase()) ||
         (invoice.supplier?.full_name || invoice.supplier_name || "")
           .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        (invoice.receiver?.full_name || "")
+          .toLowerCase()
           .includes(searchTerm.toLowerCase());
 
       const matchesSupplier =
         supplierFilter === "all" || invoice.supplier_id === supplierFilter;
 
+      const matchesReceiver =
+        receiverFilter === "all" || invoice.receiver_id === receiverFilter;
+
+      const matchesDate = (() => {
+        const invoiceDate = invoice.invoice_date
+          ? new Date(invoice.invoice_date)
+          : null;
+        if (!invoiceDate) return false;
+
+        // Check if invoice date is within the selected month
+        return (
+          invoiceDate.getFullYear() === selectedMonth.getFullYear() &&
+          invoiceDate.getMonth() === selectedMonth.getMonth()
+        );
+      })();
+
       // const matchesStatus =
       //   statusFilter === "all" || invoice.processing_status === statusFilter;
 
-      return matchesSearch && matchesSupplier;
+      return matchesSearch && matchesSupplier && matchesReceiver && matchesDate;
     });
-  }, [invoices, searchTerm, supplierFilter]);
+  }, [invoices, searchTerm, supplierFilter, receiverFilter, selectedMonth]);
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -98,6 +132,10 @@ export function ReceivedInvoices() {
 
   const handleViewInvoice = (invoice: ReceivedInvoice) => {
     setSelectedInvoice(invoice);
+    setEditForm({
+      receiver_id: invoice.receiver_id || "",
+    });
+    setIsEditing(false);
     setIsDetailDialogOpen(true);
   };
 
@@ -112,6 +150,48 @@ export function ReceivedInvoices() {
       toast({
         title: "Chyba",
         description: "Nepodařilo se smazat fakturu",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditToggle = () => {
+    setIsEditing(!isEditing);
+    if (isEditing) {
+      // Reset form when canceling edit
+      setEditForm({
+        receiver_id: selectedInvoice?.receiver_id || "",
+      });
+    }
+  };
+
+  const handleUpdateInvoice = async () => {
+    if (!selectedInvoice) return;
+
+    try {
+      await updateInvoiceMutation.mutateAsync({
+        id: selectedInvoice.id,
+        receiver_id: editForm.receiver_id,
+      });
+
+      // Update the selected invoice with new data
+      setSelectedInvoice({
+        ...selectedInvoice,
+        receiver_id: editForm.receiver_id,
+      });
+
+      setIsEditing(false);
+      toast({
+        title: "Úspěch",
+        description: "Faktura byla úspěšně aktualizována",
+      });
+    } catch (error: any) {
+      console.error("Error updating invoice:", error);
+      toast({
+        title: "Chyba",
+        description:
+          error?.message ||
+          "Nepodařilo se aktualizovat fakturu. Zkontrolujte, zda je sloupec receiver_id přidán do databáze.",
         variant: "destructive",
       });
     }
@@ -167,7 +247,7 @@ export function ReceivedInvoices() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Hledat podle čísla faktury, dodavatele nebo poznámek..."
+                placeholder="Hledat podle čísla faktury, dodavatele, příjemce..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -175,7 +255,7 @@ export function ReceivedInvoices() {
             </div>
 
             {/* Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="space-y-2">
                 <Label>Dodavatel</Label>
                 <Select
@@ -192,6 +272,107 @@ export function ReceivedInvoices() {
                         {supplier.full_name}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Příjemce</Label>
+                <Select
+                  value={receiverFilter}
+                  onValueChange={setReceiverFilter}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Všichni příjemci" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Všichni příjemci</SelectItem>
+                    {storeUsers.map((receiver) => (
+                      <SelectItem key={receiver.id} value={receiver.id}>
+                        {receiver.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Měsíc</Label>
+                <Select
+                  value={`${selectedMonth.getFullYear()}-${selectedMonth.getMonth()}`}
+                  onValueChange={(value) => {
+                    const [year, month] = value.split("-");
+                    setSelectedMonth(
+                      new Date(parseInt(year), parseInt(month), 1)
+                    );
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue>
+                      {(() => {
+                        const months = [
+                          "Leden",
+                          "Únor",
+                          "Březen",
+                          "Duben",
+                          "Květen",
+                          "Červen",
+                          "Červenec",
+                          "Srpen",
+                          "Září",
+                          "Říjen",
+                          "Listopad",
+                          "Prosinec",
+                        ];
+                        return `${months[selectedMonth.getMonth()]} ${selectedMonth.getFullYear()}`;
+                      })()}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(() => {
+                      const months = [
+                        "Leden",
+                        "Únor",
+                        "Březen",
+                        "Duben",
+                        "Květen",
+                        "Červen",
+                        "Červenec",
+                        "Srpen",
+                        "Září",
+                        "Říjen",
+                        "Listopad",
+                        "Prosinec",
+                      ];
+                      const currentYear = new Date().getFullYear();
+                      const options = [];
+
+                      // Add current year months
+                      for (let month = 0; month < 12; month++) {
+                        options.push(
+                          <SelectItem
+                            key={`${currentYear}-${month}`}
+                            value={`${currentYear}-${month}`}
+                          >
+                            {months[month]} {currentYear}
+                          </SelectItem>
+                        );
+                      }
+
+                      // Add previous year months
+                      for (let month = 0; month < 12; month++) {
+                        options.push(
+                          <SelectItem
+                            key={`${currentYear - 1}-${month}`}
+                            value={`${currentYear - 1}-${month}`}
+                          >
+                            {months[month]} {currentYear - 1}
+                          </SelectItem>
+                        );
+                      }
+
+                      return options;
+                    })()}
                   </SelectContent>
                 </Select>
               </div>
@@ -245,6 +426,7 @@ export function ReceivedInvoices() {
                   <TableRow>
                     <TableHead>Číslo faktury</TableHead>
                     <TableHead>Dodavatel</TableHead>
+                    <TableHead>Příjemce</TableHead>
                     <TableHead>Datum přijetí</TableHead>
                     <TableHead>Částka bez DPH</TableHead>
                     {/* <TableHead>Status</TableHead> */}
@@ -264,6 +446,12 @@ export function ReceivedInvoices() {
                           {invoice.supplier?.full_name ||
                             invoice.supplier_name ||
                             "Neznámý dodavatel"}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          {invoice.receiver?.full_name || "Neznámý příjemce"}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -338,10 +526,46 @@ export function ReceivedInvoices() {
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Detail faktury
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Detail faktury
+              </DialogTitle>
+              <div className="flex gap-2">
+                {!isEditing ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleEditToggle}
+                    className="flex items-center gap-2"
+                  >
+                    <Edit className="h-4 w-4" />
+                    Upravit
+                  </Button>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleEditToggle}
+                      className="flex items-center gap-2"
+                    >
+                      <X className="h-4 w-4" />
+                      Zrušit
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleUpdateInvoice}
+                      className="flex items-center gap-2"
+                      disabled={updateInvoiceMutation.isPending}
+                    >
+                      <Save className="h-4 w-4" />
+                      Uložit
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
           </DialogHeader>
 
           {selectedInvoice && (
@@ -390,24 +614,38 @@ export function ReceivedInvoices() {
                       </p>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium">Status</Label>
-                      <Badge
-                        variant={
-                          selectedInvoice.processing_status === "approved"
-                            ? "default"
-                            : selectedInvoice.processing_status === "rejected"
-                              ? "destructive"
-                              : "secondary"
-                        }
-                      >
-                        {selectedInvoice.processing_status === "pending" &&
-                          "Čekající"}
-                        {selectedInvoice.processing_status === "approved" &&
-                          "Schváleno"}
-                        {selectedInvoice.processing_status === "rejected" &&
-                          "Zamítnuto"}
-                        {!selectedInvoice.processing_status && "Neznámý"}
-                      </Badge>
+                      <Label className="text-sm font-medium">Příjemce</Label>
+                      {isEditing ? (
+                        <Select
+                          value={editForm.receiver_id}
+                          onValueChange={(value) =>
+                            setEditForm((prev) => ({
+                              ...prev,
+                              receiver_id: value,
+                            }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Vyberte příjemce" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {storeUsers.map((user) => (
+                              <SelectItem key={user.id} value={user.id}>
+                                {user.full_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <p className="text-lg">
+                          {selectedInvoice.receiver_id
+                            ? storeUsers.find(
+                                (user) =>
+                                  user.id === selectedInvoice.receiver_id
+                              )?.full_name || "Neznámý příjemce"
+                            : "Není nastaven"}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </CardContent>

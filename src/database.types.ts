@@ -190,6 +190,47 @@ export type Database = {
           },
         ]
       }
+      daily_ingredient_consumption: {
+        Row: {
+          created_at: string
+          date: string
+          id: number
+          ingredient_id: number
+          order_count: number
+          quantity: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: number
+          ingredient_id: number
+          order_count?: number
+          quantity?: number
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: number
+          ingredient_id?: number
+          order_count?: number
+          quantity?: number
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_ingredient_consumption_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       device_printer_settings: {
         Row: {
           created_at: string | null
@@ -679,6 +720,7 @@ export type Database = {
           processed_document_url: string | null
           processing_errors: string[] | null
           raw_document_ai_response: Json | null
+          receiver_id: string | null
           supplier_address: string | null
           supplier_id: string | null
           supplier_name: string | null
@@ -700,6 +742,7 @@ export type Database = {
           processed_document_url?: string | null
           processing_errors?: string[] | null
           raw_document_ai_response?: Json | null
+          receiver_id?: string | null
           supplier_address?: string | null
           supplier_id?: string | null
           supplier_name?: string | null
@@ -721,6 +764,7 @@ export type Database = {
           processed_document_url?: string | null
           processing_errors?: string[] | null
           raw_document_ai_response?: Json | null
+          receiver_id?: string | null
           supplier_address?: string | null
           supplier_id?: string | null
           supplier_name?: string | null
@@ -733,6 +777,13 @@ export type Database = {
           {
             foreignKeyName: "invoices_received_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_received_receiver_id_fkey"
+            columns: ["receiver_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1913,12 +1964,20 @@ export type Database = {
         Returns: unknown
       }
       initialize_ingredient_quantities: {
-        Args: Record<PropertyKey, never>
+        Args: Record<PropertyKey, never> | { p_user_id?: string }
         Returns: undefined
       }
       log_network_status: {
         Args: { status_data: Json }
         Returns: undefined
+      }
+      manual_sync_baker_productions: {
+        Args: { target_date?: string }
+        Returns: {
+          created_count: number
+          message: string
+          updated_count: number
+        }[]
       }
       match_ingredient_by_description: {
         Args: { description_text: string }
@@ -1943,6 +2002,30 @@ export type Database = {
       show_trgm: {
         Args: { "": string }
         Returns: string[]
+      }
+      sync_baker_productions_for_date: {
+        Args: { target_date: string }
+        Returns: {
+          created_count: number
+          updated_count: number
+        }[]
+      }
+      sync_bakers_for_date: {
+        Args: { target_date: string; target_user_id: string }
+        Returns: {
+          baker_id: number
+          category_name: string
+          total_products: number
+          total_quantity: number
+        }[]
+      }
+      sync_bakers_for_date_range: {
+        Args: { end_date: string; start_date: string; target_user_id?: string }
+        Returns: {
+          bakers_created: number
+          bakers_updated: number
+          date_processed: string
+        }[]
       }
       update_device_heartbeat: {
         Args: { device_id: string }
