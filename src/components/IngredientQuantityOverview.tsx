@@ -37,6 +37,7 @@ import { useIngredients } from "@/hooks/useIngredients";
 import { useUsers } from "@/hooks/useProfiles";
 import { supabase } from "@/lib/supabase";
 import { MonthlyIngredientConsumption } from "./MonthlyIngredientConsumption";
+import { StoreProductionIngredientConsumption } from "./StoreProductionIngredientConsumption";
 import { DailyIngredientConsumption } from "./DailyIngredientConsumption";
 import { ProductionCalendar } from "./ProductionCalendar";
 import { useQuery } from "@tanstack/react-query";
@@ -952,11 +953,14 @@ export function IngredientQuantityOverview() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="overview">Přehled zásob</TabsTrigger>
               <TabsTrigger value="low-stock">Nízké zásoby</TabsTrigger>
               <TabsTrigger value="daily">Denní spotřeba</TabsTrigger>
               <TabsTrigger value="consumption">Měsíční spotřeba</TabsTrigger>
+              <TabsTrigger value="store-consumption">
+                Spotřeba prodejen
+              </TabsTrigger>
               <TabsTrigger value="calendar">Kalendář produkce</TabsTrigger>
             </TabsList>
 
@@ -1243,6 +1247,11 @@ export function IngredientQuantityOverview() {
             {/* Monthly Consumption Tab */}
             <TabsContent value="consumption" className="space-y-6 mt-6">
               <MonthlyIngredientConsumption />
+            </TabsContent>
+
+            {/* Store Consumption Tab */}
+            <TabsContent value="store-consumption" className="space-y-6 mt-6">
+              <StoreProductionIngredientConsumption />
             </TabsContent>
 
             {/* Production Calendar Tab */}
