@@ -23,6 +23,15 @@ export interface IngredientQuantity {
       id: string;
       full_name: string;
     };
+    ingredient_supplier_codes?: Array<{
+      id: number;
+      supplier_id: string;
+      is_active: boolean;
+      supplier?: {
+        id: string;
+        full_name: string;
+      };
+    }>;
   };
 }
 
@@ -51,9 +60,14 @@ export function useIngredientQuantities() {
               id,
               name
             ),
-            supplier:profiles!ingredients_supplier_id_fkey(
+            ingredient_supplier_codes!ingredient_supplier_codes_ingredient_id_fkey(
               id,
-              full_name
+              supplier_id,
+              is_active,
+              supplier:profiles!ingredient_supplier_codes_supplier_id_fkey(
+                id,
+                full_name
+              )
             )
           )
         `)
@@ -89,9 +103,14 @@ export function useIngredientQuantitiesFiltered(filters?: {
               id,
               name
             ),
-            supplier:profiles!ingredients_supplier_id_fkey(
+            ingredient_supplier_codes!ingredient_supplier_codes_ingredient_id_fkey(
               id,
-              full_name
+              supplier_id,
+              is_active,
+              supplier:profiles!ingredient_supplier_codes_supplier_id_fkey(
+                id,
+                full_name
+              )
             )
           )
         `);

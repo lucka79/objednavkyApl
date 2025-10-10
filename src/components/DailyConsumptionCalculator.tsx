@@ -10,15 +10,12 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Calculator,
@@ -35,21 +32,6 @@ import { cs } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useDailyConsumption } from "@/hooks/useDailyConsumption";
 import { useUpdateIngredientQuantity } from "@/hooks/useIngredientQuantities";
-
-interface ConsumptionItem {
-  ingredientId: number;
-  ingredientName: string;
-  unit: string;
-  totalConsumption: number;
-  currentQuantity: number;
-  newQuantity: number;
-  orders: Array<{
-    orderId: number;
-    productName: string;
-    quantity: number;
-    consumption: number;
-  }>;
-}
 
 export function DailyConsumptionCalculator() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -96,8 +78,9 @@ export function DailyConsumptionCalculator() {
       // Update quantities for each ingredient
       const updatePromises = consumptionData.map((item) =>
         updateQuantity.mutateAsync({
-          ingredientId: item.ingredientId,
-          quantityChange: -item.totalConsumption,
+          ingredient_id: item.ingredientId,
+          quantity_change: -item.totalConsumption,
+          operation_type: "decrease",
         })
       );
 

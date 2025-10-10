@@ -33,6 +33,8 @@ import { useToast } from "@/hooks/use-toast";
 import { removeDiacritics } from "@/utils/removeDiacritics";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+import { format } from "date-fns";
+import { cs } from "date-fns/locale";
 
 export function MonthlyIngredientConsumption() {
   const [globalFilter, setGlobalFilter] = useState("");
@@ -95,15 +97,21 @@ export function MonthlyIngredientConsumption() {
               id,
               name
             ),
-            supplier:profiles!ingredients_supplier_id_fkey(
+            ingredient_supplier_codes!ingredient_supplier_codes_ingredient_id_fkey(
               id,
-              full_name
+              supplier_id,
+              is_active,
+              supplier:profiles!ingredient_supplier_codes_supplier_id_fkey(
+                id,
+                full_name
+              )
             )
           )
         `
         )
         .gte("date", startDateStr)
-        .lte("date", endDateStr);
+        .lte("date", endDateStr)
+        .limit(10000); // Remove default 1000 row limit
 
       if (consumptionError) {
         console.error(
@@ -121,6 +129,19 @@ export function MonthlyIngredientConsumption() {
       // Group by month and ingredient
       const monthlyConsumptionMap = new Map<string, Map<number, any>>();
 
+      // Debug tracking for specific ingredient
+      const debugIngredientName = "Pšen.mouka světlá T530";
+      const debugTracking: Array<{
+        date: string;
+        quantity: number;
+      }> = [];
+
+      console.log(
+        `\n=== DEBUG MONTHLY CONSUMPTION: ${debugIngredientName} ===`
+      );
+      console.log(`Date range: ${startDateStr} to ${endDateStr}`);
+      console.log(`Total records found: ${consumptionData.length}`);
+
       consumptionData.forEach((item) => {
         if (!item.ingredients) return;
 
@@ -128,6 +149,17 @@ export function MonthlyIngredientConsumption() {
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
         const ingredientId = item.ingredient_id;
         const quantity = item.quantity || 0;
+
+        // Debug tracking for specific ingredient
+        if (
+          item.ingredients &&
+          item.ingredients[0]?.name === debugIngredientName
+        ) {
+          debugTracking.push({
+            date: item.date,
+            quantity: quantity,
+          });
+        }
 
         if (!monthlyConsumptionMap.has(monthKey)) {
           monthlyConsumptionMap.set(monthKey, new Map());
@@ -141,6 +173,12 @@ export function MonthlyIngredientConsumption() {
         } else {
           // Type assertion to handle the complex nested structure
           const ingredient = item.ingredients as any;
+
+          // Find active supplier from ingredient_supplier_codes
+          const activeSupplier = ingredient.ingredient_supplier_codes?.find(
+            (code: any) => code.is_active
+          )?.supplier;
+
           monthMap.set(ingredientId, {
             month: monthKey,
             ingredientId: ingredientId,
@@ -148,10 +186,43 @@ export function MonthlyIngredientConsumption() {
             totalQuantity: quantity,
             unit: ingredient.unit || "kg",
             categoryName: ingredient.ingredient_categories?.name,
-            supplierName: ingredient.supplier?.full_name,
+            supplierName: activeSupplier?.full_name,
           });
         }
       });
+
+      // Debug output for specific ingredient
+      if (debugTracking.length > 0) {
+        console.log(
+          `\nRecords for ${debugIngredientName}: ${debugTracking.length}`
+        );
+
+        // Group by date and sum quantities
+        const byDate = new Map<string, number>();
+        debugTracking.forEach((item) => {
+          const current = byDate.get(item.date) || 0;
+          byDate.set(item.date, current + item.quantity);
+        });
+
+        console.log(`Daily consumption:`);
+        Array.from(byDate.entries())
+          .sort(([a], [b]) => a.localeCompare(b))
+          .forEach(([date, total]) => {
+            console.log(`  ${date}: ${total.toFixed(2)} kg`);
+          });
+
+        const totalConsumption = debugTracking.reduce(
+          (sum, item) => sum + item.quantity,
+          0
+        );
+        console.log(
+          `Total consumption for period: ${totalConsumption.toFixed(2)} kg`
+        );
+        console.log(`=== END DEBUG ===\n`);
+      } else {
+        console.log(`No records found for ${debugIngredientName}`);
+        console.log(`=== END DEBUG ===\n`);
+      }
 
       // Convert to array format
       const result = [];
@@ -320,6 +391,7 @@ export function MonthlyIngredientConsumption() {
       "Měsíc",
       "Surovina",
       "Množství",
+      "Celkem z DB",
       "Jednotka",
       "Kategorie",
       "Dodavatel",
@@ -327,6 +399,7 @@ export function MonthlyIngredientConsumption() {
     const csvData = searchFilteredData.map((item) => [
       item.month,
       item.ingredientName,
+      item.totalQuantity.toFixed(2),
       item.totalQuantity.toFixed(2),
       item.unit,
       item.categoryName || "—",
@@ -453,6 +526,10 @@ export function MonthlyIngredientConsumption() {
               Celkem surovin: {summaryStats.totalIngredients} | Měsíců:{" "}
               {summaryStats.totalMonths}
             </p>
+            <p className="text-sm text-muted-foreground">
+              Období: {format(startDate, "d. MMMM yyyy", { locale: cs })} -{" "}
+              {format(endDate, "d. MMMM yyyy", { locale: cs })}
+            </p>
           </div>
           <div className="flex gap-2">
             <Button
@@ -572,6 +649,9 @@ export function MonthlyIngredientConsumption() {
                         <TableHead>Kategorie</TableHead>
                         <TableHead>Dodavatel</TableHead>
                         <TableHead className="text-right">Spotřeba</TableHead>
+                        <TableHead className="text-right">
+                          Celkem z DB
+                        </TableHead>
                         <TableHead>Jednotka</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -597,6 +677,11 @@ export function MonthlyIngredientConsumption() {
                             </TableCell>
                             <TableCell className="text-right">
                               <span className="text-sm font-mono font-semibold">
+                                {item.totalQuantity.toFixed(2)}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span className="text-sm font-mono text-blue-600">
                                 {item.totalQuantity.toFixed(2)}
                               </span>
                             </TableCell>

@@ -35,14 +35,13 @@ export const useDailyIngredientConsumption = (date: Date) => {
           id,
           date,
           ingredient_id,
-          product_id,
           quantity,
           source,
           order_count,
-          ingredients(id, name, unit),
-          products(id, name)
+          ingredients(id, name, unit)
         `)
-        .eq("date", dateStr);
+        .eq("date", dateStr)
+        .limit(10000); // Remove default 1000 row limit
 
       if (error) {
         console.error("Error fetching daily consumption:", error);
@@ -53,8 +52,8 @@ export const useDailyIngredientConsumption = (date: Date) => {
         date: item.date,
         ingredientId: item.ingredient_id,
         ingredientName: item.ingredients?.name || "Unknown",
-        productId: item.product_id,
-        productName: item.products?.name || "Unknown",
+        productId: 0, // No longer tracking products
+        productName: "Aggregated", // All products aggregated
         quantity: item.quantity,
         unit: item.ingredients?.unit || "kg",
         source: item.source,
@@ -62,7 +61,7 @@ export const useDailyIngredientConsumption = (date: Date) => {
       }));
 
       const totalIngredients = new Set(items.map(i => i.ingredientId)).size;
-      const totalProducts = new Set(items.map(i => i.productId)).size;
+      const totalProducts = 0; // No longer tracking individual products
 
       return {
         date: dateStr,
@@ -504,7 +503,6 @@ export const useCalculateDailyConsumptionFromProduction = () => {
       const consumptionMap = new Map<string, {
         date: string;
         ingredient_id: number;
-        product_id: number;
         quantity: number;
         source: 'recipe' | 'direct';
         order_count: number;
@@ -552,7 +550,7 @@ export const useCalculateDailyConsumptionFromProduction = () => {
             const ingredientRatio = recipeIngredient.quantity / totalRecipeWeight;
             const consumption = totalDoughWeight * ingredientRatio;
             
-            const key = `${dateStr}-${recipeIngredient.ingredient_id}-${bakerItem.product_id}-recipe`;
+            const key = `${dateStr}-${recipeIngredient.ingredient_id}-recipe`;
 
             // Track specific ingredient for debugging
             if (recipeIngredient.ingredients?.name === debugIngredientName) {
@@ -573,7 +571,6 @@ export const useCalculateDailyConsumptionFromProduction = () => {
               consumptionMap.set(key, {
                 date: dateStr,
                 ingredient_id: recipeIngredient.ingredient_id,
-                product_id: bakerItem.product_id,
                 quantity: consumption,
                 source: 'recipe',
                 order_count: 1,

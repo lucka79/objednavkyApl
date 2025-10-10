@@ -43,13 +43,14 @@ import { useUsers } from "@/hooks/useProfiles";
 import { supabase } from "@/lib/supabase";
 import { MonthlyIngredientConsumption } from "./MonthlyIngredientConsumption";
 import { DailyIngredientConsumption } from "./DailyIngredientConsumption";
-import { useCurrentMonthConsumption } from "@/hooks/useCurrentMonthConsumption";
+import { useQuery } from "@tanstack/react-query";
 
 export function IngredientQuantityOverview() {
   const [globalFilter, setGlobalFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("overview");
+  const [showZeroQuantities, setShowZeroQuantities] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(
     "e597fcc9-7ce8-407d-ad1a-fdace061e42f"
   );
@@ -59,7 +60,79 @@ export function IngredientQuantityOverview() {
   const { data: quantities, isLoading, error } = useIngredientQuantities();
   const { data: ingredients } = useIngredients();
   const { data: allUsers } = useUsers();
-  const { data: currentMonthConsumption } = useCurrentMonthConsumption();
+  // Fetch monthly consumption data from daily_ingredient_consumption table
+  const { data: monthlyConsumption } = useQuery({
+    queryKey: ["monthlyConsumptionForOverview"],
+    queryFn: async () => {
+      const today = new Date();
+      const firstDayOfMonth = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        1
+      );
+      const tomorrow = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() + 1
+      );
+
+      const formatLocalDate = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      };
+
+      const startDateStr = formatLocalDate(firstDayOfMonth);
+      const endDateStr = formatLocalDate(tomorrow);
+
+      const { data: consumptionData, error } = await supabase
+        .from("daily_ingredient_consumption")
+        .select(
+          `
+          ingredient_id,
+          quantity
+        `
+        )
+        .gte("date", startDateStr)
+        .lte("date", endDateStr);
+
+      if (error) {
+        console.error("Error fetching monthly consumption:", error);
+        throw error;
+      }
+
+      if (!consumptionData || consumptionData.length === 0) {
+        return [];
+      }
+
+      // Aggregate consumption by ingredient
+      const consumptionMap = new Map<number, number>();
+
+      consumptionData.forEach((item) => {
+        const ingredientId = item.ingredient_id;
+        const quantity = item.quantity || 0;
+
+        if (consumptionMap.has(ingredientId)) {
+          consumptionMap.set(
+            ingredientId,
+            consumptionMap.get(ingredientId)! + quantity
+          );
+        } else {
+          consumptionMap.set(ingredientId, quantity);
+        }
+      });
+
+      return Array.from(consumptionMap.entries()).map(
+        ([ingredientId, totalQuantity]) => ({
+          ingredientId,
+          totalQuantity,
+        })
+      );
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    enabled: true,
+  });
   const { toast } = useToast();
   const initializeQuantities = useInitializeIngredientQuantities();
 
@@ -86,39 +159,58 @@ export function IngredientQuantityOverview() {
 
     // Create a map of consumption data for quick lookup
     const consumptionMap = new Map<number, number>();
-    if (currentMonthConsumption) {
-      currentMonthConsumption.forEach((consumption) => {
+    if (monthlyConsumption) {
+      monthlyConsumption.forEach((consumption) => {
         consumptionMap.set(consumption.ingredientId, consumption.totalQuantity);
       });
     }
 
-    return quantities.map((qty) => {
-      const status =
-        qty.current_quantity < 10
-          ? "low"
-          : qty.current_quantity > 80
-            ? "high"
-            : "normal";
-      const price = qty.ingredient?.price || 0;
-      const monthlyConsumption = consumptionMap.get(qty.ingredient_id) || 0;
+    return quantities
+      .filter((qty) => showZeroQuantities || qty.current_quantity > 0) // Conditionally hide zero quantity ingredients
+      .map((qty) => {
+        const status =
+          qty.current_quantity < 10
+            ? "low"
+            : qty.current_quantity > 80
+              ? "high"
+              : "normal";
+        const price = qty.ingredient?.price || 0;
+        const monthlyConsumption = consumptionMap.get(qty.ingredient_id) || 0;
 
-      return {
-        id: qty.id,
-        ingredientId: qty.ingredient_id,
-        name: qty.ingredient?.name || "Neznámá surovina",
-        currentQuantity: qty.current_quantity,
-        monthlyConsumption,
-        unit: qty.unit,
-        category:
-          qty.ingredient?.ingredient_categories?.name || "Bez kategorie",
-        supplier: qty.ingredient?.supplier?.full_name || "—",
-        lastUpdated: qty.last_updated,
-        status,
-        price,
-        totalValue: qty.current_quantity * price,
-      };
-    });
-  }, [quantities, currentMonthConsumption]);
+        // Find active supplier from ingredient_supplier_codes
+        const activeSupplier = qty.ingredient?.ingredient_supplier_codes?.find(
+          (code: any) => code.is_active
+        )?.supplier;
+
+        return {
+          id: qty.id,
+          ingredientId: qty.ingredient_id,
+          name: qty.ingredient?.name || "Neznámá surovina",
+          currentQuantity: qty.current_quantity,
+          monthlyConsumption,
+          unit: qty.unit,
+          category:
+            qty.ingredient?.ingredient_categories?.name || "Bez kategorie",
+          supplier: activeSupplier?.full_name || "—",
+          lastUpdated: qty.last_updated,
+          status,
+          price,
+          totalValue: qty.current_quantity * price,
+        };
+      })
+      .sort((a, b) => {
+        // First sort by supplier name
+        const supplierA = a.supplier || "—";
+        const supplierB = b.supplier || "—";
+
+        if (supplierA !== supplierB) {
+          return supplierA.localeCompare(supplierB);
+        }
+
+        // Then sort by ingredient name
+        return a.name.localeCompare(b.name);
+      });
+  }, [quantities, monthlyConsumption, showZeroQuantities]);
 
   // Filter ingredients based on search, category, and status
   const filteredQuantities = useMemo(() => {
@@ -347,6 +439,23 @@ export function IngredientQuantityOverview() {
               </p>
             </div>
             <div className="flex gap-2">
+              <Button
+                onClick={() => setShowZeroQuantities(!showZeroQuantities)}
+                variant={showZeroQuantities ? "default" : "outline"}
+                size="sm"
+              >
+                {showZeroQuantities ? (
+                  <>
+                    <Package className="h-4 w-4 mr-2" />
+                    Skrýt nulové
+                  </>
+                ) : (
+                  <>
+                    <Package className="h-4 w-4 mr-2" />
+                    Zobrazit nulové
+                  </>
+                )}
+              </Button>
               <Select
                 value={selectedUserId}
                 onValueChange={(value) => {
@@ -501,7 +610,15 @@ export function IngredientQuantityOverview() {
                       <TableHead className="text-right">Množství</TableHead>
                       <TableHead>Jednotka</TableHead>
                       <TableHead className="text-right">
-                        Spotřeba (měsíc)
+                        <div className="flex flex-col items-end">
+                          <span>Spotřeba (měsíc)</span>
+                          <span className="text-xs text-muted-foreground font-normal">
+                            {new Date().getFullYear()}-
+                            {String(new Date().getMonth() + 1).padStart(2, "0")}
+                            -01 až{" "}
+                            {String(new Date().getDate() + 1).padStart(2, "0")}
+                          </span>
+                        </div>
                       </TableHead>
                       <TableHead className="text-right">Cena</TableHead>
                       <TableHead className="text-right">Hodnota</TableHead>
