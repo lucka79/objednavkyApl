@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -11,13 +11,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Search,
@@ -75,13 +68,28 @@ interface IngredientBreakdown {
   }[];
 }
 
-export function StoreProductionIngredientConsumption() {
+interface StoreProductionIngredientConsumptionProps {
+  selectedUserId?: string;
+}
+
+export function StoreProductionIngredientConsumption({
+  selectedUserId: propSelectedUserId,
+}: StoreProductionIngredientConsumptionProps) {
   const [globalFilter, setGlobalFilter] = useState("");
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(
+    propSelectedUserId || null
+  );
   const [selectedIngredient, setSelectedIngredient] =
     useState<IngredientConsumption | null>(null);
   const [showBreakdownDialog, setShowBreakdownDialog] = useState(false);
   const { toast } = useToast();
+
+  // Update selectedUserId when prop changes
+  useEffect(() => {
+    if (propSelectedUserId) {
+      setSelectedUserId(propSelectedUserId);
+    }
+  }, [propSelectedUserId]);
 
   // Set default date range to current month
   const currentDate = new Date();
@@ -715,10 +723,13 @@ export function StoreProductionIngredientConsumption() {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `spotreba_surovin_prodejny_${format(new Date(), "yyyy-MM-dd_HH-mm")}.csv`
-    );
+
+    const storeName = selectedUserId
+      ? storeUsers?.find((u) => u.id === selectedUserId)?.full_name || ""
+      : "vsechny";
+    const fileName = `spotreba_surovin_${storeName.replace(/\s+/g, "_")}_${format(new Date(), "yyyy-MM-dd_HH-mm")}.csv`;
+
+    link.setAttribute("download", fileName);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
@@ -778,7 +789,7 @@ export function StoreProductionIngredientConsumption() {
         <CardContent>
           <div className="space-y-4">
             {/* Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center gap-2">
                 <Search className="h-4 w-4 text-muted-foreground" />
                 <Input
@@ -787,25 +798,6 @@ export function StoreProductionIngredientConsumption() {
                   onChange={(e) => setGlobalFilter(e.target.value)}
                 />
               </div>
-
-              <Select
-                value={selectedUserId || "all"}
-                onValueChange={(value) =>
-                  setSelectedUserId(value === "all" ? null : value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Všechny prodejny" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Všechny prodejny</SelectItem>
-                  {storeUsers?.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
 
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -817,20 +809,31 @@ export function StoreProductionIngredientConsumption() {
             </div>
 
             {/* Summary */}
-            <div className="flex items-center justify-between p-4 bg-orange-50 rounded-lg border border-orange-200">
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  Celkové náklady na suroviny
-                </p>
-                <p className="text-2xl font-bold text-orange-600">
-                  {ingredientConsumption.totalCost.toFixed(2)} Kč
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Počet položek</p>
-                <p className="text-2xl font-bold">
-                  {filteredIngredients.length}
-                </p>
+            <div className="space-y-2">
+              {selectedUserId && (
+                <div className="text-sm text-muted-foreground">
+                  Prodejna:{" "}
+                  <span className="font-semibold">
+                    {storeUsers?.find((u) => u.id === selectedUserId)
+                      ?.full_name || "Všechny prodejny"}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between p-4 bg-orange-50 rounded-lg border border-orange-200">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Celkové náklady na suroviny
+                  </p>
+                  <p className="text-2xl font-bold text-orange-600">
+                    {ingredientConsumption.totalCost.toFixed(2)} Kč
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Počet položek</p>
+                  <p className="text-2xl font-bold">
+                    {filteredIngredients.length}
+                  </p>
+                </div>
               </div>
             </div>
 

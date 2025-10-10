@@ -164,6 +164,12 @@ export function IngredientQuantityOverview() {
   const { data: ingredients } = useIngredients();
   const { data: allUsers } = useUsers();
 
+  // Filter only store users
+  const storeUsers = useMemo(() => {
+    if (!allUsers) return [];
+    return allUsers.filter((user: any) => user.role === "store");
+  }, [allUsers]);
+
   // Fetch suppliers for lookup (from profiles table)
   const { data: suppliers } = useQuery({
     queryKey: ["suppliers"],
@@ -687,10 +693,10 @@ export function IngredientQuantityOverview() {
             <div className="flex justify-center">
               <Select value={selectedUserId} onValueChange={setSelectedUserId}>
                 <SelectTrigger className="w-80">
-                  <SelectValue placeholder="Vyberte uživatele" />
+                  <SelectValue placeholder="Vyberte prodejnu" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(allUsers || []).map((user) => (
+                  {(storeUsers || []).map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.full_name}
                     </SelectItem>
@@ -728,7 +734,7 @@ export function IngredientQuantityOverview() {
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Uživatel:{" "}
-                {allUsers?.find((user) => user.id === selectedUserId)
+                {storeUsers?.find((user) => user.id === selectedUserId)
                   ?.full_name || selectedUserId}
                 {inventoryDate && (
                   <span className="ml-2">
@@ -844,10 +850,10 @@ export function IngredientQuantityOverview() {
                 }}
               >
                 <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Vyberte uživatele" />
+                  <SelectValue placeholder="Vyberte prodejnu" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(allUsers || []).map((user) => (
+                  {(storeUsers || []).map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.full_name}
                     </SelectItem>
@@ -1251,7 +1257,9 @@ export function IngredientQuantityOverview() {
 
             {/* Store Consumption Tab */}
             <TabsContent value="store-consumption" className="space-y-6 mt-6">
-              <StoreProductionIngredientConsumption />
+              <StoreProductionIngredientConsumption
+                selectedUserId={selectedUserId}
+              />
             </TabsContent>
 
             {/* Production Calendar Tab */}
