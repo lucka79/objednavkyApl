@@ -35,6 +35,7 @@ interface IngredientConsumption {
   totalCost: number;
   categoryName: string;
   type: "ingredient" | "product";
+  supplierName?: string;
 }
 
 interface IngredientBreakdown {
@@ -189,7 +190,23 @@ export function StoreProductionIngredientConsumption({
           bakerOnly,
           recipes (id, name, quantity),
           products:pastry_id (id, name, priceBuyer),
-          ingredients (id, name, unit, price, kiloPerUnit, ingredient_categories (name))
+          ingredients (
+            id, 
+            name, 
+            unit, 
+            price, 
+            kiloPerUnit, 
+            ingredient_categories (name),
+            ingredient_supplier_codes!ingredient_supplier_codes_ingredient_id_fkey(
+              id,
+              supplier_id,
+              is_active,
+              supplier:profiles!ingredient_supplier_codes_supplier_id_fkey(
+                id,
+                full_name
+              )
+            )
+          )
         `
         )
         .in("product_id", productIds);
@@ -231,7 +248,16 @@ export function StoreProductionIngredientConsumption({
             unit,
             price,
             kiloPerUnit,
-            ingredient_categories (name)
+            ingredient_categories (name),
+            ingredient_supplier_codes!ingredient_supplier_codes_ingredient_id_fkey(
+              id,
+              supplier_id,
+              is_active,
+              supplier:profiles!ingredient_supplier_codes_supplier_id_fkey(
+                id,
+                full_name
+              )
+            )
           ),
           recipes (
             id,
@@ -352,6 +378,12 @@ export function StoreProductionIngredientConsumption({
                   displayUnit = "kg";
                 }
 
+                // Find active supplier
+                const activeSupplier =
+                  ingredient.ingredient_supplier_codes?.find(
+                    (code: any) => code.is_active
+                  )?.supplier;
+
                 const key = `ingredient_${ingredient.id}`;
                 if (!consumptionMap.has(key)) {
                   consumptionMap.set(key, {
@@ -364,6 +396,7 @@ export function StoreProductionIngredientConsumption({
                     categoryName:
                       ingredient.ingredient_categories?.name || "Nezařazené",
                     type: "ingredient",
+                    supplierName: activeSupplier?.full_name || "-",
                   });
                 }
 
@@ -392,6 +425,11 @@ export function StoreProductionIngredientConsumption({
               displayUnit = "kg";
             }
 
+            // Find active supplier
+            const activeSupplier = ingredient.ingredient_supplier_codes?.find(
+              (code: any) => code.is_active
+            )?.supplier;
+
             const key = `ingredient_${ingredient.id}`;
             if (!consumptionMap.has(key)) {
               consumptionMap.set(key, {
@@ -404,6 +442,7 @@ export function StoreProductionIngredientConsumption({
                 categoryName:
                   ingredient.ingredient_categories?.name || "Nezařazené",
                 type: "ingredient",
+                supplierName: activeSupplier?.full_name || "-",
               });
             }
 
@@ -433,6 +472,7 @@ export function StoreProductionIngredientConsumption({
                 totalCost: 0,
                 categoryName: "Produkty",
                 type: "product",
+                supplierName: "-",
               });
             }
 
@@ -688,13 +728,13 @@ export function StoreProductionIngredientConsumption({
   // Export to CSV
   const exportToCSV = () => {
     const csvHeader =
-      "Název suroviny,Typ,Množství,Jednotka,Cena za jednotku (Kč),Celkové náklady (Kč),Kategorie\n";
+      "Název suroviny,Typ,Dodavatel,Množství,Jednotka,Cena za jednotku (Kč),Celkové náklady (Kč),Kategorie\n";
     const csvData = ingredientConsumption.ingredients
       .map(
         (ingredient) =>
           `"${ingredient.name}","${
             ingredient.type === "product" ? "Produkt" : "Surovina"
-          }",${ingredient.quantity.toFixed(2)},"${
+          }","${ingredient.supplierName || "-"}",${ingredient.quantity.toFixed(2)},"${
             ingredient.unit
           }",${ingredient.price.toFixed(2)},${ingredient.totalCost.toFixed(
             2
@@ -705,7 +745,7 @@ export function StoreProductionIngredientConsumption({
     const csvContent =
       csvHeader +
       csvData +
-      `\n\nCelkové náklady:,,,,,${ingredientConsumption.totalCost.toFixed(2)},`;
+      `\n\nCelkové náklady:,,,,,,${ingredientConsumption.totalCost.toFixed(2)},`;
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
@@ -911,6 +951,7 @@ export function StoreProductionIngredientConsumption({
                         <TableRow>
                           <TableHead className="w-[300px]">Název</TableHead>
                           <TableHead className="w-[120px]">Typ</TableHead>
+                          <TableHead className="w-[200px]">Dodavatel</TableHead>
                           <TableHead className="text-right w-[120px]">
                             Množství
                           </TableHead>
@@ -944,6 +985,9 @@ export function StoreProductionIngredientConsumption({
                                   ? "Produkt"
                                   : "Surovina"}
                               </Badge>
+                            </TableCell>
+                            <TableCell className="w-[200px] text-sm text-muted-foreground">
+                              {ingredient.supplierName || "-"}
                             </TableCell>
                             <TableCell className="text-right w-[120px]">
                               {ingredient.quantity.toFixed(3)}

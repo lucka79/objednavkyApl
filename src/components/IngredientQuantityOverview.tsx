@@ -170,6 +170,13 @@ export function IngredientQuantityOverview() {
     return allUsers.filter((user: any) => user.role === "store");
   }, [allUsers]);
 
+  // Check if selected user is a store user (not APLICA - Pekárna výrobna)
+  const isStoreUser = useMemo(() => {
+    if (!selectedUserId || !storeUsers) return false;
+    const user = storeUsers.find((u: any) => u.id === selectedUserId);
+    return user && user.full_name !== "APLICA - Pekárna výrobna";
+  }, [selectedUserId, storeUsers]);
+
   // Fetch suppliers for lookup (from profiles table)
   const { data: suppliers } = useQuery({
     queryKey: ["suppliers"],
@@ -301,6 +308,253 @@ export function IngredientQuantityOverview() {
     staleTime: 1000 * 60 * 5, // 5 minutes
     enabled: !!selectedUserId,
   });
+  // Fetch store production consumption (for store users)
+  const { data: storeProductionConsumption } = useQuery({
+    queryKey: [
+      "storeProductionConsumption",
+      selectedUserId,
+      selectedMonth.toISOString(),
+    ],
+    queryFn: async () => {
+      const firstDayOfMonth = new Date(
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth(),
+        1
+      );
+      const lastDayOfMonth = new Date(
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth() + 1,
+        0
+      );
+
+      const formatLocalDate = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      };
+
+      const startDateStr = formatLocalDate(firstDayOfMonth);
+      const endDateStr = formatLocalDate(lastDayOfMonth);
+
+      // Fetch productions
+      const { data: productions, error: productionsError } = await supabase
+        .from("productions")
+        .select(
+          `
+          *,
+          production_items(
+            *,
+            products(*)
+          )
+        `
+        )
+        .eq("user_id", selectedUserId)
+        .gte("date", startDateStr)
+        .lte("date", endDateStr);
+
+      if (productionsError) throw productionsError;
+      if (!productions || productions.length === 0) return [];
+
+      // Get product IDs
+      const productIds = new Set<number>();
+      productions.forEach((production: any) => {
+        production.production_items?.forEach((item: any) => {
+          if (item.products?.id) {
+            productIds.add(item.products.id);
+          }
+        });
+      });
+
+      if (productIds.size === 0) return [];
+
+      // Fetch product parts
+      const { data: productParts, error: partsError } = await supabase
+        .from("product_parts")
+        .select(
+          `
+          product_id,
+          recipe_id,
+          pastry_id,
+          ingredient_id,
+          quantity,
+          productOnly,
+          bakerOnly,
+          recipes (id, name, quantity),
+          products:pastry_id (id, name, priceBuyer),
+          ingredients (
+            id,
+            name,
+            unit,
+            price,
+            kiloPerUnit,
+            ingredient_categories (name)
+          )
+        `
+        )
+        .in("product_id", Array.from(productIds));
+
+      if (partsError) throw partsError;
+      if (!productParts) return [];
+
+      // Get recipe IDs
+      const recipeIds = new Set<number>();
+      productParts.forEach((part: any) => {
+        if (part.recipe_id) {
+          recipeIds.add(part.recipe_id);
+        }
+      });
+
+      // Fetch recipe ingredients
+      const { data: recipeIngredients, error: recipeError } = await supabase
+        .from("recipe_ingredients")
+        .select(
+          `
+          recipe_id,
+          ingredient_id,
+          quantity,
+          ingredients (
+            id,
+            name,
+            unit,
+            price,
+            kiloPerUnit,
+            ingredient_categories (name)
+          ),
+          recipes (
+            id,
+            quantity,
+            name
+          )
+        `
+        )
+        .in("recipe_id", Array.from(recipeIds));
+
+      if (recipeError) throw recipeError;
+
+      // Calculate consumption
+      const consumptionMap = new Map<number, number>();
+
+      // Create mappings
+      const productToRecipeMap: Record<
+        number,
+        Array<{ recipe_id: number; quantity: number }>
+      > = {};
+      const productToIngredientsMap: Record<
+        number,
+        Array<{ ingredient_id: number; quantity: number; ingredient: any }>
+      > = {};
+
+      productParts.forEach((part: any) => {
+        if (part.recipe_id && !part.productOnly && !part.bakerOnly) {
+          if (!productToRecipeMap[part.product_id]) {
+            productToRecipeMap[part.product_id] = [];
+          }
+          productToRecipeMap[part.product_id].push({
+            recipe_id: part.recipe_id,
+            quantity: part.quantity,
+          });
+        }
+
+        if (part.ingredient_id && part.ingredients && !part.bakerOnly) {
+          if (!productToIngredientsMap[part.product_id]) {
+            productToIngredientsMap[part.product_id] = [];
+          }
+          productToIngredientsMap[part.product_id].push({
+            ingredient_id: part.ingredient_id,
+            quantity: part.quantity,
+            ingredient: part.ingredients,
+          });
+        }
+      });
+
+      // Process productions
+      productions.forEach((production: any) => {
+        production.production_items?.forEach((item: any) => {
+          if (item.products?.id && item.quantity) {
+            const productId = item.products.id;
+            const productQuantity = item.quantity;
+
+            // Process recipe-based ingredients
+            const recipes = productToRecipeMap[productId] || [];
+            recipes.forEach((recipeMapping: any) => {
+              const totalDoughWeight = recipeMapping.quantity * productQuantity;
+
+              const ingredientsForRecipe = (recipeIngredients || []).filter(
+                (ri: any) => ri.recipe_id === recipeMapping.recipe_id
+              );
+
+              ingredientsForRecipe.forEach((ri: any) => {
+                if (ri.ingredients && ri.recipes) {
+                  const ingredient = ri.ingredients;
+                  const baseQty = ri.quantity || 0;
+                  const baseRecipeWeight = ri.recipes.quantity || 1;
+                  const proportion = baseQty / baseRecipeWeight;
+                  let ingredientQuantity = proportion * totalDoughWeight;
+
+                  if (
+                    ingredient.unit &&
+                    ingredient.unit !== "kg" &&
+                    ingredient.kiloPerUnit
+                  ) {
+                    ingredientQuantity =
+                      ingredientQuantity * ingredient.kiloPerUnit;
+                  }
+
+                  const ingredientId = ingredient.id;
+                  if (consumptionMap.has(ingredientId)) {
+                    consumptionMap.set(
+                      ingredientId,
+                      consumptionMap.get(ingredientId)! + ingredientQuantity
+                    );
+                  } else {
+                    consumptionMap.set(ingredientId, ingredientQuantity);
+                  }
+                }
+              });
+            });
+
+            // Process direct ingredients
+            const directIngredients = productToIngredientsMap[productId] || [];
+            directIngredients.forEach((directIngredient: any) => {
+              const ingredient = directIngredient.ingredient;
+              let ingredientQuantity =
+                directIngredient.quantity * productQuantity;
+
+              if (
+                ingredient.unit &&
+                ingredient.unit !== "kg" &&
+                ingredient.kiloPerUnit
+              ) {
+                ingredientQuantity =
+                  ingredientQuantity * ingredient.kiloPerUnit;
+              }
+
+              const ingredientId = ingredient.id;
+              if (consumptionMap.has(ingredientId)) {
+                consumptionMap.set(
+                  ingredientId,
+                  consumptionMap.get(ingredientId)! + ingredientQuantity
+                );
+              } else {
+                consumptionMap.set(ingredientId, ingredientQuantity);
+              }
+            });
+          }
+        });
+      });
+
+      return Array.from(consumptionMap.entries()).map(
+        ([ingredientId, totalQuantity]) => ({
+          ingredientId,
+          totalQuantity,
+        })
+      );
+    },
+    staleTime: 1000 * 60 * 5,
+    enabled: isStoreUser && !!selectedUserId,
+  });
+
   // Fetch monthly consumption data from daily_ingredient_consumption table
   const { data: monthlyConsumption } = useQuery({
     queryKey: ["monthlyConsumptionForOverview", selectedMonth.toISOString()],
@@ -418,9 +672,14 @@ export function IngredientQuantityOverview() {
     if (!inventoryItems) return [];
 
     // Create a map of consumption data for quick lookup
+    // Use store production consumption if it's a store user, otherwise use daily consumption
     const consumptionMap = new Map<number, number>();
-    if (monthlyConsumption) {
-      monthlyConsumption.forEach((consumption) => {
+    const consumptionSource = isStoreUser
+      ? storeProductionConsumption
+      : monthlyConsumption;
+
+    if (consumptionSource) {
+      consumptionSource.forEach((consumption) => {
         consumptionMap.set(consumption.ingredientId, consumption.totalQuantity);
       });
     }
@@ -545,6 +804,8 @@ export function IngredientQuantityOverview() {
   }, [
     inventoryItems,
     monthlyConsumption,
+    storeProductionConsumption,
+    isStoreUser,
     receivedInvoicesData,
     showZeroQuantities,
     suppliers,
