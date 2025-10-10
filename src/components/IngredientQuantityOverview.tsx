@@ -43,6 +43,7 @@ import { useUsers } from "@/hooks/useProfiles";
 import { supabase } from "@/lib/supabase";
 import { MonthlyIngredientConsumption } from "./MonthlyIngredientConsumption";
 import { DailyIngredientConsumption } from "./DailyIngredientConsumption";
+import { ProductionCalendar } from "./ProductionCalendar";
 import { useQuery } from "@tanstack/react-query";
 
 export function IngredientQuantityOverview() {
@@ -153,8 +154,8 @@ export function IngredientQuantityOverview() {
     return Array.from(categoryMap.values());
   }, [ingredients]);
 
-  // Transform quantities data for display
-  const transformedQuantities = useMemo(() => {
+  // Transform quantities data for display and group by category
+  const groupedQuantities = useMemo(() => {
     if (!quantities) return [];
 
     // Create a map of consumption data for quick lookup
@@ -165,7 +166,7 @@ export function IngredientQuantityOverview() {
       });
     }
 
-    return quantities
+    const transformedData = quantities
       .filter((qty) => showZeroQuantities || qty.current_quantity > 0) // Conditionally hide zero quantity ingredients
       .map((qty) => {
         const status =
@@ -197,48 +198,75 @@ export function IngredientQuantityOverview() {
           price,
           totalValue: qty.current_quantity * price,
         };
-      })
-      .sort((a, b) => {
-        // First sort by supplier name
-        const supplierA = a.supplier || "—";
-        const supplierB = b.supplier || "—";
-
-        if (supplierA !== supplierB) {
-          return supplierA.localeCompare(supplierB);
-        }
-
-        // Then sort by ingredient name
-        return a.name.localeCompare(b.name);
       });
+
+    // Group by category
+    const grouped = transformedData.reduce(
+      (acc, item) => {
+        const categoryName = item.category;
+        if (!acc[categoryName]) {
+          acc[categoryName] = [];
+        }
+        acc[categoryName].push(item);
+        return acc;
+      },
+      {} as Record<string, typeof transformedData>
+    );
+
+    // Sort categories and ingredients within each category
+    return Object.entries(grouped)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([categoryName, ingredients]) => ({
+        categoryName,
+        ingredients: ingredients.sort((a, b) => a.name.localeCompare(b.name)),
+      }));
   }, [quantities, monthlyConsumption, showZeroQuantities]);
 
-  // Filter ingredients based on search, category, and status
+  // Filter grouped ingredients based on search, category, and status
+  const filteredGroupedQuantities = useMemo(() => {
+    return groupedQuantities
+      .filter(
+        ({ categoryName }) =>
+          // If there's a search term, show all categories to allow global search
+          // Otherwise, respect the category filter
+          globalFilter.trim() !== "" ||
+          categoryFilter === "all" ||
+          categoryName === categoryFilter
+      )
+      .map(({ categoryName, ingredients }) => ({
+        categoryName,
+        ingredients: ingredients.filter((item) => {
+          const searchLower = removeDiacritics(globalFilter.toLowerCase());
+          const nameMatch = removeDiacritics(item.name.toLowerCase()).includes(
+            searchLower
+          );
+          const categoryMatch = removeDiacritics(
+            item.category.toLowerCase()
+          ).includes(searchLower);
+          const supplierMatch = removeDiacritics(
+            item.supplier.toLowerCase()
+          ).includes(searchLower);
+
+          const searchMatch =
+            globalFilter.trim() === "" ||
+            nameMatch ||
+            categoryMatch ||
+            supplierMatch;
+          const categoryFilterMatch =
+            categoryFilter === "all" || item.category === categoryFilter;
+          const statusFilterMatch =
+            statusFilter === "all" || item.status === statusFilter;
+
+          return searchMatch && categoryFilterMatch && statusFilterMatch;
+        }),
+      }))
+      .filter(({ ingredients }) => ingredients.length > 0);
+  }, [groupedQuantities, globalFilter, categoryFilter, statusFilter]);
+
+  // Flatten for summary stats and other uses
   const filteredQuantities = useMemo(() => {
-    return transformedQuantities.filter((item) => {
-      const searchLower = removeDiacritics(globalFilter.toLowerCase());
-      const nameMatch = removeDiacritics(item.name.toLowerCase()).includes(
-        searchLower
-      );
-      const categoryMatch = removeDiacritics(
-        item.category.toLowerCase()
-      ).includes(searchLower);
-      const supplierMatch = removeDiacritics(
-        item.supplier.toLowerCase()
-      ).includes(searchLower);
-
-      const searchMatch =
-        globalFilter.trim() === "" ||
-        nameMatch ||
-        categoryMatch ||
-        supplierMatch;
-      const categoryFilterMatch =
-        categoryFilter === "all" || item.category === categoryFilter;
-      const statusFilterMatch =
-        statusFilter === "all" || item.status === statusFilter;
-
-      return searchMatch && categoryFilterMatch && statusFilterMatch;
-    });
-  }, [transformedQuantities, globalFilter, categoryFilter, statusFilter]);
+    return filteredGroupedQuantities.flatMap(({ ingredients }) => ingredients);
+  }, [filteredGroupedQuantities]);
 
   // Calculate summary statistics
   const summaryStats = useMemo(() => {
@@ -591,100 +619,123 @@ export function IngredientQuantityOverview() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview">Přehled zásob</TabsTrigger>
               <TabsTrigger value="low-stock">Nízké zásoby</TabsTrigger>
               <TabsTrigger value="daily">Denní spotřeba</TabsTrigger>
               <TabsTrigger value="consumption">Měsíční spotřeba</TabsTrigger>
+              <TabsTrigger value="calendar">Kalendář produkce</TabsTrigger>
             </TabsList>
 
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-6 mt-6">
-              <div className="border rounded-md">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Název</TableHead>
-                      <TableHead>Kategorie</TableHead>
-                      <TableHead>Dodavatel</TableHead>
-                      <TableHead className="text-right">Množství</TableHead>
-                      <TableHead>Jednotka</TableHead>
-                      <TableHead className="text-right">
-                        <div className="flex flex-col items-end">
-                          <span>Spotřeba (měsíc)</span>
-                          <span className="text-xs text-muted-foreground font-normal">
-                            {new Date().getFullYear()}-
-                            {String(new Date().getMonth() + 1).padStart(2, "0")}
-                            -01 až{" "}
-                            {String(new Date().getDate() + 1).padStart(2, "0")}
-                          </span>
-                        </div>
-                      </TableHead>
-                      <TableHead className="text-right">Cena</TableHead>
-                      <TableHead className="text-right">Hodnota</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Akce</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredQuantities.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">
-                          {item.name}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Tag className="h-3 w-3 text-orange-600" />
-                            <span className="text-sm">{item.category}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm">{item.supplier}</span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span className="text-sm font-mono">
-                            {item.currentQuantity.toFixed(1)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Scale className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-sm">{item.unit}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span className="text-sm font-mono text-blue-600">
-                            {item.monthlyConsumption.toFixed(1)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span className="text-sm">
-                            {item.price.toFixed(2)} Kč
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span className="text-sm font-semibold">
-                            {item.totalValue.toFixed(2)} Kč
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {getStatusIcon(item.status)}
-                            {getStatusBadge(item.status)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="sm">
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              {/* Production Calendar */}
+              <ProductionCalendar />
 
-              {filteredQuantities.length === 0 && (
+              {filteredGroupedQuantities.map(
+                ({ categoryName, ingredients }) => (
+                  <div key={categoryName} className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Tag className="h-4 w-4 text-orange-600" />
+                      <h3 className="text-lg font-semibold text-orange-800">
+                        {categoryName}
+                      </h3>
+                      <Badge variant="outline" className="text-xs">
+                        {ingredients.length} surovin
+                      </Badge>
+                    </div>
+
+                    <div className="border rounded-md">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Název</TableHead>
+                            <TableHead>Dodavatel</TableHead>
+                            <TableHead className="text-right">
+                              Množství
+                            </TableHead>
+                            <TableHead>Jednotka</TableHead>
+                            <TableHead className="text-right">
+                              <div className="flex flex-col items-end">
+                                <span>Spotřeba (měsíc)</span>
+                                <span className="text-xs text-muted-foreground font-normal">
+                                  {new Date().getFullYear()}-
+                                  {String(new Date().getMonth() + 1).padStart(
+                                    2,
+                                    "0"
+                                  )}
+                                  -01 až{" "}
+                                  {String(new Date().getDate() + 1).padStart(
+                                    2,
+                                    "0"
+                                  )}
+                                </span>
+                              </div>
+                            </TableHead>
+                            <TableHead className="text-right">Cena</TableHead>
+                            <TableHead className="text-right">
+                              Hodnota
+                            </TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Akce</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {ingredients.map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell className="font-medium">
+                                {item.name}
+                              </TableCell>
+                              <TableCell>
+                                <span className="text-sm">{item.supplier}</span>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span className="text-sm font-mono">
+                                  {item.currentQuantity.toFixed(1)}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  <Scale className="h-3 w-3 text-muted-foreground" />
+                                  <span className="text-sm">{item.unit}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span className="text-sm font-mono text-blue-600">
+                                  {item.monthlyConsumption.toFixed(1)}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span className="text-sm">
+                                  {item.price.toFixed(2)} Kč
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span className="text-sm font-semibold">
+                                  {item.totalValue.toFixed(2)} Kč
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  {getStatusIcon(item.status)}
+                                  {getStatusBadge(item.status)}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="ghost" size="sm">
+                                  <FileText className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )
+              )}
+
+              {filteredGroupedQuantities.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   Nebyly nalezeny žádné položky odpovídající filtru.
                 </div>
@@ -772,6 +823,11 @@ export function IngredientQuantityOverview() {
             {/* Monthly Consumption Tab */}
             <TabsContent value="consumption" className="space-y-6 mt-6">
               <MonthlyIngredientConsumption />
+            </TabsContent>
+
+            {/* Production Calendar Tab */}
+            <TabsContent value="calendar" className="space-y-6 mt-6">
+              <ProductionCalendar />
             </TabsContent>
           </Tabs>
         </div>

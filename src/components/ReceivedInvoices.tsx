@@ -33,7 +33,6 @@ import {
   Calendar,
   Package,
   User,
-  DollarSign,
   Eye,
   Trash2,
 } from "lucide-react";
@@ -52,7 +51,7 @@ export function ReceivedInvoices() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  // const [statusFilter, setStatusFilter] = useState("all");
   const [selectedInvoice, setSelectedInvoice] =
     useState<ReceivedInvoice | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
@@ -77,12 +76,12 @@ export function ReceivedInvoices() {
       const matchesSupplier =
         supplierFilter === "all" || invoice.supplier_id === supplierFilter;
 
-      const matchesStatus =
-        statusFilter === "all" || invoice.processing_status === statusFilter;
+      // const matchesStatus =
+      //   statusFilter === "all" || invoice.processing_status === statusFilter;
 
-      return matchesSearch && matchesSupplier && matchesStatus;
+      return matchesSearch && matchesSupplier;
     });
-  }, [invoices, searchTerm, supplierFilter, statusFilter]);
+  }, [invoices, searchTerm, supplierFilter]);
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -197,7 +196,7 @@ export function ReceivedInvoices() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label>Status</Label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger>
@@ -212,7 +211,7 @@ export function ReceivedInvoices() {
                     <SelectItem value="failed">Chyba</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
+              </div> */}
 
               <div className="space-y-2">
                 <Label>Statistiky</Label>
@@ -247,8 +246,8 @@ export function ReceivedInvoices() {
                     <TableHead>Číslo faktury</TableHead>
                     <TableHead>Dodavatel</TableHead>
                     <TableHead>Datum přijetí</TableHead>
-                    <TableHead>Částka</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Částka bez DPH</TableHead>
+                    {/* <TableHead>Status</TableHead> */}
                     <TableHead>Položky</TableHead>
                     <TableHead className="text-right">Akce</TableHead>
                   </TableRow>
@@ -279,11 +278,10 @@ export function ReceivedInvoices() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4 text-muted-foreground" />
                           {(invoice.total_amount || 0).toFixed(2)} Kč
                         </div>
                       </TableCell>
-                      <TableCell>
+                      {/* <TableCell>
                         <Badge
                           variant={
                             invoice.processing_status === "approved"
@@ -301,7 +299,7 @@ export function ReceivedInvoices() {
                             "Zamítnuto"}
                           {!invoice.processing_status && "Neznámý"}
                         </Badge>
-                      </TableCell>
+                      </TableCell> */}
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Package className="h-4 w-4 text-muted-foreground" />
