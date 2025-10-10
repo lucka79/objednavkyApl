@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -33,12 +33,7 @@ import {
 } from "lucide-react";
 
 import { removeDiacritics } from "@/utils/removeDiacritics";
-import {
-  useIngredientQuantities,
-  useInitializeIngredientQuantities,
-} from "@/hooks/useIngredientQuantities";
 import { useIngredients } from "@/hooks/useIngredients";
-import { useToast } from "@/hooks/use-toast";
 import { useUsers } from "@/hooks/useProfiles";
 import { supabase } from "@/lib/supabase";
 import { MonthlyIngredientConsumption } from "./MonthlyIngredientConsumption";
@@ -56,26 +51,159 @@ export function IngredientQuantityOverview() {
     "e597fcc9-7ce8-407d-ad1a-fdace061e42f"
   );
   const [inventoryDate, setInventoryDate] = useState<string | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
 
-  // Fetch real data from database
-  const { data: quantities, isLoading, error } = useIngredientQuantities();
+  // Fetch inventory data from database
+  const {
+    data: inventoryItems,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["inventoryItems", selectedUserId, selectedMonth.toISOString()],
+    queryFn: async () => {
+      // First, determine the appropriate inventory date for the selected month
+      const today = new Date();
+      const isCurrentMonth =
+        selectedMonth.getFullYear() === today.getFullYear() &&
+        selectedMonth.getMonth() === today.getMonth();
+
+      let targetInventoryDate: string | null = null;
+
+      if (isCurrentMonth) {
+        // For current month, use the latest inventory
+        const { data: inventory } = await supabase
+          .from("inventories")
+          .select("date")
+          .eq("user_id", selectedUserId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        targetInventoryDate = inventory?.date || null;
+      } else {
+        // For past months, use inventory from the last day of the month before the selected month
+        const firstDayOfSelectedMonth = new Date(
+          selectedMonth.getFullYear(),
+          selectedMonth.getMonth(),
+          1
+        );
+        const lastDayOfPreviousMonth = new Date(firstDayOfSelectedMonth);
+        lastDayOfPreviousMonth.setDate(lastDayOfPreviousMonth.getDate() - 1);
+
+        const lastDayStr = `${lastDayOfPreviousMonth.getFullYear()}-${String(lastDayOfPreviousMonth.getMonth() + 1).padStart(2, "0")}-${String(lastDayOfPreviousMonth.getDate()).padStart(2, "0")}`;
+
+        const { data: inventory } = await supabase
+          .from("inventories")
+          .select("date")
+          .eq("user_id", selectedUserId)
+          .lte("date", lastDayStr)
+          .order("date", { ascending: false })
+          .limit(1)
+          .single();
+
+        targetInventoryDate = inventory?.date || null;
+      }
+
+      if (!targetInventoryDate) {
+        console.log("No inventory date found for selected month");
+        return [];
+      }
+
+      console.log("=== INVENTORY QUERY DEBUG ===");
+      console.log("Selected month:", selectedMonth.toISOString());
+      console.log("Target inventory date:", targetInventoryDate);
+      console.log("Is current month:", isCurrentMonth);
+
+      // Now fetch inventory items for the specific inventory date
+      const { data, error } = await supabase
+        .from("inventory_items")
+        .select(
+          `
+          id,
+          quantity,
+          ingredient_id,
+          inventories!inner (
+            user_id,
+            date
+          ),
+          ingredients!inner (
+            id,
+            name,
+            unit,
+            price,
+            ingredient_categories (
+              id,
+              name
+            ),
+            ingredient_supplier_codes (
+              id,
+              supplier_id,
+              is_active
+            )
+          )
+        `
+        )
+        .eq("inventories.user_id", selectedUserId)
+        .eq("inventories.date", targetInventoryDate)
+        .not("ingredient_id", "is", null);
+
+      if (error) {
+        console.error("Error fetching inventory items:", error);
+        throw error;
+      }
+
+      console.log("Found inventory items:", data?.length || 0);
+      console.log("=== END INVENTORY QUERY DEBUG ===");
+
+      return data || [];
+    },
+    enabled: !!selectedUserId,
+  });
+
   const { data: ingredients } = useIngredients();
   const { data: allUsers } = useUsers();
+
+  // Fetch suppliers for lookup (from profiles table)
+  const { data: suppliers } = useQuery({
+    queryKey: ["suppliers"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("supplier", true);
+
+      if (error) {
+        console.error("Error fetching suppliers:", error);
+        throw error;
+      }
+
+      return data || [];
+    },
+  });
   // Fetch monthly consumption data from daily_ingredient_consumption table
   const { data: monthlyConsumption } = useQuery({
-    queryKey: ["monthlyConsumptionForOverview"],
+    queryKey: ["monthlyConsumptionForOverview", selectedMonth.toISOString()],
     queryFn: async () => {
-      const today = new Date();
       const firstDayOfMonth = new Date(
-        today.getFullYear(),
-        today.getMonth(),
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth(),
         1
       );
-      const tomorrow = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate() + 1
+      const lastDayOfMonth = new Date(
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth() + 1,
+        0
       );
+
+      // If selected month is current month, use tomorrow as end date
+      const today = new Date();
+      const isCurrentMonth =
+        selectedMonth.getFullYear() === today.getFullYear() &&
+        selectedMonth.getMonth() === today.getMonth();
+
+      const endDate = isCurrentMonth
+        ? new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+        : lastDayOfMonth;
 
       const formatLocalDate = (date: Date) => {
         const year = date.getFullYear();
@@ -85,7 +213,7 @@ export function IngredientQuantityOverview() {
       };
 
       const startDateStr = formatLocalDate(firstDayOfMonth);
-      const endDateStr = formatLocalDate(tomorrow);
+      const endDateStr = formatLocalDate(endDate);
 
       const { data: consumptionData, error } = await supabase
         .from("daily_ingredient_consumption")
@@ -134,8 +262,18 @@ export function IngredientQuantityOverview() {
     staleTime: 1000 * 60 * 5, // 5 minutes
     enabled: true,
   });
-  const { toast } = useToast();
-  const initializeQuantities = useInitializeIngredientQuantities();
+
+  // Extract inventory date from the first inventory item (if any)
+  useEffect(() => {
+    if (inventoryItems && inventoryItems.length > 0) {
+      const firstItem = inventoryItems[0] as any;
+      if (firstItem.inventories?.date) {
+        setInventoryDate(firstItem.inventories.date);
+      }
+    } else {
+      setInventoryDate(null);
+    }
+  }, [inventoryItems]);
 
   // Get categories from ingredients data
   const categories = useMemo(() => {
@@ -154,9 +292,9 @@ export function IngredientQuantityOverview() {
     return Array.from(categoryMap.values());
   }, [ingredients]);
 
-  // Transform quantities data for display and group by category
+  // Transform inventory data for display and group by category
   const groupedQuantities = useMemo(() => {
-    if (!quantities) return [];
+    if (!inventoryItems) return [];
 
     // Create a map of consumption data for quick lookup
     const consumptionMap = new Map<number, number>();
@@ -166,39 +304,73 @@ export function IngredientQuantityOverview() {
       });
     }
 
-    const transformedData = quantities
-      .filter((qty) => showZeroQuantities || qty.current_quantity > 0) // Conditionally hide zero quantity ingredients
-      .map((qty) => {
-        const status =
-          qty.current_quantity < 10
-            ? "low"
-            : qty.current_quantity > 80
-              ? "high"
-              : "normal";
-        const price = qty.ingredient?.price || 0;
-        const monthlyConsumption = consumptionMap.get(qty.ingredient_id) || 0;
-
-        // Find active supplier from ingredient_supplier_codes
-        const activeSupplier = qty.ingredient?.ingredient_supplier_codes?.find(
-          (code: any) => code.is_active
-        )?.supplier;
-
-        return {
-          id: qty.id,
-          ingredientId: qty.ingredient_id,
-          name: qty.ingredient?.name || "Neznámá surovina",
-          currentQuantity: qty.current_quantity,
-          monthlyConsumption,
-          unit: qty.unit,
-          category:
-            qty.ingredient?.ingredient_categories?.name || "Bez kategorie",
-          supplier: activeSupplier?.full_name || "—",
-          lastUpdated: qty.last_updated,
-          status,
-          price,
-          totalValue: qty.current_quantity * price,
-        };
+    // Create a map of suppliers for quick lookup
+    const supplierMap = new Map<string, string>();
+    if (suppliers) {
+      suppliers.forEach((supplier: any) => {
+        supplierMap.set(supplier.id, supplier.full_name);
       });
+    }
+
+    // Aggregate quantities by ingredient to avoid duplicates
+    const aggregatedData = new Map();
+
+    inventoryItems
+      .filter((item) => showZeroQuantities || item.quantity > 0)
+      .forEach((item) => {
+        const ingredient = item.ingredients as any;
+        if (!ingredient) return;
+
+        const ingredientId = item.ingredient_id;
+        const existing = aggregatedData.get(ingredientId);
+
+        if (existing) {
+          // Add to existing quantity
+          existing.currentQuantity += item.quantity || 0;
+          existing.totalValue = existing.currentQuantity * existing.price;
+        } else {
+          // Create new entry
+          const price = ingredient?.price || 0;
+          const monthlyConsumption = consumptionMap.get(ingredientId) || 0;
+
+          // Find active supplier from ingredient_supplier_codes
+          const activeSupplierCode =
+            ingredient?.ingredient_supplier_codes?.find(
+              (code: any) => code.is_active
+            );
+          const supplierName = activeSupplierCode?.supplier_id
+            ? supplierMap.get(activeSupplierCode.supplier_id) || "—"
+            : "—";
+
+          aggregatedData.set(ingredientId, {
+            id: item.id, // Keep the first inventory item ID
+            ingredientId,
+            name: ingredient?.name || "Neznámá surovina",
+            currentQuantity: item.quantity || 0,
+            monthlyConsumption,
+            unit: ingredient?.unit || "kg",
+            category:
+              ingredient?.ingredient_categories?.name || "Bez kategorie",
+            supplier: supplierName,
+            lastUpdated: new Date().toISOString(),
+            price,
+            totalValue: (item.quantity || 0) * price,
+          });
+        }
+      });
+
+    const transformedData = Array.from(aggregatedData.values()).map((item) => {
+      const status =
+        item.currentQuantity < 10
+          ? "low"
+          : item.currentQuantity > 80
+            ? "high"
+            : "normal";
+      return {
+        ...item,
+        status,
+      };
+    });
 
     // Group by category
     const grouped = transformedData.reduce(
@@ -218,9 +390,11 @@ export function IngredientQuantityOverview() {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([categoryName, ingredients]) => ({
         categoryName,
-        ingredients: ingredients.sort((a, b) => a.name.localeCompare(b.name)),
+        ingredients: (ingredients as any[]).sort((a: any, b: any) =>
+          a.name.localeCompare(b.name)
+        ),
       }));
-  }, [quantities, monthlyConsumption, showZeroQuantities]);
+  }, [inventoryItems, monthlyConsumption, showZeroQuantities, suppliers]);
 
   // Filter grouped ingredients based on search, category, and status
   const filteredGroupedQuantities = useMemo(() => {
@@ -235,7 +409,7 @@ export function IngredientQuantityOverview() {
       )
       .map(({ categoryName, ingredients }) => ({
         categoryName,
-        ingredients: ingredients.filter((item) => {
+        ingredients: ingredients.filter((item: any) => {
           const searchLower = removeDiacritics(globalFilter.toLowerCase());
           const nameMatch = removeDiacritics(item.name.toLowerCase()).includes(
             searchLower
@@ -316,39 +490,6 @@ export function IngredientQuantityOverview() {
     }
   };
 
-  const handleInitializeInventory = async () => {
-    try {
-      await initializeQuantities.mutateAsync(selectedUserId);
-      const selectedUser = allUsers?.find(
-        (user: any) => user.id === selectedUserId
-      );
-
-      // Fetch the inventory date for display
-      const { data: inventory } = await supabase
-        .from("inventories")
-        .select("date")
-        .eq("user_id", selectedUserId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (inventory?.date) {
-        setInventoryDate(inventory.date);
-      }
-
-      toast({
-        title: "Úspěch",
-        description: `Zásoby byly úspěšně inicializovány z inventory_items pro uživatele ${selectedUser?.full_name || selectedUserId}`,
-      });
-    } catch (error) {
-      toast({
-        title: "Chyba",
-        description: "Nepodařilo se inicializovat zásoby z inventory_items",
-        variant: "destructive",
-      });
-    }
-  };
-
   if (isLoading) {
     return (
       <Card className="p-6">
@@ -380,7 +521,7 @@ export function IngredientQuantityOverview() {
     );
   }
 
-  if (!quantities || quantities.length === 0) {
+  if (!inventoryItems || inventoryItems.length === 0) {
     return (
       <Card className="p-6">
         <div className="text-center py-12">
@@ -410,23 +551,6 @@ export function IngredientQuantityOverview() {
               </Select>
             </div>
             <div className="flex gap-3 justify-center">
-              <Button
-                onClick={handleInitializeInventory}
-                disabled={initializeQuantities.isPending}
-                className="bg-orange-600 hover:bg-orange-700"
-              >
-                {initializeQuantities.isPending ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Inicializuji...
-                  </>
-                ) : (
-                  <>
-                    <Package className="h-4 w-4 mr-2" />
-                    Inicializovat zásoby
-                  </>
-                )}
-              </Button>
               <Button
                 onClick={() => window.location.reload()}
                 variant="outline"
@@ -467,6 +591,86 @@ export function IngredientQuantityOverview() {
               </p>
             </div>
             <div className="flex gap-2">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Měsíc:</label>
+                <Select
+                  value={`${selectedMonth.getFullYear()}-${selectedMonth.getMonth()}`}
+                  onValueChange={(value) => {
+                    const [year, month] = value.split("-");
+                    setSelectedMonth(
+                      new Date(parseInt(year), parseInt(month), 1)
+                    );
+                  }}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue>
+                      {(() => {
+                        const months = [
+                          "Leden",
+                          "Únor",
+                          "Březen",
+                          "Duben",
+                          "Květen",
+                          "Červen",
+                          "Červenec",
+                          "Srpen",
+                          "Září",
+                          "Říjen",
+                          "Listopad",
+                          "Prosinec",
+                        ];
+                        return `${months[selectedMonth.getMonth()]} ${selectedMonth.getFullYear()}`;
+                      })()}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(() => {
+                      const months = [
+                        "Leden",
+                        "Únor",
+                        "Březen",
+                        "Duben",
+                        "Květen",
+                        "Červen",
+                        "Červenec",
+                        "Srpen",
+                        "Září",
+                        "Říjen",
+                        "Listopad",
+                        "Prosinec",
+                      ];
+                      const currentYear = new Date().getFullYear();
+                      const options = [];
+
+                      // Add current year months
+                      for (let month = 0; month < 12; month++) {
+                        options.push(
+                          <SelectItem
+                            key={`${currentYear}-${month}`}
+                            value={`${currentYear}-${month}`}
+                          >
+                            {months[month]} {currentYear}
+                          </SelectItem>
+                        );
+                      }
+
+                      // Add previous year months
+                      for (let month = 0; month < 12; month++) {
+                        options.push(
+                          <SelectItem
+                            key={`${currentYear - 1}-${month}`}
+                            value={`${currentYear - 1}-${month}`}
+                          >
+                            {months[month]} {currentYear - 1}
+                          </SelectItem>
+                        );
+                      }
+
+                      return options;
+                    })()}
+                  </SelectContent>
+                </Select>
+              </div>
               <Button
                 onClick={() => setShowZeroQuantities(!showZeroQuantities)}
                 variant={showZeroQuantities ? "default" : "outline"}
@@ -502,24 +706,6 @@ export function IngredientQuantityOverview() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button
-                onClick={handleInitializeInventory}
-                disabled={initializeQuantities.isPending}
-                variant="outline"
-                size="sm"
-              >
-                {initializeQuantities.isPending ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Inicializuji...
-                  </>
-                ) : (
-                  <>
-                    <Package className="h-4 w-4 mr-2" />
-                    Reinit zásoby
-                  </>
-                )}
-              </Button>
             </div>
           </div>
 
@@ -630,7 +816,7 @@ export function IngredientQuantityOverview() {
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-6 mt-6">
               {/* Production Calendar */}
-              <ProductionCalendar />
+              <ProductionCalendar selectedMonth={selectedMonth} />
 
               {filteredGroupedQuantities.map(
                 ({ categoryName, ingredients }) => (
@@ -649,39 +835,75 @@ export function IngredientQuantityOverview() {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Název</TableHead>
-                            <TableHead>Dodavatel</TableHead>
-                            <TableHead className="text-right">
-                              Množství
+                            <TableHead className="w-[200px]">Název</TableHead>
+                            <TableHead className="w-[150px]">
+                              Dodavatel
                             </TableHead>
-                            <TableHead>Jednotka</TableHead>
-                            <TableHead className="text-right">
+                            <TableHead className="text-right w-[120px]">
+                              <div className="flex flex-col items-end">
+                                <span>Množství</span>
+                                {inventoryDate && (
+                                  <span className="text-xs text-muted-foreground font-normal">
+                                    Inventura:{" "}
+                                    {new Date(inventoryDate).toLocaleDateString(
+                                      "cs-CZ"
+                                    )}
+                                  </span>
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead className="w-[100px]">
+                              Jednotka
+                            </TableHead>
+                            <TableHead className="text-right w-[140px]">
                               <div className="flex flex-col items-end">
                                 <span>Spotřeba (měsíc)</span>
                                 <span className="text-xs text-muted-foreground font-normal">
-                                  {new Date().getFullYear()}-
-                                  {String(new Date().getMonth() + 1).padStart(
-                                    2,
-                                    "0"
-                                  )}
+                                  {selectedMonth.getFullYear()}-
+                                  {String(
+                                    selectedMonth.getMonth() + 1
+                                  ).padStart(2, "0")}
                                   -01 až{" "}
-                                  {String(new Date().getDate() + 1).padStart(
-                                    2,
-                                    "0"
-                                  )}
+                                  {(() => {
+                                    const today = new Date();
+                                    const isCurrentMonth =
+                                      selectedMonth.getFullYear() ===
+                                        today.getFullYear() &&
+                                      selectedMonth.getMonth() ===
+                                        today.getMonth();
+                                    if (isCurrentMonth) {
+                                      return String(
+                                        today.getDate() + 1
+                                      ).padStart(2, "0");
+                                    } else {
+                                      const lastDay = new Date(
+                                        selectedMonth.getFullYear(),
+                                        selectedMonth.getMonth() + 1,
+                                        0
+                                      );
+                                      return String(lastDay.getDate()).padStart(
+                                        2,
+                                        "0"
+                                      );
+                                    }
+                                  })()}
                                 </span>
                               </div>
                             </TableHead>
-                            <TableHead className="text-right">Cena</TableHead>
-                            <TableHead className="text-right">
+                            <TableHead className="text-right w-[100px]">
+                              Cena
+                            </TableHead>
+                            <TableHead className="text-right w-[120px]">
                               Hodnota
                             </TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead className="text-right">Akce</TableHead>
+                            <TableHead className="w-[120px]">Status</TableHead>
+                            <TableHead className="text-right w-[80px]">
+                              Akce
+                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {ingredients.map((item) => (
+                          {ingredients.map((item: any) => (
                             <TableRow key={item.id}>
                               <TableCell className="font-medium">
                                 {item.name}
@@ -748,20 +970,38 @@ export function IngredientQuantityOverview() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Název</TableHead>
-                      <TableHead>Kategorie</TableHead>
-                      <TableHead>Dodavatel</TableHead>
-                      <TableHead className="text-right">Množství</TableHead>
-                      <TableHead>Jednotka</TableHead>
-                      <TableHead className="text-right">Cena</TableHead>
-                      <TableHead className="text-right">Hodnota</TableHead>
-                      <TableHead className="text-right">Akce</TableHead>
+                      <TableHead className="w-[200px]">Název</TableHead>
+                      <TableHead className="w-[150px]">Kategorie</TableHead>
+                      <TableHead className="w-[150px]">Dodavatel</TableHead>
+                      <TableHead className="text-right w-[120px]">
+                        <div className="flex flex-col items-end">
+                          <span>Množství</span>
+                          {inventoryDate && (
+                            <span className="text-xs text-muted-foreground font-normal">
+                              Inventura:{" "}
+                              {new Date(inventoryDate).toLocaleDateString(
+                                "cs-CZ"
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[100px]">Jednotka</TableHead>
+                      <TableHead className="text-right w-[100px]">
+                        Cena
+                      </TableHead>
+                      <TableHead className="text-right w-[120px]">
+                        Hodnota
+                      </TableHead>
+                      <TableHead className="text-right w-[80px]">
+                        Akce
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredQuantities
-                      .filter((item) => item.status === "low")
-                      .map((item) => (
+                      .filter((item: any) => item.status === "low")
+                      .map((item: any) => (
                         <TableRow key={item.id} className="bg-red-50">
                           <TableCell className="font-medium">
                             {item.name}
@@ -827,7 +1067,7 @@ export function IngredientQuantityOverview() {
 
             {/* Production Calendar Tab */}
             <TabsContent value="calendar" className="space-y-6 mt-6">
-              <ProductionCalendar />
+              <ProductionCalendar selectedMonth={selectedMonth} />
             </TabsContent>
           </Tabs>
         </div>

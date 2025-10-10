@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 
-import { Button } from "@/components/ui/button";
 import { Calendar } from "lucide-react";
 import {
   format,
@@ -19,14 +18,17 @@ interface ProductionDay {
   productionCount: number;
 }
 
-export function ProductionCalendar() {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+interface ProductionCalendarProps {
+  selectedMonth: Date;
+}
+
+export function ProductionCalendar({ selectedMonth }: ProductionCalendarProps) {
   const [productionDays, setProductionDays] = useState<ProductionDay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Get all days in the current month
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
+  // Get all days in the selected month
+  const monthStart = startOfMonth(selectedMonth);
+  const monthEnd = endOfMonth(selectedMonth);
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
   // Fetch production data for the current month
@@ -78,19 +80,7 @@ export function ProductionCalendar() {
     };
 
     fetchProductionData();
-  }, [currentMonth]);
-
-  const navigateMonth = (direction: "prev" | "next") => {
-    setCurrentMonth((prev) => {
-      const newMonth = new Date(prev);
-      if (direction === "prev") {
-        newMonth.setMonth(newMonth.getMonth() - 1);
-      } else {
-        newMonth.setMonth(newMonth.getMonth() + 1);
-      }
-      return newMonth;
-    });
-  };
+  }, [selectedMonth]);
 
   const getProductionStats = () => {
     const totalDays = productionDays.length;
@@ -133,27 +123,11 @@ export function ProductionCalendar() {
           <h3 className="text-sm font-semibold">Kalendář produkce</h3>
         </div>
 
-        {/* Navigation */}
+        {/* Month Display */}
         <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigateMonth("prev")}
-            className="h-6 w-6 p-0"
-          >
-            ←
-          </Button>
           <span className="text-xs font-medium min-w-[80px] text-center">
-            {format(currentMonth, "MMM yyyy", { locale: cs })}
+            {format(selectedMonth, "MMM yyyy", { locale: cs })}
           </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigateMonth("next")}
-            className="h-6 w-6 p-0"
-          >
-            →
-          </Button>
         </div>
 
         {/* Compact Stats */}
