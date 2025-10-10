@@ -12,14 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Search,
-  Calendar,
-  Download,
-  Package,
-  ChevronRight,
-  RefreshCw,
-} from "lucide-react";
+import { Search, Download, Package, Tag, RefreshCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
@@ -32,11 +25,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 
 interface IngredientConsumption {
   id: number;
@@ -755,15 +743,32 @@ export function StoreProductionIngredientConsumption({
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <Package className="h-6 w-6" />
-              Spotřeba surovin - Prodejny
-            </span>
-            <div className="flex items-center gap-2">
+    <>
+      <Card className="p-6">
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h2 className="text-2xl font-bold">
+                Spotřeba surovin - Prodejny
+              </h2>
+              <p className="text-muted-foreground">
+                Celkem surovin: {filteredIngredients.length} | Celkové náklady:{" "}
+                {ingredientConsumption.totalCost.toFixed(2)} Kč
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Období: {format(startDate, "d. MMMM yyyy", { locale: cs })} -{" "}
+                {format(endDate, "d. MMMM yyyy", { locale: cs })}
+                {selectedUserId && (
+                  <span className="ml-2">
+                    | Prodejna:{" "}
+                    {storeUsers?.find((u) => u.id === selectedUserId)
+                      ?.full_name || "Všechny prodejny"}
+                  </span>
+                )}
+              </p>
+            </div>
+            <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -771,176 +776,206 @@ export function StoreProductionIngredientConsumption({
                 disabled={isLoadingProductions}
               >
                 <RefreshCw
-                  className={`h-4 w-4 ${isLoadingProductions ? "animate-spin" : ""}`}
+                  className={`h-4 w-4 mr-2 ${isLoadingProductions ? "animate-spin" : ""}`}
                 />
+                Obnovit
               </Button>
               <Button
-                variant="outline"
-                size="sm"
                 onClick={exportToCSV}
                 disabled={isLoadingProductions}
+                variant="outline"
+                size="sm"
               >
                 <Download className="h-4 w-4 mr-2" />
-                Exportovat CSV
+                Export CSV
               </Button>
             </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {/* Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center gap-2">
-                <Search className="h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Hledat surovinu..."
-                  value={globalFilter}
-                  onChange={(e) => setGlobalFilter(e.target.value)}
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  {format(startDate, "d. MMM", { locale: cs })} -{" "}
-                  {format(endDate, "d. MMM yyyy", { locale: cs })}
-                </span>
-              </div>
-            </div>
-
-            {/* Summary */}
-            <div className="space-y-2">
-              {selectedUserId && (
-                <div className="text-sm text-muted-foreground">
-                  Prodejna:{" "}
-                  <span className="font-semibold">
-                    {storeUsers?.find((u) => u.id === selectedUserId)
-                      ?.full_name || "Všechny prodejny"}
-                  </span>
-                </div>
-              )}
-              <div className="flex items-center justify-between p-4 bg-orange-50 rounded-lg border border-orange-200">
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Celkové náklady na suroviny
-                  </p>
-                  <p className="text-2xl font-bold text-orange-600">
-                    {ingredientConsumption.totalCost.toFixed(2)} Kč
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Počet položek</p>
-                  <p className="text-2xl font-bold">
-                    {filteredIngredients.length}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Loading state */}
-            {isLoadingProductions && (
-              <div className="space-y-2">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-              </div>
-            )}
-
-            {/* Ingredients table grouped by category */}
-            {!isLoadingProductions && groupedByCategory.length > 0 && (
-              <div className="space-y-4">
-                {groupedByCategory.map(([category, ingredients]) => (
-                  <Collapsible key={category} defaultOpen>
-                    <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors">
-                      <div className="flex items-center gap-2">
-                        <ChevronRight className="h-4 w-4 transition-transform [[data-state=open]>&]:rotate-90" />
-                        <span className="font-semibold">{category}</span>
-                        <Badge variant="secondary">{ingredients.length}</Badge>
-                      </div>
-                      <span className="text-sm font-semibold text-orange-600">
-                        {ingredients
-                          .reduce((sum, ing) => sum + ing.totalCost, 0)
-                          .toFixed(2)}{" "}
-                        Kč
-                      </span>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="mt-2">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Název</TableHead>
-                            <TableHead>Typ</TableHead>
-                            <TableHead className="text-right">
-                              Množství
-                            </TableHead>
-                            <TableHead className="text-right">
-                              Jednotka
-                            </TableHead>
-                            <TableHead className="text-right">
-                              Cena/jednotka
-                            </TableHead>
-                            <TableHead className="text-right">Celkem</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {ingredients.map((ingredient) => (
-                            <TableRow
-                              key={`${ingredient.type}_${ingredient.id}`}
-                              className="cursor-pointer hover:bg-gray-50"
-                              onClick={() => {
-                                setSelectedIngredient(ingredient);
-                                setShowBreakdownDialog(true);
-                              }}
-                            >
-                              <TableCell className="font-medium">
-                                {ingredient.name}
-                              </TableCell>
-                              <TableCell>
-                                <Badge
-                                  variant={
-                                    ingredient.type === "product"
-                                      ? "default"
-                                      : "secondary"
-                                  }
-                                >
-                                  {ingredient.type === "product"
-                                    ? "Produkt"
-                                    : "Surovina"}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {ingredient.quantity.toFixed(3)}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {ingredient.unit}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {ingredient.price.toFixed(2)} Kč
-                              </TableCell>
-                              <TableCell className="text-right font-semibold text-orange-600">
-                                {ingredient.totalCost.toFixed(2)} Kč
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </CollapsibleContent>
-                  </Collapsible>
-                ))}
-              </div>
-            )}
-
-            {/* Empty state */}
-            {!isLoadingProductions && filteredIngredients.length === 0 && (
-              <div className="text-center py-12">
-                <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">
-                  Žádné suroviny nenalezeny
-                </p>
-              </div>
-            )}
           </div>
-        </CardContent>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Celkem surovin
+                </CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {filteredIngredients.length}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Celková spotřeba
+                </CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {ingredientConsumption.ingredients
+                    .reduce((sum, ing) => sum + ing.quantity, 0)
+                    .toFixed(1)}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Celkové náklady
+                </CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {ingredientConsumption.totalCost.toFixed(2)} Kč
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Průměrná cena
+                </CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {filteredIngredients.length > 0
+                    ? (
+                        ingredientConsumption.totalCost /
+                        ingredientConsumption.ingredients.reduce(
+                          (sum, ing) => sum + ing.quantity,
+                          0
+                        )
+                      ).toFixed(2)
+                    : "0.00"}{" "}
+                  Kč
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Hledat podle názvu suroviny..."
+                value={globalFilter}
+                onChange={(e) => setGlobalFilter(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+
+          {/* Loading state */}
+          {isLoadingProductions && (
+            <div className="space-y-2">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          )}
+
+          {/* Ingredients grouped by category */}
+          {!isLoadingProductions && groupedByCategory.length > 0 && (
+            <>
+              {groupedByCategory.map(([category, ingredients]) => (
+                <div key={category} className="space-y-2 w-full">
+                  <div className="flex items-center gap-2 w-full">
+                    <Tag className="h-4 w-4 text-orange-600" />
+                    <h3 className="text-lg font-semibold text-orange-800">
+                      {category}
+                    </h3>
+                    <Badge
+                      variant="outline"
+                      className="text-xs border-orange-500 text-orange-500"
+                    >
+                      {ingredients.length} surovin
+                    </Badge>
+                    <span className="text-sm font-semibold text-orange-600 ml-auto">
+                      {ingredients
+                        .reduce((sum, ing) => sum + ing.totalCost, 0)
+                        .toFixed(2)}{" "}
+                      Kč
+                    </span>
+                  </div>
+
+                  <div className="border rounded-md w-full overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[300px]">Název</TableHead>
+                          <TableHead className="w-[120px]">Typ</TableHead>
+                          <TableHead className="text-right w-[120px]">
+                            Množství
+                          </TableHead>
+                          <TableHead className="text-right w-[100px]">
+                            Jednotka
+                          </TableHead>
+                          <TableHead className="text-right w-[140px]">
+                            Cena/jednotka
+                          </TableHead>
+                          <TableHead className="text-right w-[140px]">
+                            Celkem
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {ingredients.map((ingredient) => (
+                          <TableRow
+                            key={`${ingredient.type}_${ingredient.id}`}
+                            className="cursor-pointer hover:bg-gray-50"
+                            onClick={() => {
+                              setSelectedIngredient(ingredient);
+                              setShowBreakdownDialog(true);
+                            }}
+                          >
+                            <TableCell className="font-medium w-[300px]">
+                              {ingredient.name}
+                            </TableCell>
+                            <TableCell className="w-[120px]">
+                              <Badge className="bg-neutral-200 hover:bg-neutral-300 text-neutral-600 border-neutral-200">
+                                {ingredient.type === "product"
+                                  ? "Produkt"
+                                  : "Surovina"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right w-[120px]">
+                              {ingredient.quantity.toFixed(3)}
+                            </TableCell>
+                            <TableCell className="text-right w-[100px]">
+                              {ingredient.unit}
+                            </TableCell>
+                            <TableCell className="text-right w-[140px]">
+                              {ingredient.price.toFixed(2)} Kč
+                            </TableCell>
+                            <TableCell className="text-right font-semibold text-orange-600 w-[140px]">
+                              {ingredient.totalCost.toFixed(2)} Kč
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* Empty state */}
+          {!isLoadingProductions &&
+            filteredIngredients.length === 0 &&
+            groupedByCategory.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                Nebyly nalezeny žádné položky.
+              </div>
+            )}
+        </div>
       </Card>
 
       {/* Ingredient Breakdown Dialog */}
@@ -1054,6 +1089,6 @@ export function StoreProductionIngredientConsumption({
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
