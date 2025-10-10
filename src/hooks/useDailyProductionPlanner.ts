@@ -16,6 +16,7 @@ interface ProductionItem {
   bakerStatus?: string;
   bakerNotes?: string;
   isCompleted?: boolean;
+  recipeQuantity?: number; // Total dough weight for this product
 }
 
 export const useDailyProductionPlanner = (date: Date) => {
@@ -109,12 +110,16 @@ export const useDailyProductionPlanner = (date: Date) => {
         .in('product_id', productIds);
 
       // Create recipe lookup by product ID (from product_parts)
-      const recipeByProduct = new Map<number, any>();
+      // Store as array since one product can have multiple recipes
+      const recipesByProduct = new Map<number, any[]>();
       if (productParts && !productPartsError) {
         for (const part of productParts) {
           const recipe = (part as any).recipes;
           if (recipe) {
-            recipeByProduct.set(part.product_id, {
+            if (!recipesByProduct.has(part.product_id)) {
+              recipesByProduct.set(part.product_id, []);
+            }
+            recipesByProduct.get(part.product_id)!.push({
               ...recipe,
               quantity: part.quantity // Add quantity from product_parts
             });
@@ -124,33 +129,89 @@ export const useDailyProductionPlanner = (date: Date) => {
 
       console.log('Product quantities calculated:', Array.from(productQuantities.values()));
 
-      // Convert to production items (for new planning)
-      const result: ProductionItem[] = Array.from(productQuantities.values()).map(item => {
-        // Only use recipe from product_parts table, no category fallback
-        const recipe = recipeByProduct.get(item.productId);
-        const hasRecipe = !!recipe;
-        
-        // Calculate planned quantity based on ingredient needs
-        let plannedQuantity = item.totalOrdered; // Default to ordered quantity
-        
-        if (recipe) {
-          // Use product_parts quantity for this specific product
-          const partQuantity = parseFloat(recipe.quantity) || 1;
-          const ingredientNeeded = item.totalOrdered * partQuantity;
-          plannedQuantity = Math.max(1, Math.ceil(ingredientNeeded));
+      // Fetch baker_items to get recipe_quantity (total dough weight)
+      const { data: bakers } = await supabase
+        .from('bakers')
+        .select(`
+          id,
+          recipe_id,
+          date
+        `)
+        .eq('date', dateStr);
+
+      const bakerIds = bakers?.map(b => b.id) || [];
+      let bakerItemsMap = new Map<string, number>(); // Key: productId-recipeId, Value: recipe_quantity
+
+      if (bakerIds.length > 0) {
+        const { data: bakerItems } = await supabase
+          .from('baker_items')
+          .select(`
+            production_id,
+            product_id,
+            recipe_quantity
+          `)
+          .in('production_id', bakerIds);
+
+        if (bakerItems) {
+          // Get recipe_id for each production
+          const productionRecipeMap = new Map(bakers?.map(b => [b.id, b.recipe_id]) || []);
+          
+          // Sum recipe_quantity for each product-recipe combination
+          bakerItems.forEach(item => {
+            const recipeId = productionRecipeMap.get(item.production_id);
+            if (recipeId && item.recipe_quantity) {
+              const key = `${item.product_id}-${recipeId}`;
+              const current = bakerItemsMap.get(key) || 0;
+              bakerItemsMap.set(key, current + item.recipe_quantity);
+            }
+          });
         }
+      }
+
+      // Convert to production items (for new planning)
+      // If a product has multiple recipes, create one item per recipe
+      const result: ProductionItem[] = [];
+      
+      for (const item of productQuantities.values()) {
+        const recipes = recipesByProduct.get(item.productId);
         
-        return {
-          productId: item.productId,
-          productName: item.productName,
-          totalOrdered: item.totalOrdered,
-          plannedQuantity: plannedQuantity,
-          category: item.categoryName,
-          hasRecipe,
-          recipeId: recipe?.id,
-          recipeName: recipe?.name || 'Bez receptu',
-        };
-      });
+        if (recipes && recipes.length > 0) {
+          // Create one production item for each recipe
+          for (const recipe of recipes) {
+            const partQuantity = parseFloat(recipe.quantity) || 1;
+            const ingredientNeeded = item.totalOrdered * partQuantity;
+            const plannedQuantity = Math.max(1, Math.ceil(ingredientNeeded));
+            
+            // Get recipe_quantity from baker_items
+            const key = `${item.productId}-${recipe.id}`;
+            const recipeQuantity = bakerItemsMap.get(key);
+            
+            result.push({
+              productId: item.productId,
+              productName: item.productName,
+              totalOrdered: item.totalOrdered,
+              plannedQuantity: plannedQuantity,
+              category: item.categoryName,
+              hasRecipe: true,
+              recipeId: recipe.id,
+              recipeName: recipe.name,
+              recipeQuantity: recipeQuantity,
+            });
+          }
+        } else {
+          // No recipe found
+          result.push({
+            productId: item.productId,
+            productName: item.productName,
+            totalOrdered: item.totalOrdered,
+            plannedQuantity: item.totalOrdered,
+            category: item.categoryName,
+            hasRecipe: false,
+            recipeId: undefined,
+            recipeName: 'Bez receptu',
+          });
+        }
+      }
 
       return result;
     },

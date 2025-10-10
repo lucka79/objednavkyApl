@@ -160,276 +160,248 @@ export const useManualBakerSync = () => {
         throw new Error(`Žádné objednávky pro vybraný den: ${dateStr}. Dostupné dny: ${availableDatesList}`);
       }
 
-      // Group by user and create bakers for each user
+      // Process all orders together since uniqueness is only on (date, recipe_id)
+      // Get all product IDs from all orders
+      const allProductIds = orders.flatMap(order => 
+        order.order_items.map(item => item.product_id)
+      );
+      
+      // Get all unique users for the results
       const usersWithOrders = new Set(orders.map(order => order.user_id));
-      const results = [];
+      const results: SyncResult[] = [];
 
-      for (const userId of usersWithOrders) {
-        const userOrders = orders.filter(order => order.user_id === userId);
-        
-        // Get all product IDs for this user's orders
-        const productIds = userOrders.flatMap(order => 
-          order.order_items.map(item => item.product_id)
-        );
-        
-        // Batch fetch all product_parts data
-        const { data: allProductParts, error: productPartsError } = await supabase
-          .from('product_parts')
-          .select(`
-            product_id,
-            recipe_id,
-            quantity
-          `)
-          .in('product_id', productIds);
+      // Batch fetch all product_parts data for all products
+      const { data: allProductParts, error: productPartsError } = await supabase
+        .from('product_parts')
+        .select(`
+          product_id,
+          recipe_id,
+          quantity
+        `)
+        .in('product_id', allProductIds);
 
-        if (productPartsError) {
-          console.warn('Error fetching product_parts:', productPartsError);
-        }
+      if (productPartsError) {
+        console.warn('Error fetching product_parts:', productPartsError);
+      }
 
-        // Create lookup map for product_parts
-        const productPartsMap = new Map();
-        if (allProductParts) {
-          console.log(`Debug - Product parts found: ${allProductParts.length}`);
-          for (const part of allProductParts) {
-            // Only add to map if recipe_id is not null
-            if (part.recipe_id !== null && part.recipe_id !== undefined) {
-              productPartsMap.set(part.product_id, {
-                recipe_id: part.recipe_id,
-                quantity: parseFloat(part.quantity)
-              });
-            } else {
-              console.log(`Debug - Skipping product ${part.product_id} - has NULL recipe_id`);
-            }
-          }
-          console.log(`Debug - Product parts map size: ${productPartsMap.size}`);
-          console.log(`Debug - Sample entries:`, Array.from(productPartsMap.entries()).slice(0, 5));
-        } else {
-          console.warn('Debug - No product parts data received');
-        }
-
-        // Group products by recipe_id
-        const recipeMap = new Map();
-        
-        for (const order of userOrders) {
-          for (const item of order.order_items) {
-            const product = item.products as any;
-            const category = product.categories as any;
-            
-            // Check if product has entry in product_parts table
-            let recipeId = 'no-recipe';
-            let recipeName = 'Bez receptu';
-            
-            const productPart = productPartsMap.get(product.id);
-            if (productPart) {
-              recipeId = productPart.recipe_id;
-              recipeName = `Recipe ${productPart.recipe_id}`;
-              console.log(`Debug - Product ${product.id} (${product.name}) found in product_parts: Recipe ${recipeId}`);
-            } else {
-              console.log(`Debug - Product ${product.id} (${product.name}) NOT found in product_parts - goes to Bez receptu`);
-            }
-            // If no product_parts entry, product goes to "Bez receptu"
-            
-            if (!recipeMap.has(recipeId)) {
-              recipeMap.set(recipeId, {
-                recipe_id: recipeId,
-                recipe_name: recipeName,
-                category_id: category.id,
-                category_name: category.name,
-                products: new Map()
-              });
-            }
-            
-            const recipeData = recipeMap.get(recipeId);
-            if (!recipeData.products.has(product.id)) {
-              recipeData.products.set(product.id, {
-                product_id: product.id,
-                product_name: product.name,
-                quantity: 0
-              });
-            }
-            
-            recipeData.products.get(product.id).quantity += item.quantity;
+      // Create lookup map for product_parts
+      const productPartsMap = new Map();
+      if (allProductParts) {
+        console.log(`Debug - Product parts found: ${allProductParts.length}`);
+        for (const part of allProductParts) {
+          // Only add to map if recipe_id is not null
+          if (part.recipe_id !== null && part.recipe_id !== undefined) {
+            productPartsMap.set(part.product_id, {
+              recipe_id: part.recipe_id,
+              quantity: parseFloat(part.quantity)
+            });
+          } else {
+            console.log(`Debug - Skipping product ${part.product_id} - has NULL recipe_id`);
           }
         }
+        console.log(`Debug - Product parts map size: ${productPartsMap.size}`);
+        console.log(`Debug - Sample entries:`, Array.from(productPartsMap.entries()).slice(0, 5));
+      } else {
+        console.warn('Debug - No product parts data received');
+      }
 
-        // Batch: Get all unique recipe IDs we need to process
-        const recipeIds = Array.from(recipeMap.keys()).filter(id => id !== 'no-recipe');
-        
-        if (recipeIds.length === 0) {
-          console.warn('No recipes with valid recipe_id found');
+      // Group products by recipe_id (across all users)
+      const recipeMap = new Map();
+      
+      for (const order of orders) {
+        for (const item of order.order_items) {
+          const product = item.products as any;
+          const category = product.categories as any;
+          
+          // Check if product has entry in product_parts table
+          let recipeId = 'no-recipe';
+          let recipeName = 'Bez receptu';
+          
+          const productPart = productPartsMap.get(product.id);
+          if (productPart) {
+            recipeId = productPart.recipe_id;
+            recipeName = `Recipe ${productPart.recipe_id}`;
+            console.log(`Debug - Product ${product.id} (${product.name}) found in product_parts: Recipe ${recipeId}`);
+          } else {
+            console.log(`Debug - Product ${product.id} (${product.name}) NOT found in product_parts - goes to Bez receptu`);
+          }
+          // If no product_parts entry, product goes to "Bez receptu"
+          
+          if (!recipeMap.has(recipeId)) {
+            recipeMap.set(recipeId, {
+              recipe_id: recipeId,
+              recipe_name: recipeName,
+              category_id: category.id,
+              category_name: category.name,
+              products: new Map()
+            });
+          }
+          
+          const recipeData = recipeMap.get(recipeId);
+          if (!recipeData.products.has(product.id)) {
+            recipeData.products.set(product.id, {
+              product_id: product.id,
+              product_name: product.name,
+              quantity: 0
+            });
+          }
+          
+          recipeData.products.get(product.id).quantity += item.quantity;
+        }
+      }
+
+      // Get all unique recipe IDs we need to process
+      const recipeIds = Array.from(recipeMap.keys()).filter(id => id !== 'no-recipe');
+      
+      if (recipeIds.length === 0) {
+        console.warn('No recipes with valid recipe_id found');
+        return [];
+      }
+
+      // Use upsert logic to handle existing bakers properly
+      // Uniqueness is only on (date, recipe_id), not user_id
+      const bakerMap = new Map(); // recipe_id -> baker_id
+      
+      for (const [recipeId, recipeData] of recipeMap) {
+        if (recipeId === 'no-recipe') {
+          console.warn(`Skipping products without recipes: ${recipeData.recipe_name}`);
           continue;
         }
 
-        // Batch: Find all existing bakers for these recipes and user
-        const { data: existingBakers } = await supabase
+        // Check if baker already exists for this recipe and date (regardless of user)
+        const { data: existingBaker, error: bakerCheckError } = await supabase
           .from('bakers')
-          .select('id, recipe_id')
+          .select('id, user_id')
           .eq('date', dateStr)
-          .eq('user_id', userId)
-          .in('recipe_id', recipeIds);
+          .eq('recipe_id', recipeId)
+          .maybeSingle();
 
-        // Create a map of recipe_id -> baker_id
-        const existingBakerMap = new Map();
-        if (existingBakers) {
-          for (const baker of existingBakers) {
-            existingBakerMap.set(baker.recipe_id, baker.id);
-          }
+        // If there's an error that's not "not found", throw it
+        if (bakerCheckError && bakerCheckError.code !== 'PGRST116') {
+          throw bakerCheckError;
         }
 
-        // Prepare arrays for batch operations
-        const bakersToCreate = [];
-        const bakersToUpdate = [];
-        const bakerIdsToDelete = [];
+        console.log(`Debug - Checking baker for date ${dateStr}, recipe ${recipeId}:`, existingBaker ? `Found ID ${existingBaker.id} (user: ${existingBaker.user_id})` : 'Not found');
 
-        // Create bakers for each recipe
-        for (const [recipeId, recipeData] of recipeMap) {
+        let bakerId: number;
 
-          if (recipeId === 'no-recipe') {
-            console.warn(`Skipping products without recipes: ${recipeData.recipe_name}`);
-            continue;
-          }
-
-          const existingBakerId = existingBakerMap.get(recipeId);
-
-          if (existingBakerId) {
-            // Update existing baker
-            bakersToUpdate.push({
-              id: existingBakerId,
+        if (existingBaker) {
+          // Update existing baker (change user_id to first user if different)
+          bakerId = existingBaker.id;
+          const firstUserId = Array.from(usersWithOrders)[0]; // Use first user
+          await supabase
+            .from('bakers')
+            .update({
+              user_id: firstUserId, // Update to first user
               notes: `Manuálně synchronizováno pro recept: ${recipeData.recipe_name}`,
               updated_at: new Date().toISOString()
-            });
-            bakerIdsToDelete.push(existingBakerId);
-          } else {
-            // Prepare new baker for creation
-            bakersToCreate.push({
-              date: dateStr,
-              user_id: userId,
-              recipe_id: recipeId,
-              notes: `Manuálně vytvořené pro recept: ${recipeData.recipe_name}`,
-              _recipeData: recipeData  // Temporary field to track recipe data
-            });
-          }
-        }
+            })
+            .eq('id', bakerId);
 
-        // Batch: Update existing bakers
-        if (bakersToUpdate.length > 0) {
-          for (const baker of bakersToUpdate) {
-            await supabase
-              .from('bakers')
-              .update({
-                notes: baker.notes,
-                updated_at: baker.updated_at
-              })
-              .eq('id', baker.id);
-          }
-        }
-
-        // Batch: Delete old baker_items
-        if (bakerIdsToDelete.length > 0) {
+          // Delete existing baker_items for this baker
           await supabase
             .from('baker_items')
             .delete()
-            .in('production_id', bakerIdsToDelete);
-        }
-
-        // Batch: Create new bakers
-        let newBakers: Array<{ id: number; recipe_id: number }> = [];
-        if (bakersToCreate.length > 0) {
-          const bakersData = bakersToCreate.map(b => ({
-            date: b.date,
-            user_id: b.user_id,
-            recipe_id: b.recipe_id,
-            notes: b.notes
-          }));
-          
-          const { data, error: createError } = await supabase
+            .eq('production_id', bakerId);
+        } else {
+          // Create new baker
+          const firstUserId = Array.from(usersWithOrders)[0]; // Use first user
+          console.log(`Debug - Creating new baker for user ${firstUserId}, date ${dateStr}, recipe ${recipeId}`);
+          const { data: newBaker, error: createError } = await supabase
             .from('bakers')
-            .insert(bakersData)
-            .select('id, recipe_id');
+            .insert({
+              date: dateStr,
+              user_id: firstUserId,
+              recipe_id: recipeId,
+              notes: `Manuálně vytvořené pro recept: ${recipeData.recipe_name}`
+            })
+            .select('id')
+            .single();
 
-          if (createError) throw createError;
-          newBakers = data || [];
+          if (createError) {
+            console.error(`Debug - Error creating baker:`, createError);
+            throw createError;
+          }
+          bakerId = newBaker.id;
+          console.log(`Debug - Created baker with ID ${bakerId}`);
         }
 
-        // Map new bakers to their recipe_ids
-        for (const newBaker of newBakers) {
-          existingBakerMap.set(newBaker.recipe_id, newBaker.id);
-        }
+        bakerMap.set(recipeId, bakerId);
+      }
 
-        // Now create baker_items for all recipes
-        const allBakerItems = [];
+      // Now create baker_items for all recipes
+      const allBakerItems = [];
+      
+      for (const [recipeId, recipeData] of recipeMap) {
+        if (recipeId === 'no-recipe') continue;
+
+        const bakerId = bakerMap.get(recipeId);
+        if (!bakerId) continue;
+
+        // Sum all products for this recipe before inserting
+        let totalIngredientNeeded = 0;
+        const productDetails = [];
         
-        for (const [recipeId, recipeData] of recipeMap) {
-          if (recipeId === 'no-recipe') continue;
-
-          const bakerId = existingBakerMap.get(recipeId);
-          if (!bakerId) continue;
-
-          // Sum all products for this recipe before inserting
-          let totalIngredientNeeded = 0;
-          const productDetails = [];
-          
-          for (const product of recipeData.products.values()) {
-            if (product.quantity > 0) {
-              // Get the product_parts quantity from our pre-fetched data
-              const productPart = productPartsMap.get(product.product_id);
-              const partQuantity = productPart?.quantity || 1; // Default to 1 if no product_parts data
-              const ingredientForThisProduct = product.quantity * partQuantity;
-              
-              totalIngredientNeeded += ingredientForThisProduct;
-              productDetails.push({
-                product_id: product.product_id,
-                product_name: product.product_name,
-                ordered_quantity: product.quantity,
-                part_quantity: partQuantity,
-                ingredient_needed: ingredientForThisProduct
-              });
-            }
-          }
-          
-          // Create baker_items for each product in this recipe
-          for (const product of recipeData.products.values()) {
-            if (product.quantity > 0) {
-              // Get the product_parts quantity from our pre-fetched data
-              const productPart = productPartsMap.get(product.product_id);
-              const partQuantity = productPart?.quantity || 1; // Default to 1 if no product_parts data
-              const ingredientForThisProduct = product.quantity * partQuantity;
-              
-              allBakerItems.push({
-                production_id: bakerId,
-                product_id: product.product_id, // Use actual product ID
-                planned_quantity: Math.max(1, Math.ceil(ingredientForThisProduct)),
-                recipe_quantity: Math.max(1, Math.ceil(ingredientForThisProduct))
-              });
-            }
+        for (const product of recipeData.products.values()) {
+          if (product.quantity > 0) {
+            // Get the product_parts quantity from our pre-fetched data
+            const productPart = productPartsMap.get(product.product_id);
+            const partQuantity = productPart?.quantity || 1; // Default to 1 if no product_parts data
+            const ingredientForThisProduct = product.quantity * partQuantity;
+            
+            totalIngredientNeeded += ingredientForThisProduct;
+            productDetails.push({
+              product_id: product.product_id,
+              product_name: product.product_name,
+              ordered_quantity: product.quantity,
+              part_quantity: partQuantity,
+              ingredient_needed: ingredientForThisProduct
+            });
           }
         }
-
-        // Batch: Insert all baker_items at once
-        if (allBakerItems.length > 0) {
-          const { error: itemsError } = await supabase
-            .from('baker_items')
-            .insert(allBakerItems);
-
-          if (itemsError) throw itemsError;
+        
+        // Create baker_items for each product in this recipe
+        for (const product of recipeData.products.values()) {
+          if (product.quantity > 0) {
+            // Get the product_parts quantity from our pre-fetched data
+            const productPart = productPartsMap.get(product.product_id);
+            const partQuantity = productPart?.quantity || 1; // Default to 1 if no product_parts data
+            const ingredientForThisProduct = product.quantity * partQuantity;
+            
+            allBakerItems.push({
+              production_id: bakerId,
+              product_id: product.product_id, // Use actual product ID
+              planned_quantity: Math.max(1, Math.ceil(ingredientForThisProduct)),
+              recipe_quantity: Math.max(1, Math.ceil(ingredientForThisProduct))
+            });
+          }
         }
+      }
 
-        // Create results summary
-        for (const [recipeId, recipeData] of recipeMap) {
-          if (recipeId === 'no-recipe') continue;
+      // Batch: Insert all baker_items at once
+      if (allBakerItems.length > 0) {
+        const { error: itemsError } = await supabase
+          .from('baker_items')
+          .insert(allBakerItems);
 
-          const bakerId = existingBakerMap.get(recipeId);
-          if (!bakerId) continue;
+        if (itemsError) throw itemsError;
+      }
 
-          const recipeItems = allBakerItems.filter(item => item.production_id === bakerId);
-          
-          results.push({
-            baker_id: bakerId,
-            category_name: recipeData.recipe_name,
-            total_products: recipeItems.length,
-            total_quantity: recipeItems.reduce((sum, item) => sum + item.planned_quantity, 0)
-          });
-        }
+      // Create results summary
+      for (const [recipeId, recipeData] of recipeMap) {
+        if (recipeId === 'no-recipe') continue;
+
+        const bakerId = bakerMap.get(recipeId);
+        if (!bakerId) continue;
+
+        const recipeItems = allBakerItems.filter(item => item.production_id === bakerId);
+        
+        results.push({
+          baker_id: bakerId,
+          category_name: recipeData.recipe_name,
+          total_products: recipeItems.length,
+          total_quantity: recipeItems.reduce((sum, item) => sum + item.planned_quantity, 0)
+        });
       }
 
       return results;

@@ -41,6 +41,9 @@ import { useIngredients } from "@/hooks/useIngredients";
 import { useToast } from "@/hooks/use-toast";
 import { useUsers } from "@/hooks/useProfiles";
 import { supabase } from "@/lib/supabase";
+import { MonthlyIngredientConsumption } from "./MonthlyIngredientConsumption";
+import { DailyIngredientConsumption } from "./DailyIngredientConsumption";
+import { useCurrentMonthConsumption } from "@/hooks/useCurrentMonthConsumption";
 
 export function IngredientQuantityOverview() {
   const [globalFilter, setGlobalFilter] = useState("");
@@ -56,6 +59,7 @@ export function IngredientQuantityOverview() {
   const { data: quantities, isLoading, error } = useIngredientQuantities();
   const { data: ingredients } = useIngredients();
   const { data: allUsers } = useUsers();
+  const { data: currentMonthConsumption } = useCurrentMonthConsumption();
   const { toast } = useToast();
   const initializeQuantities = useInitializeIngredientQuantities();
 
@@ -80,6 +84,14 @@ export function IngredientQuantityOverview() {
   const transformedQuantities = useMemo(() => {
     if (!quantities) return [];
 
+    // Create a map of consumption data for quick lookup
+    const consumptionMap = new Map<number, number>();
+    if (currentMonthConsumption) {
+      currentMonthConsumption.forEach((consumption) => {
+        consumptionMap.set(consumption.ingredientId, consumption.totalQuantity);
+      });
+    }
+
     return quantities.map((qty) => {
       const status =
         qty.current_quantity < 10
@@ -88,12 +100,14 @@ export function IngredientQuantityOverview() {
             ? "high"
             : "normal";
       const price = qty.ingredient?.price || 0;
+      const monthlyConsumption = consumptionMap.get(qty.ingredient_id) || 0;
 
       return {
         id: qty.id,
         ingredientId: qty.ingredient_id,
         name: qty.ingredient?.name || "Neznámá surovina",
         currentQuantity: qty.current_quantity,
+        monthlyConsumption,
         unit: qty.unit,
         category:
           qty.ingredient?.ingredient_categories?.name || "Bez kategorie",
@@ -104,7 +118,7 @@ export function IngredientQuantityOverview() {
         totalValue: qty.current_quantity * price,
       };
     });
-  }, [quantities]);
+  }, [quantities, currentMonthConsumption]);
 
   // Filter ingredients based on search, category, and status
   const filteredQuantities = useMemo(() => {
@@ -468,9 +482,11 @@ export function IngredientQuantityOverview() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="overview">Přehled zásob</TabsTrigger>
               <TabsTrigger value="low-stock">Nízké zásoby</TabsTrigger>
+              <TabsTrigger value="daily">Denní spotřeba</TabsTrigger>
+              <TabsTrigger value="consumption">Měsíční spotřeba</TabsTrigger>
             </TabsList>
 
             {/* Overview Tab */}
@@ -484,6 +500,9 @@ export function IngredientQuantityOverview() {
                       <TableHead>Dodavatel</TableHead>
                       <TableHead className="text-right">Množství</TableHead>
                       <TableHead>Jednotka</TableHead>
+                      <TableHead className="text-right">
+                        Spotřeba (měsíc)
+                      </TableHead>
                       <TableHead className="text-right">Cena</TableHead>
                       <TableHead className="text-right">Hodnota</TableHead>
                       <TableHead>Status</TableHead>
@@ -515,6 +534,11 @@ export function IngredientQuantityOverview() {
                             <Scale className="h-3 w-3 text-muted-foreground" />
                             <span className="text-sm">{item.unit}</span>
                           </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className="text-sm font-mono text-blue-600">
+                            {item.monthlyConsumption.toFixed(1)}
+                          </span>
                         </TableCell>
                         <TableCell className="text-right">
                           <span className="text-sm">
@@ -621,6 +645,16 @@ export function IngredientQuantityOverview() {
                   Žádné položky s nízkými zásobami.
                 </div>
               )}
+            </TabsContent>
+
+            {/* Daily Consumption Tab */}
+            <TabsContent value="daily" className="space-y-6 mt-6">
+              <DailyIngredientConsumption />
+            </TabsContent>
+
+            {/* Monthly Consumption Tab */}
+            <TabsContent value="consumption" className="space-y-6 mt-6">
+              <MonthlyIngredientConsumption />
             </TabsContent>
           </Tabs>
         </div>

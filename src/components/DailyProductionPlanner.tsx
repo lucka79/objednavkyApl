@@ -11,6 +11,16 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Calendar } from "@/components/ui/calendar";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -20,33 +30,33 @@ import {
   CheckCircle,
   AlertTriangle,
   Bug,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { format, addDays, subDays } from "date-fns";
+import { cs } from "date-fns/locale";
 
 import { useDailyProductionPlanner } from "@/hooks/useDailyProductionPlanner";
 import { useManualBakerSync } from "@/hooks/useBakerSync";
 
-interface ProductionItem {
-  productId: number;
-  productName: string;
-  totalOrdered: number;
-  plannedQuantity: number;
-  category: string;
-  hasRecipe: boolean;
-  recipeId?: number;
-  recipeName?: string;
-  bakerId?: number;
-  bakerStatus?: string;
-  bakerNotes?: string;
-  actualQuantity?: number;
-  completedQuantity?: number;
-  isCompleted?: boolean;
-}
-
 export function DailyProductionPlanner() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [tempDate, setTempDate] = useState<Date | undefined>(new Date());
+  const [isCheckingExisting, setIsCheckingExisting] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [existingRecordsInfo, setExistingRecordsInfo] = useState<{
+    bakersCount: number;
+    bakerItemsCount: number;
+  } | null>(null);
 
   const manualBakerSync = useManualBakerSync();
+
+  const handleConfirmDate = () => {
+    if (tempDate) {
+      setSelectedDate(tempDate);
+      setIsCalendarOpen(false);
+    }
+  };
 
   // Generate date options (today, yesterday, 2 days ago, 3 days ago, 4 days ago)
   const dateOptions = useMemo(() => {
@@ -93,11 +103,70 @@ export function DailyProductionPlanner() {
     };
   }, [productionData]);
 
+  const checkExistingRecords = async () => {
+    setIsCheckingExisting(true);
+    try {
+      const { supabase } = await import("@/lib/supabase");
+      const dateStr = selectedDate.toISOString().split("T")[0];
+
+      // Check bakers table
+      const { count: bakersCount, error: bakersError } = await supabase
+        .from("bakers")
+        .select("id", { count: "exact", head: true })
+        .eq("date", dateStr);
+
+      if (bakersError) {
+        console.error("Error checking bakers:", bakersError);
+        return null;
+      }
+
+      // Check baker_items table
+      const { count: bakerItemsCount, error: bakerItemsError } = await supabase
+        .from("baker_items")
+        .select("id", { count: "exact", head: true })
+        .eq("date", dateStr);
+
+      if (bakerItemsError) {
+        console.error("Error checking baker_items:", bakerItemsError);
+        return null;
+      }
+
+      return {
+        bakersCount: bakersCount || 0,
+        bakerItemsCount: bakerItemsCount || 0,
+      };
+    } catch (error) {
+      console.error("Error checking existing records:", error);
+      return null;
+    } finally {
+      setIsCheckingExisting(false);
+    }
+  };
+
   const handleManualSync = async () => {
+    // First check if records already exist
+    const existingRecords = await checkExistingRecords();
+
+    if (
+      existingRecords &&
+      (existingRecords.bakersCount > 0 || existingRecords.bakerItemsCount > 0)
+    ) {
+      // Show confirmation dialog
+      setExistingRecordsInfo(existingRecords);
+      setShowConfirmDialog(true);
+    } else {
+      // No existing records, proceed with sync
+      performSync();
+    }
+  };
+
+  const performSync = async () => {
     try {
       await manualBakerSync.mutateAsync({
         date: selectedDate,
       });
+      setShowConfirmDialog(false);
+      setExistingRecordsInfo(null);
     } catch (error) {
       console.error("Manual sync failed:", error);
     }
@@ -535,44 +604,6 @@ export function DailyProductionPlanner() {
     }
   };
 
-  const getStatusIcon = (item: ProductionItem) => {
-    if (item.isCompleted) {
-      return <CheckCircle className="h-4 w-4 text-green-500" />;
-    } else if (item.bakerStatus === "in_progress") {
-      return <RefreshCw className="h-4 w-4 text-blue-500" />;
-    } else if (item.hasRecipe) {
-      return <CheckCircle className="h-4 w-4 text-green-500" />;
-    } else {
-      return <AlertTriangle className="h-4 w-4 text-orange-500" />;
-    }
-  };
-
-  const getStatusBadge = (item: ProductionItem) => {
-    if (item.isCompleted) {
-      return (
-        <Badge variant="default" className="bg-green-100 text-green-800">
-          Dokončeno
-        </Badge>
-      );
-    } else if (item.bakerStatus === "in_progress") {
-      return (
-        <Badge variant="default" className="bg-blue-100 text-blue-800">
-          V procesu
-        </Badge>
-      );
-    } else if (item.bakerStatus === "planned") {
-      return <Badge variant="secondary">Naplánováno</Badge>;
-    } else if (item.hasRecipe) {
-      return <Badge variant="secondary">Má recept</Badge>;
-    } else {
-      return (
-        <Badge variant="outline" className="text-orange-600">
-          Bez receptu
-        </Badge>
-      );
-    }
-  };
-
   if (isLoading) {
     return (
       <Card className="p-6">
@@ -619,13 +650,15 @@ export function DailyProductionPlanner() {
           <div className="flex gap-2">
             <Button
               onClick={handleManualSync}
-              disabled={manualBakerSync.isPending || isLoading}
+              disabled={
+                manualBakerSync.isPending || isLoading || isCheckingExisting
+              }
               className="bg-purple-600 hover:bg-purple-700"
             >
-              {manualBakerSync.isPending ? (
+              {manualBakerSync.isPending || isCheckingExisting ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Synchronizuji...
+                  {isCheckingExisting ? "Kontroluji..." : "Synchronizuji..."}
                 </>
               ) : (
                 <>
@@ -658,29 +691,74 @@ export function DailyProductionPlanner() {
           </div>
         </div>
 
-        {/* Date Tabs */}
-        <Tabs
-          value={selectedDate.toISOString().split("T")[0]}
-          onValueChange={(value) => {
-            const option = dateOptions.find(
-              (opt) => opt.date.toISOString().split("T")[0] === value
-            );
-            if (option) {
-              setSelectedDate(new Date(option.date));
-            }
-          }}
-        >
-          <TabsList className="w-full justify-start">
-            {dateOptions.map((option) => (
-              <TabsTrigger
-                key={option.date.toISOString()}
-                value={option.date.toISOString().split("T")[0]}
+        {/* Date Tabs and Calendar */}
+        <div className="flex items-center gap-4">
+          <Tabs
+            value={selectedDate.toISOString().split("T")[0]}
+            onValueChange={(value) => {
+              const option = dateOptions.find(
+                (opt) => opt.date.toISOString().split("T")[0] === value
+              );
+              if (option) {
+                setSelectedDate(new Date(option.date));
+              }
+            }}
+            className="flex-1"
+          >
+            <TabsList className="w-full justify-start">
+              {dateOptions.map((option) => (
+                <TabsTrigger
+                  key={option.date.toISOString()}
+                  value={option.date.toISOString().split("T")[0]}
+                >
+                  {option.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+
+          {/* Calendar Dialog */}
+          <Dialog open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setTempDate(selectedDate);
+                  setIsCalendarOpen(true);
+                }}
               >
-                {option.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                {format(selectedDate, "dd.MM.yyyy", { locale: cs })}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Vybrat datum</DialogTitle>
+                <DialogDescription>
+                  Vyberte datum pro zobrazení produkčních plánů
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex justify-center py-4">
+                <Calendar
+                  mode="single"
+                  selected={tempDate}
+                  onSelect={setTempDate}
+                  initialFocus
+                  locale={cs}
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsCalendarOpen(false)}
+                >
+                  Zrušit
+                </Button>
+                <Button onClick={handleConfirmDate}>Potvrdit</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
 
         {/* Summary Cards */}
         {productionSummary && (
@@ -751,6 +829,7 @@ export function DailyProductionPlanner() {
                     recipeId?: number;
                     recipeName: string;
                     totalQuantity: number;
+                    totalRecipeWeight: number;
                     productCount: number;
                     products: Map<string, number>;
                   }
@@ -767,6 +846,7 @@ export function DailyProductionPlanner() {
                       recipeId: item.recipeId,
                       recipeName,
                       totalQuantity: 0,
+                      totalRecipeWeight: 0,
                       productCount: 0,
                       products: new Map<string, number>(), // Use Map to sum quantities by product name
                     });
@@ -775,6 +855,11 @@ export function DailyProductionPlanner() {
                   const recipeData = recipeMap.get(recipeKey)!;
                   recipeData.totalQuantity += item.totalOrdered;
                   recipeData.productCount += 1;
+
+                  // Sum recipe weight (total dough weight)
+                  if (item.recipeQuantity) {
+                    recipeData.totalRecipeWeight += item.recipeQuantity;
+                  }
 
                   // Sum quantities for products with the same name
                   const currentQuantity =
@@ -786,7 +871,7 @@ export function DailyProductionPlanner() {
 
                   // Debug logging
                   console.log(
-                    `Recipe card: ${recipeName} - Product: ${item.productName} - Ordered Quantity: ${item.totalOrdered}`
+                    `Recipe card: ${recipeName} - Product: ${item.productName} - Ordered Quantity: ${item.totalOrdered} - Recipe Weight: ${item.recipeQuantity || 0}`
                   );
                 });
 
@@ -803,13 +888,18 @@ export function DailyProductionPlanner() {
                           )}
                           {recipeData.recipeName}
                         </CardTitle>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <Badge variant="secondary">
                             {recipeData.products.size} produktů
                           </Badge>
                           <Badge variant="outline">
                             {recipeData.totalQuantity} ks celkem
                           </Badge>
+                          {recipeData.totalRecipeWeight > 0 && (
+                            <Badge variant="default" className="bg-orange-600">
+                              {recipeData.totalRecipeWeight.toFixed(1)} kg těsta
+                            </Badge>
+                          )}
                         </div>
                       </CardHeader>
                       <CardContent className="pt-0">
@@ -848,64 +938,51 @@ export function DailyProductionPlanner() {
                   <TableHead>Produkt</TableHead>
                   <TableHead>Kategorie</TableHead>
                   <TableHead className="text-right">Objednáno</TableHead>
-                  <TableHead className="text-right">Plánované</TableHead>
-                  <TableHead className="text-right">Skutečné</TableHead>
-                  <TableHead className="text-right">Dokončené</TableHead>
                   <TableHead>Recept</TableHead>
-                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {productionData.map((item, index) => (
-                  <TableRow key={`${item.productId}-${item.bakerId || index}`}>
-                    <TableCell className="font-mono text-sm text-muted-foreground">
-                      {item.productId}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {item.productName}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{item.category}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className="text-sm font-mono">
-                        {item.totalOrdered}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className="text-sm font-mono">
-                        {item.plannedQuantity}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className="text-sm font-mono">
-                        {item.actualQuantity || "-"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className="text-sm font-mono">
-                        {item.completedQuantity || "-"}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        {item.hasRecipe ? (
-                          <span className="text-green-600">
-                            {item.recipeName}
-                          </span>
-                        ) : (
-                          <span className="text-orange-600">Bez receptu</span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {getStatusIcon(item)}
-                        {getStatusBadge(item)}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {[...productionData]
+                  .sort((a, b) => {
+                    // First sort by category
+                    const categoryCompare = a.category.localeCompare(
+                      b.category
+                    );
+                    if (categoryCompare !== 0) return categoryCompare;
+                    // Then sort by product name
+                    return a.productName.localeCompare(b.productName);
+                  })
+                  .map((item, index) => (
+                    <TableRow
+                      key={`${item.productId}-${item.bakerId || index}`}
+                    >
+                      <TableCell className="font-mono text-sm text-muted-foreground">
+                        {item.productId}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {item.productName}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{item.category}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className="text-sm font-mono">
+                          {item.totalOrdered}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          {item.hasRecipe ? (
+                            <span className="text-green-600">
+                              {item.recipeName}
+                            </span>
+                          ) : (
+                            <span className="text-orange-600">Bez receptu</span>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
           </div>
@@ -927,6 +1004,75 @@ export function DailyProductionPlanner() {
           </div>
         )}
       </div>
+
+      {/* Confirmation Dialog for Existing Records */}
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Existující záznamy nalezeny</DialogTitle>
+            <DialogDescription>
+              Pro vybraný den (
+              {format(selectedDate, "dd.MM.yyyy", { locale: cs })}) již existují
+              záznamy v databázi:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            {existingRecordsInfo && (
+              <>
+                {existingRecordsInfo.bakersCount > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-amber-50 rounded-md">
+                    <span className="text-sm font-medium">
+                      Záznamy v tabulce bakers:
+                    </span>
+                    <Badge variant="secondary">
+                      {existingRecordsInfo.bakersCount}
+                    </Badge>
+                  </div>
+                )}
+                {existingRecordsInfo.bakerItemsCount > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-amber-50 rounded-md">
+                    <span className="text-sm font-medium">
+                      Záznamy v tabulce baker_items:
+                    </span>
+                    <Badge variant="secondary">
+                      {existingRecordsInfo.bakerItemsCount}
+                    </Badge>
+                  </div>
+                )}
+              </>
+            )}
+            <p className="text-sm text-muted-foreground mt-4">
+              Chcete přesto pokračovat se synchronizací? Existující záznamy
+              budou přepsány.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowConfirmDialog(false);
+                setExistingRecordsInfo(null);
+              }}
+            >
+              Zrušit
+            </Button>
+            <Button
+              onClick={performSync}
+              disabled={manualBakerSync.isPending}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {manualBakerSync.isPending ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Synchronizuji...
+                </>
+              ) : (
+                "Ano, synchronizovat"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
