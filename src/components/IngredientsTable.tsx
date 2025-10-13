@@ -31,6 +31,7 @@ import {
   FileText,
   ZapIcon,
   ArrowRightLeft,
+  Download,
 } from "lucide-react";
 import { IngredientForm } from "./IngredientForm";
 import {
@@ -235,6 +236,120 @@ export function IngredientsTable() {
       toast({
         title: "Chyba",
         description: "Nepodařilo se smazat ingredienci",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportCSV = () => {
+    try {
+      // Create CSV header
+      const headers = [
+        "Kategorie",
+        "Název",
+        "Dodavatel",
+        "Kód dodavatele",
+        "Cena",
+        "Balení",
+        "Jednotka",
+        "kg/Jednotka",
+        "DPH",
+        "EAN",
+        "Aktivní",
+        "Pouze prodejna",
+      ];
+
+      // Get all ingredients sorted by category and name
+      const sortedIngredients = filteredGroupedIngredients.flatMap(
+        ({ categoryName, ingredients }) =>
+          ingredients.map((ingredient) => {
+            // Get the active supplier or first supplier
+            const activeSupplier = ingredient.ingredient_supplier_codes?.find(
+              (code: any) => code.is_active
+            );
+            const supplierToUse =
+              activeSupplier || ingredient.ingredient_supplier_codes?.[0];
+
+            // Get supplier info
+            const supplierId =
+              supplierToUse?.supplier_id || ingredient.supplier_id;
+            const supplierName =
+              (supplierUsers || []).find((u: any) => u.id === supplierId)
+                ?.full_name || "";
+            const supplierCode = supplierToUse?.product_code || "";
+            const price = supplierToUse?.price || ingredient.price || 0;
+            const packageValue =
+              (supplierToUse?.package ?? ingredient.package) || "";
+
+            return {
+              category: categoryName,
+              name: ingredient.name,
+              supplier: supplierName,
+              supplierCode: supplierCode,
+              price: price.toFixed(2),
+              package: packageValue,
+              unit: ingredient.unit,
+              kiloPerUnit: ingredient.kiloPerUnit.toFixed(3),
+              vat: ingredient.vat || "",
+              ean: ingredient.ean || "",
+              active: ingredient.active ? "Ano" : "Ne",
+              storeOnly: ingredient.storeOnly ? "Ano" : "Ne",
+            };
+          })
+      );
+
+      // Create CSV content
+      const csvRows = [
+        headers.join(";"),
+        ...sortedIngredients.map((row) =>
+          [
+            row.category,
+            row.name,
+            row.supplier,
+            row.supplierCode,
+            row.price,
+            row.package,
+            row.unit,
+            row.kiloPerUnit,
+            row.vat,
+            row.ean,
+            row.active,
+            row.storeOnly,
+          ]
+            .map((cell) => `"${cell}"`)
+            .join(";")
+        ),
+      ];
+
+      const csvContent = csvRows.join("\n");
+
+      // Add BOM for proper UTF-8 encoding in Excel
+      const BOM = "\uFEFF";
+      const blob = new Blob([BOM + csvContent], {
+        type: "text/csv;charset=utf-8;",
+      });
+
+      // Create download link
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `suroviny_${new Date().toISOString().split("T")[0]}.csv`
+      );
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Úspěch",
+        description: `Export byl úspěšně vytvořen (${sortedIngredients.length} surovin)`,
+      });
+    } catch (error) {
+      toast({
+        title: "Chyba",
+        description: "Nepodařilo se exportovat data",
         variant: "destructive",
       });
     }
@@ -472,7 +587,7 @@ export function IngredientsTable() {
               const supplierToUse =
                 activeSupplier || ingredient.ingredient_supplier_codes?.[0];
 
-              const packageValue = supplierToUse?.package || ingredient.package;
+              const packageValue = supplierToUse?.package ?? ingredient.package;
               return packageValue ? `${packageValue}` : "—";
             })()}
           </span>
@@ -583,13 +698,23 @@ export function IngredientsTable() {
                 {activeIngredients} aktivních z {totalIngredients} celkem
               </p>
             </div>
-            <Button
-              className="bg-orange-600 hover:bg-orange-700"
-              onClick={openCreateForm}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Nová surovina
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleExportCSV}
+                className="border-orange-600 text-orange-600 hover:bg-orange-50"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+              <Button
+                className="bg-orange-600 hover:bg-orange-700"
+                onClick={openCreateForm}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Nová surovina
+              </Button>
+            </div>
           </div>
 
           {/* Filters */}

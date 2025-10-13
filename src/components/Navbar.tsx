@@ -163,15 +163,15 @@ export function Navbar() {
                     <Link to="/admin/transfers" className="hover:text-gray-300">
                       Převodky surovin
                     </Link>
+                    <Link
+                      to="/admin/ingredients-overview"
+                      className="hover:text-gray-300"
+                    >
+                      Přehled zásob
+                    </Link>
 
                     {user.email === "l.batelkova@gmail.com" && (
                       <>
-                        <Link
-                          to="/admin/ingredients-overview"
-                          className="hover:text-gray-300"
-                        >
-                          Přehled zásob
-                        </Link>
                         <Link
                           to="/admin/invoices"
                           className="hover:text-gray-300"

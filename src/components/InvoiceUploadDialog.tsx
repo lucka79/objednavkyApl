@@ -25,7 +25,7 @@ import { Upload, FileText, CheckCircle, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupplierUsers } from "@/hooks/useProfiles";
 import { useDocumentAI } from "@/hooks/useDocumentAI";
-import { ManualInvoiceEntry } from "./ManualInvoiceEntry";
+import { AddReceivedInvoiceForm } from "./AddReceivedInvoiceForm";
 
 interface ParsedInvoiceItem {
   id: string;
@@ -76,30 +76,6 @@ export function InvoiceUploadDialog() {
 
   const handleManualEntry = () => {
     setCurrentStep("manual");
-  };
-
-  const handleManualSave = (invoiceData: any) => {
-    // Convert manual invoice data to parsed invoice format
-    setParsedInvoice({
-      id: `inv_${Date.now()}`,
-      supplier: invoiceData.supplier,
-      invoiceNumber: invoiceData.invoiceNumber,
-      date: invoiceData.date,
-      totalAmount: invoiceData.totalAmount,
-      items: invoiceData.items.map((item: any, index: number) => ({
-        id: (index + 1).toString(),
-        name: item.ingredientName,
-        quantity: item.quantity,
-        unit: item.unit,
-        price: item.price,
-        total: item.total,
-        supplierCode: item.supplierCode,
-        confidence: 1.0, // Manual entry has 100% confidence
-      })),
-      confidence: 1.0,
-      status: "pending",
-    });
-    setCurrentStep("review");
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -350,13 +326,7 @@ export function InvoiceUploadDialog() {
           )}
 
           {/* Manual Invoice Entry */}
-          {currentStep === "manual" && (
-            <ManualInvoiceEntry
-              supplierId={invoiceSupplier}
-              onSave={handleManualSave}
-              onCancel={() => setCurrentStep("upload")}
-            />
-          )}
+          {currentStep === "manual" && <AddReceivedInvoiceForm />}
 
           {/* Parsed Invoice Review */}
           {currentStep === "review" && parsedInvoice && (

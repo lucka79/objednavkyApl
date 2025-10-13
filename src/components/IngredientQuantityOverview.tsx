@@ -183,8 +183,8 @@ export function IngredientQuantityOverview() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name")
-        .eq("supplier", true);
+        .select("id, full_name, role")
+        .eq("role", "supplier");
 
       if (error) {
         console.error("Error fetching suppliers:", error);
@@ -669,8 +669,6 @@ export function IngredientQuantityOverview() {
 
   // Transform inventory data for display and group by category
   const groupedQuantities = useMemo(() => {
-    if (!inventoryItems) return [];
-
     // Create a map of consumption data for quick lookup
     // Use store production consumption if it's a store user, otherwise use daily consumption
     const consumptionMap = new Map<number, number>();
@@ -708,63 +706,77 @@ export function IngredientQuantityOverview() {
       });
     }
 
-    // Aggregate quantities by ingredient to avoid duplicates
-    const aggregatedData = new Map();
-
-    inventoryItems
-      .filter((item) => showZeroQuantities || item.quantity > 0)
-      .forEach((item) => {
-        const ingredient = item.ingredients as any;
-        if (!ingredient) return;
-
+    // Create a map of inventory items for quick lookup
+    const inventoryMap = new Map<number, any>();
+    if (inventoryItems) {
+      inventoryItems.forEach((item) => {
         const ingredientId = item.ingredient_id;
-        const existing = aggregatedData.get(ingredientId);
+        const existing = inventoryMap.get(ingredientId);
 
         if (existing) {
           // Add to existing quantity
-          existing.currentQuantity += item.quantity || 0;
-          existing.totalValue = existing.currentQuantity * existing.price;
+          existing.quantity += item.quantity || 0;
         } else {
-          // Create new entry
-          const price = ingredient?.price || 0;
-          const monthlyConsumption = consumptionMap.get(ingredientId) || 0;
-          const receivedInvoicesQuantity =
-            receivedInvoicesMap.get(ingredientId) || 0;
-
-          // Debug received invoices quantity
-          if (ingredientId && receivedInvoicesMap.has(ingredientId)) {
-            console.log(
-              `Found received invoices for ingredient ${ingredientId}:`,
-              receivedInvoicesQuantity
-            );
-          }
-
-          // Find active supplier from ingredient_supplier_codes
-          const activeSupplierCode =
-            ingredient?.ingredient_supplier_codes?.find(
-              (code: any) => code.is_active
-            );
-          const supplierName = activeSupplierCode?.supplier_id
-            ? supplierMap.get(activeSupplierCode.supplier_id) || "—"
-            : "—";
-
-          aggregatedData.set(ingredientId, {
-            id: item.id, // Keep the first inventory item ID
-            ingredientId,
-            name: ingredient?.name || "Neznámá surovina",
-            currentQuantity: item.quantity || 0,
-            monthlyConsumption,
-            receivedInvoicesQuantity,
-            unit: ingredient?.unit || "kg",
-            category:
-              ingredient?.ingredient_categories?.name || "Bez kategorie",
-            supplier: supplierName,
-            lastUpdated: new Date().toISOString(),
-            price,
-            totalValue: (item.quantity || 0) * price,
+          inventoryMap.set(ingredientId, {
+            id: item.id,
+            quantity: item.quantity || 0,
+            ingredient: item.ingredients,
           });
         }
       });
+    }
+
+    // Get all ingredients from the ingredients data
+    const allIngredients = ingredients?.ingredients || [];
+
+    // Aggregate quantities by ingredient
+    const aggregatedData = new Map();
+
+    allIngredients.forEach((ingredient: any) => {
+      const ingredientId = ingredient.id;
+      const inventoryData = inventoryMap.get(ingredientId);
+      const currentQuantity = inventoryData?.quantity || 0;
+
+      // Skip if we're hiding zero quantities and this ingredient has zero quantity AND zero consumption
+      const monthlyConsumption = consumptionMap.get(ingredientId) || 0;
+      if (
+        !showZeroQuantities &&
+        currentQuantity === 0 &&
+        monthlyConsumption === 0
+      ) {
+        return;
+      }
+
+      const price = ingredient?.price || 0;
+      const receivedInvoicesQuantity =
+        receivedInvoicesMap.get(ingredientId) || 0;
+
+      // Find supplier from ingredient_supplier_codes (prefer active, fallback to first)
+      const activeSupplierCode = ingredient?.ingredient_supplier_codes?.find(
+        (code: any) => code.is_active
+      );
+      const supplierToUse =
+        activeSupplierCode || ingredient?.ingredient_supplier_codes?.[0];
+
+      const supplierName = supplierToUse?.supplier_id
+        ? supplierMap.get(supplierToUse.supplier_id) || "—"
+        : "—";
+
+      aggregatedData.set(ingredientId, {
+        id: inventoryData?.id || `ingredient-${ingredientId}`, // Use inventory ID if available, otherwise create a unique ID
+        ingredientId,
+        name: ingredient?.name || "Neznámá surovina",
+        currentQuantity,
+        monthlyConsumption,
+        receivedInvoicesQuantity,
+        unit: ingredient?.unit || "kg",
+        category: ingredient?.ingredient_categories?.name || "Bez kategorie",
+        supplier: supplierName,
+        lastUpdated: new Date().toISOString(),
+        price,
+        totalValue: currentQuantity * price,
+      });
+    });
 
     const transformedData = Array.from(aggregatedData.values()).map((item) => {
       const status =
@@ -802,6 +814,7 @@ export function IngredientQuantityOverview() {
         ),
       }));
   }, [
+    ingredients,
     inventoryItems,
     monthlyConsumption,
     storeProductionConsumption,
@@ -936,7 +949,7 @@ export function IngredientQuantityOverview() {
     );
   }
 
-  if (!inventoryItems || inventoryItems.length === 0) {
+  if (!ingredients?.ingredients || ingredients.ingredients.length === 0) {
     return (
       <Card className="p-6">
         <div className="text-center py-12">
@@ -944,36 +957,17 @@ export function IngredientQuantityOverview() {
             <Package className="h-8 w-8 text-orange-600" />
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Žádné zásoby nebyly nalezeny
+            Žádné suroviny nebyly nalezeny
           </h3>
           <p className="text-gray-600 mb-4">
-            Pro zobrazení zásob je potřeba inicializovat databázi z
-            inventory_items pro vybraného uživatele.
+            Pro zobrazení surovin je potřeba mít alespoň jednu surovinu v
+            databázi.
           </p>
-          <div className="space-y-4">
-            <div className="flex justify-center">
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger className="w-80">
-                  <SelectValue placeholder="Vyberte prodejnu" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(storeUsers || []).map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-3 justify-center">
-              <Button
-                onClick={() => window.location.reload()}
-                variant="outline"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Obnovit
-              </Button>
-            </div>
+          <div className="flex gap-3 justify-center">
+            <Button onClick={() => window.location.reload()} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Obnovit
+            </Button>
           </div>
         </div>
       </Card>
@@ -1234,7 +1228,10 @@ export function IngredientQuantityOverview() {
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-6 mt-6">
               {/* Production Calendar */}
-              <ProductionCalendar selectedMonth={selectedMonth} />
+              <ProductionCalendar
+                selectedMonth={selectedMonth}
+                selectedUserId={selectedUserId}
+              />
 
               {filteredGroupedQuantities.map(
                 ({ categoryName, ingredients }) => (
@@ -1525,7 +1522,10 @@ export function IngredientQuantityOverview() {
 
             {/* Production Calendar Tab */}
             <TabsContent value="calendar" className="space-y-6 mt-6">
-              <ProductionCalendar selectedMonth={selectedMonth} />
+              <ProductionCalendar
+                selectedMonth={selectedMonth}
+                selectedUserId={selectedUserId}
+              />
             </TabsContent>
           </Tabs>
         </div>

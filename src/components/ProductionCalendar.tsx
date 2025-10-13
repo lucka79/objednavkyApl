@@ -20,9 +20,13 @@ interface ProductionDay {
 
 interface ProductionCalendarProps {
   selectedMonth: Date;
+  selectedUserId?: string;
 }
 
-export function ProductionCalendar({ selectedMonth }: ProductionCalendarProps) {
+export function ProductionCalendar({
+  selectedMonth,
+  selectedUserId,
+}: ProductionCalendarProps) {
   const [productionDays, setProductionDays] = useState<ProductionDay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -40,11 +44,41 @@ export function ProductionCalendar({ selectedMonth }: ProductionCalendarProps) {
       const endDate = format(monthEnd, "yyyy-MM-dd");
 
       try {
-        const { data: bakers, error } = await supabase
-          .from("bakers")
-          .select("date")
-          .gte("date", startDate)
-          .lte("date", endDate);
+        let data, error;
+
+        // Check if selectedUserId is the bakery user (APLICA - Pekárna výrobna)
+        const isBakeryUser =
+          selectedUserId === "e597fcc9-7ce8-407d-ad1a-fdace061e42f";
+
+        if (isBakeryUser) {
+          // Use bakers table for bakery production
+          console.log("Fetching bakers data (bakery production)");
+          const result = await supabase
+            .from("bakers")
+            .select("date")
+            .gte("date", startDate)
+            .lte("date", endDate);
+
+          data = result.data;
+          error = result.error;
+        } else if (selectedUserId) {
+          // Use productions table for store users
+          console.log("Fetching productions for user:", selectedUserId);
+          const result = await supabase
+            .from("productions")
+            .select("date")
+            .eq("user_id", selectedUserId)
+            .gte("date", startDate)
+            .lte("date", endDate);
+
+          data = result.data;
+          error = result.error;
+        } else {
+          // No user selected - show empty calendar
+          console.log("No user selected");
+          data = [];
+          error = null;
+        }
 
         if (error) {
           console.error("Error fetching production data:", error);
@@ -53,8 +87,8 @@ export function ProductionCalendar({ selectedMonth }: ProductionCalendarProps) {
 
         // Group by date and count productions
         const productionMap = new Map<string, number>();
-        bakers?.forEach((baker) => {
-          const date = baker.date;
+        data?.forEach((item: any) => {
+          const date = item.date;
           productionMap.set(date, (productionMap.get(date) || 0) + 1);
         });
 
@@ -80,7 +114,7 @@ export function ProductionCalendar({ selectedMonth }: ProductionCalendarProps) {
     };
 
     fetchProductionData();
-  }, [selectedMonth]);
+  }, [selectedMonth, selectedUserId]);
 
   const getProductionStats = () => {
     const totalDays = productionDays.length;
