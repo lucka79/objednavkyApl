@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,10 +47,98 @@ import {
   useUpdateReceivedInvoice,
   ReceivedInvoice,
 } from "@/hooks/useReceivedInvoices";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 import { AddReceivedInvoiceForm } from "./AddReceivedInvoiceForm";
 
 export function ReceivedInvoices() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Mutation for updating invoice items
+  const updateInvoiceItemMutation = useMutation({
+    mutationFn: async ({
+      itemId,
+      quantity,
+      unitPrice,
+      invoiceId,
+    }: {
+      itemId: string;
+      quantity: number;
+      unitPrice: number;
+      invoiceId: string;
+    }) => {
+      const lineTotal = quantity * unitPrice;
+
+      // Update the item
+      const { data: itemData, error: itemError } = await supabase
+        .from("items_received")
+        .update({
+          quantity,
+          unit_price: unitPrice,
+          line_total: lineTotal,
+        })
+        .eq("id", itemId)
+        .select()
+        .single();
+
+      if (itemError) {
+        console.error("Supabase error updating item:", itemError);
+        throw itemError;
+      }
+
+      // Get all items for this invoice to recalculate total
+      const { data: allItems, error: itemsError } = await supabase
+        .from("items_received")
+        .select("line_total")
+        .eq("invoice_received_id", invoiceId);
+
+      if (itemsError) {
+        console.error("Supabase error fetching items:", itemsError);
+        throw itemsError;
+      }
+
+      // Calculate new total amount
+      const newTotalAmount =
+        allItems?.reduce((sum, item) => sum + (item.line_total || 0), 0) || 0;
+
+      console.log("=== UPDATING INVOICE TOTAL ===");
+      console.log("Invoice ID:", invoiceId);
+      console.log("All items:", allItems);
+      console.log("New total amount:", newTotalAmount);
+
+      // Update the invoice's total_amount
+      const { error: invoiceError } = await supabase
+        .from("invoices_received")
+        .update({ total_amount: newTotalAmount })
+        .eq("id", invoiceId);
+
+      if (invoiceError) {
+        console.error("Supabase error updating invoice:", invoiceError);
+        throw invoiceError;
+      }
+
+      console.log("Invoice total updated successfully");
+      console.log("=== END UPDATING INVOICE TOTAL ===");
+
+      return itemData;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["receivedInvoices"] });
+      toast({
+        title: "Úspěch",
+        description: "Položka faktury byla aktualizována",
+      });
+    },
+    onError: (error) => {
+      console.error("Mutation error:", error);
+      toast({
+        title: "Chyba",
+        description: `Chyba při aktualizaci: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
 
   const [searchTerm, setSearchTerm] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
@@ -64,9 +152,115 @@ export function ReceivedInvoices() {
   const [editForm, setEditForm] = useState({
     receiver_id: "",
   });
+  const [isEditItemDialogOpen, setIsEditItemDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
+  const [editItemForm, setEditItemForm] = useState({
+    quantity: 0,
+    unit_price: 0,
+  });
 
   const { data: allUsers } = useUsers();
   const { data: invoices, isLoading } = useReceivedInvoices();
+
+  // Function to fix invoice total amounts
+  const fixInvoiceTotals = async () => {
+    if (!invoices) return;
+
+    console.log("=== FIXING INVOICE TOTALS ===");
+
+    for (const invoice of invoices) {
+      if (invoice.items && invoice.items.length > 0) {
+        const itemsSum = invoice.items.reduce((sum, item) => {
+          return sum + (item.line_total || 0);
+        }, 0);
+
+        const difference = Math.abs((invoice.total_amount || 0) - itemsSum);
+
+        if (difference > 0.01) {
+          console.log(
+            `Fixing invoice ${invoice.invoice_number}: ${invoice.total_amount} → ${itemsSum}`
+          );
+
+          try {
+            const { error } = await supabase
+              .from("invoices_received")
+              .update({ total_amount: itemsSum })
+              .eq("id", invoice.id);
+
+            if (error) {
+              console.error(
+                `Error updating invoice ${invoice.invoice_number}:`,
+                error
+              );
+            } else {
+              console.log(
+                `✅ Successfully updated invoice ${invoice.invoice_number}`
+              );
+            }
+          } catch (error) {
+            console.error(
+              `Error updating invoice ${invoice.invoice_number}:`,
+              error
+            );
+          }
+        }
+      }
+    }
+
+    console.log("=== END FIXING INVOICE TOTALS ===");
+
+    // Refresh the data
+    queryClient.invalidateQueries({ queryKey: ["receivedInvoices"] });
+  };
+
+  // Console log received invoices data
+  useEffect(() => {
+    if (invoices) {
+      console.log("=== RECEIVED INVOICES DATA ===");
+      console.log("Total invoices:", invoices.length);
+
+      // Debug each invoice
+      invoices.forEach((invoice, index) => {
+        console.log(`=== INVOICE ${index + 1} ===`);
+        console.log("Invoice ID:", invoice.id);
+        console.log("Invoice number:", invoice.invoice_number);
+        console.log("Invoice total_amount:", invoice.total_amount);
+        console.log("Invoice items count:", invoice.items?.length || 0);
+
+        if (invoice.items && invoice.items.length > 0) {
+          // Calculate sum of line totals
+          const itemsSum = invoice.items.reduce((sum, item) => {
+            return sum + (item.line_total || 0);
+          }, 0);
+
+          console.log("Sum of line totals:", itemsSum);
+          console.log(
+            "Difference (total_amount - itemsSum):",
+            (invoice.total_amount || 0) - itemsSum
+          );
+          console.log(
+            "Match:",
+            Math.abs((invoice.total_amount || 0) - itemsSum) < 0.01
+          );
+
+          // Show first few items
+          console.log("First 3 items:");
+          invoice.items.slice(0, 3).forEach((item, itemIndex) => {
+            console.log(`  Item ${itemIndex + 1}:`, {
+              ingredient: item.ingredient?.name,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              line_total: item.line_total,
+              calculated: (item.quantity || 0) * (item.unit_price || 0),
+            });
+          });
+        }
+        console.log(`=== END INVOICE ${index + 1} ===`);
+      });
+
+      console.log("=== END RECEIVED INVOICES DATA ===");
+    }
+  }, [invoices]);
   const deleteInvoiceMutation = useDeleteReceivedInvoice();
   const updateInvoiceMutation = useUpdateReceivedInvoice();
 
@@ -197,6 +391,79 @@ export function ReceivedInvoices() {
     }
   };
 
+  const handleEditItem = (item: any) => {
+    setEditingItem(item);
+    setEditItemForm({
+      quantity: item.quantity || 0,
+      unit_price: item.unit_price || 0,
+    });
+    setIsEditItemDialogOpen(true);
+  };
+
+  const handleUpdateItem = async () => {
+    if (!editingItem) return;
+
+    console.log("=== STARTING ITEM UPDATE ===");
+    console.log("Editing item:", editingItem);
+    console.log("Selected invoice ID:", selectedInvoice?.id);
+    console.log("Form data:", editItemForm);
+
+    try {
+      await updateInvoiceItemMutation.mutateAsync({
+        itemId: editingItem.id,
+        quantity: editItemForm.quantity,
+        unitPrice: editItemForm.unit_price,
+        invoiceId: selectedInvoice?.id || "",
+      });
+
+      // Update the selectedInvoice state to reflect the changes
+      if (selectedInvoice) {
+        const updatedItems = selectedInvoice.items?.map((item) => {
+          if (item.id === editingItem.id) {
+            return {
+              ...item,
+              quantity: editItemForm.quantity,
+              unit_price: editItemForm.unit_price,
+              line_total: editItemForm.quantity * editItemForm.unit_price,
+            };
+          }
+          return item;
+        });
+
+        // Recalculate total amount as sum of line totals (before taxes)
+        const newTotalAmount =
+          updatedItems?.reduce(
+            (sum, item) => sum + (item.line_total || 0),
+            0
+          ) || 0;
+
+        console.log("=== UPDATING LOCAL STATE ===");
+        console.log("Updated items:", updatedItems);
+        console.log("New total amount (local):", newTotalAmount);
+
+        setSelectedInvoice({
+          ...selectedInvoice,
+          items: updatedItems,
+          total_amount: newTotalAmount,
+        });
+      }
+
+      setIsEditItemDialogOpen(false);
+      setEditingItem(null);
+      toast({
+        title: "Úspěch",
+        description: "Položka byla úspěšně aktualizována",
+      });
+    } catch (error: any) {
+      console.error("Error updating item:", error);
+      toast({
+        title: "Chyba",
+        description: "Nepodařilo se aktualizovat položku",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -238,7 +505,18 @@ export function ReceivedInvoices() {
               <FileText className="h-5 w-5" />
               Přijaté faktury
             </CardTitle>
-            <AddReceivedInvoiceForm />
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fixInvoiceTotals}
+                className="flex items-center gap-2"
+              >
+                <Edit className="h-4 w-4" />
+                Opravit celkové částky
+              </Button>
+              <AddReceivedInvoiceForm />
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -660,12 +938,18 @@ export function ReceivedInvoices() {
                   <div className="overflow-x-auto">
                     <div className="border rounded-md">
                       <div className="px-3 py-2 bg-gray-50 border-b text-xs text-muted-foreground font-medium">
-                        <div className="grid grid-cols-5 gap-4">
-                          <span>Surovina</span>
-                          <span>Množství</span>
-                          <span>Jednotková cena</span>
-                          <span>Celková cena</span>
-                          <span>Akce</span>
+                        <div className="grid grid-cols-12 gap-4">
+                          <span className="col-span-4">Surovina</span>
+                          <span className="col-span-2 text-right">
+                            Množství
+                          </span>
+                          <span className="col-span-2 text-right">
+                            Jednotková cena
+                          </span>
+                          <span className="col-span-3 text-right pr-6">
+                            Celková cena
+                          </span>
+                          <span className="col-span-1 text-right">Akce</span>
                         </div>
                       </div>
                       <div className="divide-y">
@@ -674,20 +958,32 @@ export function ReceivedInvoices() {
                             key={item.id}
                             className="px-3 py-2 hover:bg-gray-50"
                           >
-                            <div className="grid grid-cols-5 gap-4 items-center">
-                              <div className="font-medium">
+                            <div className="grid grid-cols-12 gap-4 items-center">
+                              <div className="col-span-4 font-medium">
                                 {item.ingredient?.name || "Neznámá surovina"}
                               </div>
-                              <div className="w-full [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
-                                {item.quantity || 0}
+                              <div className="col-span-2 pr-2">
+                                <span className="text-sm font-mono text-right block">
+                                  {(item.quantity || 0).toFixed(1)}
+                                </span>
                               </div>
-                              <div className="w-full [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
-                                {(item.unit_price || 0).toFixed(2)} Kč
+                              <div className="col-span-2 pl-2">
+                                <span className="text-sm font-mono text-right block">
+                                  {(item.unit_price || 0).toFixed(2)} Kč
+                                </span>
                               </div>
-                              <div className="font-medium">
+                              <div className="col-span-3 text-right font-medium pr-6">
                                 {(item.line_total || 0).toFixed(2)} Kč
                               </div>
-                              <div className="flex justify-end">
+                              <div className="col-span-1 flex justify-end gap-1 pl-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditItem(item)}
+                                  className="text-blue-600 hover:text-blue-700"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -704,6 +1000,93 @@ export function ReceivedInvoices() {
                   </div>
                 </CardContent>
               </Card>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Item Dialog */}
+      <Dialog
+        open={isEditItemDialogOpen}
+        onOpenChange={setIsEditItemDialogOpen}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5" />
+              Upravit položku
+            </DialogTitle>
+          </DialogHeader>
+
+          {editingItem && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-sm font-medium">Surovina</Label>
+                <p className="text-lg font-semibold">
+                  {editingItem.ingredient?.name || "Neznámá surovina"}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="quantity">Množství</Label>
+                  <Input
+                    id="quantity"
+                    type="number"
+                    step="0.001"
+                    value={editItemForm.quantity}
+                    onChange={(e) =>
+                      setEditItemForm((prev) => ({
+                        ...prev,
+                        quantity: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    className="no-spinner text-right"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="unit_price">Jednotková cena (Kč)</Label>
+                  <Input
+                    id="unit_price"
+                    type="number"
+                    step="0.01"
+                    value={editItemForm.unit_price}
+                    onChange={(e) =>
+                      setEditItemForm((prev) => ({
+                        ...prev,
+                        unit_price: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    className="no-spinner text-right"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <div className="text-sm text-gray-600">Celková cena</div>
+                <div className="text-lg font-semibold">
+                  {(editItemForm.quantity * editItemForm.unit_price).toFixed(2)}{" "}
+                  Kč
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditItemDialogOpen(false)}
+                >
+                  Zrušit
+                </Button>
+                <Button
+                  onClick={handleUpdateItem}
+                  disabled={updateInvoiceItemMutation.isPending}
+                >
+                  {updateInvoiceItemMutation.isPending
+                    ? "Ukládám..."
+                    : "Uložit"}
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>

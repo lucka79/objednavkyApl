@@ -28,7 +28,6 @@ import {
   TrendingUp,
   AlertTriangle,
   CheckCircle,
-  FileText,
   RefreshCw,
 } from "lucide-react";
 
@@ -107,14 +106,8 @@ export function IngredientQuantityOverview() {
       }
 
       if (!targetInventoryDate) {
-        console.log("No inventory date found for selected month");
         return [];
       }
-
-      console.log("=== INVENTORY QUERY DEBUG ===");
-      console.log("Selected month:", selectedMonth.toISOString());
-      console.log("Target inventory date:", targetInventoryDate);
-      console.log("Is current month:", isCurrentMonth);
 
       // Now fetch inventory items for the specific inventory date
       const { data, error } = await supabase
@@ -153,9 +146,6 @@ export function IngredientQuantityOverview() {
         console.error("Error fetching inventory items:", error);
         throw error;
       }
-
-      console.log("Found inventory items:", data?.length || 0);
-      console.log("=== END INVENTORY QUERY DEBUG ===");
 
       return data || [];
     },
@@ -200,10 +190,6 @@ export function IngredientQuantityOverview() {
   const { data: transfersData } = useQuery({
     queryKey: ["transfers", selectedUserId, selectedMonth.toISOString()],
     queryFn: async () => {
-      console.log("=== TRANSFERS QUERY STARTED ===");
-      console.log("Selected user ID:", selectedUserId);
-      console.log("Selected month:", selectedMonth.toISOString());
-
       const firstDayOfMonth = new Date(
         selectedMonth.getFullYear(),
         selectedMonth.getMonth(),
@@ -233,13 +219,6 @@ export function IngredientQuantityOverview() {
       const startDateStr = formatLocalDate(firstDayOfMonth);
       const endDateStr = formatLocalDate(endDate);
 
-      console.log("Query parameters:", {
-        selectedUserId,
-        startDateStr,
-        endDateStr,
-        orCondition: `sender_id.eq.${selectedUserId},receiver_id.eq.${selectedUserId}`,
-      });
-
       const { data, error } = await supabase
         .from("transfers")
         .select(
@@ -265,99 +244,57 @@ export function IngredientQuantityOverview() {
       }
 
       if (!data || data.length === 0) {
-        console.log(
-          "No transfers found for date range:",
-          startDateStr,
-          "to",
-          endDateStr
-        );
-
-        // Let's check if there are ANY transfers for this user (regardless of date)
-        console.log("Checking for ANY transfers for this user...");
-        const { data: anyTransfers } = await supabase
-          .from("transfers")
-          .select("id, date, sender_id, receiver_id")
-          .or(`sender_id.eq.${selectedUserId},receiver_id.eq.${selectedUserId}`)
-          .limit(5);
-
-        console.log("Any transfers found:", anyTransfers?.length || 0);
-        if (anyTransfers && anyTransfers.length > 0) {
-          console.log("Sample transfers:", anyTransfers);
-        }
-
         return [];
       }
 
-      console.log("=== TRANSFERS QUERY DEBUG ===");
-      console.log("Found transfers:", data.length);
-      console.log("Sample transfer:", data[0]);
-      console.log("=== END TRANSFERS QUERY DEBUG ===");
+      // Aggregate quantities by ingredient_id - separate sent and received
+      const ingredientQuantities = new Map<
+        number,
+        { sent: number; received: number; net: number }
+      >();
 
-      // Aggregate quantities by ingredient_id
-      const ingredientQuantities = new Map<number, number>();
-
-      data.forEach((transfer: any, transferIndex: number) => {
-        console.log(`Processing transfer ${transferIndex + 1}:`, {
-          transfer_id: transfer.id,
-          sender_id: transfer.sender_id,
-          receiver_id: transfer.receiver_id,
-          selected_user_id: selectedUserId,
-          transfer_items_count: transfer.transfer_items?.length || 0,
-        });
-
+      data.forEach((transfer: any) => {
         if (transfer.transfer_items) {
-          transfer.transfer_items.forEach((item: any, itemIndex: number) => {
-            console.log(`  Processing transfer item ${itemIndex + 1}:`, {
-              ingredient_id: item.ingredient_id,
-              quantity: item.quantity,
-            });
-
+          transfer.transfer_items.forEach((item: any) => {
             const ingredientId = item.ingredient_id;
             const quantity = item.quantity || 0;
 
-            // If user is receiver, add quantity (+)
-            // If user is sender, subtract quantity (-)
-            const multiplier = transfer.receiver_id === selectedUserId ? 1 : -1;
-            const adjustedQuantity = quantity * multiplier;
+            // Get existing quantities or initialize
+            const existing = ingredientQuantities.get(ingredientId) || {
+              sent: 0,
+              received: 0,
+              net: 0,
+            };
 
-            console.log(
-              `    Calculated: quantity=${quantity}, multiplier=${multiplier}, adjusted=${adjustedQuantity}`
-            );
-
-            if (ingredientQuantities.has(ingredientId)) {
-              const currentTotal = ingredientQuantities.get(ingredientId)!;
-              ingredientQuantities.set(
-                ingredientId,
-                currentTotal + adjustedQuantity
-              );
-              console.log(
-                `    Updated ingredient ${ingredientId}: ${currentTotal} + ${adjustedQuantity} = ${currentTotal + adjustedQuantity}`
-              );
+            if (transfer.receiver_id === selectedUserId) {
+              // User is receiver - add to received
+              existing.received += quantity;
+              existing.net += quantity;
             } else {
-              ingredientQuantities.set(ingredientId, adjustedQuantity);
-              console.log(
-                `    New ingredient ${ingredientId}: ${adjustedQuantity}`
-              );
+              // User is sender - add to sent
+              existing.sent += quantity;
+              existing.net -= quantity;
             }
+
+            ingredientQuantities.set(ingredientId, existing);
           });
-        } else {
-          console.log(`  No transfer_items found for transfer ${transfer.id}`);
         }
       });
 
       const result = Array.from(ingredientQuantities.entries()).map(
-        ([ingredientId, totalQuantity]) => ({
+        ([ingredientId, quantities]) => ({
           ingredientId,
-          totalQuantity,
+          sent: quantities.sent,
+          received: quantities.received,
+          net: quantities.net,
         })
       );
 
-      console.log("Final transfers result:", result);
-      console.log("=== END TRANSFERS PROCESSING ===");
-
       return result;
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 30, // 30 seconds
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
     enabled: !!selectedUserId,
   });
 
@@ -418,16 +355,7 @@ export function IngredientQuantityOverview() {
         throw error;
       }
 
-      console.log("=== RECEIVED INVOICES QUERY DEBUG ===");
-      console.log("Query params:", {
-        selectedUserId,
-        startDateStr,
-        endDateStr,
-      });
-      console.log("Raw data from query:", data);
-
       if (!data || data.length === 0) {
-        console.log("No received invoices found");
         return [];
       }
 
@@ -435,15 +363,10 @@ export function IngredientQuantityOverview() {
       const ingredientQuantities = new Map<number, number>();
 
       data.forEach((invoice: any) => {
-        console.log("Processing invoice:", invoice);
         if (invoice.items_received) {
-          console.log("Invoice has items_received:", invoice.items_received);
           invoice.items_received.forEach((item: any) => {
             const ingredientId = item.matched_ingredient_id;
             const quantity = item.quantity || 0;
-            console.log(
-              `Processing item: ingredientId=${ingredientId}, quantity=${quantity}`
-            );
 
             if (ingredientQuantities.has(ingredientId)) {
               ingredientQuantities.set(
@@ -454,8 +377,6 @@ export function IngredientQuantityOverview() {
               ingredientQuantities.set(ingredientId, quantity);
             }
           });
-        } else {
-          console.log("Invoice has no items_received");
         }
       });
 
@@ -466,12 +387,11 @@ export function IngredientQuantityOverview() {
         })
       );
 
-      console.log("Final aggregated result:", result);
-      console.log("=== END RECEIVED INVOICES QUERY DEBUG ===");
-
       return result;
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 30, // 30 seconds
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
     enabled: !!selectedUserId,
   });
   // Fetch store production consumption (for store users)
@@ -516,71 +436,74 @@ export function IngredientQuantityOverview() {
       const isMainProductionFacility =
         selectedUserId === "e597fcc9-7ce8-407d-ad1a-fdace061e42f";
 
-      console.log("=== STORE PRODUCTION CONSUMPTION DEBUG ===");
-      console.log("Selected user ID:", selectedUserId);
-      console.log("Is main production facility:", isMainProductionFacility);
-      console.log("Use bakers calculation:", useBakersCalculation);
-      console.log("Date range:", startDateStr, "to", endDateStr);
+      if (isMainProductionFacility) {
+        // Always fetch from bakers table for main production facility
+        // Toggle controls calculation method, not data source
+        // Fetch all bakers data using pagination to avoid Supabase limits
+        let allBakers: any[] = [];
+        let from = 0;
+        const batchSize = 1000;
+        let hasMore = true;
 
-      if (isMainProductionFacility && useBakersCalculation) {
-        console.log("Fetching from BAKERS table...");
-        // Fetch from bakers table
-        const { data: bakers, error: bakersError } = await supabase
-          .from("bakers")
-          .select(
-            `
-            id,
-            date,
-            recipe_id,
-            baker_items(
+        while (hasMore) {
+          const { data: batch, error: bakersError } = await supabase
+            .from("bakers")
+            .select(
+              `
               id,
-              product_id,
-              recipe_quantity,
-              products(id, name)
+              date,
+              recipe_id,
+              baker_items(
+                id,
+                product_id,
+                recipe_quantity,
+                products(id, name)
+              )
+            `
             )
-          `
-          )
-          .gte("date", startDateStr)
-          .lte("date", endDateStr);
+            .gte("date", startDateStr)
+            .lte("date", endDateStr)
+            .order("date", { ascending: true })
+            .range(from, from + batchSize - 1);
 
-        if (bakersError) {
-          console.error("Error fetching bakers:", bakersError);
-          throw bakersError;
+          if (bakersError) {
+            console.error("Error fetching bakers:", bakersError);
+            throw bakersError;
+          }
+
+          if (batch && batch.length > 0) {
+            allBakers = allBakers.concat(batch);
+            from += batchSize;
+            hasMore = batch.length === batchSize;
+          } else {
+            hasMore = false;
+          }
         }
 
-        console.log("Bakers found:", bakers?.length || 0);
-        if (bakers && bakers.length > 0) {
-          console.log("Sample baker:", bakers[0]);
-        }
+        const bakers = allBakers;
 
         if (!bakers || bakers.length === 0) {
-          console.log("No bakers found for date range");
+          console.log("No bakers found for main production facility");
           return [];
         }
+
+        console.log("=== BAKERS PRODUCTION PLANS COUNT ===");
+        console.log("User ID:", selectedUserId);
+        console.log("Date range:", startDateStr, "to", endDateStr);
+        console.log("Total production plans found:", bakers.length);
+        console.log("=== END BAKERS PRODUCTION PLANS COUNT ===");
 
         // Get product IDs from baker_items
         const productIds = new Set<number>();
         bakers.forEach((baker: any) => {
-          console.log(
-            "Baker:",
-            baker.id,
-            "Recipe ID:",
-            baker.recipe_id,
-            "Baker items:",
-            baker.baker_items?.length
-          );
           baker.baker_items?.forEach((item: any) => {
-            console.log("  Baker item:", item);
             if (item.product_id) {
               productIds.add(item.product_id);
             }
           });
         });
 
-        console.log("Unique product IDs:", Array.from(productIds));
-
         if (productIds.size === 0) {
-          console.log("No product IDs found in baker_items");
           return [];
         }
 
@@ -658,43 +581,25 @@ export function IngredientQuantityOverview() {
           throw recipeError;
         }
 
+        console.log("=== RECIPE INGREDIENTS COUNT ===");
         console.log(
           "Recipe ingredients found:",
           recipeIngredients?.length || 0
         );
-        if (recipeIngredients && recipeIngredients.length > 0) {
-          console.log("Sample recipe ingredient:", recipeIngredients[0]);
-        }
+        console.log("=== END RECIPE INGREDIENTS COUNT ===");
 
         // Calculate consumption
         const consumptionMap = new Map<number, number>();
 
         // Process bakers
-        console.log("Processing bakers for consumption calculation...");
-        bakers.forEach((baker: any, bakerIndex: number) => {
-          console.log(`Processing baker ${bakerIndex + 1}/${bakers.length}:`, {
-            baker_id: baker.id,
-            recipe_id: baker.recipe_id,
-            baker_items_count: baker.baker_items?.length || 0,
-          });
-
-          baker.baker_items?.forEach((item: any, itemIndex: number) => {
-            console.log(`  Processing baker item ${itemIndex + 1}:`, {
-              product_id: item.product_id,
-              recipe_quantity: item.recipe_quantity,
-              has_recipe_id: !!baker.recipe_id,
-            });
-
+        bakers.forEach((baker: any) => {
+          baker.baker_items?.forEach((item: any) => {
             if (item.product_id && item.recipe_quantity && baker.recipe_id) {
               const recipeQuantity = item.recipe_quantity;
 
               // Get recipe ingredients for this baker's recipe
               const ingredientsForRecipe = (recipeIngredients || []).filter(
                 (ri: any) => ri.recipe_id === baker.recipe_id
-              );
-
-              console.log(
-                `    Found ${ingredientsForRecipe.length} ingredients for recipe ${baker.recipe_id}`
               );
 
               ingredientsForRecipe.forEach((ri: any) => {
@@ -705,10 +610,6 @@ export function IngredientQuantityOverview() {
                   const proportion = baseQty / baseRecipeWeight;
                   let ingredientQuantity = proportion * recipeQuantity;
 
-                  console.log(
-                    `      Ingredient ${ingredient.name}: baseQty=${baseQty}, baseRecipeWeight=${baseRecipeWeight}, proportion=${proportion}, recipeQuantity=${recipeQuantity}, calculated=${ingredientQuantity}`
-                  );
-
                   if (
                     ingredient.unit &&
                     ingredient.unit !== "kg" &&
@@ -716,9 +617,6 @@ export function IngredientQuantityOverview() {
                   ) {
                     ingredientQuantity =
                       ingredientQuantity * ingredient.kiloPerUnit;
-                    console.log(
-                      `        After unit conversion (${ingredient.unit}): ${ingredientQuantity}`
-                    );
                   }
 
                   const ingredientId = ingredient.id;
@@ -730,27 +628,11 @@ export function IngredientQuantityOverview() {
                   } else {
                     consumptionMap.set(ingredientId, ingredientQuantity);
                   }
-                } else {
-                  console.log(
-                    `      Skipping recipe ingredient - missing data:`,
-                    {
-                      has_ingredients: !!ri.ingredients,
-                      has_recipes: !!ri.recipes,
-                    }
-                  );
                 }
-              });
-            } else {
-              console.log(`    Skipping baker item - missing data:`, {
-                has_product_id: !!item.product_id,
-                has_recipe_quantity: !!item.recipe_quantity,
-                has_baker_recipe_id: !!baker.recipe_id,
               });
             }
           });
         });
-
-        console.log("Final consumption map entries:", consumptionMap.size);
 
         const result = Array.from(consumptionMap.entries()).map(
           ([ingredientId, totalQuantity]) => ({
@@ -759,20 +641,12 @@ export function IngredientQuantityOverview() {
           })
         );
 
-        console.log(
-          "Consumption calculated from bakers:",
-          result.length,
-          "ingredients"
-        );
-        if (result.length > 0) {
-          console.log("Sample consumption:", result.slice(0, 3));
-        }
-        console.log("=== END STORE PRODUCTION CONSUMPTION DEBUG ===");
+        console.log("=== CONSUMPTION CALCULATION RESULT ===");
+        console.log("Total ingredients with consumption:", result.length);
+        console.log("=== END CONSUMPTION CALCULATION RESULT ===");
 
         return result;
       }
-
-      console.log("Fetching from PRODUCTIONS table...");
 
       // For other users, fetch from productions table
       const { data: productions, error: productionsError } = await supabase
@@ -988,7 +862,9 @@ export function IngredientQuantityOverview() {
         })
       );
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 30, // 30 seconds
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
     enabled: !!selectedUserId,
   });
 
@@ -1071,7 +947,9 @@ export function IngredientQuantityOverview() {
         })
       );
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 30, // 30 seconds
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
     enabled: true,
   });
 
@@ -1086,23 +964,6 @@ export function IngredientQuantityOverview() {
       setInventoryDate(null);
     }
   }, [inventoryItems]);
-
-  // Debug consumption data
-  useEffect(() => {
-    console.log("=== OVERVIEW CONSUMPTION DEBUG ===");
-    console.log("Selected month:", selectedMonth.toISOString());
-    console.log("Selected user ID:", selectedUserId);
-    console.log("Is store user:", isStoreUser);
-    console.log("Store production consumption:", storeProductionConsumption);
-    console.log("Monthly consumption:", monthlyConsumption);
-    console.log("=== END OVERVIEW CONSUMPTION DEBUG ===");
-  }, [
-    selectedMonth,
-    selectedUserId,
-    isStoreUser,
-    storeProductionConsumption,
-    monthlyConsumption,
-  ]);
 
   // Get categories from ingredients data
   const categories = useMemo(() => {
@@ -1132,48 +993,32 @@ export function IngredientQuantityOverview() {
         : monthlyConsumption;
 
     if (consumptionSource) {
-      console.log("=== CONSUMPTION DEBUG ===");
-      console.log(
-        "Using consumption source:",
-        storeProductionConsumption && storeProductionConsumption.length > 0
-          ? "storeProductionConsumption"
-          : "monthlyConsumption"
-      );
-      console.log("Consumption data:", consumptionSource);
       consumptionSource.forEach((consumption) => {
         consumptionMap.set(consumption.ingredientId, consumption.totalQuantity);
       });
-      console.log("Consumption map:", Array.from(consumptionMap.entries()));
-      console.log("=== END CONSUMPTION DEBUG ===");
     }
 
     // Create a map of received invoices data for quick lookup
     const receivedInvoicesMap = new Map<number, number>();
     if (receivedInvoicesData) {
-      console.log("=== RECEIVED INVOICES DEBUG ===");
-      console.log("Received invoices data:", receivedInvoicesData);
       receivedInvoicesData.forEach((invoice) => {
-        console.log("Processing invoice:", invoice);
         receivedInvoicesMap.set(invoice.ingredientId, invoice.totalQuantity);
       });
-      console.log(
-        "Received invoices map:",
-        Array.from(receivedInvoicesMap.entries())
-      );
-      console.log("=== END RECEIVED INVOICES DEBUG ===");
     }
 
     // Create a map of transfers data for quick lookup
-    const transfersMap = new Map<number, number>();
+    const transfersMap = new Map<
+      number,
+      { sent: number; received: number; net: number }
+    >();
     if (transfersData) {
-      console.log("=== TRANSFERS DEBUG ===");
-      console.log("Transfers data:", transfersData);
       transfersData.forEach((transfer) => {
-        console.log("Processing transfer:", transfer);
-        transfersMap.set(transfer.ingredientId, transfer.totalQuantity);
+        transfersMap.set(transfer.ingredientId, {
+          sent: transfer.sent,
+          received: transfer.received,
+          net: transfer.net,
+        });
       });
-      console.log("Transfers map:", Array.from(transfersMap.entries()));
-      console.log("=== END TRANSFERS DEBUG ===");
     }
 
     // Create a map of suppliers for quick lookup
@@ -1228,7 +1073,11 @@ export function IngredientQuantityOverview() {
       const price = ingredient?.price || 0;
       const receivedInvoicesQuantity =
         receivedInvoicesMap.get(ingredientId) || 0;
-      const transfersQuantity = transfersMap.get(ingredientId) || 0;
+      const transfersData = transfersMap.get(ingredientId) || {
+        sent: 0,
+        received: 0,
+        net: 0,
+      };
 
       // Find supplier from ingredient_supplier_codes (prefer active, fallback to first)
       const activeSupplierCode = ingredient?.ingredient_supplier_codes?.find(
@@ -1248,7 +1097,9 @@ export function IngredientQuantityOverview() {
         currentQuantity,
         monthlyConsumption,
         receivedInvoicesQuantity,
-        transfersQuantity,
+        transfersSent: transfersData.sent,
+        transfersReceived: transfersData.received,
+        transfersNet: transfersData.net,
         unit: ingredient?.unit || "kg",
         category: ingredient?.ingredient_categories?.name || "Bez kategorie",
         supplier: supplierName,
@@ -1300,6 +1151,7 @@ export function IngredientQuantityOverview() {
     storeProductionConsumption,
     isStoreUser,
     receivedInvoicesData,
+    transfersData,
     showZeroQuantities,
     suppliers,
   ]);
@@ -1583,7 +1435,9 @@ export function IngredientQuantityOverview() {
                   variant={useBakersCalculation ? "default" : "outline"}
                   size="sm"
                 >
-                  {useBakersCalculation ? "Bakers" : "Productions"}
+                  {useBakersCalculation
+                    ? "Bakers Method"
+                    : "Alternative Method"}
                 </Button>
               )}
               <Select
@@ -1805,7 +1659,7 @@ export function IngredientQuantityOverview() {
                                 </span>
                               </div>
                             </TableHead>
-                            <TableHead className="text-right w-[140px]">
+                            <TableHead className="text-right w-[200px]">
                               <div className="flex flex-col items-end">
                                 <span>Transfery</span>
                                 <span className="text-xs text-muted-foreground font-normal">
@@ -1814,18 +1668,23 @@ export function IngredientQuantityOverview() {
                                     selectedMonth.getMonth() + 1
                                   ).padStart(2, "0")}
                                 </span>
+                                <span className="text-xs text-muted-foreground font-normal">
+                                  Odesl./Přijat.
+                                </span>
                               </div>
                             </TableHead>
                             <TableHead className="text-right w-[100px]">
                               Cena
                             </TableHead>
-                            <TableHead className="text-right w-[120px]">
-                              Hodnota
+                            <TableHead className="text-right w-[140px]">
+                              <div className="flex flex-col items-end">
+                                <span>Aktuální stav</span>
+                                <span className="text-xs text-muted-foreground font-normal">
+                                  Inventura + Faktury + Transfery - Spotřeba
+                                </span>
+                              </div>
                             </TableHead>
                             <TableHead className="w-[120px]">Status</TableHead>
-                            <TableHead className="text-right w-[80px]">
-                              Akce
-                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1859,18 +1718,36 @@ export function IngredientQuantityOverview() {
                                 </span>
                               </TableCell>
                               <TableCell className="text-right">
-                                <span
-                                  className={`text-sm font-mono ${
-                                    item.transfersQuantity > 0
-                                      ? "text-green-600"
-                                      : item.transfersQuantity < 0
-                                        ? "text-red-600"
-                                        : "text-gray-600"
-                                  }`}
-                                >
-                                  {item.transfersQuantity > 0 ? "+" : ""}
-                                  {item.transfersQuantity.toFixed(1)}
-                                </span>
+                                <div className="flex flex-col items-end">
+                                  <span className="text-sm font-mono text-muted-foreground">
+                                    {(item.transfersSent || 0) > 0
+                                      ? `-${(item.transfersSent || 0).toFixed(1)}`
+                                      : ""}
+                                    {(item.transfersSent || 0) > 0 &&
+                                    (item.transfersReceived || 0) > 0
+                                      ? " / "
+                                      : ""}
+                                    {(item.transfersReceived || 0) > 0
+                                      ? `+${(item.transfersReceived || 0).toFixed(1)}`
+                                      : ""}
+                                    {(item.transfersSent || 0) === 0 &&
+                                    (item.transfersReceived || 0) === 0
+                                      ? "0"
+                                      : ""}
+                                  </span>
+                                  <span
+                                    className={`text-sm font-mono font-semibold ${
+                                      (item.transfersNet || 0) > 0
+                                        ? "text-green-600"
+                                        : (item.transfersNet || 0) < 0
+                                          ? "text-red-600"
+                                          : "text-gray-600"
+                                    }`}
+                                  >
+                                    {(item.transfersNet || 0) > 0 ? "+" : ""}
+                                    {(item.transfersNet || 0).toFixed(1)}
+                                  </span>
+                                </div>
                               </TableCell>
                               <TableCell className="text-right">
                                 <span className="text-sm">
@@ -1878,8 +1755,13 @@ export function IngredientQuantityOverview() {
                                 </span>
                               </TableCell>
                               <TableCell className="text-right">
-                                <span className="text-sm font-semibold">
-                                  {item.totalValue.toFixed(2)} Kč
+                                <span className="text-sm font-mono font-semibold">
+                                  {(
+                                    item.currentQuantity +
+                                    item.receivedInvoicesQuantity +
+                                    (item.transfersNet || 0) -
+                                    item.monthlyConsumption
+                                  ).toFixed(1)}
                                 </span>
                               </TableCell>
                               <TableCell>
@@ -1887,11 +1769,6 @@ export function IngredientQuantityOverview() {
                                   {getStatusIcon(item.status)}
                                   {getStatusBadge(item.status)}
                                 </div>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Button variant="ghost" size="sm">
-                                  <FileText className="h-4 w-4" />
-                                </Button>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -1944,7 +1821,7 @@ export function IngredientQuantityOverview() {
                           </span>
                         </div>
                       </TableHead>
-                      <TableHead className="text-right w-[140px]">
+                      <TableHead className="text-right w-[200px]">
                         <div className="flex flex-col items-end">
                           <span>Transfery</span>
                           <span className="text-xs text-muted-foreground font-normal">
@@ -1954,16 +1831,21 @@ export function IngredientQuantityOverview() {
                               "0"
                             )}
                           </span>
+                          <span className="text-xs text-muted-foreground font-normal">
+                            Odesl./Přijat.
+                          </span>
                         </div>
                       </TableHead>
                       <TableHead className="text-right w-[100px]">
                         Cena
                       </TableHead>
-                      <TableHead className="text-right w-[120px]">
-                        Hodnota
-                      </TableHead>
-                      <TableHead className="text-right w-[80px]">
-                        Akce
+                      <TableHead className="text-right w-[140px]">
+                        <div className="flex flex-col items-end">
+                          <span>Aktuální stav</span>
+                          <span className="text-xs text-muted-foreground font-normal">
+                            Inventura + Faktury + Transfery - Spotřeba
+                          </span>
+                        </div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -2001,18 +1883,36 @@ export function IngredientQuantityOverview() {
                             </span>
                           </TableCell>
                           <TableCell className="text-right">
-                            <span
-                              className={`text-sm font-mono ${
-                                item.transfersQuantity > 0
-                                  ? "text-green-600"
-                                  : item.transfersQuantity < 0
-                                    ? "text-red-600"
-                                    : "text-gray-600"
-                              }`}
-                            >
-                              {item.transfersQuantity > 0 ? "+" : ""}
-                              {item.transfersQuantity.toFixed(1)}
-                            </span>
+                            <div className="flex flex-col items-end">
+                              <span className="text-sm font-mono text-muted-foreground">
+                                {(item.transfersSent || 0) > 0
+                                  ? `-${(item.transfersSent || 0).toFixed(1)}`
+                                  : ""}
+                                {(item.transfersSent || 0) > 0 &&
+                                (item.transfersReceived || 0) > 0
+                                  ? " / "
+                                  : ""}
+                                {(item.transfersReceived || 0) > 0
+                                  ? `+${(item.transfersReceived || 0).toFixed(1)}`
+                                  : ""}
+                                {(item.transfersSent || 0) === 0 &&
+                                (item.transfersReceived || 0) === 0
+                                  ? "0"
+                                  : ""}
+                              </span>
+                              <span
+                                className={`text-sm font-mono font-semibold ${
+                                  (item.transfersNet || 0) > 0
+                                    ? "text-green-600"
+                                    : (item.transfersNet || 0) < 0
+                                      ? "text-red-600"
+                                      : "text-gray-600"
+                                }`}
+                              >
+                                {(item.transfersNet || 0) > 0 ? "+" : ""}
+                                {(item.transfersNet || 0).toFixed(1)}
+                              </span>
+                            </div>
                           </TableCell>
                           <TableCell className="text-right">
                             <span className="text-sm">
@@ -2020,14 +1920,14 @@ export function IngredientQuantityOverview() {
                             </span>
                           </TableCell>
                           <TableCell className="text-right">
-                            <span className="text-sm font-semibold">
-                              {item.totalValue.toFixed(2)} Kč
+                            <span className="text-sm font-mono font-semibold">
+                              {(
+                                item.currentQuantity +
+                                item.receivedInvoicesQuantity +
+                                (item.transfersNet || 0) -
+                                item.monthlyConsumption
+                              ).toFixed(1)}
                             </span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="ghost" size="sm">
-                              <FileText className="h-4 w-4" />
-                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}

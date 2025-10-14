@@ -154,7 +154,7 @@ function IngredientPickerModal({
               value={quantity}
               onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)}
               onFocus={(e) => e.target.select()}
-              className="w-24 no-spinner"
+              className="w-24 no-spinner [&::-moz-appearance]:textfield"
               placeholder="Množství"
               inputMode="decimal"
               disabled={!selectedId}
@@ -712,7 +712,7 @@ export function AddReceivedInvoiceForm() {
                                   )
                                 }
                                 placeholder="0.000"
-                                className="w-full [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                className="w-full no-spinner"
                               />
                             </div>
                             <div>
@@ -728,7 +728,7 @@ export function AddReceivedInvoiceForm() {
                                   )
                                 }
                                 placeholder="0.00"
-                                className="w-full [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                className="w-full no-spinner"
                               />
                             </div>
                             <div className="font-medium">

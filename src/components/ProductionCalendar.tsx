@@ -53,14 +53,36 @@ export function ProductionCalendar({
         if (isBakeryUser) {
           // Use bakers table for bakery production
           console.log("Fetching bakers data (bakery production)");
-          const result = await supabase
-            .from("bakers")
-            .select("date")
-            .gte("date", startDate)
-            .lte("date", endDate);
 
-          data = result.data;
-          error = result.error;
+          // Fetch all bakers data using pagination to avoid Supabase limits
+          let allBakers: any[] = [];
+          let from = 0;
+          const batchSize = 1000;
+          let hasMore = true;
+
+          while (hasMore) {
+            const result = await supabase
+              .from("bakers")
+              .select("date")
+              .gte("date", startDate)
+              .lte("date", endDate)
+              .range(from, from + batchSize - 1);
+
+            if (result.error) {
+              error = result.error;
+              break;
+            }
+
+            if (result.data && result.data.length > 0) {
+              allBakers = allBakers.concat(result.data);
+              from += batchSize;
+              hasMore = result.data.length === batchSize;
+            } else {
+              hasMore = false;
+            }
+          }
+
+          data = allBakers;
         } else if (selectedUserId) {
           // Use productions table for store users
           console.log("Fetching productions for user:", selectedUserId);
