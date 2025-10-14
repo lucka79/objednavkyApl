@@ -53,6 +53,7 @@ export function IngredientQuantityOverview() {
   );
   const [inventoryDate, setInventoryDate] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [useBakersCalculation, setUseBakersCalculation] = useState(true);
 
   // Fetch inventory data from database
   const {
@@ -314,6 +315,7 @@ export function IngredientQuantityOverview() {
       "storeProductionConsumption",
       selectedUserId,
       selectedMonth.toISOString(),
+      useBakersCalculation,
     ],
     queryFn: async () => {
       const firstDayOfMonth = new Date(
@@ -352,9 +354,10 @@ export function IngredientQuantityOverview() {
       console.log("=== STORE PRODUCTION CONSUMPTION DEBUG ===");
       console.log("Selected user ID:", selectedUserId);
       console.log("Is main production facility:", isMainProductionFacility);
+      console.log("Use bakers calculation:", useBakersCalculation);
       console.log("Date range:", startDateStr, "to", endDateStr);
 
-      if (isMainProductionFacility) {
+      if (isMainProductionFacility && useBakersCalculation) {
         console.log("Fetching from BAKERS table...");
         // Fetch from bakers table
         const { data: bakers, error: bakersError } = await supabase
@@ -1394,6 +1397,15 @@ export function IngredientQuantityOverview() {
                   </>
                 )}
               </Button>
+              {selectedUserId === "e597fcc9-7ce8-407d-ad1a-fdace061e42f" && (
+                <Button
+                  onClick={() => setUseBakersCalculation(!useBakersCalculation)}
+                  variant={useBakersCalculation ? "default" : "outline"}
+                  size="sm"
+                >
+                  {useBakersCalculation ? "Bakers" : "Productions"}
+                </Button>
+              )}
               <Select
                 value={selectedUserId}
                 onValueChange={(value) => {
