@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Trash2, Plus, Package, FileText, ArrowRightLeft } from "lucide-react";
 import { useCreateTransfer, TransferInsert } from "@/hooks/useTransfers";
 import { useIngredients } from "@/hooks/useIngredients";
-import { useUsers, useExpeditionUser } from "@/hooks/useProfiles";
+import { useUsers } from "@/hooks/useProfiles";
 import { useAuthStore } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { removeDiacritics } from "@/utils/removeDiacritics";
@@ -165,31 +165,30 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
 
   const { data: ingredientsData } = useIngredients();
   const { data: profiles = [] } = useUsers();
-  const { data: expeditionUser } = useExpeditionUser();
 
   const ingredients = ingredientsData?.ingredients || [];
   const categories = ingredientsData?.categories || [];
   const createTransfer = useCreateTransfer();
 
-  // Filter profiles to show only users with appropriate roles
+  // Filter profiles to show only store users
   const availableReceivers = profiles.filter(
     (profile) =>
       profile.id !== user?.id &&
       profile.id !== senderId &&
-      ["user", "store", "expedition", "admin"].includes(profile.role)
+      profile.role === "store"
   );
 
   // Available senders (store users and expedition)
   const availableSenders = profiles.filter((profile) =>
-    ["store", "expedition"].includes(profile.role)
+    ["store"].includes(profile.role)
   );
 
-  // Set default sender when expedition user is loaded
+  // Set default sender to the store user
   useEffect(() => {
-    if (expeditionUser && !senderId) {
-      setSenderId(expeditionUser.id);
+    if (!senderId) {
+      setSenderId("e597fcc9-7ce8-407d-ad1a-fdace061e42f");
     }
-  }, [expeditionUser, senderId]);
+  }, [senderId]);
 
   // Ingredient management functions
   const removeTransferItem = (index: number) => {
@@ -306,7 +305,7 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
       });
 
       // Reset form
-      setSenderId(expeditionUser?.id || "");
+      setSenderId("e597fcc9-7ce8-407d-ad1a-fdace061e42f");
       setReceiverId("");
       setTransferDate(new Date().toISOString().split("T")[0]);
       setTransferItems([]);
@@ -329,7 +328,7 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
   const handleClose = () => {
     if (!isSubmitting) {
       setIsOpen(false);
-      setSenderId(expeditionUser?.id || "");
+      setSenderId("e597fcc9-7ce8-407d-ad1a-fdace061e42f");
       setReceiverId("");
       setTransferItems([]);
     }
@@ -406,7 +405,8 @@ export default function TransferForm({ onSuccess }: TransferFormProps) {
                             <Badge variant="outline" className="text-xs">
                               {sender.role}
                             </Badge>
-                            {sender.id === expeditionUser?.id && (
+                            {sender.id ===
+                              "e597fcc9-7ce8-407d-ad1a-fdace061e42f" && (
                               <Badge variant="secondary" className="text-xs">
                                 Výchozí
                               </Badge>

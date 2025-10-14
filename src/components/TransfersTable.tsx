@@ -175,6 +175,8 @@ function TransferDetailsDialog({
   isOpen,
   onClose,
 }: TransferDetailsDialogProps) {
+  if (!transfer) return null;
+
   const { user } = useAuthStore();
   const updateTransferItem = useUpdateTransferItem();
   const addTransferItem = useAddTransferItem();
@@ -185,8 +187,6 @@ function TransferDetailsDialog({
   const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(
     transfer
   );
-
-  if (!transfer) return null;
 
   // Check if user can edit (expedition or admin)
   const canEdit = user?.role === "expedition" || user?.role === "admin";

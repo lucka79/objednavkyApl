@@ -327,6 +327,14 @@ export function IngredientQuantityOverview() {
         0
       );
 
+      // If selected month is current month, use today as end date
+      const today = new Date();
+      const isCurrentMonth =
+        selectedMonth.getFullYear() === today.getFullYear() &&
+        selectedMonth.getMonth() === today.getMonth();
+
+      const endDate = isCurrentMonth ? today : lastDayOfMonth;
+
       const formatLocalDate = (date: Date) => {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -335,9 +343,270 @@ export function IngredientQuantityOverview() {
       };
 
       const startDateStr = formatLocalDate(firstDayOfMonth);
-      const endDateStr = formatLocalDate(lastDayOfMonth);
+      const endDateStr = formatLocalDate(endDate);
 
-      // Fetch productions
+      // Check if this is the main production facility (uses bakers table)
+      const isMainProductionFacility =
+        selectedUserId === "e597fcc9-7ce8-407d-ad1a-fdace061e42f";
+
+      console.log("=== STORE PRODUCTION CONSUMPTION DEBUG ===");
+      console.log("Selected user ID:", selectedUserId);
+      console.log("Is main production facility:", isMainProductionFacility);
+      console.log("Date range:", startDateStr, "to", endDateStr);
+
+      if (isMainProductionFacility) {
+        console.log("Fetching from BAKERS table...");
+        // Fetch from bakers table
+        const { data: bakers, error: bakersError } = await supabase
+          .from("bakers")
+          .select(
+            `
+            id,
+            date,
+            recipe_id,
+            baker_items(
+              id,
+              product_id,
+              recipe_quantity,
+              products(id, name)
+            )
+          `
+          )
+          .gte("date", startDateStr)
+          .lte("date", endDateStr);
+
+        if (bakersError) {
+          console.error("Error fetching bakers:", bakersError);
+          throw bakersError;
+        }
+
+        console.log("Bakers found:", bakers?.length || 0);
+        if (bakers && bakers.length > 0) {
+          console.log("Sample baker:", bakers[0]);
+        }
+
+        if (!bakers || bakers.length === 0) {
+          console.log("No bakers found for date range");
+          return [];
+        }
+
+        // Get product IDs from baker_items
+        const productIds = new Set<number>();
+        bakers.forEach((baker: any) => {
+          console.log(
+            "Baker:",
+            baker.id,
+            "Recipe ID:",
+            baker.recipe_id,
+            "Baker items:",
+            baker.baker_items?.length
+          );
+          baker.baker_items?.forEach((item: any) => {
+            console.log("  Baker item:", item);
+            if (item.product_id) {
+              productIds.add(item.product_id);
+            }
+          });
+        });
+
+        console.log("Unique product IDs:", Array.from(productIds));
+
+        if (productIds.size === 0) {
+          console.log("No product IDs found in baker_items");
+          return [];
+        }
+
+        // Fetch product parts
+        const { data: productParts, error: partsError } = await supabase
+          .from("product_parts")
+          .select(
+            `
+            product_id,
+            recipe_id,
+            pastry_id,
+            ingredient_id,
+            quantity,
+            productOnly,
+            bakerOnly,
+            recipes (id, name, quantity),
+            products:pastry_id (id, name, priceBuyer),
+            ingredients (
+              id,
+              name,
+              unit,
+              price,
+              kiloPerUnit,
+              ingredient_categories (name)
+            )
+          `
+          )
+          .in("product_id", Array.from(productIds));
+
+        if (partsError) throw partsError;
+        if (!productParts) return [];
+
+        // Get recipe IDs
+        const recipeIds = new Set<number>();
+        productParts.forEach((part: any) => {
+          if (part.recipe_id) {
+            recipeIds.add(part.recipe_id);
+          }
+        });
+
+        // Also add recipe_ids from bakers
+        bakers.forEach((baker: any) => {
+          if (baker.recipe_id) {
+            recipeIds.add(baker.recipe_id);
+          }
+        });
+
+        // Fetch recipe ingredients
+        const { data: recipeIngredients, error: recipeError } = await supabase
+          .from("recipe_ingredients")
+          .select(
+            `
+            recipe_id,
+            ingredient_id,
+            quantity,
+            ingredients (
+              id,
+              name,
+              unit,
+              price,
+              kiloPerUnit,
+              ingredient_categories (name)
+            ),
+            recipes (
+              id,
+              quantity,
+              name
+            )
+          `
+          )
+          .in("recipe_id", Array.from(recipeIds));
+
+        if (recipeError) {
+          console.error("Error fetching recipe ingredients:", recipeError);
+          throw recipeError;
+        }
+
+        console.log(
+          "Recipe ingredients found:",
+          recipeIngredients?.length || 0
+        );
+        if (recipeIngredients && recipeIngredients.length > 0) {
+          console.log("Sample recipe ingredient:", recipeIngredients[0]);
+        }
+
+        // Calculate consumption
+        const consumptionMap = new Map<number, number>();
+
+        // Process bakers
+        console.log("Processing bakers for consumption calculation...");
+        bakers.forEach((baker: any, bakerIndex: number) => {
+          console.log(`Processing baker ${bakerIndex + 1}/${bakers.length}:`, {
+            baker_id: baker.id,
+            recipe_id: baker.recipe_id,
+            baker_items_count: baker.baker_items?.length || 0,
+          });
+
+          baker.baker_items?.forEach((item: any, itemIndex: number) => {
+            console.log(`  Processing baker item ${itemIndex + 1}:`, {
+              product_id: item.product_id,
+              recipe_quantity: item.recipe_quantity,
+              has_recipe_id: !!baker.recipe_id,
+            });
+
+            if (item.product_id && item.recipe_quantity && baker.recipe_id) {
+              const recipeQuantity = item.recipe_quantity;
+
+              // Get recipe ingredients for this baker's recipe
+              const ingredientsForRecipe = (recipeIngredients || []).filter(
+                (ri: any) => ri.recipe_id === baker.recipe_id
+              );
+
+              console.log(
+                `    Found ${ingredientsForRecipe.length} ingredients for recipe ${baker.recipe_id}`
+              );
+
+              ingredientsForRecipe.forEach((ri: any) => {
+                if (ri.ingredients && ri.recipes) {
+                  const ingredient = ri.ingredients;
+                  const baseQty = ri.quantity || 0;
+                  const baseRecipeWeight = ri.recipes.quantity || 1;
+                  const proportion = baseQty / baseRecipeWeight;
+                  let ingredientQuantity = proportion * recipeQuantity;
+
+                  console.log(
+                    `      Ingredient ${ingredient.name}: baseQty=${baseQty}, baseRecipeWeight=${baseRecipeWeight}, proportion=${proportion}, recipeQuantity=${recipeQuantity}, calculated=${ingredientQuantity}`
+                  );
+
+                  if (
+                    ingredient.unit &&
+                    ingredient.unit !== "kg" &&
+                    ingredient.kiloPerUnit
+                  ) {
+                    ingredientQuantity =
+                      ingredientQuantity * ingredient.kiloPerUnit;
+                    console.log(
+                      `        After unit conversion (${ingredient.unit}): ${ingredientQuantity}`
+                    );
+                  }
+
+                  const ingredientId = ingredient.id;
+                  if (consumptionMap.has(ingredientId)) {
+                    consumptionMap.set(
+                      ingredientId,
+                      consumptionMap.get(ingredientId)! + ingredientQuantity
+                    );
+                  } else {
+                    consumptionMap.set(ingredientId, ingredientQuantity);
+                  }
+                } else {
+                  console.log(
+                    `      Skipping recipe ingredient - missing data:`,
+                    {
+                      has_ingredients: !!ri.ingredients,
+                      has_recipes: !!ri.recipes,
+                    }
+                  );
+                }
+              });
+            } else {
+              console.log(`    Skipping baker item - missing data:`, {
+                has_product_id: !!item.product_id,
+                has_recipe_quantity: !!item.recipe_quantity,
+                has_baker_recipe_id: !!baker.recipe_id,
+              });
+            }
+          });
+        });
+
+        console.log("Final consumption map entries:", consumptionMap.size);
+
+        const result = Array.from(consumptionMap.entries()).map(
+          ([ingredientId, totalQuantity]) => ({
+            ingredientId,
+            totalQuantity,
+          })
+        );
+
+        console.log(
+          "Consumption calculated from bakers:",
+          result.length,
+          "ingredients"
+        );
+        if (result.length > 0) {
+          console.log("Sample consumption:", result.slice(0, 3));
+        }
+        console.log("=== END STORE PRODUCTION CONSUMPTION DEBUG ===");
+
+        return result;
+      }
+
+      console.log("Fetching from PRODUCTIONS table...");
+
+      // For other users, fetch from productions table
       const { data: productions, error: productionsError } = await supabase
         .from("productions")
         .select(
@@ -552,7 +821,7 @@ export function IngredientQuantityOverview() {
       );
     },
     staleTime: 1000 * 60 * 5,
-    enabled: isStoreUser && !!selectedUserId,
+    enabled: !!selectedUserId,
   });
 
   // Fetch monthly consumption data from daily_ingredient_consumption table
@@ -650,6 +919,23 @@ export function IngredientQuantityOverview() {
     }
   }, [inventoryItems]);
 
+  // Debug consumption data
+  useEffect(() => {
+    console.log("=== OVERVIEW CONSUMPTION DEBUG ===");
+    console.log("Selected month:", selectedMonth.toISOString());
+    console.log("Selected user ID:", selectedUserId);
+    console.log("Is store user:", isStoreUser);
+    console.log("Store production consumption:", storeProductionConsumption);
+    console.log("Monthly consumption:", monthlyConsumption);
+    console.log("=== END OVERVIEW CONSUMPTION DEBUG ===");
+  }, [
+    selectedMonth,
+    selectedUserId,
+    isStoreUser,
+    storeProductionConsumption,
+    monthlyConsumption,
+  ]);
+
   // Get categories from ingredients data
   const categories = useMemo(() => {
     if (!ingredients?.ingredients) return [];
@@ -670,16 +956,27 @@ export function IngredientQuantityOverview() {
   // Transform inventory data for display and group by category
   const groupedQuantities = useMemo(() => {
     // Create a map of consumption data for quick lookup
-    // Use store production consumption if it's a store user, otherwise use daily consumption
+    // Use store production consumption if data is available (for both stores and main production facility)
     const consumptionMap = new Map<number, number>();
-    const consumptionSource = isStoreUser
-      ? storeProductionConsumption
-      : monthlyConsumption;
+    const consumptionSource =
+      storeProductionConsumption && storeProductionConsumption.length > 0
+        ? storeProductionConsumption
+        : monthlyConsumption;
 
     if (consumptionSource) {
+      console.log("=== CONSUMPTION DEBUG ===");
+      console.log(
+        "Using consumption source:",
+        storeProductionConsumption && storeProductionConsumption.length > 0
+          ? "storeProductionConsumption"
+          : "monthlyConsumption"
+      );
+      console.log("Consumption data:", consumptionSource);
       consumptionSource.forEach((consumption) => {
         consumptionMap.set(consumption.ingredientId, consumption.totalQuantity);
       });
+      console.log("Consumption map:", Array.from(consumptionMap.entries()));
+      console.log("=== END CONSUMPTION DEBUG ===");
     }
 
     // Create a map of received invoices data for quick lookup
