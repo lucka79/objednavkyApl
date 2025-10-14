@@ -32,6 +32,7 @@ import {
   ZapIcon,
   ArrowRightLeft,
   Download,
+  Sparkles,
 } from "lucide-react";
 import { IngredientForm } from "./IngredientForm";
 import {
@@ -376,6 +377,15 @@ export function IngredientsTable() {
   const totalIngredients = ingredients.length || 0;
   const activeIngredients = ingredients.filter((i) => i.active).length || 0;
 
+  // Helper function to check if ingredient was created within the last month
+  const isRecentlyCreated = (ingredient: any) => {
+    if (!ingredient.created_at) return false;
+    const createdAt = new Date(ingredient.created_at);
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    return createdAt >= oneMonthAgo;
+  };
+
   const renderIngredientRow = (ingredient: any) => (
     <TableRow
       key={ingredient.id}
@@ -383,7 +393,14 @@ export function IngredientsTable() {
       className="cursor-pointer hover:bg-orange-50 transition-colors"
       style={{ userSelect: "none" }}
     >
-      <TableCell className="font-medium">{ingredient.name}</TableCell>
+      <TableCell className="font-medium">
+        <div className="flex items-center gap-2">
+          {isRecentlyCreated(ingredient) && (
+            <Sparkles className="h-4 w-4 text-yellow-500" />
+          )}
+          <span>{ingredient.name}</span>
+        </div>
+      </TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
           {(() => {

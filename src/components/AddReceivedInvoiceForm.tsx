@@ -69,6 +69,7 @@ function IngredientPickerModal({
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [quantity, setQuantity] = useState(1);
   const inputRef = useRef<HTMLInputElement>(null);
+  const quantityRef = useRef<HTMLInputElement>(null);
 
   const filtered = ingredients.filter((ing) =>
     removeDiacritics(ing.name)
@@ -84,6 +85,13 @@ function IngredientPickerModal({
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [open]);
+
+  // Focus quantity field when ingredient is selected
+  React.useEffect(() => {
+    if (selectedId && quantityRef.current) {
+      setTimeout(() => quantityRef.current?.focus(), 100);
+    }
+  }, [selectedId]);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -148,12 +156,27 @@ function IngredientPickerModal({
           </div>
           <div className="flex items-center gap-2">
             <Input
+              ref={quantityRef}
               type="number"
               min={0.001}
               step={0.001}
               value={quantity}
               onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)}
               onFocus={(e) => e.target.select()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && selectedId && quantity > 0) {
+                  const ingredient = ingredients.find(
+                    (ing) => ing.id === selectedId
+                  );
+                  const supplierPrice =
+                    ingredient?.ingredient_supplier_codes?.find(
+                      (code: any) => code.supplier_id === supplierId
+                    )?.price || 0;
+
+                  onPick(selectedId, quantity, supplierPrice);
+                  onClose();
+                }
+              }}
               className="w-24 no-spinner [&::-moz-appearance]:textfield"
               placeholder="Množství"
               inputMode="decimal"
@@ -664,11 +687,17 @@ export function AddReceivedInvoiceForm() {
               ) : (
                 <div className="border rounded-md">
                   <div className="px-3 py-2 bg-gray-50 border-b text-xs text-muted-foreground font-medium">
-                    <div className="grid grid-cols-4 gap-4">
-                      <span>Surovina</span>
-                      <span>Množství</span>
-                      <span>Jednotková cena</span>
-                      <span>Celková cena</span>
+                    <div className="grid grid-cols-12 gap-4">
+                      <span className="col-span-3">Surovina</span>
+                      <span className="col-span-1 text-center">Balení</span>
+                      <span className="col-span-2 text-right">Množství</span>
+                      <span className="col-span-2 text-right">
+                        Jednotková cena
+                      </span>
+                      <span className="col-span-3 text-right pr-6">
+                        Celková cena
+                      </span>
+                      <span className="col-span-1 text-right">Akce</span>
                     </div>
                   </div>
                   <div className="divide-y">
@@ -679,27 +708,17 @@ export function AddReceivedInvoiceForm() {
 
                       return (
                         <div key={index} className="px-3 py-2 hover:bg-gray-50">
-                          <div className="grid grid-cols-4 gap-4 items-center">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <div className="font-medium">
-                                  {ingredient?.name || "Neznámá surovina"}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {ingredient?.unit || ""}
-                                </div>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeItem(index)}
-                                className="text-red-600 hover:text-red-700 ml-2"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                          <div className="grid grid-cols-12 gap-4 items-center">
+                            <div className="col-span-3 font-medium">
+                              {ingredient?.name || "Neznámá surovina"}
                             </div>
-                            <div>
+                            <div className="col-span-1 text-center text-sm text-blue-600">
+                              <div>{ingredient?.package || "—"}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {ingredient?.unit || ""}
+                              </div>
+                            </div>
+                            <div className="col-span-2 pr-2">
                               <Input
                                 type="number"
                                 step="0.001"
@@ -712,10 +731,10 @@ export function AddReceivedInvoiceForm() {
                                   )
                                 }
                                 placeholder="0.000"
-                                className="w-full no-spinner"
+                                className="w-full no-spinner text-right"
                               />
                             </div>
-                            <div>
+                            <div className="col-span-2 pl-2">
                               <Input
                                 type="number"
                                 step="0.01"
@@ -728,11 +747,22 @@ export function AddReceivedInvoiceForm() {
                                   )
                                 }
                                 placeholder="0.00"
-                                className="w-full no-spinner"
+                                className="w-full no-spinner text-right"
                               />
                             </div>
-                            <div className="font-medium">
+                            <div className="col-span-3 text-right font-medium pr-6">
                               {item.total_price.toFixed(2)} Kč
+                            </div>
+                            <div className="col-span-1 flex justify-end gap-1 pl-2">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeItem(index)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
                           </div>
                         </div>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,7 @@ import {
   Edit,
   Save,
   X,
+  Plus,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -50,6 +51,159 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { AddReceivedInvoiceForm } from "./AddReceivedInvoiceForm";
+import { useIngredients } from "@/hooks/useIngredients";
+import { removeDiacritics } from "@/utils/removeDiacritics";
+
+// Add Item Modal Component
+function AddItemModal({
+  open,
+  onClose,
+  onAdd,
+  ingredients,
+  supplierId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onAdd: (ingredientId: number, quantity: number, unitPrice: number) => void;
+  ingredients: any[];
+  supplierId?: string;
+}) {
+  const [search, setSearch] = useState("");
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [quantity, setQuantity] = useState(1);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const quantityRef = useRef<HTMLInputElement>(null);
+
+  const filtered = ingredients.filter((ing) =>
+    removeDiacritics(ing.name)
+      .toLowerCase()
+      .includes(removeDiacritics(search).toLowerCase())
+  );
+
+  React.useEffect(() => {
+    if (open) {
+      setSearch("");
+      setSelectedId(null);
+      setQuantity(1);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [open]);
+
+  // Focus quantity field when ingredient is selected
+  React.useEffect(() => {
+    if (selectedId && quantityRef.current) {
+      setTimeout(() => quantityRef.current?.focus(), 100);
+    }
+  }, [selectedId]);
+
+  return (
+    <div className="space-y-4">
+      <Input
+        ref={inputRef}
+        placeholder="Hledat surovinu..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+      <div className="max-h-60 overflow-y-auto border rounded">
+        {filtered.length === 0 ? (
+          <div className="p-4 text-muted-foreground text-center">
+            Nenalezeno
+          </div>
+        ) : (
+          <>
+            <div className="px-3 py-2 bg-gray-50 border-b text-xs text-muted-foreground font-medium">
+              <div className="flex items-center gap-2">
+                <span className="w-1/2">Název</span>
+                <span className="w-1/4">Balení</span>
+                <span className="w-1/4">Cena</span>
+              </div>
+            </div>
+            <ul>
+              {filtered.map((ing) => {
+                const supplierPrice = ing.ingredient_supplier_codes?.find(
+                  (code: any) => code.supplier_id === supplierId
+                )?.price;
+
+                return (
+                  <li
+                    key={ing.id}
+                    className={`px-3 py-2 cursor-pointer hover:bg-orange-50 flex items-center gap-2 ${
+                      selectedId === ing.id ? "bg-orange-100" : ""
+                    }`}
+                    onClick={() => setSelectedId(ing.id)}
+                  >
+                    <div className="flex-1 flex items-center gap-2">
+                      <span className="font-medium w-1/2 truncate">
+                        {ing.name}
+                      </span>
+                      <span className="text-blue-600 w-1/4 text-center">
+                        {ing.package || "—"}
+                      </span>
+                      <span className="font-medium text-orange-500 w-1/4 text-right">
+                        {supplierPrice ? `${supplierPrice.toFixed(2)} Kč` : "—"}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <Input
+          ref={quantityRef}
+          type="number"
+          min={0.001}
+          step={0.001}
+          value={quantity}
+          onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)}
+          onFocus={(e) => e.target.select()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && selectedId && quantity > 0) {
+              const ingredient = ingredients.find(
+                (ing) => ing.id === selectedId
+              );
+              const supplierPrice =
+                ingredient?.ingredient_supplier_codes?.find(
+                  (code: any) => code.supplier_id === supplierId
+                )?.price || 0;
+
+              onAdd(selectedId, quantity, supplierPrice);
+            }
+          }}
+          className="w-24 no-spinner [&::-moz-appearance]:textfield"
+          placeholder="Množství"
+          inputMode="decimal"
+          disabled={!selectedId}
+        />
+        <Button
+          type="button"
+          onClick={() => {
+            if (selectedId && quantity > 0) {
+              const ingredient = ingredients.find(
+                (ing) => ing.id === selectedId
+              );
+              const supplierPrice =
+                ingredient?.ingredient_supplier_codes?.find(
+                  (code: any) => code.supplier_id === supplierId
+                )?.price || 0;
+
+              onAdd(selectedId, quantity, supplierPrice);
+            }
+          }}
+          disabled={!selectedId || quantity <= 0}
+          className="bg-orange-600 hover:bg-orange-700"
+        >
+          Přidat
+        </Button>
+        <Button type="button" variant="outline" onClick={onClose}>
+          Zrušit
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function ReceivedInvoices() {
   const { toast } = useToast();
@@ -140,6 +294,86 @@ export function ReceivedInvoices() {
     },
   });
 
+  // Mutation for adding new items to existing invoice
+  const addInvoiceItemMutation = useMutation({
+    mutationFn: async ({
+      invoiceId,
+      ingredientId,
+      quantity,
+      unitPrice,
+    }: {
+      invoiceId: string;
+      ingredientId: number;
+      quantity: number;
+      unitPrice: number;
+    }) => {
+      const lineTotal = quantity * unitPrice;
+
+      // Add the new item
+      const { data: itemData, error: itemError } = await supabase
+        .from("items_received")
+        .insert({
+          invoice_received_id: invoiceId,
+          matched_ingredient_id: ingredientId,
+          quantity,
+          unit_price: unitPrice,
+          line_total: lineTotal,
+          unit_of_measure: null,
+          manual_match: true,
+        })
+        .select()
+        .single();
+
+      if (itemError) {
+        console.error("Supabase error adding item:", itemError);
+        throw itemError;
+      }
+
+      // Get all items for this invoice to recalculate total
+      const { data: allItems, error: itemsError } = await supabase
+        .from("items_received")
+        .select("line_total")
+        .eq("invoice_received_id", invoiceId);
+
+      if (itemsError) {
+        console.error("Supabase error fetching items:", itemsError);
+        throw itemsError;
+      }
+
+      // Calculate new total amount
+      const newTotalAmount =
+        allItems?.reduce((sum, item) => sum + (item.line_total || 0), 0) || 0;
+
+      // Update the invoice's total_amount
+      const { error: invoiceError } = await supabase
+        .from("invoices_received")
+        .update({ total_amount: newTotalAmount })
+        .eq("id", invoiceId);
+
+      if (invoiceError) {
+        console.error("Supabase error updating invoice:", invoiceError);
+        throw invoiceError;
+      }
+
+      return itemData;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["receivedInvoices"] });
+      toast({
+        title: "Úspěch",
+        description: "Položka byla přidána do faktury",
+      });
+    },
+    onError: (error) => {
+      console.error("Mutation error:", error);
+      toast({
+        title: "Chyba",
+        description: `Chyba při přidávání položky: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
   const [searchTerm, setSearchTerm] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [receiverFilter, setReceiverFilter] = useState("all");
@@ -158,9 +392,11 @@ export function ReceivedInvoices() {
     quantity: 0,
     unit_price: 0,
   });
+  const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
 
   const { data: allUsers } = useUsers();
   const { data: invoices, isLoading } = useReceivedInvoices();
+  const { data: allIngredients } = useIngredients();
 
   // Function to fix invoice total amounts
   const fixInvoiceTotals = async () => {
@@ -932,7 +1168,18 @@ export function ReceivedInvoices() {
               {/* Invoice Items */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Položky faktury</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Položky faktury</CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsAddItemDialogOpen(true)}
+                      className="flex items-center gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Přidat položku
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto">
@@ -1088,6 +1335,36 @@ export function ReceivedInvoices() {
                 </Button>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Item Dialog */}
+      <Dialog open={isAddItemDialogOpen} onOpenChange={setIsAddItemDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              Přidat položku
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedInvoice && (
+            <AddItemModal
+              open={isAddItemDialogOpen}
+              onClose={() => setIsAddItemDialogOpen(false)}
+              onAdd={(ingredientId, quantity, unitPrice) => {
+                addInvoiceItemMutation.mutate({
+                  invoiceId: selectedInvoice.id,
+                  ingredientId,
+                  quantity,
+                  unitPrice,
+                });
+                setIsAddItemDialogOpen(false);
+              }}
+              ingredients={allIngredients?.ingredients || []}
+              supplierId={selectedInvoice.supplier_id || undefined}
+            />
           )}
         </DialogContent>
       </Dialog>

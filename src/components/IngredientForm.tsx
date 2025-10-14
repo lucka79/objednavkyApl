@@ -64,11 +64,11 @@ interface IngredientFormData {
 const initialFormData: IngredientFormData = {
   name: "",
   category_id: null,
-  unit: "",
+  unit: "kg",
   kiloPerUnit: 1,
   price: null,
   package: null,
-  vat: 21,
+  vat: 12,
   ean: null,
   product_code: null,
   active: true,
