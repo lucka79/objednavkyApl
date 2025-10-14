@@ -196,6 +196,171 @@ export function IngredientQuantityOverview() {
     },
   });
 
+  // Fetch transfers data for the selected month and user
+  const { data: transfersData } = useQuery({
+    queryKey: ["transfers", selectedUserId, selectedMonth.toISOString()],
+    queryFn: async () => {
+      console.log("=== TRANSFERS QUERY STARTED ===");
+      console.log("Selected user ID:", selectedUserId);
+      console.log("Selected month:", selectedMonth.toISOString());
+
+      const firstDayOfMonth = new Date(
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth(),
+        1
+      );
+      const lastDayOfMonth = new Date(
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth() + 1,
+        0
+      );
+
+      // If selected month is current month, use today as end date
+      const today = new Date();
+      const isCurrentMonth =
+        selectedMonth.getFullYear() === today.getFullYear() &&
+        selectedMonth.getMonth() === today.getMonth();
+
+      const endDate = isCurrentMonth ? today : lastDayOfMonth;
+
+      const formatLocalDate = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      };
+
+      const startDateStr = formatLocalDate(firstDayOfMonth);
+      const endDateStr = formatLocalDate(endDate);
+
+      console.log("Query parameters:", {
+        selectedUserId,
+        startDateStr,
+        endDateStr,
+        orCondition: `sender_id.eq.${selectedUserId},receiver_id.eq.${selectedUserId}`,
+      });
+
+      const { data, error } = await supabase
+        .from("transfers")
+        .select(
+          `
+          id,
+          date,
+          sender_id,
+          receiver_id,
+          transfer_items (
+            id,
+            quantity,
+            ingredient_id
+          )
+        `
+        )
+        .or(`sender_id.eq.${selectedUserId},receiver_id.eq.${selectedUserId}`)
+        .gte("date", startDateStr)
+        .lte("date", endDateStr);
+
+      if (error) {
+        console.error("Error fetching transfers:", error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        console.log(
+          "No transfers found for date range:",
+          startDateStr,
+          "to",
+          endDateStr
+        );
+
+        // Let's check if there are ANY transfers for this user (regardless of date)
+        console.log("Checking for ANY transfers for this user...");
+        const { data: anyTransfers } = await supabase
+          .from("transfers")
+          .select("id, date, sender_id, receiver_id")
+          .or(`sender_id.eq.${selectedUserId},receiver_id.eq.${selectedUserId}`)
+          .limit(5);
+
+        console.log("Any transfers found:", anyTransfers?.length || 0);
+        if (anyTransfers && anyTransfers.length > 0) {
+          console.log("Sample transfers:", anyTransfers);
+        }
+
+        return [];
+      }
+
+      console.log("=== TRANSFERS QUERY DEBUG ===");
+      console.log("Found transfers:", data.length);
+      console.log("Sample transfer:", data[0]);
+      console.log("=== END TRANSFERS QUERY DEBUG ===");
+
+      // Aggregate quantities by ingredient_id
+      const ingredientQuantities = new Map<number, number>();
+
+      data.forEach((transfer: any, transferIndex: number) => {
+        console.log(`Processing transfer ${transferIndex + 1}:`, {
+          transfer_id: transfer.id,
+          sender_id: transfer.sender_id,
+          receiver_id: transfer.receiver_id,
+          selected_user_id: selectedUserId,
+          transfer_items_count: transfer.transfer_items?.length || 0,
+        });
+
+        if (transfer.transfer_items) {
+          transfer.transfer_items.forEach((item: any, itemIndex: number) => {
+            console.log(`  Processing transfer item ${itemIndex + 1}:`, {
+              ingredient_id: item.ingredient_id,
+              quantity: item.quantity,
+            });
+
+            const ingredientId = item.ingredient_id;
+            const quantity = item.quantity || 0;
+
+            // If user is receiver, add quantity (+)
+            // If user is sender, subtract quantity (-)
+            const multiplier = transfer.receiver_id === selectedUserId ? 1 : -1;
+            const adjustedQuantity = quantity * multiplier;
+
+            console.log(
+              `    Calculated: quantity=${quantity}, multiplier=${multiplier}, adjusted=${adjustedQuantity}`
+            );
+
+            if (ingredientQuantities.has(ingredientId)) {
+              const currentTotal = ingredientQuantities.get(ingredientId)!;
+              ingredientQuantities.set(
+                ingredientId,
+                currentTotal + adjustedQuantity
+              );
+              console.log(
+                `    Updated ingredient ${ingredientId}: ${currentTotal} + ${adjustedQuantity} = ${currentTotal + adjustedQuantity}`
+              );
+            } else {
+              ingredientQuantities.set(ingredientId, adjustedQuantity);
+              console.log(
+                `    New ingredient ${ingredientId}: ${adjustedQuantity}`
+              );
+            }
+          });
+        } else {
+          console.log(`  No transfer_items found for transfer ${transfer.id}`);
+        }
+      });
+
+      const result = Array.from(ingredientQuantities.entries()).map(
+        ([ingredientId, totalQuantity]) => ({
+          ingredientId,
+          totalQuantity,
+        })
+      );
+
+      console.log("Final transfers result:", result);
+      console.log("=== END TRANSFERS PROCESSING ===");
+
+      return result;
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    enabled: !!selectedUserId,
+  });
+
   // Fetch received invoices data for the selected month and user
   const { data: receivedInvoicesData } = useQuery({
     queryKey: ["receivedInvoices", selectedUserId, selectedMonth.toISOString()],
@@ -998,6 +1163,19 @@ export function IngredientQuantityOverview() {
       console.log("=== END RECEIVED INVOICES DEBUG ===");
     }
 
+    // Create a map of transfers data for quick lookup
+    const transfersMap = new Map<number, number>();
+    if (transfersData) {
+      console.log("=== TRANSFERS DEBUG ===");
+      console.log("Transfers data:", transfersData);
+      transfersData.forEach((transfer) => {
+        console.log("Processing transfer:", transfer);
+        transfersMap.set(transfer.ingredientId, transfer.totalQuantity);
+      });
+      console.log("Transfers map:", Array.from(transfersMap.entries()));
+      console.log("=== END TRANSFERS DEBUG ===");
+    }
+
     // Create a map of suppliers for quick lookup
     const supplierMap = new Map<string, string>();
     if (suppliers) {
@@ -1050,6 +1228,7 @@ export function IngredientQuantityOverview() {
       const price = ingredient?.price || 0;
       const receivedInvoicesQuantity =
         receivedInvoicesMap.get(ingredientId) || 0;
+      const transfersQuantity = transfersMap.get(ingredientId) || 0;
 
       // Find supplier from ingredient_supplier_codes (prefer active, fallback to first)
       const activeSupplierCode = ingredient?.ingredient_supplier_codes?.find(
@@ -1069,6 +1248,7 @@ export function IngredientQuantityOverview() {
         currentQuantity,
         monthlyConsumption,
         receivedInvoicesQuantity,
+        transfersQuantity,
         unit: ingredient?.unit || "kg",
         category: ingredient?.ingredient_categories?.name || "Bez kategorie",
         supplier: supplierName,
@@ -1625,6 +1805,17 @@ export function IngredientQuantityOverview() {
                                 </span>
                               </div>
                             </TableHead>
+                            <TableHead className="text-right w-[140px]">
+                              <div className="flex flex-col items-end">
+                                <span>Transfery</span>
+                                <span className="text-xs text-muted-foreground font-normal">
+                                  {selectedMonth.getFullYear()}-
+                                  {String(
+                                    selectedMonth.getMonth() + 1
+                                  ).padStart(2, "0")}
+                                </span>
+                              </div>
+                            </TableHead>
                             <TableHead className="text-right w-[100px]">
                               Cena
                             </TableHead>
@@ -1665,6 +1856,20 @@ export function IngredientQuantityOverview() {
                               <TableCell className="text-right">
                                 <span className="text-sm font-mono text-green-600">
                                   {item.receivedInvoicesQuantity.toFixed(1)}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span
+                                  className={`text-sm font-mono ${
+                                    item.transfersQuantity > 0
+                                      ? "text-green-600"
+                                      : item.transfersQuantity < 0
+                                        ? "text-red-600"
+                                        : "text-gray-600"
+                                  }`}
+                                >
+                                  {item.transfersQuantity > 0 ? "+" : ""}
+                                  {item.transfersQuantity.toFixed(1)}
                                 </span>
                               </TableCell>
                               <TableCell className="text-right">
@@ -1739,6 +1944,18 @@ export function IngredientQuantityOverview() {
                           </span>
                         </div>
                       </TableHead>
+                      <TableHead className="text-right w-[140px]">
+                        <div className="flex flex-col items-end">
+                          <span>Transfery</span>
+                          <span className="text-xs text-muted-foreground font-normal">
+                            {selectedMonth.getFullYear()}-
+                            {String(selectedMonth.getMonth() + 1).padStart(
+                              2,
+                              "0"
+                            )}
+                          </span>
+                        </div>
+                      </TableHead>
                       <TableHead className="text-right w-[100px]">
                         Cena
                       </TableHead>
@@ -1781,6 +1998,20 @@ export function IngredientQuantityOverview() {
                           <TableCell className="text-right">
                             <span className="text-sm font-mono text-green-600">
                               {item.receivedInvoicesQuantity.toFixed(1)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span
+                              className={`text-sm font-mono ${
+                                item.transfersQuantity > 0
+                                  ? "text-green-600"
+                                  : item.transfersQuantity < 0
+                                    ? "text-red-600"
+                                    : "text-gray-600"
+                              }`}
+                            >
+                              {item.transfersQuantity > 0 ? "+" : ""}
+                              {item.transfersQuantity.toFixed(1)}
                             </span>
                           </TableCell>
                           <TableCell className="text-right">
