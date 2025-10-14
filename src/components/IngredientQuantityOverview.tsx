@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -29,6 +29,8 @@ import {
   AlertTriangle,
   CheckCircle,
   RefreshCw,
+  TrendingDown,
+  Minus,
 } from "lucide-react";
 
 import { removeDiacritics } from "@/utils/removeDiacritics";
@@ -953,6 +955,134 @@ export function IngredientQuantityOverview() {
     enabled: true,
   });
 
+  // Fetch price comparison data for the selected month
+  const { data: priceComparisonData } = useQuery({
+    queryKey: ["priceComparison", selectedMonth.toISOString()],
+    queryFn: async () => {
+      const firstDayOfMonth = new Date(
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth(),
+        1
+      );
+      const lastDayOfMonth = new Date(
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth() + 1,
+        0
+      );
+
+      const formatLocalDate = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      };
+
+      const startDateStr = formatLocalDate(firstDayOfMonth);
+      const endDateStr = formatLocalDate(lastDayOfMonth);
+
+      // Fetch received invoice prices for the selected month
+      const { data: receivedPrices, error: receivedError } = await supabase
+        .from("items_received")
+        .select(
+          `
+          matched_ingredient_id,
+          unit_price,
+          created_at,
+          invoice_received_id,
+          invoices_received!inner(
+            invoice_date
+          )
+        `
+        )
+        .gte("invoices_received.invoice_date", startDateStr)
+        .lte("invoices_received.invoice_date", endDateStr)
+        .order("created_at", { ascending: false });
+
+      if (receivedError) {
+        console.error("Error fetching received prices:", receivedError);
+        throw receivedError;
+      }
+
+      // Fetch ingredient supplier codes and base ingredient prices
+      const { data: ingredients, error: ingredientsError } =
+        await supabase.from("ingredients").select(`
+          id,
+          price,
+          ingredient_supplier_codes (
+            supplier_id,
+            price
+          )
+        `);
+
+      if (ingredientsError) {
+        console.error("Error fetching ingredients:", ingredientsError);
+        throw ingredientsError;
+      }
+
+      // Process the data to create price comparisons
+      const priceMap = new Map();
+
+      // First, get the most recent received price for each ingredient
+      const receivedPriceMap = new Map();
+      (receivedPrices || []).forEach((item: any) => {
+        const ingredientId = item.matched_ingredient_id;
+        if (!ingredientId) return; // Skip items without matched ingredient
+
+        if (
+          !receivedPriceMap.has(ingredientId) ||
+          new Date(item.created_at) >
+            new Date(receivedPriceMap.get(ingredientId).created_at)
+        ) {
+          receivedPriceMap.set(ingredientId, {
+            unit_price: item.unit_price,
+            created_at: item.created_at,
+            invoice_date: item.invoices_received?.invoice_date,
+          });
+        }
+      });
+
+      // Create comparison data for each ingredient
+      (ingredients || []).forEach((ingredient: any) => {
+        const receivedPrice = receivedPriceMap.get(ingredient.id);
+        const basePrice = ingredient.price;
+
+        // Get supplier price (first available supplier code)
+        const supplierPrice = ingredient.ingredient_supplier_codes?.[0]?.price;
+
+        // Determine comparison price (supplier price > base price > received price)
+        let comparisonPrice = basePrice;
+        if (supplierPrice && supplierPrice > 0) {
+          comparisonPrice = supplierPrice;
+        }
+
+        if (receivedPrice) {
+          priceMap.set(ingredient.id, {
+            received_price: receivedPrice.unit_price,
+            comparison_price: comparisonPrice,
+            base_price: basePrice,
+            supplier_price: supplierPrice,
+            has_received_price: true,
+            received_date: receivedPrice.invoice_date,
+          });
+        } else {
+          priceMap.set(ingredient.id, {
+            received_price: null,
+            comparison_price: comparisonPrice,
+            base_price: basePrice,
+            supplier_price: supplierPrice,
+            has_received_price: false,
+            received_date: null,
+          });
+        }
+      });
+
+      return Object.fromEntries(priceMap);
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+  });
+
   // Extract inventory date from the first inventory item (if any)
   useEffect(() => {
     if (inventoryItems && inventoryItems.length > 0) {
@@ -1676,6 +1806,9 @@ export function IngredientQuantityOverview() {
                             <TableHead className="text-right w-[100px]">
                               Cena
                             </TableHead>
+                            <TableHead className="text-right w-[120px]">
+                              Změna ceny
+                            </TableHead>
                             <TableHead className="text-right w-[140px]">
                               <div className="flex flex-col items-end">
                                 <span>Aktuální stav</span>
@@ -1753,6 +1886,99 @@ export function IngredientQuantityOverview() {
                                 <span className="text-sm">
                                   {item.price.toFixed(2)} Kč
                                 </span>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {(() => {
+                                  const priceData =
+                                    priceComparisonData?.[item.ingredientId];
+                                  if (!priceData) {
+                                    return (
+                                      <span className="text-sm text-muted-foreground">
+                                        —
+                                      </span>
+                                    );
+                                  }
+
+                                  // If no received price, show comparison with supplier/base price
+                                  if (!priceData.has_received_price) {
+                                    return (
+                                      <div className="flex flex-col items-end">
+                                        <span className="text-xs text-muted-foreground">
+                                          Bez faktury
+                                        </span>
+                                        <span className="text-xs text-blue-600">
+                                          {priceData.comparison_price?.toFixed(
+                                            2
+                                          )}{" "}
+                                          Kč
+                                        </span>
+                                      </div>
+                                    );
+                                  }
+
+                                  const receivedPrice =
+                                    priceData.received_price;
+                                  const comparisonPrice =
+                                    priceData.comparison_price;
+                                  const priceChange =
+                                    receivedPrice - comparisonPrice;
+                                  const percentageChange =
+                                    comparisonPrice > 0
+                                      ? (priceChange / comparisonPrice) * 100
+                                      : 0;
+
+                                  if (Math.abs(priceChange) < 0.01) {
+                                    return (
+                                      <div className="flex flex-col items-end gap-1">
+                                        <div className="flex items-center gap-1">
+                                          <Minus className="h-3 w-3 text-gray-500" />
+                                          <span className="text-sm text-gray-500">
+                                            Stejná cena
+                                          </span>
+                                        </div>
+                                        <span className="text-xs font-semibold text-green-600">
+                                          Faktura: {receivedPrice.toFixed(2)} Kč
+                                        </span>
+                                      </div>
+                                    );
+                                  }
+
+                                  const isIncrease = priceChange > 0;
+                                  const icon = isIncrease
+                                    ? TrendingUp
+                                    : TrendingDown;
+                                  const colorClass = isIncrease
+                                    ? "text-red-600"
+                                    : "text-green-600";
+
+                                  return (
+                                    <div className="flex flex-col items-end gap-1">
+                                      <span className="text-xs font-semibold text-green-600">
+                                        {receivedPrice.toFixed(2)} Kč
+                                      </span>
+                                      <div className="flex items-center gap-1">
+                                        {React.createElement(icon, {
+                                          className: `h-3 w-3 ${colorClass}`,
+                                        })}
+                                        <span
+                                          className={`text-sm ${colorClass}`}
+                                        >
+                                          {isIncrease ? "+" : ""}
+                                          {priceChange.toFixed(2)} Kč
+                                        </span>
+                                      </div>
+                                      <span className={`text-xs ${colorClass}`}>
+                                        ({isIncrease ? "+" : ""}
+                                        {percentageChange.toFixed(1)}%)
+                                      </span>
+                                      <span className="text-xs text-muted-foreground">
+                                        vs{" "}
+                                        {priceData.comparison_price?.toFixed(2)}{" "}
+                                        Kč
+                                      </span>
+                                    </div>
+                                  );
+                                })()}
                               </TableCell>
                               <TableCell className="text-right">
                                 <span className="text-sm font-mono font-semibold">
@@ -1839,6 +2065,9 @@ export function IngredientQuantityOverview() {
                       <TableHead className="text-right w-[100px]">
                         Cena
                       </TableHead>
+                      <TableHead className="text-right w-[120px]">
+                        Změna ceny
+                      </TableHead>
                       <TableHead className="text-right w-[140px]">
                         <div className="flex flex-col items-end">
                           <span>Aktuální stav</span>
@@ -1918,6 +2147,93 @@ export function IngredientQuantityOverview() {
                             <span className="text-sm">
                               {item.price.toFixed(2)} Kč
                             </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {(() => {
+                              const priceData =
+                                priceComparisonData?.[item.ingredientId];
+                              if (!priceData) {
+                                return (
+                                  <span className="text-sm text-muted-foreground">
+                                    —
+                                  </span>
+                                );
+                              }
+
+                              // If no received price, show comparison with supplier/base price
+                              if (!priceData.has_received_price) {
+                                return (
+                                  <div className="flex flex-col items-end">
+                                    <span className="text-xs text-muted-foreground">
+                                      Bez faktury
+                                    </span>
+                                    <span className="text-xs text-blue-600">
+                                      {priceData.comparison_price?.toFixed(2)}{" "}
+                                      Kč
+                                    </span>
+                                  </div>
+                                );
+                              }
+
+                              const receivedPrice = priceData.received_price;
+                              const comparisonPrice =
+                                priceData.comparison_price;
+                              const priceChange =
+                                receivedPrice - comparisonPrice;
+                              const percentageChange =
+                                comparisonPrice > 0
+                                  ? (priceChange / comparisonPrice) * 100
+                                  : 0;
+
+                              if (Math.abs(priceChange) < 0.01) {
+                                return (
+                                  <div className="flex flex-col items-end gap-1">
+                                    <div className="flex items-center gap-1">
+                                      <Minus className="h-3 w-3 text-gray-500" />
+                                      <span className="text-sm text-gray-500">
+                                        Stejná cena
+                                      </span>
+                                    </div>
+                                    <span className="text-xs font-semibold text-green-600">
+                                      Faktura: {receivedPrice.toFixed(2)} Kč
+                                    </span>
+                                  </div>
+                                );
+                              }
+
+                              const isIncrease = priceChange > 0;
+                              const icon = isIncrease
+                                ? TrendingUp
+                                : TrendingDown;
+                              const colorClass = isIncrease
+                                ? "text-red-600"
+                                : "text-green-600";
+
+                              return (
+                                <div className="flex flex-col items-end gap-1">
+                                  <span className="text-xs font-semibold text-green-600">
+                                    Faktura: {receivedPrice.toFixed(2)} Kč
+                                  </span>
+                                  <div className="flex items-center gap-1">
+                                    {React.createElement(icon, {
+                                      className: `h-3 w-3 ${colorClass}`,
+                                    })}
+                                    <span className={`text-sm ${colorClass}`}>
+                                      {isIncrease ? "+" : ""}
+                                      {priceChange.toFixed(2)} Kč
+                                    </span>
+                                  </div>
+                                  <span className={`text-xs ${colorClass}`}>
+                                    ({isIncrease ? "+" : ""}
+                                    {percentageChange.toFixed(1)}%)
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    vs {priceData.comparison_price?.toFixed(2)}{" "}
+                                    Kč
+                                  </span>
+                                </div>
+                              );
+                            })()}
                           </TableCell>
                           <TableCell className="text-right">
                             <span className="text-sm font-mono font-semibold">
