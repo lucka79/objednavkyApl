@@ -31,6 +31,7 @@ import {
   RefreshCw,
   TrendingDown,
   Minus,
+  Sparkles,
 } from "lucide-react";
 
 import { removeDiacritics } from "@/utils/removeDiacritics";
@@ -1190,19 +1191,21 @@ export function IngredientQuantityOverview() {
       const inventoryData = inventoryMap.get(ingredientId);
       const currentQuantity = inventoryData?.quantity || 0;
 
-      // Skip if we're hiding zero quantities and this ingredient has zero quantity AND zero consumption
+      // Skip if we're hiding zero quantities and this ingredient has zero quantity AND zero consumption AND zero invoices
       const monthlyConsumption = consumptionMap.get(ingredientId) || 0;
+      const receivedInvoicesQuantity =
+        receivedInvoicesMap.get(ingredientId) || 0;
+
       if (
         !showZeroQuantities &&
         currentQuantity === 0 &&
-        monthlyConsumption === 0
+        monthlyConsumption === 0 &&
+        receivedInvoicesQuantity === 0
       ) {
         return;
       }
 
       const price = ingredient?.price || 0;
-      const receivedInvoicesQuantity =
-        receivedInvoicesMap.get(ingredientId) || 0;
       const transfersData = transfersMap.get(ingredientId) || {
         sent: 0,
         received: 0,
@@ -1231,11 +1234,13 @@ export function IngredientQuantityOverview() {
         transfersReceived: transfersData.received,
         transfersNet: transfersData.net,
         unit: ingredient?.unit || "kg",
+        package: ingredient?.package || null,
         category: ingredient?.ingredient_categories?.name || "Bez kategorie",
         supplier: supplierName,
         lastUpdated: new Date().toISOString(),
         price,
         totalValue: currentQuantity * price,
+        created_at: ingredient?.created_at || null,
       });
     });
 
@@ -1378,6 +1383,45 @@ export function IngredientQuantityOverview() {
       default:
         return <Badge variant="secondary">Normální</Badge>;
     }
+  };
+
+  // Helper function to check if ingredient was created in the selected month
+  const isCreatedInSelectedMonth = (item: any) => {
+    if (!item.created_at) return false;
+    const createdAt = new Date(item.created_at);
+    return (
+      createdAt.getFullYear() === selectedMonth.getFullYear() &&
+      createdAt.getMonth() === selectedMonth.getMonth()
+    );
+  };
+
+  // Helper function to format package quantity with fractions
+  const formatPackageQuantity = (quantity: number, packageSize: number) => {
+    const packages = quantity / packageSize;
+    const wholePackages = Math.floor(packages);
+    const remainder = packages - wholePackages;
+
+    // If very close to whole number, just show whole number
+    if (remainder < 0.05) {
+      return `${wholePackages}`;
+    }
+
+    // Determine fraction
+    let fraction = "";
+    if (remainder >= 0.875) {
+      // Round up to next whole
+      return `${wholePackages + 1}`;
+    } else if (remainder >= 0.625) {
+      fraction = "¾";
+    } else if (remainder >= 0.375) {
+      fraction = "½";
+    } else if (remainder >= 0.125) {
+      fraction = "¼";
+    } else {
+      return `${wholePackages}`;
+    }
+
+    return wholePackages > 0 ? `${wholePackages}${fraction}` : fraction;
   };
 
   if (isLoading) {
@@ -1822,16 +1866,35 @@ export function IngredientQuantityOverview() {
                             <TableRow key={item.id}>
                               <TableCell className="font-medium">
                                 <div className="flex flex-col">
-                                  <span>{item.name}</span>
+                                  <div className="flex items-center gap-2">
+                                    {isCreatedInSelectedMonth(item) && (
+                                      <Sparkles className="h-4 w-4 text-yellow-500" />
+                                    )}
+                                    <span>{item.name}</span>
+                                  </div>
                                   <span className="text-xs text-muted-foreground">
                                     {item.supplier}
                                   </span>
                                 </div>
                               </TableCell>
                               <TableCell className="text-right">
-                                <span className="text-sm font-mono">
-                                  {item.currentQuantity.toFixed(1)}
-                                </span>
+                                <div className="flex flex-col items-end gap-1">
+                                  <span className="text-sm font-mono">
+                                    {item.currentQuantity.toFixed(1)}
+                                  </span>
+                                  {item.package && (
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <Package className="h-3 w-3" />
+                                      <span>
+                                        {formatPackageQuantity(
+                                          item.currentQuantity,
+                                          item.package
+                                        )}{" "}
+                                        bal
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-1">
@@ -1930,7 +1993,7 @@ export function IngredientQuantityOverview() {
                                     return (
                                       <div className="flex flex-col items-end gap-1">
                                         <div className="flex items-center gap-1">
-                                          <Minus className="h-3 w-3 text-gray-500" />
+                                          {/* <Minus className="h-3 w-3 text-gray-500" /> */}
                                           <span className="text-sm text-gray-500">
                                             Stejná cena
                                           </span>
@@ -1980,14 +2043,31 @@ export function IngredientQuantityOverview() {
                                 })()}
                               </TableCell>
                               <TableCell className="text-right">
-                                <span className="text-sm font-mono font-semibold">
-                                  {(
-                                    item.currentQuantity +
-                                    item.receivedInvoicesQuantity +
-                                    (item.transfersNet || 0) -
-                                    item.monthlyConsumption
-                                  ).toFixed(1)}
-                                </span>
+                                <div className="flex flex-col items-end gap-1">
+                                  <span className="text-sm font-mono font-semibold">
+                                    {(
+                                      item.currentQuantity +
+                                      item.receivedInvoicesQuantity +
+                                      (item.transfersNet || 0) -
+                                      item.monthlyConsumption
+                                    ).toFixed(1)}
+                                  </span>
+                                  {item.package && (
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <Package className="h-3 w-3" />
+                                      <span>
+                                        {formatPackageQuantity(
+                                          item.currentQuantity +
+                                            item.receivedInvoicesQuantity +
+                                            (item.transfersNet || 0) -
+                                            item.monthlyConsumption,
+                                          item.package
+                                        )}{" "}
+                                        bal
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-2">
@@ -2019,47 +2099,7 @@ export function IngredientQuantityOverview() {
                     <TableRow>
                       <TableHead className="w-[200px]">Název</TableHead>
                       <TableHead className="w-[150px]">Kategorie</TableHead>
-                      <TableHead className="text-right w-[120px]">
-                        <div className="flex flex-col items-end">
-                          <span>Množství</span>
-                          {inventoryDate && (
-                            <span className="text-xs text-muted-foreground font-normal">
-                              Inventura:{" "}
-                              {new Date(inventoryDate).toLocaleDateString(
-                                "cs-CZ"
-                              )}
-                            </span>
-                          )}
-                        </div>
-                      </TableHead>
                       <TableHead className="w-[100px]">Jednotka</TableHead>
-                      <TableHead className="text-right w-[140px]">
-                        <div className="flex flex-col items-end">
-                          <span>Přijaté faktury</span>
-                          <span className="text-xs text-muted-foreground font-normal">
-                            {selectedMonth.getFullYear()}-
-                            {String(selectedMonth.getMonth() + 1).padStart(
-                              2,
-                              "0"
-                            )}
-                          </span>
-                        </div>
-                      </TableHead>
-                      <TableHead className="text-right w-[200px]">
-                        <div className="flex flex-col items-end">
-                          <span>Transfery</span>
-                          <span className="text-xs text-muted-foreground font-normal">
-                            {selectedMonth.getFullYear()}-
-                            {String(selectedMonth.getMonth() + 1).padStart(
-                              2,
-                              "0"
-                            )}
-                          </span>
-                          <span className="text-xs text-muted-foreground font-normal">
-                            Odesl./Přijat.
-                          </span>
-                        </div>
-                      </TableHead>
                       <TableHead className="text-right w-[100px]">
                         Cena
                       </TableHead>
@@ -2083,7 +2123,12 @@ export function IngredientQuantityOverview() {
                         <TableRow key={item.id} className="bg-red-50">
                           <TableCell className="font-medium">
                             <div className="flex flex-col">
-                              <span>{item.name}</span>
+                              <div className="flex items-center gap-2">
+                                {isCreatedInSelectedMonth(item) && (
+                                  <Sparkles className="h-4 w-4 text-yellow-500" />
+                                )}
+                                <span>{item.name}</span>
+                              </div>
                               <span className="text-xs text-muted-foreground">
                                 {item.supplier}
                               </span>
@@ -2095,52 +2140,10 @@ export function IngredientQuantityOverview() {
                               <span className="text-sm">{item.category}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-right">
-                            <span className="text-sm font-mono text-red-600">
-                              {item.currentQuantity.toFixed(1)}
-                            </span>
-                          </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
                               <Scale className="h-3 w-3 text-muted-foreground" />
                               <span className="text-sm">{item.unit}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <span className="text-sm font-mono text-green-600">
-                              {item.receivedInvoicesQuantity.toFixed(1)}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex flex-col items-end">
-                              <span className="text-sm font-mono text-muted-foreground">
-                                {(item.transfersSent || 0) > 0
-                                  ? `-${(item.transfersSent || 0).toFixed(1)}`
-                                  : ""}
-                                {(item.transfersSent || 0) > 0 &&
-                                (item.transfersReceived || 0) > 0
-                                  ? " / "
-                                  : ""}
-                                {(item.transfersReceived || 0) > 0
-                                  ? `+${(item.transfersReceived || 0).toFixed(1)}`
-                                  : ""}
-                                {(item.transfersSent || 0) === 0 &&
-                                (item.transfersReceived || 0) === 0
-                                  ? "0"
-                                  : ""}
-                              </span>
-                              <span
-                                className={`text-sm font-mono font-semibold ${
-                                  (item.transfersNet || 0) > 0
-                                    ? "text-green-600"
-                                    : (item.transfersNet || 0) < 0
-                                      ? "text-red-600"
-                                      : "text-gray-600"
-                                }`}
-                              >
-                                {(item.transfersNet || 0) > 0 ? "+" : ""}
-                                {(item.transfersNet || 0).toFixed(1)}
-                              </span>
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
@@ -2236,14 +2239,31 @@ export function IngredientQuantityOverview() {
                             })()}
                           </TableCell>
                           <TableCell className="text-right">
-                            <span className="text-sm font-mono font-semibold">
-                              {(
-                                item.currentQuantity +
-                                item.receivedInvoicesQuantity +
-                                (item.transfersNet || 0) -
-                                item.monthlyConsumption
-                              ).toFixed(1)}
-                            </span>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="text-m font-mono font-semibold">
+                                {(
+                                  item.currentQuantity +
+                                  item.receivedInvoicesQuantity +
+                                  (item.transfersNet || 0) -
+                                  item.monthlyConsumption
+                                ).toFixed(1)}
+                              </span>
+                              {item.package && (
+                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                  <Package className="h-3 w-3" />
+                                  <span>
+                                    {formatPackageQuantity(
+                                      item.currentQuantity +
+                                        item.receivedInvoicesQuantity +
+                                        (item.transfersNet || 0) -
+                                        item.monthlyConsumption,
+                                      item.package
+                                    )}{" "}
+                                    bal
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
