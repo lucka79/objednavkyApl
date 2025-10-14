@@ -120,9 +120,13 @@ function AddItemModal({
             </div>
             <ul>
               {filtered.map((ing) => {
-                const supplierPrice = ing.ingredient_supplier_codes?.find(
+                const supplierCode = ing.ingredient_supplier_codes?.find(
                   (code: any) => code.supplier_id === supplierId
-                )?.price;
+                );
+
+                // Prioritize supplier code, fallback to ingredient
+                const displayPackage = supplierCode?.package || ing.package;
+                const displayPrice = supplierCode?.price || ing.price;
 
                 return (
                   <li
@@ -137,10 +141,10 @@ function AddItemModal({
                         {ing.name}
                       </span>
                       <span className="text-blue-600 w-1/4 text-center">
-                        {ing.package || "—"}
+                        {displayPackage || "—"}
                       </span>
                       <span className="font-medium text-orange-500 w-1/4 text-right">
-                        {supplierPrice ? `${supplierPrice.toFixed(2)} Kč` : "—"}
+                        {displayPrice ? `${displayPrice.toFixed(2)} Kč` : "—"}
                       </span>
                     </div>
                   </li>
@@ -164,12 +168,12 @@ function AddItemModal({
               const ingredient = ingredients.find(
                 (ing) => ing.id === selectedId
               );
-              const supplierPrice =
-                ingredient?.ingredient_supplier_codes?.find(
-                  (code: any) => code.supplier_id === supplierId
-                )?.price || 0;
+              const supplierCode = ingredient?.ingredient_supplier_codes?.find(
+                (code: any) => code.supplier_id === supplierId
+              );
+              const unitPrice = supplierCode?.price || ingredient?.price || 0;
 
-              onAdd(selectedId, quantity, supplierPrice);
+              onAdd(selectedId, quantity, unitPrice);
             }
           }}
           className="w-24 no-spinner [&::-moz-appearance]:textfield"
@@ -184,12 +188,12 @@ function AddItemModal({
               const ingredient = ingredients.find(
                 (ing) => ing.id === selectedId
               );
-              const supplierPrice =
-                ingredient?.ingredient_supplier_codes?.find(
-                  (code: any) => code.supplier_id === supplierId
-                )?.price || 0;
+              const supplierCode = ingredient?.ingredient_supplier_codes?.find(
+                (code: any) => code.supplier_id === supplierId
+              );
+              const unitPrice = supplierCode?.price || ingredient?.price || 0;
 
-              onAdd(selectedId, quantity, supplierPrice);
+              onAdd(selectedId, quantity, unitPrice);
             }
           }}
           disabled={!selectedId || quantity <= 0}
