@@ -1040,46 +1040,10 @@ export function ReceivedInvoices() {
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Detail faktury
-              </DialogTitle>
-              <div className="flex gap-2">
-                {!isEditing ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleEditToggle}
-                    className="flex items-center gap-2"
-                  >
-                    <Edit className="h-4 w-4" />
-                    Upravit
-                  </Button>
-                ) : (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleEditToggle}
-                      className="flex items-center gap-2"
-                    >
-                      <X className="h-4 w-4" />
-                      Zrušit
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleUpdateInvoice}
-                      className="flex items-center gap-2"
-                      disabled={updateInvoiceMutation.isPending}
-                    >
-                      <Save className="h-4 w-4" />
-                      Uložit
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Detail faktury
+            </DialogTitle>
           </DialogHeader>
 
           {selectedInvoice && (
@@ -1087,7 +1051,45 @@ export function ReceivedInvoices() {
               {/* Invoice Info */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Informace o faktuře</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">
+                      Informace o faktuře
+                    </CardTitle>
+                    <div className="flex gap-2">
+                      {!isEditing ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleEditToggle}
+                          className="flex items-center gap-2"
+                        >
+                          <Edit className="h-4 w-4" />
+                          Upravit
+                        </Button>
+                      ) : (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleEditToggle}
+                            className="flex items-center gap-2"
+                          >
+                            <X className="h-4 w-4" />
+                            Zrušit
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={handleUpdateInvoice}
+                            className="flex items-center gap-2"
+                            disabled={updateInvoiceMutation.isPending}
+                          >
+                            <Save className="h-4 w-4" />
+                            Uložit
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1362,7 +1364,13 @@ export function ReceivedInvoices() {
                 });
                 setIsAddItemDialogOpen(false);
               }}
-              ingredients={allIngredients?.ingredients || []}
+              ingredients={(allIngredients?.ingredients || []).filter(
+                (ingredient: any) =>
+                  ingredient.ingredient_supplier_codes?.some(
+                    (code: any) =>
+                      code.supplier_id === selectedInvoice.supplier_id
+                  )
+              )}
               supplierId={selectedInvoice.supplier_id || undefined}
             />
           )}

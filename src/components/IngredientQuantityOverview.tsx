@@ -1724,9 +1724,6 @@ export function IngredientQuantityOverview() {
                         <TableHeader>
                           <TableRow>
                             <TableHead className="w-[200px]">Název</TableHead>
-                            <TableHead className="w-[150px]">
-                              Dodavatel
-                            </TableHead>
                             <TableHead className="text-right w-[120px]">
                               <div className="flex flex-col items-end">
                                 <span>Množství</span>
@@ -1824,10 +1821,12 @@ export function IngredientQuantityOverview() {
                           {ingredients.map((item: any) => (
                             <TableRow key={item.id}>
                               <TableCell className="font-medium">
-                                {item.name}
-                              </TableCell>
-                              <TableCell>
-                                <span className="text-sm">{item.supplier}</span>
+                                <div className="flex flex-col">
+                                  <span>{item.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {item.supplier}
+                                  </span>
+                                </div>
                               </TableCell>
                               <TableCell className="text-right">
                                 <span className="text-sm font-mono">
@@ -2020,7 +2019,6 @@ export function IngredientQuantityOverview() {
                     <TableRow>
                       <TableHead className="w-[200px]">Název</TableHead>
                       <TableHead className="w-[150px]">Kategorie</TableHead>
-                      <TableHead className="w-[150px]">Dodavatel</TableHead>
                       <TableHead className="text-right w-[120px]">
                         <div className="flex flex-col items-end">
                           <span>Množství</span>
@@ -2084,16 +2082,18 @@ export function IngredientQuantityOverview() {
                       .map((item: any) => (
                         <TableRow key={item.id} className="bg-red-50">
                           <TableCell className="font-medium">
-                            {item.name}
+                            <div className="flex flex-col">
+                              <span>{item.name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {item.supplier}
+                              </span>
+                            </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
                               <Tag className="h-3 w-3 text-orange-600" />
                               <span className="text-sm">{item.category}</span>
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-sm">{item.supplier}</span>
                           </TableCell>
                           <TableCell className="text-right">
                             <span className="text-sm font-mono text-red-600">
