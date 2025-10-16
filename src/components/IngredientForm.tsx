@@ -1393,11 +1393,12 @@ export function IngredientForm() {
                             "Updating ingredient ID:",
                             selectedIngredient.id
                           );
+
                           console.log("Update payload:", {
                             supplier_codes: formData.supplier_codes,
                           });
 
-                          // Update existing ingredient with supplier codes
+                          // Update existing ingredient with supplier codes only
                           await updateIngredient(selectedIngredient.id, {
                             supplier_codes: formData.supplier_codes,
                           });

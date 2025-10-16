@@ -136,6 +136,7 @@ export function IngredientQuantityOverview() {
             ingredient_supplier_codes (
               id,
               supplier_id,
+              supplier_ingredient_name,
               is_active
             )
           )
@@ -1223,10 +1224,34 @@ export function IngredientQuantityOverview() {
         ? supplierMap.get(supplierToUse.supplier_id) || "—"
         : "—";
 
+      // Get active supplier's ingredient name
+      const supplierIngredientName =
+        (activeSupplierCode as any)?.supplier_ingredient_name || null;
+
+      // Get all other suppliers' ingredient names (non-active)
+      const otherSupplierNames =
+        ingredient?.ingredient_supplier_codes
+          ?.filter(
+            (code: any) => !code.is_active && code.supplier_ingredient_name
+          )
+          .map((code: any) => code.supplier_ingredient_name)
+          .filter(
+            (name: string, index: number, arr: string[]) =>
+              // Remove duplicates
+              arr.indexOf(name) === index
+          )
+          // Also filter out names that match the internal name or active supplier name
+          .filter(
+            (name: string) =>
+              name !== ingredient?.name && name !== supplierIngredientName
+          ) || [];
+
       aggregatedData.set(ingredientId, {
         id: inventoryData?.id || `ingredient-${ingredientId}`, // Use inventory ID if available, otherwise create a unique ID
         ingredientId,
         name: ingredient?.name || "Neznámá surovina",
+        supplierIngredientName: supplierIngredientName || null,
+        alternativeSupplierNames: otherSupplierNames,
         currentQuantity,
         monthlyConsumption,
         receivedInvoicesQuantity,
@@ -1870,7 +1895,21 @@ export function IngredientQuantityOverview() {
                                     {isCreatedInSelectedMonth(item) && (
                                       <Sparkles className="h-4 w-4 text-yellow-500" />
                                     )}
-                                    <span>{item.name}</span>
+                                    <div className="flex flex-col">
+                                      <span>
+                                        {item.supplierIngredientName ||
+                                          item.name}
+                                      </span>
+                                      {item.alternativeSupplierNames &&
+                                        item.alternativeSupplierNames.length >
+                                          0 && (
+                                          <span className="text-xs text-blue-500 italic">
+                                            {item.alternativeSupplierNames.join(
+                                              ", "
+                                            )}
+                                          </span>
+                                        )}
+                                    </div>
                                   </div>
                                   <span className="text-xs text-muted-foreground">
                                     {item.supplier}
@@ -2127,7 +2166,20 @@ export function IngredientQuantityOverview() {
                                 {isCreatedInSelectedMonth(item) && (
                                   <Sparkles className="h-4 w-4 text-yellow-500" />
                                 )}
-                                <span>{item.name}</span>
+                                <div className="flex flex-col">
+                                  <span>
+                                    {item.supplierIngredientName || item.name}
+                                  </span>
+                                  {item.alternativeSupplierNames &&
+                                    item.alternativeSupplierNames.length >
+                                      0 && (
+                                      <span className="text-xs text-blue-500 italic">
+                                        {item.alternativeSupplierNames.join(
+                                          ", "
+                                        )}
+                                      </span>
+                                    )}
+                                </div>
                               </div>
                               <span className="text-xs text-muted-foreground">
                                 {item.supplier}

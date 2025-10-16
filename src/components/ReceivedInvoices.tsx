@@ -137,9 +137,11 @@ function AddItemModal({
                     onClick={() => setSelectedId(ing.id)}
                   >
                     <div className="flex-1 flex items-center gap-2">
-                      <span className="font-medium w-1/2 truncate">
-                        {ing.name}
-                      </span>
+                      <div className="w-1/2 truncate">
+                        <span className="font-medium">
+                          {supplierCode?.supplier_ingredient_name || ing.name}
+                        </span>
+                      </div>
                       <span className="text-blue-600 w-1/4 text-center">
                         {displayPackage || "—"}
                       </span>
@@ -1227,7 +1229,25 @@ export function ReceivedInvoices() {
                           >
                             <div className="grid grid-cols-12 gap-4 items-center">
                               <div className="col-span-4 font-medium">
-                                {item.ingredient?.name || "Neznámá surovina"}
+                                {(() => {
+                                  const ingredient = item.ingredient;
+                                  if (!ingredient) return "Neznámá surovina";
+
+                                  // Get supplier's ingredient name if available
+                                  const supplierCode = (
+                                    ingredient as any
+                                  ).ingredient_supplier_codes?.find(
+                                    (code: any) =>
+                                      code.supplier_id ===
+                                      selectedInvoice.supplier_id
+                                  );
+                                  const supplierIngredientName =
+                                    supplierCode?.supplier_ingredient_name;
+
+                                  return (
+                                    supplierIngredientName || ingredient.name
+                                  );
+                                })()}
                               </div>
                               <div className="col-span-2 pr-2">
                                 <span className="text-sm font-mono text-right block">
@@ -1289,9 +1309,30 @@ export function ReceivedInvoices() {
             <div className="space-y-4">
               <div>
                 <Label className="text-sm font-medium">Surovina</Label>
-                <p className="text-lg font-semibold">
-                  {editingItem.ingredient?.name || "Neznámá surovina"}
-                </p>
+                {(() => {
+                  const ingredient = editingItem.ingredient;
+                  if (!ingredient) {
+                    return (
+                      <p className="text-lg font-semibold">Neznámá surovina</p>
+                    );
+                  }
+
+                  // Get supplier's ingredient name if available
+                  const supplierCode = (
+                    ingredient as any
+                  ).ingredient_supplier_codes?.find(
+                    (code: any) =>
+                      code.supplier_id === selectedInvoice?.supplier_id
+                  );
+                  const supplierIngredientName =
+                    supplierCode?.supplier_ingredient_name;
+
+                  return (
+                    <p className="text-lg font-semibold">
+                      {supplierIngredientName || ingredient.name}
+                    </p>
+                  );
+                })()}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

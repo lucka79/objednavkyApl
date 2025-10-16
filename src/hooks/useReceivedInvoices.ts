@@ -53,7 +53,15 @@ export const useReceivedInvoices = () => {
             receiver:profiles!invoices_received_receiver_id_fkey(id, full_name),
             items:items_received(
               *,
-              ingredient:ingredients!items_received_matched_ingredient_id_fkey(id, name, unit)
+              ingredient:ingredients!items_received_matched_ingredient_id_fkey(
+                id, 
+                name, 
+                unit,
+                ingredient_supplier_codes(
+                  supplier_id,
+                  supplier_ingredient_name
+                )
+              )
             )
           `)
           .order("invoice_date", { ascending: false });

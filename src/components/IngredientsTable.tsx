@@ -265,7 +265,7 @@ export function IngredientsTable() {
       const sortedIngredients = filteredGroupedIngredients.flatMap(
         ({ categoryName, ingredients }) =>
           ingredients.map((ingredient) => {
-            // Get the active supplier or first supplier
+            // Get the active supplier or first supplier for price/package
             const activeSupplier = ingredient.ingredient_supplier_codes?.find(
               (code: any) => code.is_active
             );
@@ -279,8 +279,11 @@ export function IngredientsTable() {
               (supplierUsers || []).find((u: any) => u.id === supplierId)
                 ?.full_name || "";
             const supplierCode = supplierToUse?.product_code || "";
+
+            // Get active supplier's ingredient name, fallback to internal name
             const supplierIngredientName =
-              (supplierToUse as any)?.supplier_ingredient_name || "";
+              (activeSupplier as any)?.supplier_ingredient_name || "";
+
             const price = supplierToUse?.price || ingredient.price || 0;
             const packageValue =
               (supplierToUse?.package ?? ingredient.package) || "";
@@ -400,30 +403,52 @@ export function IngredientsTable() {
     >
       <TableCell className="font-medium">
         <div className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-2">
-            {isRecentlyCreated(ingredient) && (
-              <Sparkles className="h-4 w-4 text-yellow-500" />
-            )}
-            <span>{ingredient.name}</span>
-          </div>
           {(() => {
-            // Get the active supplier's ingredient name
+            // Get active supplier's ingredient name
             const activeSupplier = ingredient.ingredient_supplier_codes?.find(
               (code: any) => code.is_active
             );
-            const supplierToUse =
-              activeSupplier || ingredient.ingredient_supplier_codes?.[0];
-            const supplierIngredientName = (supplierToUse as any)
-              ?.supplier_ingredient_name;
+            const activeSupplierIngredientName =
+              activeSupplier?.supplier_ingredient_name;
 
-            if (supplierIngredientName) {
-              return (
-                <span className="text-xs text-blue-600 italic">
-                  {supplierIngredientName}
-                </span>
-              );
-            }
-            return null;
+            // Get all other suppliers' ingredient names (non-active)
+            const otherSupplierNames =
+              ingredient.ingredient_supplier_codes
+                ?.filter(
+                  (code: any) =>
+                    !code.is_active && code.supplier_ingredient_name
+                )
+                .map((code: any) => code.supplier_ingredient_name)
+                .filter(
+                  (name: string, index: number, arr: string[]) =>
+                    // Remove duplicates
+                    arr.indexOf(name) === index
+                )
+                // Also filter out names that match the internal name or active supplier name
+                .filter(
+                  (name: string) =>
+                    name !== ingredient.name &&
+                    name !== activeSupplierIngredientName
+                ) || [];
+
+            // Show active supplier name (or internal name as fallback)
+            const displayName = activeSupplierIngredientName || ingredient.name;
+
+            return (
+              <>
+                <div className="flex items-center gap-2">
+                  {isRecentlyCreated(ingredient) && (
+                    <Sparkles className="h-4 w-4 text-yellow-500" />
+                  )}
+                  <span>{displayName}</span>
+                </div>
+                {otherSupplierNames.length > 0 && (
+                  <span className="text-xs text-blue-500 italic">
+                    {otherSupplierNames.join(", ")}
+                  </span>
+                )}
+              </>
+            );
           })()}
         </div>
       </TableCell>
