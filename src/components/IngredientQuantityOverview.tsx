@@ -1311,9 +1311,12 @@ export function IngredientQuantityOverview() {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([categoryName, ingredients]) => ({
         categoryName,
-        ingredients: (ingredients as any[]).sort((a: any, b: any) =>
-          a.name.localeCompare(b.name)
-        ),
+        ingredients: (ingredients as any[]).sort((a: any, b: any) => {
+          // Use supplier ingredient name for sorting if available
+          const aName = a.supplierIngredientName || a.name;
+          const bName = b.supplierIngredientName || b.name;
+          return aName.localeCompare(bName);
+        }),
       }));
   }, [
     ingredients,

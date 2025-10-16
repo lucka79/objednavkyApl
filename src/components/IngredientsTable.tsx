@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -82,6 +82,14 @@ export function IngredientsTable() {
     fetchCategories();
   }, [fetchIngredients, fetchCategories]);
 
+  // Helper function to get display name for sorting (used in multiple places)
+  const getDisplayName = useCallback((ing: any) => {
+    const activeSupplier = ing?.ingredient_supplier_codes?.find(
+      (code: any) => code.is_active
+    );
+    return activeSupplier?.supplier_ingredient_name || ing?.name || "";
+  }, []);
+
   // Group ingredients by category
   const groupedIngredients = useMemo(() => {
     if (!ingredients) return [];
@@ -105,7 +113,7 @@ export function IngredientsTable() {
       .map(([categoryName, ingredients]) => ({
         categoryName,
         ingredients: ingredients
-          .sort((a, b) => a.name.localeCompare(b.name))
+          .sort((a, b) => getDisplayName(a).localeCompare(getDisplayName(b)))
           .filter((ing) => {
             if (supplierFilter === "all") return true;
 
@@ -217,13 +225,14 @@ export function IngredientsTable() {
 
         return hasSupplierInCodes;
       })
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => getDisplayName(a).localeCompare(getDisplayName(b)));
   }, [
     ingredients,
     globalFilter,
     categoryFilter,
     supplierFilter,
     supplierUsers,
+    getDisplayName,
   ]);
 
   const handleDelete = async (ingredient: (typeof ingredients)[0]) => {
@@ -440,42 +449,6 @@ export function IngredientsTable() {
 
                   return true;
                 }) || [];
-
-            // Debug logging for specific ingredient
-            if (ingredient.name === "Droždí Extra") {
-              console.log("=== DEBUG: Droždí Extra ===");
-              console.log(
-                "All supplier codes:",
-                ingredient.ingredient_supplier_codes
-              );
-              console.log("Active supplier:", activeSupplier);
-              console.log(
-                "Active supplier name:",
-                activeSupplierIngredientName
-              );
-              console.log("Internal name:", ingredient.name);
-
-              const nonActiveCodes =
-                ingredient.ingredient_supplier_codes?.filter(
-                  (code: any) =>
-                    !code.is_active && code.supplier_ingredient_name
-                );
-              console.log("Non-active codes with names:", nonActiveCodes);
-
-              // Show the actual names and why they're filtered
-              nonActiveCodes?.forEach((code: any, index: number) => {
-                console.log(`  Non-active supplier ${index}:`, {
-                  name: code.supplier_ingredient_name,
-                  matchesInternal:
-                    code.supplier_ingredient_name === ingredient.name,
-                  matchesActive:
-                    code.supplier_ingredient_name ===
-                    activeSupplierIngredientName,
-                });
-              });
-
-              console.log("Alternative names (final):", otherSupplierNames);
-            }
 
             // Show active supplier name (or internal name as fallback)
             const displayName = activeSupplierIngredientName || ingredient.name;
