@@ -20,9 +20,20 @@ import {
 import { useIngredientStore } from "@/stores/ingredientStore";
 // import { IngredientWithCategory } from "@/hooks/useIngredients";
 import { detectAllergens } from "@/utils/allergenDetection";
-import { X, Save, Plus, Type, Trash2, Star } from "lucide-react";
+import {
+  X,
+  Save,
+  Plus,
+  Type,
+  Trash2,
+  Star,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupplierUsers } from "@/hooks/useProfiles";
+import { supabase } from "@/lib/supabase";
 
 interface SupplierCode {
   id?: number;
@@ -112,11 +123,184 @@ export function IngredientForm() {
   >({});
   const [customUnit, setCustomUnit] = useState("");
   const { data: supplierUsers } = useSupplierUsers();
+  const [loadingRecipes, setLoadingRecipes] = useState(false);
+  const [recipesUsingIngredient, setRecipesUsingIngredient] = useState<
+    Array<{
+      id: number;
+      name: string;
+      quantity: number;
+      baker: boolean;
+      pastry: boolean;
+      donut: boolean;
+      store: boolean;
+      test: boolean;
+      category_id: number;
+    }>
+  >([]);
+  const [isRecipesSectionOpen, setIsRecipesSectionOpen] = useState(false);
 
   // Load categories on mount
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
+
+  // Load recipes that use this ingredient
+  const loadRecipesUsingIngredient = async (
+    ingredientId: number,
+    ingredientName?: string,
+    ingredientUnit?: string
+  ) => {
+    console.log("=== DEBUG: LOADING RECIPES FOR INGREDIENT ===");
+    console.log("Ingredient ID:", ingredientId);
+    console.log("Ingredient Name:", ingredientName || formData.name || "N/A");
+    console.log("Ingredient Unit:", ingredientUnit || formData.unit || "N/A");
+
+    if (!ingredientId) {
+      console.error("=== DEBUG: INVALID INGREDIENT ID ===");
+      console.error("Ingredient ID is null, undefined, or 0");
+      toast({
+        title: "Chyba",
+        description: "Neplatné ID suroviny",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoadingRecipes(true);
+    try {
+      console.log("=== DEBUG: STARTING DATABASE QUERY ===");
+      console.log("Query params:", {
+        table: "recipe_ingredients",
+        ingredient_id: ingredientId,
+      });
+
+      const { data: recipeIngredients, error } = await supabase
+        .from("recipe_ingredients")
+        .select(
+          `
+          recipe_id,
+          quantity,
+          recipes (
+            id,
+            name,
+            baker,
+            pastry,
+            donut,
+            store,
+            test,
+            category_id
+          )
+        `
+        )
+        .eq("ingredient_id", ingredientId)
+        .not("recipes", "is", null);
+
+      console.log("=== DEBUG: QUERY COMPLETE ===");
+      console.log("Error:", error);
+      console.log("Data:", recipeIngredients);
+
+      if (error) {
+        console.error("=== DEBUG: DATABASE ERROR DETECTED ===");
+        console.error("Error object:", error);
+        console.error("Error message:", error.message);
+        console.error("Error details:", error.details);
+        console.error("Error hint:", error.hint);
+        console.error("Error code:", error.code);
+        throw error;
+      }
+
+      console.log("=== DEBUG: RAW RECIPE INGREDIENTS DATA ===");
+      console.log(
+        "Total recipe_ingredients records found:",
+        recipeIngredients?.length || 0
+      );
+      console.log("Raw data:", recipeIngredients);
+
+      if (recipeIngredients && recipeIngredients.length > 0) {
+        console.log("=== DEBUG: PROCESSING RECIPE INGREDIENTS ===");
+
+        recipeIngredients.forEach((ri, index) => {
+          console.log(`Recipe Ingredient ${index + 1}:`, {
+            recipe_id: ri.recipe_id,
+            quantity: ri.quantity,
+            recipe: ri.recipes,
+          });
+        });
+
+        const recipesWithQuantity = recipeIngredients
+          .map((ri) => {
+            const recipe = ri.recipes as any;
+            const processed = {
+              id: recipe.id,
+              name: recipe.name,
+              quantity: ri.quantity,
+              baker: recipe.baker,
+              pastry: recipe.pastry,
+              donut: recipe.donut,
+              store: recipe.store,
+              test: recipe.test,
+              category_id: recipe.category_id,
+            };
+
+            console.log("Processed recipe:", processed);
+            return processed;
+          })
+          .filter((recipe) => recipe !== null && "name" in recipe)
+          .sort((a, b) => a.name.localeCompare(b.name, "cs"));
+
+        console.log("=== DEBUG: FINAL RECIPES LIST ===");
+        console.log(
+          "Total recipes after processing:",
+          recipesWithQuantity.length
+        );
+        console.log("Sorted recipes:", recipesWithQuantity);
+
+        recipesWithQuantity.forEach((recipe, index) => {
+          const unit = ingredientUnit || formData.unit || "jednotka";
+          console.log(`Recipe ${index + 1}:`, {
+            id: recipe.id,
+            name: recipe.name,
+            quantity: `${recipe.quantity} ${unit}`,
+            types: [
+              recipe.baker && "Pekař",
+              recipe.pastry && "Cukrář",
+              recipe.donut && "Donut",
+              recipe.store && "Prodejna",
+              recipe.test && "Test",
+            ]
+              .filter(Boolean)
+              .join(", "),
+          });
+        });
+
+        setRecipesUsingIngredient(recipesWithQuantity);
+        console.log("=== DEBUG: RECIPES STATE UPDATED ===");
+      } else {
+        console.log("=== DEBUG: NO RECIPES FOUND ===");
+        console.log("This ingredient is not used in any recipes");
+        setRecipesUsingIngredient([]);
+      }
+
+      console.log("=== DEBUG: END LOADING RECIPES ===");
+    } catch (error: any) {
+      console.error("=== DEBUG: CATCH BLOCK ERROR ===");
+      console.error("Error type:", typeof error);
+      console.error("Error:", error);
+      console.error("Error name:", error?.name);
+      console.error("Error message:", error?.message);
+      console.error("Error stack:", error?.stack);
+      console.error("Full error object:", JSON.stringify(error, null, 2));
+
+      toast({
+        title: "Chyba",
+        description: `Nepodařilo se načíst recepty používající tuto surovinu: ${error?.message || "Neznámá chyba"}`,
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingRecipes(false);
+      console.log("=== DEBUG: LOADING COMPLETE ===");
+    }
+  };
 
   // Reset form when opening/closing
   useEffect(() => {
@@ -164,8 +348,15 @@ export function IngredientForm() {
             is_active: code.is_active,
           })),
         });
+        // Load recipes that use this ingredient (pass ingredient data directly since state hasn't updated yet)
+        loadRecipesUsingIngredient(
+          selectedIngredient.id,
+          selectedIngredient.name,
+          selectedIngredient.unit
+        );
       } else {
         setFormData(initialFormData);
+        setRecipesUsingIngredient([]);
       }
       setValidationErrors({});
     }
@@ -1452,6 +1643,127 @@ export function IngredientForm() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Recipes Using This Ingredient Section */}
+          {isEditMode && (
+            <Card>
+              <CardHeader
+                className="cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => setIsRecipesSectionOpen(!isRecipesSectionOpen)}
+              >
+                <CardTitle className="text-lg flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Recepty využívající tuto surovinu
+                    {recipesUsingIngredient.length > 0 && (
+                      <span className="text-sm font-normal text-muted-foreground">
+                        ({recipesUsingIngredient.length})
+                      </span>
+                    )}
+                  </div>
+                  {isRecipesSectionOpen ? (
+                    <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </CardTitle>
+              </CardHeader>
+              {isRecipesSectionOpen && (
+                <CardContent className="space-y-4 bg-purple-50/50 rounded-lg p-4 border border-purple-100">
+                  {loadingRecipes ? (
+                    <div className="text-center py-4">
+                      <p className="text-muted-foreground">
+                        Načítání receptů...
+                      </p>
+                    </div>
+                  ) : recipesUsingIngredient.length === 0 ? (
+                    <div className="text-center py-4">
+                      <p className="text-muted-foreground">
+                        Nenalezeny žádné recepty, které používají tuto surovinu.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="text-sm text-muted-foreground mb-3">
+                        Nalezeno {recipesUsingIngredient.length} recept
+                        {recipesUsingIngredient.length === 1
+                          ? ""
+                          : recipesUsingIngredient.length < 5
+                            ? "y"
+                            : "ů"}{" "}
+                        používajících tuto surovinu:
+                      </div>
+                      <div className="grid gap-2">
+                        {recipesUsingIngredient.map((recipe) => {
+                          // Get recipe types
+                          const types = [];
+                          if (recipe.baker)
+                            types.push({
+                              label: "Pekař",
+                              color: "bg-blue-100 text-blue-800",
+                            });
+                          if (recipe.pastry)
+                            types.push({
+                              label: "Cukrář",
+                              color: "bg-pink-100 text-pink-800",
+                            });
+                          if (recipe.donut)
+                            types.push({
+                              label: "Donut",
+                              color: "bg-purple-100 text-purple-800",
+                            });
+                          if (recipe.store)
+                            types.push({
+                              label: "Prodejna",
+                              color: "bg-green-100 text-green-800",
+                            });
+                          if (recipe.test)
+                            types.push({
+                              label: "Test",
+                              color: "bg-yellow-100 text-yellow-800",
+                            });
+
+                          return (
+                            <div
+                              key={recipe.id}
+                              className="flex items-center justify-between p-3 bg-white/80 rounded border border-purple-200 shadow-sm"
+                            >
+                              <div className="flex items-center gap-3 flex-1">
+                                <div>
+                                  <div className="font-medium text-gray-900">
+                                    {recipe.name}
+                                  </div>
+                                  <div className="text-sm text-gray-500">
+                                    Použité množství:{" "}
+                                    {recipe.quantity.toFixed(3)} {formData.unit}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-wrap justify-end">
+                                {types.map((type, index) => (
+                                  <span
+                                    key={index}
+                                    className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${type.color}`}
+                                  >
+                                    {type.label}
+                                  </span>
+                                ))}
+                                {types.length === 0 && (
+                                  <span className="inline-flex items-center px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">
+                                    Bez typu
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              )}
+            </Card>
+          )}
 
           {/* Nutritional Information */}
           <Card>
