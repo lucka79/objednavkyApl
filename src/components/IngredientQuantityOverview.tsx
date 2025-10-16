@@ -42,12 +42,14 @@ import { MonthlyIngredientConsumption } from "./MonthlyIngredientConsumption";
 import { StoreProductionIngredientConsumption } from "./StoreProductionIngredientConsumption";
 import { DailyIngredientConsumption } from "./DailyIngredientConsumption";
 import { ProductionCalendar } from "./ProductionCalendar";
+import { IngredientPriceFluctuation } from "./IngredientPriceFluctuation";
 import { useQuery } from "@tanstack/react-query";
 
 export function IngredientQuantityOverview() {
   const [globalFilter, setGlobalFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [supplierFilter, setSupplierFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("overview");
   const [showZeroQuantities, setShowZeroQuantities] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(
@@ -56,6 +58,7 @@ export function IngredientQuantityOverview() {
   const [inventoryDate, setInventoryDate] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [useBakersCalculation, setUseBakersCalculation] = useState(true);
+  const [isPriceFluctuationOpen, setIsPriceFluctuationOpen] = useState(false);
 
   // Fetch inventory data from database
   const {
@@ -1364,12 +1367,25 @@ export function IngredientQuantityOverview() {
             categoryFilter === "all" || item.category === categoryFilter;
           const statusFilterMatch =
             statusFilter === "all" || item.status === statusFilter;
+          const supplierFilterMatch =
+            supplierFilter === "all" || item.supplier === supplierFilter;
 
-          return searchMatch && categoryFilterMatch && statusFilterMatch;
+          return (
+            searchMatch &&
+            categoryFilterMatch &&
+            statusFilterMatch &&
+            supplierFilterMatch
+          );
         }),
       }))
       .filter(({ ingredients }) => ingredients.length > 0);
-  }, [groupedQuantities, globalFilter, categoryFilter, statusFilter]);
+  }, [
+    groupedQuantities,
+    globalFilter,
+    categoryFilter,
+    statusFilter,
+    supplierFilter,
+  ]);
 
   // Flatten for summary stats and other uses
   const filteredQuantities = useMemo(() => {
@@ -1642,6 +1658,14 @@ export function IngredientQuantityOverview() {
                   </>
                 )}
               </Button>
+              <Button
+                onClick={() => setIsPriceFluctuationOpen(true)}
+                variant="outline"
+                size="sm"
+              >
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Vývoj cen
+              </Button>
               {selectedUserId === "e597fcc9-7ce8-407d-ad1a-fdace061e42f" && (
                 <Button
                   onClick={() => setUseBakersCalculation(!useBakersCalculation)}
@@ -1764,6 +1788,19 @@ export function IngredientQuantityOverview() {
                 <SelectItem value="low">Nízké zásoby</SelectItem>
                 <SelectItem value="normal">Normální</SelectItem>
                 <SelectItem value="high">Vysoké zásoby</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Filtr dodavatele" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Všichni dodavatelé</SelectItem>
+                {suppliers?.map((supplier: any) => (
+                  <SelectItem key={supplier.id} value={supplier.full_name}>
+                    {supplier.full_name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -2372,6 +2409,20 @@ export function IngredientQuantityOverview() {
           </Tabs>
         </div>
       </Card>
+
+      {/* Price Fluctuation Dialog */}
+      <IngredientPriceFluctuation
+        open={isPriceFluctuationOpen}
+        onClose={() => setIsPriceFluctuationOpen(false)}
+        selectedMonth={selectedMonth}
+        receiverId={selectedUserId}
+        useWholeYear={true}
+        supplierId={
+          supplierFilter !== "all"
+            ? suppliers?.find((s: any) => s.full_name === supplierFilter)?.id
+            : undefined
+        }
+      />
     </>
   );
 }

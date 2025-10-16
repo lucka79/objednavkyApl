@@ -237,12 +237,52 @@ export function IngredientsTable() {
 
   const handleDelete = async (ingredient: (typeof ingredients)[0]) => {
     try {
+      // Check if ingredient is used in any recipes
+      const { supabase } = await import("@/lib/supabase");
+      const { data: recipeIngredients, error: checkError } = await supabase
+        .from("recipe_ingredients")
+        .select("id, recipes(name)")
+        .eq("ingredient_id", ingredient.id)
+        .limit(5); // Get up to 5 recipes for error message
+
+      if (checkError) {
+        console.error("Error checking recipe usage:", checkError);
+        toast({
+          title: "Chyba",
+          description: "Nepodařilo se zkontrolovat použití ingredience",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (recipeIngredients && recipeIngredients.length > 0) {
+        const recipeNames = recipeIngredients
+          .map((ri: any) => ri.recipes?.name)
+          .filter(Boolean)
+          .slice(0, 3)
+          .join(", ");
+
+        const moreRecipes =
+          recipeIngredients.length > 3
+            ? ` a ${recipeIngredients.length - 3} dalších`
+            : "";
+
+        toast({
+          title: "Nelze smazat",
+          description: `Ingredience "${ingredient.name}" je použita v receptech: ${recipeNames}${moreRecipes}. Nejprve ji odstraňte z receptů.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // If not used in recipes, proceed with deletion
       await deleteIngredient(ingredient.id);
       toast({
         title: "Úspěch",
         description: "Ingredience byla úspěšně smazána",
       });
     } catch (error) {
+      console.error("Error deleting ingredient:", error);
       toast({
         title: "Chyba",
         description: "Nepodařilo se smazat ingredienci",

@@ -766,10 +766,18 @@ export function DailyProductionPlanner() {
                     recipeId?: number;
                     recipeName: string;
                     totalQuantity: number;
-                    totalRecipeWeight: number;
+                    totalRecipeWeight: number; // Saved weight from baker_items
+                    totalCalculatedWeight: number; // Calculated from current orders
                     totalPlannedQuantity: number;
                     productCount: number;
-                    products: Map<string, number>;
+                    products: Map<
+                      string,
+                      {
+                        quantity: number;
+                        savedWeight: number;
+                        calculatedWeight: number;
+                      }
+                    >;
                   }
                 >();
 
@@ -784,10 +792,18 @@ export function DailyProductionPlanner() {
                       recipeId: item.recipeId,
                       recipeName,
                       totalQuantity: 0,
-                      totalRecipeWeight: 0,
+                      totalRecipeWeight: 0, // From saved baker_items
+                      totalCalculatedWeight: 0, // Calculated from current orders
                       totalPlannedQuantity: 0,
                       productCount: 0,
-                      products: new Map<string, number>(), // Use Map to sum quantities by product name
+                      products: new Map<
+                        string,
+                        {
+                          quantity: number;
+                          savedWeight: number;
+                          calculatedWeight: number;
+                        }
+                      >(), // Store detailed product info
                     });
                   }
 
@@ -803,84 +819,186 @@ export function DailyProductionPlanner() {
                     recipeData.totalRecipeWeight += item.recipeQuantity;
                   }
 
-                  // Sum quantities for products with the same name
-                  const currentQuantity =
-                    recipeData.products.get(item.productName) || 0;
-                  recipeData.products.set(
-                    item.productName,
-                    currentQuantity + item.totalOrdered
-                  );
+                  // Sum calculated recipe weight (from current orders)
+                  if (item.calculatedRecipeWeight) {
+                    recipeData.totalCalculatedWeight +=
+                      item.calculatedRecipeWeight;
+                  }
 
-                  // Debug logging
-                  console.log(
-                    `Recipe card: ${recipeName} - Product: ${item.productName} - Ordered Quantity: ${item.totalOrdered} - Recipe Weight: ${item.recipeQuantity || 0} - Planned: ${item.plannedQuantity}`
+                  // Store detailed product info (aggregate by product name)
+                  const currentProduct = recipeData.products.get(
+                    item.productName
                   );
+                  if (currentProduct) {
+                    currentProduct.quantity += item.totalOrdered;
+                    currentProduct.savedWeight += item.recipeQuantity || 0;
+                    currentProduct.calculatedWeight +=
+                      item.calculatedRecipeWeight || 0;
+                  } else {
+                    recipeData.products.set(item.productName, {
+                      quantity: item.totalOrdered,
+                      savedWeight: item.recipeQuantity || 0,
+                      calculatedWeight: item.calculatedRecipeWeight || 0,
+                    });
+                  }
+
+                  // Debug logging (only for tomorrow)
+                  const tomorrow = addDays(new Date(), 1);
+                  const isTomorrow =
+                    selectedDate.toISOString().split("T")[0] ===
+                    tomorrow.toISOString().split("T")[0];
+
+                  if (isTomorrow) {
+                    const savedWeight = item.recipeQuantity || 0;
+                    const calcWeight = item.calculatedRecipeWeight || 0;
+                    const diff = Math.abs(savedWeight - calcWeight);
+                    const needsSync = diff > 0.01;
+
+                    console.log(
+                      `Recipe card: ${recipeName} - Product: ${item.productName} - Ordered: ${item.totalOrdered} - Saved: ${savedWeight.toFixed(2)}kg - Calc: ${calcWeight.toFixed(2)}kg - Diff: ${diff.toFixed(3)}kg ${needsSync ? "⚠️" : "✅"}`
+                    );
+                  }
                 });
+
+                // Debug logging for recipe totals (only for tomorrow)
+                const tomorrow = addDays(new Date(), 1);
+                const isTomorrow =
+                  selectedDate.toISOString().split("T")[0] ===
+                  tomorrow.toISOString().split("T")[0];
 
                 return Array.from(recipeMap.values())
                   .sort((a, b) => a.recipeName.localeCompare(b.recipeName))
-                  .map((recipeData, index) => (
-                    <Card key={index}>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-lg">
-                          {recipeData.recipeId && (
-                            <span className="text-sm font-mono text-muted-foreground mr-2">
-                              #{recipeData.recipeId}
-                            </span>
-                          )}
-                          {recipeData.recipeName}
-                        </CardTitle>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="secondary">
-                            {recipeData.products.size} produktů
-                          </Badge>
-                          <Badge variant="outline">
-                            {recipeData.totalQuantity} ks celkem
-                          </Badge>
-                          {recipeData.totalRecipeWeight > 0 ? (
-                            // Check if saved weight differs from calculated weight
-                            // Compare ceiled values to account for rounding
-                            Math.ceil(recipeData.totalRecipeWeight) !==
-                            Math.ceil(recipeData.totalPlannedQuantity) ? (
+                  .map((recipeData, index) => {
+                    if (isTomorrow && recipeData.recipeId) {
+                      const diff = Math.abs(
+                        recipeData.totalRecipeWeight -
+                          recipeData.totalCalculatedWeight
+                      );
+                      const needsSync = diff > 0.1;
+
+                      console.log(
+                        `\n=== RECIPE SUMMARY: ${recipeData.recipeName} (ID: ${recipeData.recipeId}) ===`
+                      );
+                      console.log(
+                        `Saved weight (DB): ${recipeData.totalRecipeWeight.toFixed(2)} kg`
+                      );
+                      console.log(
+                        `Calculated weight (Orders): ${recipeData.totalCalculatedWeight.toFixed(2)} kg`
+                      );
+                      console.log(
+                        `Difference: ${diff.toFixed(3)} kg (tolerance: 0.1 kg)`
+                      );
+                      console.log(
+                        `Status: ${needsSync ? "❌ Needs sync" : "✅ Synced"}`
+                      );
+                      console.log(
+                        `Products: ${recipeData.products.size}, Total ordered: ${recipeData.totalQuantity}`
+                      );
+                      console.log("==================\n");
+                    }
+
+                    return (
+                      <Card key={index}>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-lg">
+                            {recipeData.recipeId && (
+                              <span className="text-sm font-mono text-muted-foreground mr-2">
+                                #{recipeData.recipeId}
+                              </span>
+                            )}
+                            {recipeData.recipeName}
+                          </CardTitle>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="secondary">
+                              {recipeData.products.size} produktů
+                            </Badge>
+                            <Badge variant="outline">
+                              {recipeData.totalQuantity} ks celkem
+                            </Badge>
+                            {recipeData.totalRecipeWeight > 0 ? (
+                              // Check if saved weight differs from calculated weight
+                              // Allow small tolerance (0.1 kg) to account for rounding differences
+                              (() => {
+                                const diff = Math.abs(
+                                  recipeData.totalRecipeWeight -
+                                    recipeData.totalCalculatedWeight
+                                );
+                                const needsSync = diff > 0.1; // Tolerance: 100g difference
+
+                                return needsSync ? (
+                                  <Badge
+                                    variant="destructive"
+                                    className="bg-yellow-600"
+                                  >
+                                    Čeká na synchronizaci
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="default"
+                                    className="bg-orange-600"
+                                  >
+                                    {recipeData.totalRecipeWeight.toFixed(2)} kg
+                                    těsta
+                                  </Badge>
+                                );
+                              })()
+                            ) : // Show calculated weight if no saved weight yet
+                            recipeData.totalCalculatedWeight > 0 ? (
                               <Badge
-                                variant="destructive"
-                                className="bg-yellow-600"
+                                variant="outline"
+                                className="border-orange-600 text-orange-600"
                               >
-                                Čeká na synchronizaci
+                                {recipeData.totalCalculatedWeight.toFixed(2)} kg
+                                (nesynchronizováno)
                               </Badge>
-                            ) : (
-                              <Badge
-                                variant="default"
-                                className="bg-orange-600"
-                              >
-                                {recipeData.totalRecipeWeight.toFixed(2)} kg
-                                těsta
-                              </Badge>
-                            )
-                          ) : null}
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pt-0">
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
-                          {Array.from(recipeData.products.entries())
-                            .sort(([nameA], [nameB]) =>
-                              nameA.localeCompare(nameB)
-                            )
-                            .map(([productName, quantity], productIndex) => (
-                              <div
-                                key={productIndex}
-                                className="flex justify-between items-center text-sm"
-                              >
-                                <span className="truncate">{productName}</span>
-                                <span className="text-muted-foreground font-mono">
-                                  {quantity} ks
-                                </span>
-                              </div>
-                            ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ));
+                            ) : null}
+                          </div>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {Array.from(recipeData.products.entries())
+                              .sort(([nameA], [nameB]) =>
+                                nameA.localeCompare(nameB)
+                              )
+                              .map(
+                                ([productName, productData], productIndex) => {
+                                  const diff = Math.abs(
+                                    productData.savedWeight -
+                                      productData.calculatedWeight
+                                  );
+                                  const needsSync = diff > 0.01; // 10g tolerance for individual products
+
+                                  return (
+                                    <div
+                                      key={productIndex}
+                                      className="flex justify-between items-center text-sm gap-2"
+                                    >
+                                      <span className="truncate flex-1">
+                                        {productName}
+                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        {needsSync &&
+                                          productData.savedWeight > 0 && (
+                                            <Badge
+                                              variant="outline"
+                                              className="text-xs border-yellow-600 text-yellow-600"
+                                            >
+                                              ⚠️
+                                            </Badge>
+                                          )}
+                                        <span className="text-muted-foreground font-mono">
+                                          {productData.quantity} ks
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                              )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  });
               })()}
             </div>
           </div>

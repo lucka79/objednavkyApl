@@ -38,6 +38,7 @@ import {
   Save,
   X,
   Plus,
+  TrendingUp,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -53,6 +54,7 @@ import { supabase } from "@/lib/supabase";
 import { AddReceivedInvoiceForm } from "./AddReceivedInvoiceForm";
 import { useIngredients } from "@/hooks/useIngredients";
 import { removeDiacritics } from "@/utils/removeDiacritics";
+import { IngredientPriceFluctuation } from "./IngredientPriceFluctuation";
 
 // Add Item Modal Component
 function AddItemModal({
@@ -74,11 +76,23 @@ function AddItemModal({
   const inputRef = useRef<HTMLInputElement>(null);
   const quantityRef = useRef<HTMLInputElement>(null);
 
-  const filtered = ingredients.filter((ing) =>
-    removeDiacritics(ing.name)
-      .toLowerCase()
-      .includes(removeDiacritics(search).toLowerCase())
-  );
+  const filtered = ingredients.filter((ing) => {
+    const searchLower = removeDiacritics(search).toLowerCase();
+    const internalName = removeDiacritics(ing.name).toLowerCase();
+
+    // Check supplier-specific name if available
+    const supplierCode = ing.ingredient_supplier_codes?.find(
+      (code: any) => code.supplier_id === supplierId
+    ) as any;
+    const supplierName = supplierCode?.supplier_ingredient_name
+      ? removeDiacritics(supplierCode.supplier_ingredient_name).toLowerCase()
+      : "";
+
+    // Match against both internal name and supplier name
+    return (
+      internalName.includes(searchLower) || supplierName.includes(searchLower)
+    );
+  });
 
   React.useEffect(() => {
     if (open) {
@@ -413,6 +427,7 @@ export function ReceivedInvoices() {
     unit_price: 0,
   });
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
+  const [isPriceFluctuationOpen, setIsPriceFluctuationOpen] = useState(false);
 
   const { data: allUsers } = useUsers();
   const { data: invoices, isLoading } = useReceivedInvoices();
@@ -762,6 +777,15 @@ export function ReceivedInvoices() {
               Přijaté faktury
             </CardTitle>
             <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsPriceFluctuationOpen(true)}
+                className="flex items-center gap-2"
+              >
+                <TrendingUp className="h-4 w-4" />
+                Vývoj cen
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -1435,6 +1459,15 @@ export function ReceivedInvoices() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Price Fluctuation Dialog */}
+      <IngredientPriceFluctuation
+        open={isPriceFluctuationOpen}
+        onClose={() => setIsPriceFluctuationOpen(false)}
+        selectedMonth={selectedMonth}
+        supplierId={supplierFilter !== "all" ? supplierFilter : undefined}
+        receiverId={receiverFilter !== "all" ? receiverFilter : undefined}
+      />
     </div>
   );
 }

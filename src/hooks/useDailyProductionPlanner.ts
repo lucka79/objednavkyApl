@@ -16,7 +16,8 @@ interface ProductionItem {
   bakerStatus?: string;
   bakerNotes?: string;
   isCompleted?: boolean;
-  recipeQuantity?: number; // Total dough weight for this product
+  recipeQuantity?: number; // Saved dough weight from baker_items
+  calculatedRecipeWeight?: number; // Calculated weight from current orders
 }
 
 export const useDailyProductionPlanner = (date: Date) => {
@@ -66,8 +67,11 @@ export const useDailyProductionPlanner = (date: Date) => {
         totalOrdered: number;
       }>();
 
-      // Process each order item
+      // Process each order item (skip items with 0 quantity)
       for (const orderItem of orderItems) {
+        // Skip order items with 0 quantity
+        if (orderItem.quantity <= 0) continue;
+        
         const product = (orderItem.products as any);
         const category = (product.categories as any);
         
@@ -180,11 +184,17 @@ export const useDailyProductionPlanner = (date: Date) => {
           for (const recipe of recipes) {
             const partQuantity = parseFloat(recipe.quantity) || 1;
             const ingredientNeeded = item.totalOrdered * partQuantity;
-            const plannedQuantity = Math.max(1, Math.ceil(ingredientNeeded));
+            // Only set minimum of 1 if there are actual orders
+            const plannedQuantity = item.totalOrdered > 0 
+              ? Math.max(1, Math.ceil(ingredientNeeded))
+              : 0;
             
             // Get recipe_quantity from baker_items
             const key = `${item.productId}-${recipe.id}`;
             const recipeQuantity = bakerItemsMap.get(key);
+            
+            // Calculate recipe weight from current orders (rounded to 2 decimals)
+            const calculatedRecipeWeight = Math.round(ingredientNeeded * 100) / 100;
             
             result.push({
               productId: item.productId,
@@ -196,6 +206,7 @@ export const useDailyProductionPlanner = (date: Date) => {
               recipeId: recipe.id,
               recipeName: recipe.name,
               recipeQuantity: recipeQuantity,
+              calculatedRecipeWeight: calculatedRecipeWeight,
             });
           }
         } else {
@@ -213,7 +224,8 @@ export const useDailyProductionPlanner = (date: Date) => {
         }
       }
 
-      return result;
+      // Final filter: Remove any items with 0 or negative totalOrdered
+      return result.filter(item => item.totalOrdered > 0);
     },
     enabled: !!date,
     staleTime: 5 * 60 * 1000, // 5 minutes

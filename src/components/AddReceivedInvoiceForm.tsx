@@ -71,11 +71,23 @@ function IngredientPickerModal({
   const inputRef = useRef<HTMLInputElement>(null);
   const quantityRef = useRef<HTMLInputElement>(null);
 
-  const filtered = ingredients.filter((ing) =>
-    removeDiacritics(ing.name)
-      .toLowerCase()
-      .includes(removeDiacritics(search).toLowerCase())
-  );
+  const filtered = ingredients.filter((ing) => {
+    const searchLower = removeDiacritics(search).toLowerCase();
+    const internalName = removeDiacritics(ing.name).toLowerCase();
+
+    // Check supplier-specific name if available
+    const supplierCode = ing.ingredient_supplier_codes?.find(
+      (code: any) => code.supplier_id === supplierId
+    ) as any;
+    const supplierName = supplierCode?.supplier_ingredient_name
+      ? removeDiacritics(supplierCode.supplier_ingredient_name).toLowerCase()
+      : "";
+
+    // Match against both internal name and supplier name
+    return (
+      internalName.includes(searchLower) || supplierName.includes(searchLower)
+    );
+  });
 
   React.useEffect(() => {
     if (open) {
@@ -122,9 +134,14 @@ function IngredientPickerModal({
                 </div>
                 <ul>
                   {filtered.map((ing) => {
-                    const supplierPrice = ing.ingredient_supplier_codes?.find(
+                    const supplierCode = ing.ingredient_supplier_codes?.find(
                       (code: any) => code.supplier_id === supplierId
-                    )?.price;
+                    ) as any;
+                    const supplierPrice = supplierCode?.price;
+                    const supplierPackage =
+                      supplierCode?.package ?? ing.package;
+                    const displayName =
+                      supplierCode?.supplier_ingredient_name || ing.name;
 
                     return (
                       <li
@@ -136,10 +153,10 @@ function IngredientPickerModal({
                       >
                         <div className="flex-1 flex items-center gap-2">
                           <span className="font-medium w-1/2 truncate">
-                            {ing.name}
+                            {displayName}
                           </span>
                           <span className="text-blue-600 w-1/4 text-center">
-                            {ing.package || "—"}
+                            {supplierPackage || "—"}
                           </span>
                           <span className="font-medium text-orange-500 w-1/4 text-right">
                             {supplierPrice
@@ -625,14 +642,34 @@ export function AddReceivedInvoiceForm() {
                         (ing) => ing.id === item.ingredient_id
                       );
 
+                      // Get supplier-specific name and package
+                      const supplierCode =
+                        ingredient?.ingredient_supplier_codes?.find(
+                          (code: any) =>
+                            code.supplier_id === formData.supplier_id
+                        ) as any;
+                      const displayName =
+                        supplierCode?.supplier_ingredient_name ||
+                        ingredient?.name ||
+                        "Neznámá surovina";
+                      const displayPackage =
+                        supplierCode?.package ?? ingredient?.package;
+
                       return (
                         <div key={index} className="px-3 py-2 hover:bg-gray-50">
                           <div className="grid grid-cols-12 gap-4 items-center">
-                            <div className="col-span-3 font-medium">
-                              {ingredient?.name || "Neznámá surovina"}
+                            <div className="col-span-3">
+                              <div className="font-medium">{displayName}</div>
+                              {supplierCode?.supplier_ingredient_name &&
+                                supplierCode.supplier_ingredient_name !==
+                                  ingredient?.name && (
+                                  <div className="text-xs text-muted-foreground italic">
+                                    ({ingredient?.name})
+                                  </div>
+                                )}
                             </div>
                             <div className="col-span-1 text-center text-sm text-blue-600">
-                              <div>{ingredient?.package || "—"}</div>
+                              <div>{displayPackage || "—"}</div>
                               <div className="text-xs text-muted-foreground">
                                 {ingredient?.unit || ""}
                               </div>

@@ -210,6 +210,9 @@ export const useManualBakerSync = () => {
       
       for (const order of orders) {
         for (const item of order.order_items) {
+          // Skip order items with 0 or negative quantity
+          if (item.quantity <= 0) continue;
+          
           const product = item.products as any;
           const category = product.categories as any;
           
@@ -298,11 +301,7 @@ export const useManualBakerSync = () => {
             })
             .eq('id', bakerId);
 
-          // Delete existing baker_items for this baker
-          await supabase
-            .from('baker_items')
-            .delete()
-            .eq('production_id', bakerId);
+          // Don't delete baker_items - we'll upsert them instead
         } else {
           // Create new baker
           const firstUserId = Array.from(usersWithOrders)[0]; // Use first user
@@ -369,8 +368,10 @@ export const useManualBakerSync = () => {
             const ingredientForThisProduct = product.quantity * partQuantity;
             
             // Round to 2 decimal places to avoid floating point precision issues
-            const ceiledQuantity = Math.max(1, Math.ceil(ingredientForThisProduct));
             const roundedRecipeQuantity = Math.round(ingredientForThisProduct * 100) / 100;
+            
+            // Planned quantity: ceil of ingredient needed, minimum 1 (since we have orders)
+            const ceiledQuantity = Math.max(1, Math.ceil(ingredientForThisProduct));
             
             allBakerItems.push({
               production_id: bakerId,
@@ -382,14 +383,109 @@ export const useManualBakerSync = () => {
         }
       }
 
-      // Batch: Insert all baker_items at once
+      // Batch: Update or insert baker_items (preserving existing records)
+      let totalUpdated = 0;
+      let totalInserted = 0;
+      let totalDeleted = 0;
+      
       if (allBakerItems.length > 0) {
-        const { error: itemsError } = await supabase
-          .from('baker_items')
-          .insert(allBakerItems);
-
-        if (itemsError) throw itemsError;
+        // Group items by baker for efficient processing
+        const bakerIds = Array.from(bakerMap.values());
+        
+        for (const bakerId of bakerIds) {
+          const itemsForThisBaker = allBakerItems.filter(item => item.production_id === bakerId);
+          
+          if (itemsForThisBaker.length === 0) continue;
+          
+          // Fetch existing baker_items for this baker
+          const { data: existingItems, error: fetchError } = await supabase
+            .from('baker_items')
+            .select('id, product_id, planned_quantity, recipe_quantity')
+            .eq('production_id', bakerId);
+          
+          if (fetchError) throw fetchError;
+          
+          const existingMap = new Map(
+            (existingItems || []).map(item => [item.product_id, item])
+          );
+          
+          const itemsToInsert = [];
+          const itemsToUpdate = [];
+          
+          // Categorize items as update or insert
+          for (const newItem of itemsForThisBaker) {
+            const existing = existingMap.get(newItem.product_id);
+            
+            if (existing) {
+              // Update existing item
+              itemsToUpdate.push({
+                id: existing.id,
+                planned_quantity: newItem.planned_quantity,
+                recipe_quantity: newItem.recipe_quantity
+              });
+            } else {
+              // Insert new item
+              itemsToInsert.push(newItem);
+            }
+          }
+          
+          // Perform batch updates - update each item individually
+          if (itemsToUpdate.length > 0) {
+            console.log(`Debug - Updating ${itemsToUpdate.length} baker_items for baker ${bakerId}`);
+            
+            for (const item of itemsToUpdate) {
+              const { error: updateError } = await supabase
+                .from('baker_items')
+                .update({
+                  planned_quantity: item.planned_quantity,
+                  recipe_quantity: item.recipe_quantity,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', item.id);
+              
+              if (updateError) throw updateError;
+            }
+            
+            totalUpdated += itemsToUpdate.length;
+          }
+          
+          // Perform batch inserts
+          if (itemsToInsert.length > 0) {
+            console.log(`Debug - Inserting ${itemsToInsert.length} new baker_items for baker ${bakerId}`);
+            const { error: insertError } = await supabase
+              .from('baker_items')
+              .insert(itemsToInsert);
+            
+            if (insertError) throw insertError;
+            totalInserted += itemsToInsert.length;
+          }
+          
+          // Cleanup: Remove baker_items for products no longer in current orders
+          const currentProductIds = itemsForThisBaker.map(item => item.product_id);
+          
+          if (currentProductIds.length > 0 && existingItems && existingItems.length > 0) {
+            const itemsToDelete = existingItems
+              .filter(item => !currentProductIds.includes(item.product_id))
+              .map(item => item.id);
+            
+            if (itemsToDelete.length > 0) {
+              console.log(`Debug - Deleting ${itemsToDelete.length} obsolete baker_items for baker ${bakerId}`);
+              await supabase
+                .from('baker_items')
+                .delete()
+                .in('id', itemsToDelete);
+              totalDeleted += itemsToDelete.length;
+            }
+          }
+        }
       }
+
+      // Log final summary
+      console.log(`\n=== SYNC SUMMARY ===`);
+      console.log(`Baker items updated: ${totalUpdated}`);
+      console.log(`Baker items inserted: ${totalInserted}`);
+      console.log(`Baker items deleted: ${totalDeleted}`);
+      console.log(`==================\n`);
 
       // Create results summary
       for (const [recipeId, recipeData] of recipeMap) {
@@ -417,7 +513,7 @@ export const useManualBakerSync = () => {
 
       toast({
         title: "Úspěch",
-        description: `Manuálně synchronizováno ${totalBakers} produkčních plánů s ${totalProducts} produkty (${totalQuantity} ks)`,
+        description: `Synchronizováno ${totalBakers} produkčních plánů s ${totalProducts} produkty (${totalQuantity} ks)`,
       });
 
       // Invalidate related queries
