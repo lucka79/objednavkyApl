@@ -1240,11 +1240,22 @@ export function IngredientQuantityOverview() {
               // Remove duplicates
               arr.indexOf(name) === index
           )
-          // Also filter out names that match the internal name or active supplier name
-          .filter(
-            (name: string) =>
-              name !== ingredient?.name && name !== supplierIngredientName
-          ) || [];
+          // Filter out names that match the active supplier name
+          // Only filter out internal name if it matches the active supplier name (to avoid showing same name twice)
+          .filter((name: string) => {
+            // Always filter out if it matches active supplier
+            if (name === supplierIngredientName) return false;
+
+            // Only filter out internal name if active supplier name is same as internal name
+            if (
+              name === ingredient?.name &&
+              supplierIngredientName === ingredient?.name
+            ) {
+              return false;
+            }
+
+            return true;
+          }) || [];
 
       aggregatedData.set(ingredientId, {
         id: inventoryData?.id || `ingredient-${ingredientId}`, // Use inventory ID if available, otherwise create a unique ID

@@ -424,12 +424,58 @@ export function IngredientsTable() {
                     // Remove duplicates
                     arr.indexOf(name) === index
                 )
-                // Also filter out names that match the internal name or active supplier name
-                .filter(
-                  (name: string) =>
-                    name !== ingredient.name &&
-                    name !== activeSupplierIngredientName
-                ) || [];
+                // Filter out names that match the active supplier name
+                // Only filter out internal name if it matches the active supplier name (to avoid showing same name twice)
+                .filter((name: string) => {
+                  // Always filter out if it matches active supplier
+                  if (name === activeSupplierIngredientName) return false;
+
+                  // Only filter out internal name if active supplier name is same as internal name
+                  if (
+                    name === ingredient.name &&
+                    activeSupplierIngredientName === ingredient.name
+                  ) {
+                    return false;
+                  }
+
+                  return true;
+                }) || [];
+
+            // Debug logging for specific ingredient
+            if (ingredient.name === "Droždí Extra") {
+              console.log("=== DEBUG: Droždí Extra ===");
+              console.log(
+                "All supplier codes:",
+                ingredient.ingredient_supplier_codes
+              );
+              console.log("Active supplier:", activeSupplier);
+              console.log(
+                "Active supplier name:",
+                activeSupplierIngredientName
+              );
+              console.log("Internal name:", ingredient.name);
+
+              const nonActiveCodes =
+                ingredient.ingredient_supplier_codes?.filter(
+                  (code: any) =>
+                    !code.is_active && code.supplier_ingredient_name
+                );
+              console.log("Non-active codes with names:", nonActiveCodes);
+
+              // Show the actual names and why they're filtered
+              nonActiveCodes?.forEach((code: any, index: number) => {
+                console.log(`  Non-active supplier ${index}:`, {
+                  name: code.supplier_ingredient_name,
+                  matchesInternal:
+                    code.supplier_ingredient_name === ingredient.name,
+                  matchesActive:
+                    code.supplier_ingredient_name ===
+                    activeSupplierIngredientName,
+                });
+              });
+
+              console.log("Alternative names (final):", otherSupplierNames);
+            }
 
             // Show active supplier name (or internal name as fallback)
             const displayName = activeSupplierIngredientName || ingredient.name;
