@@ -432,6 +432,7 @@ export type Database = {
           price: number
           product_code: string
           supplier_id: string
+          supplier_ingredient_name: string | null
           updated_at: string | null
         }
         Insert: {
@@ -443,6 +444,7 @@ export type Database = {
           price: number
           product_code: string
           supplier_id: string
+          supplier_ingredient_name?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -454,6 +456,7 @@ export type Database = {
           price?: number
           product_code?: string
           supplier_id?: string
+          supplier_ingredient_name?: string | null
           updated_at?: string | null
         }
         Relationships: [

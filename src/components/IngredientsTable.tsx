@@ -248,6 +248,7 @@ export function IngredientsTable() {
       const headers = [
         "Kategorie",
         "Název",
+        "Název u dodavatele",
         "Dodavatel",
         "Kód dodavatele",
         "Cena",
@@ -278,6 +279,8 @@ export function IngredientsTable() {
               (supplierUsers || []).find((u: any) => u.id === supplierId)
                 ?.full_name || "";
             const supplierCode = supplierToUse?.product_code || "";
+            const supplierIngredientName =
+              (supplierToUse as any)?.supplier_ingredient_name || "";
             const price = supplierToUse?.price || ingredient.price || 0;
             const packageValue =
               (supplierToUse?.package ?? ingredient.package) || "";
@@ -285,6 +288,7 @@ export function IngredientsTable() {
             return {
               category: categoryName,
               name: ingredient.name,
+              supplierIngredientName: supplierIngredientName,
               supplier: supplierName,
               supplierCode: supplierCode,
               price: price.toFixed(2),
@@ -306,6 +310,7 @@ export function IngredientsTable() {
           [
             row.category,
             row.name,
+            row.supplierIngredientName,
             row.supplier,
             row.supplierCode,
             row.price,
@@ -394,11 +399,32 @@ export function IngredientsTable() {
       style={{ userSelect: "none" }}
     >
       <TableCell className="font-medium">
-        <div className="flex items-center gap-2">
-          {isRecentlyCreated(ingredient) && (
-            <Sparkles className="h-4 w-4 text-yellow-500" />
-          )}
-          <span>{ingredient.name}</span>
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-2">
+            {isRecentlyCreated(ingredient) && (
+              <Sparkles className="h-4 w-4 text-yellow-500" />
+            )}
+            <span>{ingredient.name}</span>
+          </div>
+          {(() => {
+            // Get the active supplier's ingredient name
+            const activeSupplier = ingredient.ingredient_supplier_codes?.find(
+              (code: any) => code.is_active
+            );
+            const supplierToUse =
+              activeSupplier || ingredient.ingredient_supplier_codes?.[0];
+            const supplierIngredientName = (supplierToUse as any)
+              ?.supplier_ingredient_name;
+
+            if (supplierIngredientName) {
+              return (
+                <span className="text-xs text-blue-600 italic">
+                  {supplierIngredientName}
+                </span>
+              );
+            }
+            return null;
+          })()}
         </div>
       </TableCell>
       <TableCell>

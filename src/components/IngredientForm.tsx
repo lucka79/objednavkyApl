@@ -28,6 +28,7 @@ interface SupplierCode {
   id?: number;
   supplier_id: string;
   product_code: string;
+  supplier_ingredient_name: string | null;
   price: number;
   package: number | null;
   is_active: boolean;
@@ -156,6 +157,8 @@ export function IngredientForm() {
             id: code.id,
             supplier_id: code.supplier_id,
             product_code: code.product_code,
+            supplier_ingredient_name:
+              (code as any).supplier_ingredient_name || null,
             price: code.price,
             package: (code as any).package || null,
             is_active: code.is_active,
@@ -201,6 +204,7 @@ export function IngredientForm() {
           {
             supplier_id: formData.supplier_id,
             product_code: "",
+            supplier_ingredient_name: null,
             price: formData.price || 0,
             package: formData.package,
             is_active: true, // Main supplier is always active
@@ -345,21 +349,39 @@ export function IngredientForm() {
       return;
     }
 
+    console.log("=== DEBUG: SAVING INGREDIENT ===");
+    console.log("Form data:", formData);
+    console.log("Supplier codes:", formData.supplier_codes);
+    formData.supplier_codes.forEach((code, index) => {
+      console.log(`Supplier code ${index}:`, {
+        supplier_id: code.supplier_id,
+        product_code: code.product_code,
+        supplier_ingredient_name: code.supplier_ingredient_name,
+        price: code.price,
+        package: code.package,
+        is_active: code.is_active,
+      });
+    });
+
     try {
       if (isEditMode && selectedIngredient) {
+        console.log("Updating ingredient ID:", selectedIngredient.id);
         await updateIngredient(selectedIngredient.id, formData);
         toast({
           title: "Úspěch",
           description: "Ingredience byla úspěšně upravena",
         });
       } else {
+        console.log("Creating new ingredient");
         await createIngredient(formData);
         toast({
           title: "Úspěch",
           description: "Ingredience byla úspěšně vytvořena",
         });
       }
+      console.log("=== DEBUG: SAVE COMPLETE ===");
     } catch (error) {
+      console.error("=== DEBUG: SAVE FAILED ===", error);
       toast({
         title: "Chyba",
         description:
@@ -799,6 +821,7 @@ export function IngredientForm() {
                                     {
                                       supplier_id: formData.supplier_id,
                                       product_code: "",
+                                      supplier_ingredient_name: null,
                                       price: 0,
                                       package: null,
                                       is_active: false,
@@ -822,107 +845,134 @@ export function IngredientForm() {
                               return (
                                 <div
                                   key={originalIndex}
-                                  className="grid grid-cols-1 md:grid-cols-5 gap-4 p-3 bg-white border rounded-md"
+                                  className="p-3 bg-white border rounded-md space-y-3"
                                 >
-                                  <div className="space-y-2">
-                                    <Label>Kód produktu</Label>
-                                    <Input
-                                      value={supplierCode.product_code}
-                                      onChange={(e) => {
-                                        const newCodes = [
-                                          ...formData.supplier_codes,
-                                        ];
-                                        newCodes[originalIndex].product_code =
-                                          e.target.value;
-                                        handleInputChange(
-                                          "supplier_codes",
-                                          newCodes
-                                        );
-                                      }}
-                                      className="font-mono"
-                                    />
-                                  </div>
-
-                                  <div className="space-y-2">
-                                    <Label>Cena (Kč)</Label>
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      value={supplierCode.price}
-                                      onChange={(e) => {
-                                        const newCodes = [
-                                          ...formData.supplier_codes,
-                                        ];
-                                        newCodes[originalIndex].price =
-                                          parseFloat(e.target.value) || 0;
-                                        handleInputChange(
-                                          "supplier_codes",
-                                          newCodes
-                                        );
-                                      }}
-                                      placeholder="0.00"
-                                      className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
-                                    />
-                                  </div>
-
-                                  <div className="space-y-2">
-                                    <Label>Balení</Label>
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      value={supplierCode.package || ""}
-                                      onChange={(e) => {
-                                        const newCodes = [
-                                          ...formData.supplier_codes,
-                                        ];
-                                        newCodes[originalIndex].package = e
-                                          .target.value
-                                          ? parseFloat(e.target.value)
-                                          : null;
-                                        handleInputChange(
-                                          "supplier_codes",
-                                          newCodes
-                                        );
-                                      }}
-                                      className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
-                                    />
-                                  </div>
-
-                                  <div className="space-y-2">
-                                    <Label>Status</Label>
-                                    <div className="flex items-center gap-2">
-                                      <Button
-                                        type="button"
-                                        variant={
-                                          supplierCode.is_active
-                                            ? "default"
-                                            : "outline"
-                                        }
-                                        size="sm"
-                                        onClick={() => {
-                                          const newCodes =
-                                            formData.supplier_codes.map(
-                                              (code, i) => ({
-                                                ...code,
-                                                is_active: i === originalIndex,
-                                              })
-                                            );
+                                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <div className="space-y-2">
+                                      <Label>Kód produktu</Label>
+                                      <Input
+                                        value={supplierCode.product_code}
+                                        onChange={(e) => {
+                                          const newCodes = [
+                                            ...formData.supplier_codes,
+                                          ];
+                                          newCodes[originalIndex].product_code =
+                                            e.target.value;
                                           handleInputChange(
                                             "supplier_codes",
                                             newCodes
                                           );
                                         }}
-                                        className="text-xs"
-                                      >
-                                        <Star className="h-3 w-3 mr-1" />
-                                        {supplierCode.is_active
-                                          ? "Aktivní"
-                                          : "Nastavit"}
-                                      </Button>
+                                        className="font-mono"
+                                      />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <Label>Cena (Kč)</Label>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        value={supplierCode.price}
+                                        onChange={(e) => {
+                                          const newCodes = [
+                                            ...formData.supplier_codes,
+                                          ];
+                                          newCodes[originalIndex].price =
+                                            parseFloat(e.target.value) || 0;
+                                          handleInputChange(
+                                            "supplier_codes",
+                                            newCodes
+                                          );
+                                        }}
+                                        placeholder="0.00"
+                                        className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
+                                      />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <Label>Balení</Label>
+                                      <Input
+                                        type="number"
+                                        step="0.1"
+                                        value={supplierCode.package || ""}
+                                        onChange={(e) => {
+                                          const newCodes = [
+                                            ...formData.supplier_codes,
+                                          ];
+                                          newCodes[originalIndex].package = e
+                                            .target.value
+                                            ? parseFloat(e.target.value)
+                                            : null;
+                                          handleInputChange(
+                                            "supplier_codes",
+                                            newCodes
+                                          );
+                                        }}
+                                        className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
+                                      />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <Label>Status</Label>
+                                      <div className="flex items-center gap-2">
+                                        <Button
+                                          type="button"
+                                          variant={
+                                            supplierCode.is_active
+                                              ? "default"
+                                              : "outline"
+                                          }
+                                          size="sm"
+                                          onClick={() => {
+                                            const newCodes =
+                                              formData.supplier_codes.map(
+                                                (code, i) => ({
+                                                  ...code,
+                                                  is_active:
+                                                    i === originalIndex,
+                                                })
+                                              );
+                                            handleInputChange(
+                                              "supplier_codes",
+                                              newCodes
+                                            );
+                                          }}
+                                          className="text-xs"
+                                        >
+                                          <Star className="h-3 w-3 mr-1" />
+                                          {supplierCode.is_active
+                                            ? "Aktivní"
+                                            : "Nastavit"}
+                                        </Button>
+                                      </div>
                                     </div>
                                   </div>
 
                                   <div className="space-y-2">
+                                    <Label>Název u dodavatele</Label>
+                                    <Input
+                                      value={
+                                        supplierCode.supplier_ingredient_name ||
+                                        ""
+                                      }
+                                      onChange={(e) => {
+                                        const newCodes = [
+                                          ...formData.supplier_codes,
+                                        ];
+                                        newCodes[
+                                          originalIndex
+                                        ].supplier_ingredient_name =
+                                          e.target.value || null;
+                                        handleInputChange(
+                                          "supplier_codes",
+                                          newCodes
+                                        );
+                                      }}
+                                      placeholder="Název suroviny u dodavatele"
+                                    />
+                                  </div>
+
+                                  {/* <div className="space-y-2">
                                     <Label>Akce</Label>
                                     <div className="flex items-center gap-2">
                                       {mainSupplierCodes.length > 1 && (
@@ -946,7 +996,7 @@ export function IngredientForm() {
                                         </Button>
                                       )}
                                     </div>
-                                  </div>
+                                  </div> */}
                                 </div>
                               );
                             })}
@@ -1060,136 +1110,164 @@ export function IngredientForm() {
                             {codes.map((supplierCode) => (
                               <div
                                 key={supplierCode.originalIndex}
-                                className="grid grid-cols-1 md:grid-cols-5 gap-4 p-3 bg-white border rounded-md"
+                                className="p-3 bg-white border rounded-md space-y-3"
                               >
-                                <div className="space-y-2">
-                                  <Label>Kód produktu</Label>
-                                  <Input
-                                    value={supplierCode.product_code}
-                                    onChange={(e) => {
-                                      const newCodes = [
-                                        ...formData.supplier_codes,
-                                      ];
-                                      newCodes[
-                                        supplierCode.originalIndex
-                                      ].product_code = e.target.value;
-                                      handleInputChange(
-                                        "supplier_codes",
-                                        newCodes
-                                      );
-                                    }}
-                                    className="font-mono"
-                                  />
-                                </div>
-
-                                <div className="space-y-2">
-                                  <Label>Cena (Kč)</Label>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    value={supplierCode.price}
-                                    onChange={(e) => {
-                                      const newCodes = [
-                                        ...formData.supplier_codes,
-                                      ];
-                                      newCodes[
-                                        supplierCode.originalIndex
-                                      ].price = parseFloat(e.target.value) || 0;
-                                      handleInputChange(
-                                        "supplier_codes",
-                                        newCodes
-                                      );
-                                    }}
-                                    placeholder="0.00"
-                                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
-                                  />
-                                </div>
-
-                                <div className="space-y-2">
-                                  <Label>Balení</Label>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    value={supplierCode.package || ""}
-                                    onChange={(e) => {
-                                      const newCodes = [
-                                        ...formData.supplier_codes,
-                                      ];
-                                      newCodes[
-                                        supplierCode.originalIndex
-                                      ].package = e.target.value
-                                        ? parseFloat(e.target.value)
-                                        : null;
-                                      handleInputChange(
-                                        "supplier_codes",
-                                        newCodes
-                                      );
-                                    }}
-                                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
-                                  />
-                                </div>
-
-                                <div className="space-y-2">
-                                  <Label>Status</Label>
-                                  <div className="flex items-center gap-2">
-                                    <Button
-                                      type="button"
-                                      variant={
-                                        supplierCode.is_active
-                                          ? "default"
-                                          : "outline"
-                                      }
-                                      size="sm"
-                                      onClick={() => {
-                                        const newCodes =
-                                          formData.supplier_codes.map(
-                                            (code, i) => ({
-                                              ...code,
-                                              is_active:
-                                                i ===
-                                                supplierCode.originalIndex,
-                                            })
-                                          );
+                                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                                  <div className="space-y-2">
+                                    <Label>Kód produktu</Label>
+                                    <Input
+                                      value={supplierCode.product_code}
+                                      onChange={(e) => {
+                                        const newCodes = [
+                                          ...formData.supplier_codes,
+                                        ];
+                                        newCodes[
+                                          supplierCode.originalIndex
+                                        ].product_code = e.target.value;
                                         handleInputChange(
                                           "supplier_codes",
                                           newCodes
                                         );
                                       }}
-                                      className="text-xs"
-                                    >
-                                      <Star className="h-3 w-3 mr-1" />
-                                      {supplierCode.is_active
-                                        ? "Aktivní"
-                                        : "Nastavit"}
-                                    </Button>
+                                      className="font-mono"
+                                    />
                                   </div>
-                                </div>
 
-                                <div className="space-y-2">
-                                  <Label>Akce</Label>
-                                  <div className="flex items-center gap-2">
-                                    {codes.length > 1 && (
+                                  <div className="space-y-2">
+                                    <Label>Cena (Kč)</Label>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={supplierCode.price}
+                                      onChange={(e) => {
+                                        const newCodes = [
+                                          ...formData.supplier_codes,
+                                        ];
+                                        newCodes[
+                                          supplierCode.originalIndex
+                                        ].price =
+                                          parseFloat(e.target.value) || 0;
+                                        handleInputChange(
+                                          "supplier_codes",
+                                          newCodes
+                                        );
+                                      }}
+                                      placeholder="0.00"
+                                      className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>Balení</Label>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={supplierCode.package || ""}
+                                      onChange={(e) => {
+                                        const newCodes = [
+                                          ...formData.supplier_codes,
+                                        ];
+                                        newCodes[
+                                          supplierCode.originalIndex
+                                        ].package = e.target.value
+                                          ? parseFloat(e.target.value)
+                                          : null;
+                                        handleInputChange(
+                                          "supplier_codes",
+                                          newCodes
+                                        );
+                                      }}
+                                      className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>Status</Label>
+                                    <div className="flex items-center gap-2">
                                       <Button
                                         type="button"
-                                        variant="ghost"
+                                        variant={
+                                          supplierCode.is_active
+                                            ? "default"
+                                            : "outline"
+                                        }
                                         size="sm"
                                         onClick={() => {
                                           const newCodes =
-                                            formData.supplier_codes.filter(
-                                              (_, i) =>
-                                                i !== supplierCode.originalIndex
+                                            formData.supplier_codes.map(
+                                              (code, i) => ({
+                                                ...code,
+                                                is_active:
+                                                  i ===
+                                                  supplierCode.originalIndex,
+                                              })
                                             );
                                           handleInputChange(
                                             "supplier_codes",
                                             newCodes
                                           );
                                         }}
-                                        className="text-red-600 hover:text-red-800"
+                                        className="text-xs"
                                       >
-                                        <Trash2 className="h-4 w-4" />
+                                        <Star className="h-3 w-3 mr-1" />
+                                        {supplierCode.is_active
+                                          ? "Aktivní"
+                                          : "Nastavit"}
                                       </Button>
-                                    )}
+                                    </div>
                                   </div>
+
+                                  <div className="space-y-2">
+                                    <Label>Akce</Label>
+                                    <div className="flex items-center gap-2">
+                                      {codes.length > 1 && (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => {
+                                            const newCodes =
+                                              formData.supplier_codes.filter(
+                                                (_, i) =>
+                                                  i !==
+                                                  supplierCode.originalIndex
+                                              );
+                                            handleInputChange(
+                                              "supplier_codes",
+                                              newCodes
+                                            );
+                                          }}
+                                          className="text-red-600 hover:text-red-800"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label>Název u dodavatele</Label>
+                                  <Input
+                                    value={
+                                      supplierCode.supplier_ingredient_name ||
+                                      ""
+                                    }
+                                    onChange={(e) => {
+                                      const newCodes = [
+                                        ...formData.supplier_codes,
+                                      ];
+                                      newCodes[
+                                        supplierCode.originalIndex
+                                      ].supplier_ingredient_name =
+                                        e.target.value || null;
+                                      handleInputChange(
+                                        "supplier_codes",
+                                        newCodes
+                                      );
+                                    }}
+                                    placeholder="Název suroviny u dodavatele"
+                                  />
                                 </div>
                               </div>
                             ))}
@@ -1206,6 +1284,7 @@ export function IngredientForm() {
                                   {
                                     supplier_id: supplierId,
                                     product_code: "",
+                                    supplier_ingredient_name: null,
                                     price: 0,
                                     package: null,
                                     is_active: false,
@@ -1236,6 +1315,7 @@ export function IngredientForm() {
                             {
                               supplier_id: supplierId,
                               product_code: "",
+                              supplier_ingredient_name: null,
                               price: 0,
                               package: null,
                               is_active: false,
@@ -1288,13 +1368,43 @@ export function IngredientForm() {
                     type="button"
                     variant="default"
                     onClick={async () => {
+                      console.log("=== DEBUG: SAVING SUPPLIER CODES ONLY ===");
+                      console.log(
+                        "Form data supplier codes:",
+                        formData.supplier_codes
+                      );
+                      formData.supplier_codes.forEach((code, index) => {
+                        console.log(`Supplier code ${index}:`, {
+                          id: code.id,
+                          supplier_id: code.supplier_id,
+                          product_code: code.product_code,
+                          supplier_ingredient_name:
+                            code.supplier_ingredient_name,
+                          price: code.price,
+                          package: code.package,
+                          is_active: code.is_active,
+                        });
+                      });
+
                       try {
                         // Save supplier codes to database immediately
                         if (isEditMode && selectedIngredient) {
+                          console.log(
+                            "Updating ingredient ID:",
+                            selectedIngredient.id
+                          );
+                          console.log("Update payload:", {
+                            supplier_codes: formData.supplier_codes,
+                          });
+
                           // Update existing ingredient with supplier codes
                           await updateIngredient(selectedIngredient.id, {
                             supplier_codes: formData.supplier_codes,
                           });
+
+                          console.log(
+                            "=== DEBUG: SUPPLIER CODES SAVE COMPLETE ==="
+                          );
                         } else {
                           // For new ingredients, the supplier codes will be saved with the main form
                           toast({
@@ -1310,6 +1420,10 @@ export function IngredientForm() {
                           description: "Změny dodavatelů byly uloženy",
                         });
                       } catch (error) {
+                        console.error(
+                          "=== DEBUG: SUPPLIER CODES SAVE FAILED ===",
+                          error
+                        );
                         toast({
                           title: "Chyba",
                           description: "Nepodařilo se uložit dodavatele",

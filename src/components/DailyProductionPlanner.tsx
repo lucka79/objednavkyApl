@@ -39,15 +39,13 @@ import { useDailyProductionPlanner } from "@/hooks/useDailyProductionPlanner";
 import { useManualBakerSync } from "@/hooks/useBakerSync";
 
 export function DailyProductionPlanner() {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(
+    addDays(new Date(), 1)
+  );
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [tempDate, setTempDate] = useState<Date | undefined>(new Date());
-  const [isCheckingExisting, setIsCheckingExisting] = useState(false);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [existingRecordsInfo, setExistingRecordsInfo] = useState<{
-    bakersCount: number;
-    bakerItemsCount: number;
-  } | null>(null);
+  const [tempDate, setTempDate] = useState<Date | undefined>(
+    addDays(new Date(), 1)
+  );
 
   const manualBakerSync = useManualBakerSync();
 
@@ -103,70 +101,11 @@ export function DailyProductionPlanner() {
     };
   }, [productionData]);
 
-  const checkExistingRecords = async () => {
-    setIsCheckingExisting(true);
-    try {
-      const { supabase } = await import("@/lib/supabase");
-      const dateStr = selectedDate.toISOString().split("T")[0];
-
-      // Check bakers table
-      const { count: bakersCount, error: bakersError } = await supabase
-        .from("bakers")
-        .select("id", { count: "exact", head: true })
-        .eq("date", dateStr);
-
-      if (bakersError) {
-        console.error("Error checking bakers:", bakersError);
-        return null;
-      }
-
-      // Check baker_items table
-      const { count: bakerItemsCount, error: bakerItemsError } = await supabase
-        .from("baker_items")
-        .select("id", { count: "exact", head: true })
-        .eq("date", dateStr);
-
-      if (bakerItemsError) {
-        console.error("Error checking baker_items:", bakerItemsError);
-        return null;
-      }
-
-      return {
-        bakersCount: bakersCount || 0,
-        bakerItemsCount: bakerItemsCount || 0,
-      };
-    } catch (error) {
-      console.error("Error checking existing records:", error);
-      return null;
-    } finally {
-      setIsCheckingExisting(false);
-    }
-  };
-
   const handleManualSync = async () => {
-    // First check if records already exist
-    const existingRecords = await checkExistingRecords();
-
-    if (
-      existingRecords &&
-      (existingRecords.bakersCount > 0 || existingRecords.bakerItemsCount > 0)
-    ) {
-      // Show confirmation dialog
-      setExistingRecordsInfo(existingRecords);
-      setShowConfirmDialog(true);
-    } else {
-      // No existing records, proceed with sync
-      performSync();
-    }
-  };
-
-  const performSync = async () => {
     try {
       await manualBakerSync.mutateAsync({
         date: selectedDate,
       });
-      setShowConfirmDialog(false);
-      setExistingRecordsInfo(null);
     } catch (error) {
       console.error("Manual sync failed:", error);
     }
@@ -650,15 +589,13 @@ export function DailyProductionPlanner() {
           <div className="flex gap-2">
             <Button
               onClick={handleManualSync}
-              disabled={
-                manualBakerSync.isPending || isLoading || isCheckingExisting
-              }
+              disabled={manualBakerSync.isPending || isLoading}
               className="bg-purple-600 hover:bg-purple-700"
             >
-              {manualBakerSync.isPending || isCheckingExisting ? (
+              {manualBakerSync.isPending ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  {isCheckingExisting ? "Kontroluji..." : "Synchronizuji..."}
+                  Synchronizuji...
                 </>
               ) : (
                 <>
@@ -830,6 +767,7 @@ export function DailyProductionPlanner() {
                     recipeName: string;
                     totalQuantity: number;
                     totalRecipeWeight: number;
+                    totalPlannedQuantity: number;
                     productCount: number;
                     products: Map<string, number>;
                   }
@@ -847,6 +785,7 @@ export function DailyProductionPlanner() {
                       recipeName,
                       totalQuantity: 0,
                       totalRecipeWeight: 0,
+                      totalPlannedQuantity: 0,
                       productCount: 0,
                       products: new Map<string, number>(), // Use Map to sum quantities by product name
                     });
@@ -856,7 +795,10 @@ export function DailyProductionPlanner() {
                   recipeData.totalQuantity += item.totalOrdered;
                   recipeData.productCount += 1;
 
-                  // Sum recipe weight (total dough weight)
+                  // Sum planned quantity (calculated from current orders)
+                  recipeData.totalPlannedQuantity += item.plannedQuantity;
+
+                  // Sum recipe weight (total dough weight from saved baker_items)
                   if (item.recipeQuantity) {
                     recipeData.totalRecipeWeight += item.recipeQuantity;
                   }
@@ -871,7 +813,7 @@ export function DailyProductionPlanner() {
 
                   // Debug logging
                   console.log(
-                    `Recipe card: ${recipeName} - Product: ${item.productName} - Ordered Quantity: ${item.totalOrdered} - Recipe Weight: ${item.recipeQuantity || 0}`
+                    `Recipe card: ${recipeName} - Product: ${item.productName} - Ordered Quantity: ${item.totalOrdered} - Recipe Weight: ${item.recipeQuantity || 0} - Planned: ${item.plannedQuantity}`
                   );
                 });
 
@@ -895,11 +837,27 @@ export function DailyProductionPlanner() {
                           <Badge variant="outline">
                             {recipeData.totalQuantity} ks celkem
                           </Badge>
-                          {recipeData.totalRecipeWeight > 0 && (
-                            <Badge variant="default" className="bg-orange-600">
-                              {recipeData.totalRecipeWeight.toFixed(1)} kg těsta
-                            </Badge>
-                          )}
+                          {recipeData.totalRecipeWeight > 0 ? (
+                            // Check if saved weight differs from calculated weight
+                            // Compare ceiled values to account for rounding
+                            Math.ceil(recipeData.totalRecipeWeight) !==
+                            Math.ceil(recipeData.totalPlannedQuantity) ? (
+                              <Badge
+                                variant="destructive"
+                                className="bg-yellow-600"
+                              >
+                                Čeká na synchronizaci
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="default"
+                                className="bg-orange-600"
+                              >
+                                {recipeData.totalRecipeWeight.toFixed(2)} kg
+                                těsta
+                              </Badge>
+                            )
+                          ) : null}
                         </div>
                       </CardHeader>
                       <CardContent className="pt-0">
@@ -1004,75 +962,6 @@ export function DailyProductionPlanner() {
           </div>
         )}
       </div>
-
-      {/* Confirmation Dialog for Existing Records */}
-      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Existující záznamy nalezeny</DialogTitle>
-            <DialogDescription>
-              Pro vybraný den (
-              {format(selectedDate, "dd.MM.yyyy", { locale: cs })}) již existují
-              záznamy v databázi:
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4 space-y-2">
-            {existingRecordsInfo && (
-              <>
-                {existingRecordsInfo.bakersCount > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-amber-50 rounded-md">
-                    <span className="text-sm font-medium">
-                      Záznamy v tabulce bakers:
-                    </span>
-                    <Badge variant="secondary">
-                      {existingRecordsInfo.bakersCount}
-                    </Badge>
-                  </div>
-                )}
-                {existingRecordsInfo.bakerItemsCount > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-amber-50 rounded-md">
-                    <span className="text-sm font-medium">
-                      Záznamy v tabulce baker_items:
-                    </span>
-                    <Badge variant="secondary">
-                      {existingRecordsInfo.bakerItemsCount}
-                    </Badge>
-                  </div>
-                )}
-              </>
-            )}
-            <p className="text-sm text-muted-foreground mt-4">
-              Chcete přesto pokračovat se synchronizací? Existující záznamy
-              budou přepsány.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowConfirmDialog(false);
-                setExistingRecordsInfo(null);
-              }}
-            >
-              Zrušit
-            </Button>
-            <Button
-              onClick={performSync}
-              disabled={manualBakerSync.isPending}
-              className="bg-purple-600 hover:bg-purple-700"
-            >
-              {manualBakerSync.isPending ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Synchronizuji...
-                </>
-              ) : (
-                "Ano, synchronizovat"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }

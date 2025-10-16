@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +23,7 @@ import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useIngredients } from "@/hooks/useIngredients";
 import { useUsers } from "@/hooks/useProfiles";
-import { useAuthStore } from "@/lib/supabase";
+// import { useAuthStore } from "@/lib/supabase";
 import { Plus, Trash2, Package } from "lucide-react";
 import { removeDiacritics } from "@/utils/removeDiacritics";
 
@@ -46,7 +46,7 @@ interface InvoiceFormData {
 const initialFormData: InvoiceFormData = {
   invoice_number: "",
   supplier_id: "",
-  receiver_id: "",
+  receiver_id: "e597fcc9-7ce8-407d-ad1a-fdace061e42f",
   received_date: new Date().toISOString().split("T")[0],
   notes: "",
   items: [],
@@ -225,7 +225,7 @@ export function AddReceivedInvoiceForm() {
 
   const { data: allIngredients } = useIngredients();
   const { data: allUsers } = useUsers();
-  const user = useAuthStore((state) => state.user);
+  // const user = useAuthStore((state) => state.user);
 
   // Filter for store users only
   const storeUsers = allUsers?.filter((user) => user.role === "store") || [];
@@ -233,87 +233,6 @@ export function AddReceivedInvoiceForm() {
   // Filter for supplier users only
   const supplierUsers =
     allUsers?.filter((user) => user.role === "supplier") || [];
-
-  // Set default receiver for all user types
-  useEffect(() => {
-    console.log("useEffect triggered:", {
-      user: user?.role,
-      storeUsersLength: storeUsers.length,
-      currentReceiver: formData.receiver_id,
-      isOpen,
-    });
-
-    if (user && storeUsers.length > 0 && isOpen && !formData.receiver_id) {
-      let defaultReceiverId: string | null = null;
-
-      if (user.role === "store") {
-        // For store users, use themselves as receiver
-        defaultReceiverId = user.id;
-        console.log("Store user setting themselves as receiver:", user.id);
-      } else if (user.role === "admin" || user.role === "expedition") {
-        // For admin/expedition users, use "Aplica - Pekárna výrobna"
-        const aplicaUser = storeUsers.find(
-          (storeUser) => storeUser.full_name === "Aplica - Pekárna výrobna"
-        );
-        if (aplicaUser) {
-          defaultReceiverId = aplicaUser.id;
-          console.log(
-            "Admin/expedition user setting Aplica as receiver:",
-            aplicaUser.id
-          );
-        }
-      }
-
-      if (defaultReceiverId) {
-        console.log("Setting default receiver:", defaultReceiverId);
-        setFormData((prev) => ({
-          ...prev,
-          receiver_id: defaultReceiverId,
-        }));
-      }
-    }
-  }, [user, storeUsers, isOpen]);
-
-  // Set default receiver when dialog opens
-  useEffect(() => {
-    if (isOpen && user && !formData.receiver_id) {
-      console.log("Dialog opened, checking for default receiver");
-      // Small delay to ensure storeUsers are loaded
-      const timer = setTimeout(() => {
-        if (storeUsers.length > 0) {
-          let defaultReceiverId: string | null = null;
-
-          if (user.role === "store") {
-            // For store users, use themselves as receiver
-            defaultReceiverId = user.id;
-            console.log("Store user setting themselves as receiver:", user.id);
-          } else if (user.role === "admin" || user.role === "expedition") {
-            // For admin/expedition users, use "Aplica - Pekárna výrobna"
-            const aplicaUser = storeUsers.find(
-              (storeUser) => storeUser.full_name === "Aplica - Pekárna výrobna"
-            );
-            if (aplicaUser) {
-              defaultReceiverId = aplicaUser.id;
-              console.log(
-                "Admin/expedition user setting Aplica as receiver:",
-                aplicaUser.id
-              );
-            }
-          }
-
-          if (defaultReceiverId) {
-            console.log("Setting default receiver:", defaultReceiverId);
-            setFormData((prev) => ({
-              ...prev,
-              receiver_id: defaultReceiverId,
-            }));
-          }
-        }
-      }, 100);
-
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen, user, storeUsers, formData.receiver_id]);
 
   // Filter ingredients by selected supplier using ingredient_supplier_codes
   const availableIngredients =

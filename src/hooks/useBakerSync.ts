@@ -368,11 +368,15 @@ export const useManualBakerSync = () => {
             const partQuantity = productPart?.quantity || 1; // Default to 1 if no product_parts data
             const ingredientForThisProduct = product.quantity * partQuantity;
             
+            // Round to 2 decimal places to avoid floating point precision issues
+            const ceiledQuantity = Math.max(1, Math.ceil(ingredientForThisProduct));
+            const roundedRecipeQuantity = Math.round(ingredientForThisProduct * 100) / 100;
+            
             allBakerItems.push({
               production_id: bakerId,
               product_id: product.product_id, // Use actual product ID
-              planned_quantity: Math.max(1, Math.ceil(ingredientForThisProduct)),
-              recipe_quantity: Math.max(1, Math.ceil(ingredientForThisProduct))
+              planned_quantity: ceiledQuantity,
+              recipe_quantity: roundedRecipeQuantity
             });
           }
         }

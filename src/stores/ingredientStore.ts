@@ -53,6 +53,7 @@ export const useIngredientStore = create<IngredientStore>((set, get) => ({
             id,
             supplier_id,
             product_code,
+            supplier_ingredient_name,
             price,
             package,
             is_active,
@@ -116,20 +117,31 @@ export const useIngredientStore = create<IngredientStore>((set, get) => ({
 
       // Handle supplier codes if provided
       if (supplier_codes && supplier_codes.length > 0) {
+        console.log("=== DEBUG STORE: Creating supplier codes for new ingredient ===");
+        console.log("Supplier codes to insert:", supplier_codes);
+        
         const codesToInsert = supplier_codes.map((code: any) => ({
           ingredient_id: newIngredient.id,
           supplier_id: code.supplier_id,
           product_code: code.product_code,
+          supplier_ingredient_name: code.supplier_ingredient_name || null,
           price: code.price,
           package: code.package,
           is_active: code.is_active
         }));
 
+        console.log("Mapped codes to insert:", codesToInsert);
+
         const { error: insertError } = await supabase
           .from("ingredient_supplier_codes")
           .insert(codesToInsert);
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error("=== DEBUG STORE: Insert error ===", insertError);
+          throw insertError;
+        }
+        
+        console.log("=== DEBUG STORE: Supplier codes inserted successfully ===");
       }
 
       // Refresh ingredients list
@@ -160,13 +172,22 @@ export const useIngredientStore = create<IngredientStore>((set, get) => ({
 
       // Handle supplier codes if provided
       if (supplier_codes !== undefined) {
+        console.log("=== DEBUG STORE: Updating supplier codes ===");
+        console.log("Ingredient ID:", id);
+        console.log("Supplier codes to update:", supplier_codes);
+        
         // Delete existing supplier codes for this ingredient
         const { error: deleteError } = await supabase
           .from("ingredient_supplier_codes")
           .delete()
           .eq("ingredient_id", id);
 
-        if (deleteError) throw deleteError;
+        if (deleteError) {
+          console.error("=== DEBUG STORE: Delete error ===", deleteError);
+          throw deleteError;
+        }
+        
+        console.log("=== DEBUG STORE: Existing codes deleted ===");
 
         // Insert new supplier codes if any
         if (supplier_codes && supplier_codes.length > 0) {
@@ -174,16 +195,24 @@ export const useIngredientStore = create<IngredientStore>((set, get) => ({
             ingredient_id: id,
             supplier_id: code.supplier_id,
             product_code: code.product_code,
+            supplier_ingredient_name: code.supplier_ingredient_name || null,
             price: code.price,
             package: code.package,
             is_active: code.is_active
           }));
 
+          console.log("Mapped codes to insert:", codesToInsert);
+
           const { error: insertError } = await supabase
             .from("ingredient_supplier_codes")
             .insert(codesToInsert);
 
-          if (insertError) throw insertError;
+          if (insertError) {
+            console.error("=== DEBUG STORE: Insert error ===", insertError);
+            throw insertError;
+          }
+          
+          console.log("=== DEBUG STORE: Supplier codes updated successfully ===");
         }
       }
 

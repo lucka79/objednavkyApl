@@ -325,7 +325,7 @@ export function ReceivedInvoices() {
           unit_of_measure: null,
           manual_match: true,
         })
-        .select()
+        .select("*, ingredient:matched_ingredient_id(id, name)")
         .single();
 
       if (itemError) {
@@ -359,9 +359,23 @@ export function ReceivedInvoices() {
         throw invoiceError;
       }
 
-      return itemData;
+      return { itemData, newTotalAmount };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      // Update the selected invoice to include the new item
+      if (selectedInvoice && result.itemData) {
+        const updatedItems = [
+          ...(selectedInvoice.items || []),
+          result.itemData,
+        ];
+
+        setSelectedInvoice({
+          ...selectedInvoice,
+          items: updatedItems,
+          total_amount: result.newTotalAmount,
+        });
+      }
+
       queryClient.invalidateQueries({ queryKey: ["receivedInvoices"] });
       toast({
         title: "Úspěch",
