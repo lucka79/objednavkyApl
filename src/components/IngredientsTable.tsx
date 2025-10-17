@@ -12,6 +12,12 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -33,6 +39,7 @@ import {
   ArrowRightLeft,
   Download,
   Sparkles,
+  AlertCircle,
 } from "lucide-react";
 import { IngredientForm } from "./IngredientForm";
 import {
@@ -71,6 +78,9 @@ export function IngredientsTable() {
   const [activeTab, setActiveTab] = useState("categories");
   const { data: supplierUsers } = useSupplierUsers();
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
+  const [ingredientUsage, setIngredientUsage] = useState<
+    Record<number, boolean>
+  >({});
 
   // Check if user can delete ingredients
   const canDelete =
@@ -81,6 +91,59 @@ export function IngredientsTable() {
     fetchIngredients();
     fetchCategories();
   }, [fetchIngredients, fetchCategories]);
+
+  // Load ingredient usage data
+  useEffect(() => {
+    const loadIngredientUsage = async () => {
+      if (!ingredients || ingredients.length === 0) return;
+
+      try {
+        const { supabase } = await import("@/lib/supabase");
+
+        // Get all recipe_ingredients
+        const { data: recipeIngredients, error: recipeError } = await supabase
+          .from("recipe_ingredients")
+          .select("ingredient_id");
+
+        if (recipeError) {
+          console.error("Error loading recipe ingredient usage:", recipeError);
+          return;
+        }
+
+        // Get all product_parts that use ingredients directly
+        const { data: productParts, error: productPartsError } = await supabase
+          .from("product_parts")
+          .select("ingredient_id")
+          .not("ingredient_id", "is", null);
+
+        if (productPartsError) {
+          console.error(
+            "Error loading product parts ingredient usage:",
+            productPartsError
+          );
+          return;
+        }
+
+        // Create a set of used ingredient IDs from both recipes and product parts
+        const usedIngredientIds = new Set([
+          ...(recipeIngredients?.map((ri) => ri.ingredient_id) || []),
+          ...(productParts?.map((pp) => pp.ingredient_id) || []),
+        ]);
+
+        // Create a map of ingredient ID -> is used
+        const usageMap: Record<number, boolean> = {};
+        ingredients.forEach((ingredient) => {
+          usageMap[ingredient.id] = usedIngredientIds.has(ingredient.id);
+        });
+
+        setIngredientUsage(usageMap);
+      } catch (error) {
+        console.error("Error loading ingredient usage:", error);
+      }
+    };
+
+    loadIngredientUsage();
+  }, [ingredients]);
 
   // Helper function to get display name for sorting (used in multiple places)
   const getDisplayName = useCallback((ing: any) => {
@@ -739,6 +802,24 @@ export function IngredientsTable() {
           <span className="text-muted-foreground">—</span>
         )}
       </TableCell>
+      <TableCell className="text-center">
+        {ingredientUsage[ingredient.id] === false ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <AlertCircle className="h-4 w-4 text-amber-500 inline-block cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Nepoužívá se v žádném receptu</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : ingredientUsage[ingredient.id] === true ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </TableCell>
       <TableCell>
         <Badge
           variant={ingredient.active ? "default" : "secondary"}
@@ -922,6 +1003,7 @@ export function IngredientsTable() {
                             <TableHead className="text-right">DPH</TableHead>
                             <TableHead>Složení</TableHead>
                             <TableHead>Výživa</TableHead>
+                            <TableHead>Použití</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Pouze prodejna</TableHead>
                             <TableHead className="text-right">Akce</TableHead>
@@ -932,7 +1014,7 @@ export function IngredientsTable() {
                           {/* Add fake empty row to help with border display */}
                           <TableRow className="h-0">
                             <TableCell
-                              colSpan={13}
+                              colSpan={14}
                               className="p-0 border-0"
                             ></TableCell>
                           </TableRow>
@@ -966,6 +1048,7 @@ export function IngredientsTable() {
                       <TableHead className="text-right">DPH</TableHead>
                       <TableHead>Složení</TableHead>
                       <TableHead>Výživa</TableHead>
+                      <TableHead>Použití</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Pouze prodejna</TableHead>
                       <TableHead className="text-right">Akce</TableHead>
@@ -976,7 +1059,7 @@ export function IngredientsTable() {
                     {/* Add fake empty row to help with border display */}
                     <TableRow className="h-0">
                       <TableCell
-                        colSpan={13}
+                        colSpan={14}
                         className="p-0 border-0"
                       ></TableCell>
                     </TableRow>
