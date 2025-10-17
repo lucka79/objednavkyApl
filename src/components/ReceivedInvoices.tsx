@@ -408,6 +408,84 @@ export function ReceivedInvoices() {
     },
   });
 
+  // Mutation for deleting invoice items
+  const deleteInvoiceItemMutation = useMutation({
+    mutationFn: async ({
+      itemId,
+      invoiceId,
+    }: {
+      itemId: string;
+      invoiceId: string;
+    }) => {
+      // Delete the item
+      const { error: itemError } = await supabase
+        .from("items_received")
+        .delete()
+        .eq("id", itemId);
+
+      if (itemError) {
+        console.error("Supabase error deleting item:", itemError);
+        throw itemError;
+      }
+
+      // Get remaining items for this invoice to recalculate total
+      const { data: allItems, error: itemsError } = await supabase
+        .from("items_received")
+        .select("line_total")
+        .eq("invoice_received_id", invoiceId);
+
+      if (itemsError) {
+        console.error("Supabase error fetching items:", itemsError);
+        throw itemsError;
+      }
+
+      // Calculate new total amount
+      const newTotalAmount =
+        allItems?.reduce((sum, item) => sum + (item.line_total || 0), 0) || 0;
+
+      // Update the invoice's total_amount
+      const { error: invoiceError } = await supabase
+        .from("invoices_received")
+        .update({ total_amount: newTotalAmount })
+        .eq("id", invoiceId);
+
+      if (invoiceError) {
+        console.error("Supabase error updating invoice:", invoiceError);
+        throw invoiceError;
+      }
+
+      return { itemId, newTotalAmount };
+    },
+    onSuccess: (result) => {
+      // Update the selected invoice to remove the deleted item
+      if (selectedInvoice) {
+        const updatedItems = selectedInvoice.items?.filter(
+          (item) => item.id !== result.itemId
+        );
+
+        setSelectedInvoice({
+          ...selectedInvoice,
+          items: updatedItems,
+          total_amount: result.newTotalAmount,
+        });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["receivedInvoices"] });
+      toast({
+        title: "Úspěch",
+        description: "Položka byla odstraněna z faktury",
+      });
+    },
+    onError: (error) => {
+      console.error("Mutation error:", error);
+      toast({
+        title: "Chyba",
+        description: `Chyba při mazání položky: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
   const [searchTerm, setSearchTerm] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [receiverFilter, setReceiverFilter] = useState("all");
@@ -732,6 +810,23 @@ export function ReceivedInvoices() {
         description: "Nepodařilo se aktualizovat položku",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleDeleteItem = async (itemId: string) => {
+    if (!selectedInvoice) return;
+
+    if (!confirm("Opravdu chcete odstranit tuto položku z faktury?")) {
+      return;
+    }
+
+    try {
+      await deleteInvoiceItemMutation.mutateAsync({
+        itemId,
+        invoiceId: selectedInvoice.id,
+      });
+    } catch (error: any) {
+      console.error("Error deleting item:", error);
     }
   };
 
@@ -1298,7 +1393,9 @@ export function ReceivedInvoices() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  onClick={() => handleDeleteItem(item.id)}
                                   className="text-red-600 hover:text-red-700"
+                                  disabled={deleteInvoiceItemMutation.isPending}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>

@@ -841,62 +841,11 @@ export function DailyProductionPlanner() {
                       calculatedWeight: item.calculatedRecipeWeight || 0,
                     });
                   }
-
-                  // Debug logging (only for tomorrow)
-                  const tomorrow = addDays(new Date(), 1);
-                  const isTomorrow =
-                    selectedDate.toISOString().split("T")[0] ===
-                    tomorrow.toISOString().split("T")[0];
-
-                  if (isTomorrow) {
-                    const savedWeight = item.recipeQuantity || 0;
-                    const calcWeight = item.calculatedRecipeWeight || 0;
-                    const diff = Math.abs(savedWeight - calcWeight);
-                    const needsSync = diff > 0.01;
-
-                    console.log(
-                      `Recipe card: ${recipeName} - Product: ${item.productName} - Ordered: ${item.totalOrdered} - Saved: ${savedWeight.toFixed(2)}kg - Calc: ${calcWeight.toFixed(2)}kg - Diff: ${diff.toFixed(3)}kg ${needsSync ? "⚠️" : "✅"}`
-                    );
-                  }
                 });
-
-                // Debug logging for recipe totals (only for tomorrow)
-                const tomorrow = addDays(new Date(), 1);
-                const isTomorrow =
-                  selectedDate.toISOString().split("T")[0] ===
-                  tomorrow.toISOString().split("T")[0];
 
                 return Array.from(recipeMap.values())
                   .sort((a, b) => a.recipeName.localeCompare(b.recipeName))
                   .map((recipeData, index) => {
-                    if (isTomorrow && recipeData.recipeId) {
-                      const diff = Math.abs(
-                        recipeData.totalRecipeWeight -
-                          recipeData.totalCalculatedWeight
-                      );
-                      const needsSync = diff > 0.1;
-
-                      console.log(
-                        `\n=== RECIPE SUMMARY: ${recipeData.recipeName} (ID: ${recipeData.recipeId}) ===`
-                      );
-                      console.log(
-                        `Saved weight (DB): ${recipeData.totalRecipeWeight.toFixed(2)} kg`
-                      );
-                      console.log(
-                        `Calculated weight (Orders): ${recipeData.totalCalculatedWeight.toFixed(2)} kg`
-                      );
-                      console.log(
-                        `Difference: ${diff.toFixed(3)} kg (tolerance: 0.1 kg)`
-                      );
-                      console.log(
-                        `Status: ${needsSync ? "❌ Needs sync" : "✅ Synced"}`
-                      );
-                      console.log(
-                        `Products: ${recipeData.products.size}, Total ordered: ${recipeData.totalQuantity}`
-                      );
-                      console.log("==================\n");
-                    }
-
                     return (
                       <Card key={index}>
                         <CardHeader className="pb-3">

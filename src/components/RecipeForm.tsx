@@ -46,7 +46,7 @@ import { useRef } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { detectAllergens } from "@/utils/allergenDetection";
 import { removeDiacritics } from "@/utils/removeDiacritics";
-import { supabase } from "@/lib/supabase";
+import { supabase, useAuthStore } from "@/lib/supabase";
 import { Product } from "types";
 
 interface RecipeFormProps {
@@ -195,6 +195,8 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
   const categories = data?.categories || [];
   const ingredients = ingredientsData?.ingredients || [];
   const { toast } = useToast();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === "admin";
   const [formData, setFormData] =
     useState<Omit<Recipe, "id" | "created_at">>(initialFormData);
   const [recipeIngredients, setRecipeIngredients] = useState<
@@ -208,6 +210,172 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
   >([]);
   const isEditMode = Boolean(initialRecipe);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+
+  // Debug function to inspect recipe data
+  const debugRecipe = () => {
+    console.group("🔍 Recipe Debug Information");
+    console.log("Recipe Name:", formData.name);
+    console.log("Recipe ID:", initialRecipe?.id);
+    console.log("Is Edit Mode:", isEditMode);
+    console.log("\n📋 Form Data:", formData);
+    console.log("\n🥕 Recipe Ingredients Count:", recipeIngredients.length);
+    console.log("Recipe Ingredients:", recipeIngredients);
+
+    // Check for missing or invalid ingredients
+    const invalidIngredients = recipeIngredients.filter(
+      (ri) => !ri.ingredient_id || ri.quantity <= 0
+    );
+    if (invalidIngredients.length > 0) {
+      console.warn("⚠️ Invalid Ingredients Found:", invalidIngredients);
+    }
+
+    // Check ingredient references
+    recipeIngredients.forEach((recipeIng, index) => {
+      const ingredient = ingredients.find(
+        (ing) => ing.id === recipeIng.ingredient_id
+      );
+      if (!ingredient) {
+        console.error(
+          `❌ Ingredient ${recipeIng.ingredient_id} not found for recipe ingredient #${index + 1}`
+        );
+      } else {
+        console.log(`✅ Ingredient #${index + 1}:`, {
+          id: ingredient.id,
+          name: ingredient.name,
+          quantity: recipeIng.quantity,
+          unit: ingredient.unit,
+          kiloPerUnit: ingredient.kiloPerUnit,
+          pricePerUnit: ingredient.price,
+          cost: recipeIng.quantity * (ingredient.price || 0),
+          weightInKg: recipeIng.quantity * ingredient.kiloPerUnit,
+        });
+      }
+    });
+
+    // Calculate totals
+    const { totalWeight, totalPrice } = calculateTotals();
+    console.log("\n💰 Calculated Totals:");
+    console.log("  Total Weight:", totalWeight.toFixed(3), "kg");
+    console.log("  Total Price:", totalPrice.toFixed(2), "Kč");
+    console.log(
+      "  Price per Kilo:",
+      totalWeight > 0 ? (totalPrice / totalWeight).toFixed(2) : "0.00",
+      "Kč/kg"
+    );
+
+    // Check nutritional data
+    const nutritionalTotals = calculateNutritionalTotals();
+    console.log("\n🍎 Nutritional Totals (per 100g):");
+    if (nutritionalTotals.totalWeightKg > 0) {
+      console.log(
+        "  Energy:",
+        (
+          (nutritionalTotals.totalKJ / nutritionalTotals.totalWeightKg) *
+          0.1
+        ).toFixed(0),
+        "kJ /",
+        (
+          (nutritionalTotals.totalKcal / nutritionalTotals.totalWeightKg) *
+          0.1
+        ).toFixed(0),
+        "kcal"
+      );
+      console.log(
+        "  Fat:",
+        (
+          (nutritionalTotals.totalFat / nutritionalTotals.totalWeightKg) *
+          0.1
+        ).toFixed(1),
+        "g"
+      );
+      console.log(
+        "  Saturates:",
+        (
+          (nutritionalTotals.totalSaturates / nutritionalTotals.totalWeightKg) *
+          0.1
+        ).toFixed(1),
+        "g"
+      );
+      console.log(
+        "  Carbohydrates:",
+        (
+          (nutritionalTotals.totalCarbohydrate /
+            nutritionalTotals.totalWeightKg) *
+          0.1
+        ).toFixed(1),
+        "g"
+      );
+      console.log(
+        "  Sugars:",
+        (
+          (nutritionalTotals.totalSugars / nutritionalTotals.totalWeightKg) *
+          0.1
+        ).toFixed(1),
+        "g"
+      );
+      console.log(
+        "  Protein:",
+        (
+          (nutritionalTotals.totalProtein / nutritionalTotals.totalWeightKg) *
+          0.1
+        ).toFixed(1),
+        "g"
+      );
+      console.log(
+        "  Fibre:",
+        (
+          (nutritionalTotals.totalFibre / nutritionalTotals.totalWeightKg) *
+          0.1
+        ).toFixed(1),
+        "g"
+      );
+      console.log(
+        "  Salt:",
+        (
+          (nutritionalTotals.totalSalt / nutritionalTotals.totalWeightKg) *
+          0.1
+        ).toFixed(1),
+        "g"
+      );
+    } else {
+      console.warn("⚠️ No nutritional data available (total weight is 0)");
+    }
+
+    // Check products using this recipe
+    console.log("\n📦 Products Using Recipe:", productsUsingRecipe.length);
+    productsUsingRecipe.forEach((product) => {
+      console.log(`  - ${product.name} (quantity: ${product.usedQuantity})`);
+    });
+
+    // Check allergens
+    const allergens = calculateRecipeAllergens();
+    console.log("\n⚠️ Allergens:", allergens.length);
+    allergens.forEach((allergen) => {
+      console.log(`  - ${allergen.name}`);
+    });
+
+    // Check for potential issues
+    console.log("\n🔍 Potential Issues:");
+    let issuesFound = false;
+
+    if (recipeIngredients.length === 0) {
+      console.warn("  ❌ Recipe has no ingredients");
+      issuesFound = true;
+    }
+
+    if (totalWeight === 0) {
+      console.warn("  ❌ Total weight is 0");
+      issuesFound = true;
+    }
+
+    // Note: Price is stored per unit (not per kg)
+
+    if (!issuesFound) {
+      console.log("  ✅ No issues detected!");
+    }
+
+    console.groupEnd();
+  };
 
   useEffect(() => {
     if (open) {
@@ -226,6 +394,18 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
       }
     }
   }, [open, initialRecipe]);
+
+  // Auto-debug specific recipe
+  useEffect(() => {
+    if (
+      open &&
+      formData.name === "Salát Kuřecí velká b." &&
+      recipeIngredients.length > 0
+    ) {
+      console.log("🔍 Auto-debugging recipe: Salát Kuřecí velká b.");
+      debugRecipe();
+    }
+  }, [open, formData.name, recipeIngredients]);
 
   // Load recipe ingredients from database
   const loadRecipeIngredients = async (recipeId: number) => {
@@ -360,8 +540,8 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
           totalWeight += weightInKg;
 
           if (ingredient.price) {
-            // Use weightInKg for price calculation since price is per kilogram
-            totalPrice += weightInKg * ingredient.price;
+            // Price is stored per unit, so cost = quantity × price
+            totalPrice += recipeIng.quantity * ingredient.price;
           }
         }
       }
@@ -677,7 +857,7 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
                           : ""
                       }</td>
                       <td>${ingredient.unit}</td>
-                      <td style="text-align: right;">${(recipeIng.quantity * ingredient.kiloPerUnit * (ingredient.price || 0)).toFixed(2)} Kč</td>
+                      <td style="text-align: right;">${(recipeIng.quantity * (ingredient.price || 0)).toFixed(2)} Kč</td>
                     </tr>
                   `;
                   })
@@ -910,7 +1090,21 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
               }
             >
               <CardHeader>
-                <CardTitle className="text-lg">Základní informace</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">Základní informace</CardTitle>
+                  {isEditMode && isAdmin && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={debugRecipe}
+                      className="print:hidden text-xs"
+                      title="Debug recipe (výstup v konzoli)"
+                    >
+                      🔍 Debug
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex flex-wrap gap-4">
@@ -1127,7 +1321,7 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
                               {selectedIngredient &&
                               selectedIngredient.price &&
                               recipeIng.quantity > 0
-                                ? `${(recipeIng.quantity * selectedIngredient.kiloPerUnit * selectedIngredient.price).toFixed(2)} Kč`
+                                ? `${(recipeIng.quantity * selectedIngredient.price).toFixed(2)} Kč`
                                 : "0.00 Kč"}
                             </div>
                             <div className="md:col-span-3">

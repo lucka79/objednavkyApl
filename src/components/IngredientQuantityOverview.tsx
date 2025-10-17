@@ -2035,9 +2035,27 @@ export function IngredientQuantityOverview() {
                                 </div>
                               </TableCell>
                               <TableCell className="text-right">
-                                <span className="text-sm">
-                                  {item.price.toFixed(2)} Kč
-                                </span>
+                                {(() => {
+                                  const priceData =
+                                    priceComparisonData?.[item.ingredientId];
+                                  // Show comparison price (supplier price or base price) instead of outdated base price
+                                  const displayPrice =
+                                    priceData?.comparison_price ?? item.price;
+                                  return (
+                                    <div className="flex flex-col items-end">
+                                      <span className="text-sm font-semibold">
+                                        {displayPrice.toFixed(2)} Kč
+                                      </span>
+                                      {priceData?.supplier_price &&
+                                        priceData.supplier_price !==
+                                          priceData.base_price && (
+                                          <span className="text-xs text-muted-foreground">
+                                            (dodavatel)
+                                          </span>
+                                        )}
+                                    </div>
+                                  );
+                                })()}
                               </TableCell>
                               <TableCell className="text-right">
                                 {(() => {
@@ -2250,9 +2268,27 @@ export function IngredientQuantityOverview() {
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
-                            <span className="text-sm">
-                              {item.price.toFixed(2)} Kč
-                            </span>
+                            {(() => {
+                              const priceData =
+                                priceComparisonData?.[item.ingredientId];
+                              // Show comparison price (supplier price or base price) instead of outdated base price
+                              const displayPrice =
+                                priceData?.comparison_price ?? item.price;
+                              return (
+                                <div className="flex flex-col items-end">
+                                  <span className="text-sm font-semibold">
+                                    {displayPrice.toFixed(2)} Kč
+                                  </span>
+                                  {priceData?.supplier_price &&
+                                    priceData.supplier_price !==
+                                      priceData.base_price && (
+                                      <span className="text-xs text-muted-foreground">
+                                        (dodavatel)
+                                      </span>
+                                    )}
+                                </div>
+                              );
+                            })()}
                           </TableCell>
                           <TableCell className="text-right">
                             {(() => {

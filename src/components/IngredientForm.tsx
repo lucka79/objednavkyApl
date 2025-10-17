@@ -312,6 +312,33 @@ export function IngredientForm() {
           selectedIngredient.ingredient_supplier_codes
         );
 
+        // Debug supplier code prices vs main price
+        if (
+          selectedIngredient.ingredient_supplier_codes &&
+          selectedIngredient.ingredient_supplier_codes.length > 0
+        ) {
+          console.log("=== PRICE COMPARISON ===");
+          console.log(
+            "Main ingredient price:",
+            selectedIngredient.price,
+            "Kč per",
+            selectedIngredient.unit
+          );
+          console.log("Unit:", selectedIngredient.unit);
+          console.log("Kilo per unit:", selectedIngredient.kiloPerUnit);
+          selectedIngredient.ingredient_supplier_codes.forEach(
+            (code: any, index: number) => {
+              console.log(`Supplier code #${index + 1}:`, {
+                supplier_id: code.supplier_id,
+                price: code.price,
+                is_active: code.is_active,
+                product_code: code.product_code,
+              });
+            }
+          );
+          console.log("=== END PRICE COMPARISON ===");
+        }
+
         setFormData({
           name: selectedIngredient.name,
           category_id: selectedIngredient.category_id,
@@ -406,97 +433,8 @@ export function IngredientForm() {
     }
   }, [formData.supplier_id, supplierUsers]);
 
-  // Update main price when active supplier changes
-  useEffect(() => {
-    if (formData.supplier_codes.length > 0) {
-      const activeSupplier = formData.supplier_codes.find(
-        (code) => code.is_active
-      );
-      if (activeSupplier && activeSupplier.price !== formData.price) {
-        console.log(
-          "Updating main price from active supplier:",
-          activeSupplier.price
-        );
-        handleInputChange("price", activeSupplier.price);
-      }
-    }
-  }, [formData.supplier_codes]);
-
-  // Sync main supplier with active supplier in supplier codes
-  useEffect(() => {
-    if (formData.supplier_codes.length > 0) {
-      const activeSupplier = formData.supplier_codes.find(
-        (code) => code.is_active
-      );
-      if (
-        activeSupplier &&
-        activeSupplier.supplier_id !== formData.supplier_id
-      ) {
-        console.log(
-          "Syncing main supplier with active supplier:",
-          activeSupplier.supplier_id
-        );
-        handleInputChange("supplier_id", activeSupplier.supplier_id);
-      }
-    }
-  }, [formData.supplier_codes]);
-
-  // Sync main supplier price and product_code with ingredient when there's only one supplier
-  useEffect(() => {
-    if (
-      formData.supplier_codes.length === 1 &&
-      formData.supplier_codes[0].supplier_id === formData.supplier_id
-    ) {
-      const needsUpdate =
-        (formData.price !== null &&
-          formData.supplier_codes[0].price !== formData.price) ||
-        (formData.product_code !== null &&
-          formData.supplier_codes[0].product_code !== formData.product_code);
-
-      if (needsUpdate) {
-        console.log("Syncing main supplier with ingredient data:", {
-          price: formData.price,
-          product_code: formData.product_code,
-        });
-        const newCodes = [...formData.supplier_codes];
-        if (formData.price !== null) {
-          newCodes[0].price = formData.price;
-        }
-        if (formData.product_code !== null) {
-          newCodes[0].product_code = formData.product_code;
-        }
-        handleInputChange("supplier_codes", newCodes);
-      }
-    }
-  }, [formData.price, formData.product_code, formData.supplier_id]);
-
-  // Sync ingredient price and product_code with main supplier when supplier codes change
-  // Only sync if there's exactly one supplier code (main supplier only)
-  useEffect(() => {
-    if (
-      formData.supplier_codes.length === 1 &&
-      formData.supplier_codes[0].supplier_id === formData.supplier_id
-    ) {
-      const mainSupplier = formData.supplier_codes[0];
-
-      const needsUpdate =
-        mainSupplier.price !== formData.price ||
-        mainSupplier.product_code !== formData.product_code;
-
-      if (needsUpdate) {
-        console.log("Syncing ingredient with main supplier data:", {
-          price: mainSupplier.price,
-          product_code: mainSupplier.product_code,
-        });
-        if (mainSupplier.price !== formData.price) {
-          handleInputChange("price", mainSupplier.price);
-        }
-        if (mainSupplier.product_code !== formData.product_code) {
-          handleInputChange("product_code", mainSupplier.product_code);
-        }
-      }
-    }
-  }, [formData.supplier_codes]);
+  // Removed auto-sync effects to prevent infinite loops
+  // Price and supplier codes are now managed independently through the UI
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -964,12 +902,27 @@ export function IngredientForm() {
                           );
                           handleInputChange("supplier_codes", newCodes);
 
-                          // Update the main price to match the active supplier's price
+                          // Update the main ingredient data to match the active supplier
                           const activeSupplier = newCodes.find(
                             (code) => code.is_active
                           );
                           if (activeSupplier) {
+                            // Update price
                             handleInputChange("price", activeSupplier.price);
+                            // Update package if supplier has one
+                            if (activeSupplier.package !== null) {
+                              handleInputChange(
+                                "package",
+                                activeSupplier.package
+                              );
+                            }
+                            // Update name if supplier has a specific name
+                            if (activeSupplier.supplier_ingredient_name) {
+                              handleInputChange(
+                                "name",
+                                activeSupplier.supplier_ingredient_name
+                              );
+                            }
                           }
                         }
                       }}
@@ -1127,6 +1080,42 @@ export function IngredientForm() {
                                               "supplier_codes",
                                               newCodes
                                             );
+
+                                            // Update main ingredient data to match the new active supplier
+                                            const activeSupplier =
+                                              newCodes.find(
+                                                (code) => code.is_active
+                                              );
+                                            if (activeSupplier) {
+                                              // Update supplier_id
+                                              handleInputChange(
+                                                "supplier_id",
+                                                activeSupplier.supplier_id
+                                              );
+                                              // Update price
+                                              handleInputChange(
+                                                "price",
+                                                activeSupplier.price
+                                              );
+                                              // Update package if supplier has one
+                                              if (
+                                                activeSupplier.package !== null
+                                              ) {
+                                                handleInputChange(
+                                                  "package",
+                                                  activeSupplier.package
+                                                );
+                                              }
+                                              // Update name if supplier has a specific name
+                                              if (
+                                                activeSupplier.supplier_ingredient_name
+                                              ) {
+                                                handleInputChange(
+                                                  "name",
+                                                  activeSupplier.supplier_ingredient_name
+                                                );
+                                              }
+                                            }
                                           }}
                                           className="text-xs"
                                         >
@@ -1397,6 +1386,41 @@ export function IngredientForm() {
                                             "supplier_codes",
                                             newCodes
                                           );
+
+                                          // Update main ingredient data to match the new active supplier
+                                          const activeSupplier = newCodes.find(
+                                            (code) => code.is_active
+                                          );
+                                          if (activeSupplier) {
+                                            // Update supplier_id
+                                            handleInputChange(
+                                              "supplier_id",
+                                              activeSupplier.supplier_id
+                                            );
+                                            // Update price
+                                            handleInputChange(
+                                              "price",
+                                              activeSupplier.price
+                                            );
+                                            // Update package if supplier has one
+                                            if (
+                                              activeSupplier.package !== null
+                                            ) {
+                                              handleInputChange(
+                                                "package",
+                                                activeSupplier.package
+                                              );
+                                            }
+                                            // Update name if supplier has a specific name
+                                            if (
+                                              activeSupplier.supplier_ingredient_name
+                                            ) {
+                                              handleInputChange(
+                                                "name",
+                                                activeSupplier.supplier_ingredient_name
+                                              );
+                                            }
+                                          }
                                         }}
                                         className="text-xs"
                                       >

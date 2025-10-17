@@ -115,118 +115,202 @@ export const useManualBakerSync = () => {
     mutationFn: async ({ date }: { date: Date; userId?: string }) => {
       const dateStr = date.toISOString().split('T')[0];
       
-      // First, get all orders for this date
-      let { data: orders, error: ordersError } = await supabase
-        .from('orders')
+      console.log(`\n🔄 SYNCING DATE: ${dateStr}`);
+      
+      // Fetch order_items directly to avoid Supabase nested resource limits
+      const { data: orderItems, error: orderItemsError } = await supabase
+        .from('order_items')
         .select(`
           id,
-          user_id,
-          date,
-          status,
-          order_items!inner(
+          product_id,
+          quantity,
+          order_id,
+          orders!inner(
             id,
-            product_id,
-            quantity,
-            products!inner(
+            date,
+            user_id,
+            status
+          ),
+          products!inner(
+            id,
+            name,
+            category_id,
+            categories!inner(
               id,
-              name,
-              category_id,
-              categories!inner(
-                id,
-                name
-              )
+              name
             )
           )
         `)
-        .eq('date', dateStr);
+        .eq('orders.date', dateStr);
 
-      if (ordersError) throw ordersError;
+      if (orderItemsError) throw orderItemsError;
 
-      console.log('Debug - Orders found:', orders?.length || 0);
-      console.log('Debug - Date:', dateStr);
-      console.log('Debug - Processing all users');
-      console.log('Debug - Selected date from UI:', date.toISOString().split('T')[0]);
+      console.log(`📦 Found ${orderItems?.length || 0} order items for ${dateStr}\n`);
       
-      // Debug: Check what dates have orders
-      const { data: availableDates } = await supabase
-        .from('orders')
-        .select('date')
-        .order('date', { ascending: false })
-        .limit(10);
-      console.log('Debug - Available order dates:', availableDates?.map(d => d.date));
-      
-      if (!orders || orders.length === 0) {
-        const availableDatesList = availableDates?.map(d => d.date).join(', ') || 'none';
-        throw new Error(`Žádné objednávky pro vybraný den: ${dateStr}. Dostupné dny: ${availableDatesList}`);
+      if (!orderItems || orderItems.length === 0) {
+        throw new Error(`Žádné objednávky pro vybraný den: ${dateStr}`);
       }
+
+      // Group order items by order_id to reconstruct orders structure
+      const ordersMap = new Map<number, any>();
+      for (const item of orderItems) {
+        const order = (item.orders as any);
+        if (!ordersMap.has(order.id)) {
+          ordersMap.set(order.id, {
+            id: order.id,
+            user_id: order.user_id,
+            date: order.date,
+            status: order.status,
+            order_items: []
+          });
+        }
+        ordersMap.get(order.id)!.order_items.push(item);
+      }
+      
+      const orders = Array.from(ordersMap.values());
 
       // Process all orders together since uniqueness is only on (date, recipe_id)
       // Get all product IDs from all orders
       const allProductIds = orders.flatMap(order => 
-        order.order_items.map(item => item.product_id)
+        order.order_items.map((item: any) => item.product_id)
       );
       
       // Get all unique users for the results
       const usersWithOrders = new Set(orders.map(order => order.user_id));
       const results: SyncResult[] = [];
 
-      // Batch fetch all product_parts data for all products
+      // Batch fetch all product_parts data for all products (including cost calculation data)
+      console.log(`\n🔍 Querying product_parts for ${allProductIds.length} unique product IDs`);
+      
       const { data: allProductParts, error: productPartsError } = await supabase
         .from('product_parts')
         .select(`
           product_id,
           recipe_id,
-          quantity
+          pastry_id,
+          quantity,
+          productOnly,
+          bakerOnly,
+          recipes (
+            id,
+            quantity,
+            price,
+            recipe_ingredients (
+              ingredient_id,
+              quantity,
+              ingredients (id, price, kiloPerUnit, unit)
+            )
+          ),
+          ingredients (id, price, kiloPerUnit, unit)
         `)
         .in('product_id', allProductIds);
+      
+      console.log(`🔍 Received ${allProductParts?.length || 0} product_parts records`);
 
       if (productPartsError) {
         console.warn('Error fetching product_parts:', productPartsError);
       }
 
-      // Create lookup map for product_parts
+      // Note: Nested recipes (recipes that use other recipes as ingredients) are handled
+      // at the ingredient consumption level, not production grouping level.
+      // Each recipe remains its own production group for bakers.
+
+      // Create lookup map for product_parts and calculate costs
       const productPartsMap = new Map();
+      const productCostMap = new Map<number, number>();
+      
       if (allProductParts) {
-        console.log(`Debug - Product parts found: ${allProductParts.length}`);
-        for (const part of allProductParts) {
-          // Only add to map if recipe_id is not null
+        
+        // Calculate cost for each product
+        const costsByProduct = new Map<number, number>();
+        
+        for (const part of allProductParts as any[]) {
+          const productId = part.product_id;
+          let partCost = 0;
+          
+          // Skip productOnly parts (excluded from cost calculation)
+          if (!part.productOnly) {
+            // Calculate cost for direct ingredients
+            if (part.ingredient_id && part.ingredients) {
+              const ingredient = part.ingredients;
+              const quantityInKg = part.quantity * (ingredient.kiloPerUnit || 1);
+              partCost = quantityInKg * (ingredient.price || 0);
+            }
+            
+            // Calculate cost for recipe-based ingredients
+            if (part.recipe_id && part.recipes && part.recipes.recipe_ingredients) {
+              const recipe = part.recipes;
+              
+              // Calculate total weight and price from recipe ingredients
+              let totalRecipeWeight = 0;
+              let totalRecipePrice = 0;
+              
+              recipe.recipe_ingredients.forEach((recipeIng: any) => {
+                if (recipeIng.ingredients && recipeIng.quantity > 0) {
+                  const ingredient = recipeIng.ingredients;
+                  const weightInKg = recipeIng.quantity * (ingredient.kiloPerUnit || 1);
+                  totalRecipeWeight += weightInKg;
+                  
+                  if (ingredient.price) {
+                    totalRecipePrice += weightInKg * ingredient.price;
+                  }
+                }
+              });
+              
+              // Calculate price per kg and multiply by part quantity
+              if (totalRecipeWeight > 0) {
+                const recipePricePerKg = totalRecipePrice / totalRecipeWeight;
+                partCost = recipePricePerKg * part.quantity;
+              } else if (recipe.price) {
+                // Fallback to stored recipe price
+                partCost = recipe.price * part.quantity;
+              }
+            }
+          }
+          
+          // Add to product total cost
+          const existingCost = costsByProduct.get(productId) || 0;
+          costsByProduct.set(productId, existingCost + partCost);
+          
+          // Store in productPartsMap for recipe mapping
+          // Use direct recipe_id for production grouping (don't resolve nested recipes)
           if (part.recipe_id !== null && part.recipe_id !== undefined) {
             productPartsMap.set(part.product_id, {
-              recipe_id: part.recipe_id,
+              recipe_id: part.recipe_id, // Use direct recipe, not nested
               quantity: parseFloat(part.quantity)
             });
-          } else {
-            console.log(`Debug - Skipping product ${part.product_id} - has NULL recipe_id`);
           }
         }
-        console.log(`Debug - Product parts map size: ${productPartsMap.size}`);
-        console.log(`Debug - Sample entries:`, Array.from(productPartsMap.entries()).slice(0, 5));
-      } else {
-        console.warn('Debug - No product parts data received');
+        
+        // Store costs in productCostMap
+        for (const [productId, cost] of costsByProduct.entries()) {
+          productCostMap.set(productId, cost);
+        }
       }
+
+      console.log(`✅ Mapped ${productPartsMap.size} products to recipes\n`);
 
       // Group products by recipe_id (across all users)
       const recipeMap = new Map();
       
+      console.log(`\n📋 Processing ${orders.length} orders with ${orders.reduce((sum, o) => sum + o.order_items.length, 0)} order items`);
+      
       for (const order of orders) {
         for (const item of order.order_items) {
-          // Skip order items with 0 or negative quantity
+          // Skip items with quantity <= 0
           if (item.quantity <= 0) continue;
           
           const product = item.products as any;
           const category = product.categories as any;
           
           // Check if product has entry in product_parts table
-          let recipeId = 'no-recipe';
+          let recipeId: string | number = 'no-recipe';
           let recipeName = 'Bez receptu';
           
           const productPart = productPartsMap.get(product.id);
           if (productPart) {
             recipeId = productPart.recipe_id;
             recipeName = `Recipe ${productPart.recipe_id}`;
-            console.log(`Debug - Product ${product.id} (${product.name}) found in product_parts: Recipe ${recipeId}`);
-          } else {
-            console.log(`Debug - Product ${product.id} (${product.name}) NOT found in product_parts - goes to Bez receptu`);
           }
           // If no product_parts entry, product goes to "Bez receptu"
           
@@ -252,6 +336,8 @@ export const useManualBakerSync = () => {
           recipeData.products.get(product.id).quantity += item.quantity;
         }
       }
+
+      console.log(`✅ Grouped into ${recipeMap.size} recipe categories\n`);
 
       // Get all unique recipe IDs we need to process
       const recipeIds = Array.from(recipeMap.keys()).filter(id => id !== 'no-recipe');
@@ -284,7 +370,6 @@ export const useManualBakerSync = () => {
           throw bakerCheckError;
         }
 
-        console.log(`Debug - Checking baker for date ${dateStr}, recipe ${recipeId}:`, existingBaker ? `Found ID ${existingBaker.id} (user: ${existingBaker.user_id})` : 'Not found');
 
         let bakerId: number;
 
@@ -305,7 +390,6 @@ export const useManualBakerSync = () => {
         } else {
           // Create new baker
           const firstUserId = Array.from(usersWithOrders)[0]; // Use first user
-          console.log(`Debug - Creating new baker for user ${firstUserId}, date ${dateStr}, recipe ${recipeId}`);
           const { data: newBaker, error: createError } = await supabase
             .from('bakers')
             .insert({
@@ -318,11 +402,9 @@ export const useManualBakerSync = () => {
             .single();
 
           if (createError) {
-            console.error(`Debug - Error creating baker:`, createError);
             throw createError;
           }
           bakerId = newBaker.id;
-          console.log(`Debug - Created baker with ID ${bakerId}`);
         }
 
         bakerMap.set(recipeId, bakerId);
@@ -373,11 +455,15 @@ export const useManualBakerSync = () => {
             // Planned quantity: ceil of ingredient needed, minimum 1 (since we have orders)
             const ceiledQuantity = Math.max(1, Math.ceil(ingredientForThisProduct));
             
+            // Get the cost for this product
+            const productCost = productCostMap.get(product.product_id) || 0;
+            
             allBakerItems.push({
               production_id: bakerId,
               product_id: product.product_id, // Use actual product ID
               planned_quantity: ceiledQuantity,
-              recipe_quantity: roundedRecipeQuantity
+              recipe_quantity: roundedRecipeQuantity,
+              cost: productCost
             });
           }
         }
@@ -400,7 +486,7 @@ export const useManualBakerSync = () => {
           // Fetch existing baker_items for this baker
           const { data: existingItems, error: fetchError } = await supabase
             .from('baker_items')
-            .select('id, product_id, planned_quantity, recipe_quantity')
+            .select('id, product_id, planned_quantity, recipe_quantity, cost')
             .eq('production_id', bakerId);
           
           if (fetchError) throw fetchError;
@@ -421,7 +507,8 @@ export const useManualBakerSync = () => {
               itemsToUpdate.push({
                 id: existing.id,
                 planned_quantity: newItem.planned_quantity,
-                recipe_quantity: newItem.recipe_quantity
+                recipe_quantity: newItem.recipe_quantity,
+                cost: newItem.cost
               });
             } else {
               // Insert new item
@@ -431,19 +518,21 @@ export const useManualBakerSync = () => {
           
           // Perform batch updates - update each item individually
           if (itemsToUpdate.length > 0) {
-            console.log(`Debug - Updating ${itemsToUpdate.length} baker_items for baker ${bakerId}`);
-            
             for (const item of itemsToUpdate) {
               const { error: updateError } = await supabase
                 .from('baker_items')
                 .update({
                   planned_quantity: item.planned_quantity,
                   recipe_quantity: item.recipe_quantity,
+                  cost: item.cost,
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', item.id);
               
-              if (updateError) throw updateError;
+              if (updateError) {
+                console.error(`❌ ERROR updating item:`, updateError);
+                throw updateError;
+              }
             }
             
             totalUpdated += itemsToUpdate.length;
@@ -451,7 +540,6 @@ export const useManualBakerSync = () => {
           
           // Perform batch inserts
           if (itemsToInsert.length > 0) {
-            console.log(`Debug - Inserting ${itemsToInsert.length} new baker_items for baker ${bakerId}`);
             const { error: insertError } = await supabase
               .from('baker_items')
               .insert(itemsToInsert);
@@ -469,7 +557,6 @@ export const useManualBakerSync = () => {
               .map(item => item.id);
             
             if (itemsToDelete.length > 0) {
-              console.log(`Debug - Deleting ${itemsToDelete.length} obsolete baker_items for baker ${bakerId}`);
               await supabase
                 .from('baker_items')
                 .delete()
@@ -480,12 +567,8 @@ export const useManualBakerSync = () => {
         }
       }
 
-      // Log final summary
-      console.log(`\n=== SYNC SUMMARY ===`);
-      console.log(`Baker items updated: ${totalUpdated}`);
-      console.log(`Baker items inserted: ${totalInserted}`);
-      console.log(`Baker items deleted: ${totalDeleted}`);
-      console.log(`==================\n`);
+      // Log summary
+      console.log(`\n✅ SYNC COMPLETE: ${totalUpdated} updated, ${totalInserted} inserted, ${totalDeleted} deleted\n`);
 
       // Create results summary
       for (const [recipeId, recipeData] of recipeMap) {
@@ -530,3 +613,4 @@ export const useManualBakerSync = () => {
     },
   });
 };
+

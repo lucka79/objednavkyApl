@@ -3,6 +3,7 @@ import React, { useRef, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import {
   deleteProduct,
@@ -116,12 +117,14 @@ const ProductRow = memo(
     onOpenParts,
     hasProductParts,
     onDebugError,
+    ingredientCost,
   }: {
     product: Product;
     onEdit: (id: number) => void;
     onOpenParts: (id: number, name: string) => void;
     hasProductParts: boolean;
     onDebugError: (title: string, error: any) => void;
+    ingredientCost?: number;
   }) => {
     const { data: categories } = fetchCategories();
     const { data: products } = fetchAllProducts();
@@ -155,7 +158,7 @@ const ProductRow = memo(
       <>
         {/* Desktop Layout (xl and up) - Reduced columns for better fit */}
         <div
-          className="hidden xl:grid xl:grid-cols-[60px_80px_1.5fr_100px_100px_100px_80px_60px_60px_60px_60px_120px] gap-2 py-2 px-2 items-center border-b text-sm cursor-pointer hover:bg-gray-50 w-full"
+          className="hidden xl:grid xl:grid-cols-[60px_80px_1.5fr_100px_100px_100px_90px_80px_60px_60px_60px_60px_120px] gap-2 py-2 px-2 items-center border-b text-sm cursor-pointer hover:bg-gray-50 w-full"
           onClick={() => onEdit(product.id)}
         >
           <div className="text-center">{product.id}</div>
@@ -180,6 +183,62 @@ const ProductRow = memo(
           <div className="text-right">{product.priceMobil.toFixed(2)}</div>
           <div className="text-right font-medium">
             {product.price.toFixed(2)}
+          </div>
+          <div className="text-right">
+            {ingredientCost !== undefined && ingredientCost > 0 ? (
+              <div className="flex flex-col items-end gap-0.5">
+                <span className="text-purple-600 font-medium text-xs">
+                  {ingredientCost.toFixed(2)} Kč
+                </span>
+                <div className="flex gap-1 text-[10px]">
+                  {/* Buyer margin */}
+                  {(() => {
+                    const margin = product.priceBuyer - ingredientCost;
+                    const marginPercent = (margin / ingredientCost) * 100;
+                    const isLoss = margin < 0;
+                    return (
+                      <span
+                        className={`font-medium ${
+                          isLoss
+                            ? "text-red-600"
+                            : marginPercent < 20
+                              ? "text-orange-600"
+                              : "text-green-600"
+                        }`}
+                        title={`Marže k ceně nákup: ${margin.toFixed(2)} Kč`}
+                      >
+                        N:{marginPercent >= 0 ? "+" : ""}
+                        {marginPercent.toFixed(0)}%
+                      </span>
+                    );
+                  })()}
+                  {/* Mobile margin */}
+                  {product.priceMobil > 0 &&
+                    (() => {
+                      const margin = product.priceMobil - ingredientCost;
+                      const marginPercent = (margin / ingredientCost) * 100;
+                      const isLoss = margin < 0;
+                      return (
+                        <span
+                          className={`font-medium ${
+                            isLoss
+                              ? "text-red-600"
+                              : marginPercent < 20
+                                ? "text-orange-600"
+                                : "text-green-600"
+                          }`}
+                          title={`Marže k ceně mobil: ${margin.toFixed(2)} Kč`}
+                        >
+                          M:{marginPercent >= 0 ? "+" : ""}
+                          {marginPercent.toFixed(0)}%
+                        </span>
+                      );
+                    })()}
+                </div>
+              </div>
+            ) : (
+              <span className="text-gray-400 text-xs">—</span>
+            )}
           </div>
           <div className="text-right">{product.vat}%</div>
           <div className="flex justify-center">
@@ -550,6 +609,101 @@ export function ProductsTable() {
 
   const { data: categories } = fetchCategories();
 
+  // Fetch product costs based on ingredients and recipes
+  const { data: productCosts } = useQuery({
+    queryKey: ["productCosts"],
+    queryFn: async () => {
+      // Fetch all product_parts with their ingredients and recipes
+      const { data: productParts, error: partsError } = await supabase.from(
+        "product_parts"
+      ).select(`
+          product_id,
+          recipe_id,
+          ingredient_id,
+          quantity,
+          productOnly,
+          bakerOnly,
+          recipes (
+            id,
+            quantity,
+            price,
+            recipe_ingredients (
+              ingredient_id,
+              quantity,
+              ingredients (id, price, kiloPerUnit, unit)
+            )
+          ),
+          ingredients (id, price, kiloPerUnit, unit)
+        `);
+
+      if (partsError) {
+        console.error("Error fetching product parts:", partsError);
+        throw partsError;
+      }
+
+      // Calculate cost for each product
+      const costMap = new Map<number, number>();
+
+      productParts?.forEach((part: any) => {
+        const productId = part.product_id;
+        let partCost = 0;
+
+        // Skip productOnly parts (excluded from cost calculation)
+        if (part.productOnly) return;
+
+        // Calculate cost for direct ingredients
+        if (part.ingredient_id && part.ingredients) {
+          const ingredient = part.ingredients;
+          const quantityInKg = part.quantity * (ingredient.kiloPerUnit || 1);
+          partCost = quantityInKg * (ingredient.price || 0);
+        }
+
+        // Calculate cost for recipe-based ingredients
+        if (part.recipe_id && part.recipes && part.recipes.recipe_ingredients) {
+          const recipe = part.recipes;
+
+          // Calculate total weight and price from recipe ingredients
+          let totalRecipeWeight = 0;
+          let totalRecipePrice = 0;
+
+          recipe.recipe_ingredients.forEach((recipeIng: any) => {
+            if (recipeIng.ingredients && recipeIng.quantity > 0) {
+              const ingredient = recipeIng.ingredients;
+              const weightInKg =
+                recipeIng.quantity * (ingredient.kiloPerUnit || 1);
+              totalRecipeWeight += weightInKg;
+
+              if (ingredient.price) {
+                totalRecipePrice += weightInKg * ingredient.price;
+              }
+            }
+          });
+
+          // Calculate price per kg and multiply by part quantity
+          if (totalRecipeWeight > 0) {
+            const recipePricePerKg = totalRecipePrice / totalRecipeWeight;
+            partCost = recipePricePerKg * part.quantity;
+          } else if (recipe.price) {
+            // Fallback to stored recipe price
+            partCost = recipe.price * part.quantity;
+          }
+        }
+
+        // Note: pastry_id (product parts) are intentionally excluded from cost calculation
+        // Cost only includes ingredient_id and recipe_id parts
+
+        // Add to product total cost
+        const existingCost = costMap.get(productId) || 0;
+        costMap.set(productId, existingCost + partCost);
+      });
+
+      return Object.fromEntries(costMap);
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+  });
+
   // CSV Export Function
   const exportToCSV = async () => {
     if (!products || !categories) return;
@@ -840,6 +994,16 @@ export function ProductsTable() {
           allergens = detectedAllergens.map((a) => a.name).join(", ");
         }
 
+        const ingredientCost = productCosts?.[product.id] || 0;
+
+        // Calculate margins
+        const buyerMargin = product.priceBuyer - ingredientCost;
+        const buyerMarginPercent =
+          ingredientCost > 0 ? (buyerMargin / ingredientCost) * 100 : 0;
+        const mobilMargin = product.priceMobil - ingredientCost;
+        const mobilMarginPercent =
+          ingredientCost > 0 ? (mobilMargin / ingredientCost) * 100 : 0;
+
         return {
           "Název produktu": product.name,
           Kategorie: category?.name || "",
@@ -847,6 +1011,11 @@ export function ProductsTable() {
           "Cena nákup": product.priceBuyer.toFixed(2),
           "Cena mobil": product.priceMobil.toFixed(2),
           "Cena prodej": product.price.toFixed(2),
+          "Náklady na suroviny": ingredientCost.toFixed(2),
+          "Marže nákup (Kč)": buyerMargin.toFixed(2),
+          "Marže nákup (%)": buyerMarginPercent.toFixed(1),
+          "Marže mobil (Kč)": mobilMargin.toFixed(2),
+          "Marže mobil (%)": mobilMarginPercent.toFixed(1),
           Alergeny: allergens,
           Složení: elements,
 
@@ -1425,13 +1594,19 @@ export function ProductsTable() {
               <div className="w-full">
                 {/* Desktop Header (xl and up) */}
                 <div className="hidden xl:block sticky top-0 bg-white z-10 border-b w-full">
-                  <div className="grid grid-cols-[60px_80px_2fr_100px_100px_100px_80px_60px_60px_60px_60px_120px] gap-2 py-2 px-2 font-medium text-sm w-full">
+                  <div className="grid grid-cols-[60px_80px_2fr_100px_100px_100px_90px_80px_60px_60px_60px_60px_120px] gap-2 py-2 px-2 font-medium text-sm w-full">
                     <div className="text-center">ID</div>
                     <div className="text-center">Print</div>
                     <div>Název / Kategorie</div>
                     <div className="text-right">Nákup</div>
                     <div className="text-right">Mobil</div>
                     <div className="text-right">Prodej</div>
+                    <div
+                      className="text-right text-purple-600 cursor-help"
+                      title="Náklady na suroviny + marže k cenám nákup (N) a mobil (M)"
+                    >
+                      Náklady
+                    </div>
                     <div className="text-right">DPH</div>
                     <div className="text-center">Act</div>
                     <div className="text-center">Odběr</div>
@@ -1489,6 +1664,7 @@ export function ProductsTable() {
                     const product = filteredProducts[virtualRow.index];
                     const hasProductParts =
                       productPartsMap.get(product.id) || false;
+                    const ingredientCost = productCosts?.[product.id];
 
                     return (
                       <div
@@ -1509,6 +1685,7 @@ export function ProductsTable() {
                           onOpenParts={handleOpenParts}
                           hasProductParts={hasProductParts}
                           onDebugError={handleDebugError}
+                          ingredientCost={ingredientCost}
                         />
                       </div>
                     );
