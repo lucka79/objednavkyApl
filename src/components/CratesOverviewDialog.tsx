@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Container, Printer } from "lucide-react";
+import { Container, Printer, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDriverUsers } from "@/hooks/useProfiles";
 import {
@@ -586,32 +586,6 @@ export function CratesOverviewDialog({
                   ? `Datum: ${formatDateForDisplay(currentDate)}`
                   : "Vyberte datum pro uložení dat"}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  console.log("=== DEBUG STATE DUMP ===");
-                  console.log("Manual drivers:", manualDrivers);
-                  console.log(
-                    "Driver manual crates (Ostatní vydané):",
-                    driverManualCrates
-                  );
-                  console.log(
-                    "Driver received crates (Vrácené ručně):",
-                    driverReceivedCrates
-                  );
-                  console.log("Orders:", orders?.length || 0);
-                  console.log("Current date:", currentDate);
-                  console.log("=== END DEBUG STATE DUMP ===");
-                  toast({
-                    title: "Debug Info",
-                    description: "Check console for state information",
-                  });
-                }}
-                className="text-blue-600 border-blue-600 hover:bg-blue-50"
-              >
-                🐛 Debug State
-              </Button>
               {!isAddingDriver ? (
                 <Button
                   variant="outline"
@@ -1397,7 +1371,7 @@ export function CratesOverviewDialog({
                         onClick={() => handleRemoveDriver(driver.id)}
                         className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-100"
                       >
-                        ×
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </TableCell>
                     <TableCell className="text-center">
