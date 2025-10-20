@@ -493,16 +493,50 @@ export function IngredientForm() {
     });
 
     try {
+      // Find the active supplier to sync main ingredient data
+      const activeSupplier = formData.supplier_codes.find(
+        (code) => code.is_active
+      );
+
+      // Prepare the data to save
+      let dataToSave = { ...formData };
+
+      // If there's an active supplier, update main ingredient data to match
+      if (activeSupplier) {
+        console.log("=== DEBUG: SYNCING WITH ACTIVE SUPPLIER ===");
+        console.log("Active supplier:", activeSupplier);
+
+        dataToSave.supplier_id = activeSupplier.supplier_id;
+        dataToSave.price = activeSupplier.price;
+
+        // Update package if supplier has one
+        if (activeSupplier.package !== null) {
+          dataToSave.package = activeSupplier.package;
+        }
+
+        // Update name if supplier has a specific name
+        if (activeSupplier.supplier_ingredient_name) {
+          dataToSave.name = activeSupplier.supplier_ingredient_name;
+        }
+
+        console.log("Updated main ingredient data:", {
+          supplier_id: dataToSave.supplier_id,
+          price: dataToSave.price,
+          package: dataToSave.package,
+          name: dataToSave.name,
+        });
+      }
+
       if (isEditMode && selectedIngredient) {
         console.log("Updating ingredient ID:", selectedIngredient.id);
-        await updateIngredient(selectedIngredient.id, formData);
+        await updateIngredient(selectedIngredient.id, dataToSave);
         toast({
           title: "Úspěch",
           description: "Ingredience byla úspěšně upravena",
         });
       } else {
         console.log("Creating new ingredient");
-        await createIngredient(formData);
+        await createIngredient(dataToSave);
         toast({
           title: "Úspěch",
           description: "Ingredience byla úspěšně vytvořena",
@@ -567,24 +601,42 @@ export function IngredientForm() {
 
   return (
     <Dialog open={isFormOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+        onInteractOutside={(e) => {
+          e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          e.preventDefault();
+        }}
+      >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {isEditMode ? (
-              <>
-                <Save className="h-5 w-5" />
-                {formData.name || "Upravit surovinu"}
-              </>
-            ) : (
-              <>
-                <Plus className="h-5 w-5" />
-                Nová surovina
-              </>
-            )}
+          <DialogTitle className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              {isEditMode ? (
+                <>
+                  <Save className="h-5 w-5" />
+                  {formData.name || "Upravit surovinu"}
+                </>
+              ) : (
+                <>
+                  <Plus className="h-5 w-5" />
+                  Nová surovina
+                </>
+              )}
+            </div>
+            {/* <div className="text-xs text-muted-foreground font-normal flex items-center gap-1">
+              <Save className="h-3 w-3" />
+              Tlačítko uložit je dole
+            </div> */}
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form
+          id="ingredient-form"
+          onSubmit={handleSubmit}
+          className="space-y-6"
+        >
           {/* Basic Information */}
           <Card>
             <CardHeader>
@@ -840,7 +892,8 @@ export function IngredientForm() {
                     </div>
                     <p className="text-xs text-green-600 mt-2">
                       💡 Cena se počítá z aktivního dodavatele v sekci
-                      "Dodavatelé a ceny"
+                      "Dodavatelé a ceny". Hlavní údaje ingredience se
+                      automaticky synchronizují s aktivním dodavatelem.
                     </p>
                   </div>
                 ) : null;
@@ -863,7 +916,9 @@ export function IngredientForm() {
               <p className="text-sm text-muted-foreground">
                 Nastavte hlavního dodavatele a přidejte alternativní dodavatele
                 s různými cenami. Aktivní dodavatel se používá pro výpočet cen v
-                receptech.
+                receptech. Hlavní údaje ingredience (cena, balení, název) se
+                automaticky synchronizují s aktivním dodavatelem. Všechny změny
+                se uloží kliknutím na tlačítko "Uložit změny" dole.
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1578,83 +1633,6 @@ export function IngredientForm() {
                   })()}
                 </div>
 
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="default"
-                    onClick={async () => {
-                      console.log("=== DEBUG: SAVING SUPPLIER CODES ONLY ===");
-                      console.log(
-                        "Form data supplier codes:",
-                        formData.supplier_codes
-                      );
-                      formData.supplier_codes.forEach((code, index) => {
-                        console.log(`Supplier code ${index}:`, {
-                          id: code.id,
-                          supplier_id: code.supplier_id,
-                          product_code: code.product_code,
-                          supplier_ingredient_name:
-                            code.supplier_ingredient_name,
-                          price: code.price,
-                          package: code.package,
-                          is_active: code.is_active,
-                        });
-                      });
-
-                      try {
-                        // Save supplier codes to database immediately
-                        if (isEditMode && selectedIngredient) {
-                          console.log(
-                            "Updating ingredient ID:",
-                            selectedIngredient.id
-                          );
-
-                          console.log("Update payload:", {
-                            supplier_codes: formData.supplier_codes,
-                          });
-
-                          // Update existing ingredient with supplier codes only
-                          await updateIngredient(selectedIngredient.id, {
-                            supplier_codes: formData.supplier_codes,
-                          });
-
-                          console.log(
-                            "=== DEBUG: SUPPLIER CODES SAVE COMPLETE ==="
-                          );
-                        } else {
-                          // For new ingredients, the supplier codes will be saved with the main form
-                          toast({
-                            title: "Info",
-                            description:
-                              "Dodavatelé budou uloženi při vytvoření ingredience",
-                          });
-                          return;
-                        }
-
-                        toast({
-                          title: "Úspěch",
-                          description: "Změny dodavatelů byly uloženy",
-                        });
-                      } catch (error) {
-                        console.error(
-                          "=== DEBUG: SUPPLIER CODES SAVE FAILED ===",
-                          error
-                        );
-                        toast({
-                          title: "Chyba",
-                          description: "Nepodařilo se uložit dodavatele",
-                          variant: "destructive",
-                        });
-                      }
-                    }}
-                    className="flex-1"
-                    disabled={formData.supplier_codes.length === 0}
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    Uložit změny
-                  </Button>
-                </div>
-
                 {formData.supplier_codes.length === 0 &&
                   formData.supplier_id && (
                     <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
@@ -2026,7 +2004,12 @@ export function IngredientForm() {
             </div>
           )}
 
-          {/* Form Actions */}
+          {/* Spacer for floating buttons */}
+          <div className="h-20"></div>
+        </form>
+
+        {/* Floating Form Actions */}
+        <div className="sticky bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-10">
           <div className="flex justify-end gap-3">
             <Button
               type="button"
@@ -2039,6 +2022,7 @@ export function IngredientForm() {
             </Button>
             <Button
               type="submit"
+              form="ingredient-form"
               disabled={isLoading}
               className="bg-orange-600 hover:bg-orange-700"
             >
@@ -2050,7 +2034,7 @@ export function IngredientForm() {
                   : "Vytvořit"}
             </Button>
           </div>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

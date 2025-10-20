@@ -102,6 +102,21 @@ function IngredientPickerModal({
       .includes(removeDiacritics(search).toLowerCase())
   );
 
+  // Debug: Check for duplicate ingredient IDs in filtered list
+  if (open && filtered.length > 0) {
+    const filteredIds = filtered.map((ing) => ing.id);
+    const duplicateFilteredIds = filteredIds.filter(
+      (id, index) => filteredIds.indexOf(id) !== index
+    );
+    if (duplicateFilteredIds.length > 0) {
+      console.warn(
+        "⚠️ Duplicate ingredient IDs in picker:",
+        duplicateFilteredIds
+      );
+      console.log("Filtered ingredients:", filtered);
+    }
+  }
+
   useEffect(() => {
     if (open) {
       setSearch("");
@@ -193,7 +208,36 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
   const createRecipeMutation = useCreateRecipe();
   const updateRecipeMutation = useUpdateRecipe();
   const categories = data?.categories || [];
-  const ingredients = ingredientsData?.ingredients || [];
+  const rawIngredients = ingredientsData?.ingredients || [];
+
+  // Debug: Check for duplicate ingredient IDs and deduplicate
+  const ingredients = React.useMemo(() => {
+    const ids = rawIngredients.map((ing) => ing.id);
+    const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
+
+    if (duplicateIds.length > 0) {
+      console.warn(
+        "⚠️ Found duplicate ingredient IDs in ingredients list:",
+        duplicateIds
+      );
+      console.log("Raw ingredients count:", rawIngredients.length);
+
+      // Deduplicate by ID (keep first occurrence)
+      const seen = new Set<number>();
+      const deduplicated = rawIngredients.filter((ing) => {
+        if (seen.has(ing.id)) {
+          return false;
+        }
+        seen.add(ing.id);
+        return true;
+      });
+
+      console.log("Deduplicated ingredients count:", deduplicated.length);
+      return deduplicated;
+    }
+
+    return rawIngredients;
+  }, [rawIngredients]);
   const { toast } = useToast();
   const { user } = useAuthStore();
   const isAdmin = user?.role === "admin";
@@ -412,14 +456,35 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
     setLoadingIngredients(true);
     try {
       const dbIngredients = await fetchRecipeIngredients(recipeId);
+
+      // Debug: Check for duplicate IDs
+      console.log("=== DEBUG: Loading recipe ingredients ===");
+      console.log("Recipe ID:", recipeId);
+      console.log("DB Ingredients:", dbIngredients);
+
+      const ids = dbIngredients.map((ing) => ing.id);
+      const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
+      if (duplicateIds.length > 0) {
+        console.warn("⚠️ Found duplicate ingredient IDs:", duplicateIds);
+      }
+
       const formIngredients: RecipeFormIngredient[] = dbIngredients.map(
         (ing, index) => ({
-          id: `${ing.id}-${index}`,
+          id: `db-${ing.id}-${index}`,
           ingredient_id: ing.ingredient_id,
           quantity: ing.quantity,
           dbId: ing.id,
         })
       );
+
+      console.log(
+        "Form Ingredients with keys:",
+        formIngredients.map((fi) => ({
+          key: fi.id,
+          ingredient_id: fi.ingredient_id,
+        }))
+      );
+
       setRecipeIngredients(formIngredients);
     } catch (error) {
       console.error("Failed to load recipe ingredients:", error);
@@ -518,7 +583,7 @@ export function RecipeForm({ open, onClose, initialRecipe }: RecipeFormProps) {
     setRecipeIngredients((prev) => [
       ...prev,
       {
-        id: Date.now().toString(),
+        id: `new-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         ingredient_id: ingredientId,
         quantity,
       },
