@@ -85,6 +85,10 @@ export function CratesOverviewDialog({
   // Load existing crates data when dialog opens or date changes
   useEffect(() => {
     if (isOpen && currentDate) {
+      console.log("=== LOADING EXISTING CRATES DATA ===");
+      console.log("Current date:", currentDate);
+      console.log("Existing crates from DB:", existingCrates);
+
       const cratesMap: Record<
         string,
         { crateSmall: number; crateBig: number }
@@ -105,13 +109,65 @@ export function CratesOverviewDialog({
       });
 
       // Then, load manually returned crates from database
+      const loadedManualDrivers: Array<{
+        id: string;
+        name: string;
+        driver_id: string;
+      }> = [];
+
       if (existingCrates) {
+        console.log("Loading existing crates, count:", existingCrates.length);
         existingCrates.forEach((crate) => {
-          // Find driver name from orders
-          const driver = orders?.find(
+          console.log("Processing crate:", crate);
+
+          // First, try to find driver name from orders
+          let driver = orders?.find(
             (order) => order.driver?.id === crate.driver_id
           )?.driver;
+
+          let isManualDriver = false;
+
+          // If not found in orders, try to find in driverUsers (for manual drivers)
+          if (!driver && driverUsers) {
+            const driverUser = driverUsers.find(
+              (u) => u.id === crate.driver_id
+            );
+            if (driverUser) {
+              driver = driverUser;
+              isManualDriver = true;
+              console.log(
+                "Found manual driver from driverUsers:",
+                driverUser.full_name
+              );
+
+              // Add to manual drivers list if not already there
+              if (
+                !loadedManualDrivers.some(
+                  (d) => d.driver_id === crate.driver_id
+                )
+              ) {
+                loadedManualDrivers.push({
+                  id: `manual-loaded-${crate.driver_id}`,
+                  name: driverUser.full_name,
+                  driver_id: crate.driver_id,
+                });
+                console.log(
+                  "Added to loadedManualDrivers:",
+                  driverUser.full_name
+                );
+              }
+            }
+          }
+
           if (driver) {
+            console.log(`Loading crates for driver: ${driver.full_name}`, {
+              received_small: crate.crate_small_received,
+              received_big: crate.crate_big_received,
+              issued_small: crate.crate_small_issued,
+              issued_big: crate.crate_big_issued,
+              isManualDriver,
+            });
+
             // For manually returned crates, we use the values directly from the database
             // These are the manually entered values, separate from order returns
             cratesMap[driver.full_name] = {
@@ -124,29 +180,73 @@ export function CratesOverviewDialog({
               crateSmall: crate.crate_small_issued || 0,
               crateBig: crate.crate_big_issued || 0,
             };
+          } else {
+            console.warn(
+              "⚠️ Could not find driver for crate:",
+              crate.driver_id
+            );
           }
         });
       }
 
+      // Restore manual drivers from database
+      if (loadedManualDrivers.length > 0) {
+        console.log("Restoring manual drivers:", loadedManualDrivers);
+        setManualDrivers(loadedManualDrivers);
+      }
+
+      console.log("Initialized driverReceivedCrates:", cratesMap);
+      console.log("Initialized driverManualCrates:", manualCratesMap);
       setDriverReceivedCrates(cratesMap);
       setDriverManualCrates(manualCratesMap);
+      console.log("=== END LOADING EXISTING CRATES DATA ===");
     }
   }, [isOpen, existingCrates, currentDate, orders]);
 
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log("=== STATE UPDATE: manualDrivers ===");
+    console.log("manualDrivers:", manualDrivers);
+  }, [manualDrivers]);
+
+  useEffect(() => {
+    console.log("=== STATE UPDATE: driverManualCrates ===");
+    console.log("driverManualCrates:", driverManualCrates);
+  }, [driverManualCrates]);
+
+  useEffect(() => {
+    console.log("=== STATE UPDATE: driverReceivedCrates ===");
+    console.log("driverReceivedCrates:", driverReceivedCrates);
+  }, [driverReceivedCrates]);
+
   // Add new manual driver
   const handleAddDriver = () => {
-    if (!selectedDriverId) return;
+    console.log("=== ADD MANUAL DRIVER ===");
+    console.log("Selected driver ID:", selectedDriverId);
+
+    if (!selectedDriverId) {
+      console.log("❌ No driver selected");
+      return;
+    }
 
     const selectedDriver = driverUsers?.find(
       (driver) => driver.id === selectedDriverId
     );
-    if (!selectedDriver) return;
+    console.log("Found driver:", selectedDriver);
+
+    if (!selectedDriver) {
+      console.log("❌ Driver not found in driverUsers");
+      return;
+    }
 
     // Check if driver is already added
     const isAlreadyAdded = manualDrivers.some(
       (driver) => driver.driver_id === selectedDriverId
     );
-    if (isAlreadyAdded) return;
+    if (isAlreadyAdded) {
+      console.log("❌ Driver already added");
+      return;
+    }
 
     const newDriver = {
       id: `manual-${Date.now()}`,
@@ -154,9 +254,42 @@ export function CratesOverviewDialog({
       driver_id: selectedDriver.id,
     };
 
-    setManualDrivers((prev) => [...prev, newDriver]);
+    console.log("Adding new manual driver:", newDriver);
+    setManualDrivers((prev) => {
+      const updated = [...prev, newDriver];
+      console.log("Updated manualDrivers array:", updated);
+      return updated;
+    });
+
+    // Initialize crate data for this driver
+    setDriverManualCrates((prev) => {
+      const updated = {
+        ...prev,
+        [newDriver.name]: {
+          crateSmall: 0,
+          crateBig: 0,
+        },
+      };
+      console.log("Initialized driverManualCrates for new driver:", updated);
+      return updated;
+    });
+
+    setDriverReceivedCrates((prev) => {
+      const updated = {
+        ...prev,
+        [newDriver.name]: {
+          crateSmall: 0,
+          crateBig: 0,
+        },
+      };
+      console.log("Initialized driverReceivedCrates for new driver:", updated);
+      return updated;
+    });
+
     setSelectedDriverId("");
     setIsAddingDriver(false);
+    console.log("✅ Manual driver added successfully");
+    console.log("=== END ADD MANUAL DRIVER ===");
   };
 
   // Remove manual driver
@@ -180,7 +313,16 @@ export function CratesOverviewDialog({
 
   // Save crates data
   const handleSaveCrates = async () => {
-    if (!orders || orders.length === 0) return;
+    console.log("=== SAVE CRATES DEBUG ===");
+    console.log("Orders count:", orders?.length || 0);
+    console.log("Manual drivers count:", manualDrivers.length);
+    console.log("Current date:", currentDate);
+
+    // Allow saving if there are manual drivers even if no orders
+    if ((!orders || orders.length === 0) && manualDrivers.length === 0) {
+      console.log("❌ No orders and no manual drivers - nothing to save");
+      return;
+    }
 
     setIsSavingCrates(true);
     try {
@@ -188,6 +330,7 @@ export function CratesOverviewDialog({
 
       // Get driver stats from orders
       const driverStats = calculateCrateStatsFromOrders(orders || []);
+      console.log("Driver stats from orders:", driverStats.length);
 
       // Create crate records for each driver from orders
       driverStats.forEach((driver) => {
@@ -196,6 +339,17 @@ export function CratesOverviewDialog({
 
         // Use the current date directly
         const dateToSave = currentDate || format(new Date(), "yyyy-MM-dd");
+
+        console.log(`Order driver: ${driver.driver_name}`, {
+          driver_id: driver.driver_id,
+          crate_small_issued:
+            driver.crate_small_issued + (manualInsertedData?.crateSmall || 0),
+          crate_big_issued:
+            driver.crate_big_issued + (manualInsertedData?.crateBig || 0),
+          crate_small_received:
+            manualData?.crateSmall || driver.crate_small_received,
+          crate_big_received: manualData?.crateBig || driver.crate_big_received,
+        });
 
         cratesToSave.push({
           date: dateToSave,
@@ -211,12 +365,21 @@ export function CratesOverviewDialog({
       });
 
       // Create crate records for manual drivers
+      console.log("Processing manual drivers:", manualDrivers.length);
       manualDrivers.forEach((driver) => {
         const manualData = driverReceivedCrates[driver.name];
         const manualInsertedData = driverManualCrates[driver.name];
 
         // Use the current date directly
         const dateToSave = currentDate || format(new Date(), "yyyy-MM-dd");
+
+        console.log(`Manual driver: ${driver.name}`, {
+          driver_id: driver.driver_id,
+          crate_small_issued: manualInsertedData?.crateSmall || 0,
+          crate_big_issued: manualInsertedData?.crateBig || 0,
+          crate_small_received: manualData?.crateSmall || 0,
+          crate_big_received: manualData?.crateBig || 0,
+        });
 
         cratesToSave.push({
           date: dateToSave,
@@ -228,7 +391,30 @@ export function CratesOverviewDialog({
         });
       });
 
+      console.log("Total crates to save:", cratesToSave.length);
+      console.log("Crates data:", cratesToSave);
+
+      console.log("=== FINAL STATE BEFORE SAVE ===");
+      console.log("manualDrivers:", manualDrivers);
+      console.log("driverManualCrates (Ostatní vydané):", driverManualCrates);
+      console.log(
+        "driverReceivedCrates (Vrácené ručně):",
+        driverReceivedCrates
+      );
+      console.log("=== END FINAL STATE ===");
+
+      if (cratesToSave.length === 0) {
+        console.log("⚠️ No crates to save!");
+        toast({
+          title: "Upozornění",
+          description: "Nejsou žádná data k uložení",
+          variant: "destructive",
+        });
+        return;
+      }
+
       await upsertCrates.mutateAsync(cratesToSave);
+      console.log("✅ Crates saved successfully");
 
       // Show success message
       toast({
@@ -394,12 +580,38 @@ export function CratesOverviewDialog({
         </DialogHeader>
         <div className="mt-4 flex-1 overflow-hidden flex flex-col">
           <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               <div className="text-sm text-muted-foreground">
                 {currentDate
                   ? `Datum: ${formatDateForDisplay(currentDate)}`
                   : "Vyberte datum pro uložení dat"}
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  console.log("=== DEBUG STATE DUMP ===");
+                  console.log("Manual drivers:", manualDrivers);
+                  console.log(
+                    "Driver manual crates (Ostatní vydané):",
+                    driverManualCrates
+                  );
+                  console.log(
+                    "Driver received crates (Vrácené ručně):",
+                    driverReceivedCrates
+                  );
+                  console.log("Orders:", orders?.length || 0);
+                  console.log("Current date:", currentDate);
+                  console.log("=== END DEBUG STATE DUMP ===");
+                  toast({
+                    title: "Debug Info",
+                    description: "Check console for state information",
+                  });
+                }}
+                className="text-blue-600 border-blue-600 hover:bg-blue-50"
+              >
+                🐛 Debug State
+              </Button>
               {!isAddingDriver ? (
                 <Button
                   variant="outline"
@@ -783,7 +995,11 @@ export function CratesOverviewDialog({
               </Button>
               <Button
                 onClick={handleSaveCrates}
-                disabled={!orders || orders.length === 0 || isSavingCrates}
+                disabled={
+                  ((!orders || orders.length === 0) &&
+                    manualDrivers.length === 0) ||
+                  isSavingCrates
+                }
                 className="bg-orange-600 hover:bg-orange-700"
               >
                 {isSavingCrates ? "Ukládám..." : "Uložit data"}
@@ -1196,14 +1412,25 @@ export function CratesOverviewDialog({
                           onFocus={(e) => e.target.select()}
                           onChange={(e) => {
                             const value = parseInt(e.target.value) || 0;
-                            setDriverManualCrates((prev) => ({
-                              ...prev,
-                              [driver.name]: {
-                                ...prev[driver.name],
-                                crateSmall: value,
-                                crateBig: prev[driver.name]?.crateBig || 0,
-                              },
-                            }));
+                            console.log(
+                              `Manual driver ${driver.name} - Ostatní vydané M:`,
+                              value
+                            );
+                            setDriverManualCrates((prev) => {
+                              const newState = {
+                                ...prev,
+                                [driver.name]: {
+                                  ...prev[driver.name],
+                                  crateSmall: value,
+                                  crateBig: prev[driver.name]?.crateBig || 0,
+                                },
+                              };
+                              console.log(
+                                "Updated driverManualCrates:",
+                                newState
+                              );
+                              return newState;
+                            });
                           }}
                         />
                         <Input
@@ -1214,14 +1441,26 @@ export function CratesOverviewDialog({
                           onFocus={(e) => e.target.select()}
                           onChange={(e) => {
                             const value = parseInt(e.target.value) || 0;
-                            setDriverManualCrates((prev) => ({
-                              ...prev,
-                              [driver.name]: {
-                                ...prev[driver.name],
-                                crateSmall: prev[driver.name]?.crateSmall || 0,
-                                crateBig: value,
-                              },
-                            }));
+                            console.log(
+                              `Manual driver ${driver.name} - Ostatní vydané V:`,
+                              value
+                            );
+                            setDriverManualCrates((prev) => {
+                              const newState = {
+                                ...prev,
+                                [driver.name]: {
+                                  ...prev[driver.name],
+                                  crateSmall:
+                                    prev[driver.name]?.crateSmall || 0,
+                                  crateBig: value,
+                                },
+                              };
+                              console.log(
+                                "Updated driverManualCrates:",
+                                newState
+                              );
+                              return newState;
+                            });
                           }}
                         />
                       </div>
