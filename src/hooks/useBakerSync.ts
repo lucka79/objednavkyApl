@@ -15,6 +15,81 @@ interface DateRangeSyncResult {
   bakers_updated: number;
 }
 
+/**
+ * Calculate COST PER UNIT for multiple baker items in batch (recipes and ingredients only)
+ * Note: Product parts (pastry_id) are excluded from cost calculation
+ */
+const calculateBakerItemCostsBatch = async (
+  items: Array<{ product_id: number; recipe_quantity: number }>
+): Promise<Map<number, number>> => {
+  console.log(`💰 Calculating costs for ${items.length} baker items in batch`);
+  
+  const costMap = new Map<number, number>();
+  const uniqueProductIds = [...new Set(items.map(item => item.product_id))];
+  
+  try {
+    // Fetch recipe and ingredient parts only for all products at once (exclude product parts)
+    const { data: productParts, error: partsError } = await supabase
+      .from("product_parts")
+      .select(`
+        id,
+        product_id,
+        recipe_id,
+        ingredient_id,
+        quantity,
+        productOnly,
+        recipes (id, pricePerKilo),
+        ingredients (id, price)
+      `)
+      .in("product_id", uniqueProductIds)
+      .or("recipe_id.not.is.null,ingredient_id.not.is.null");
+
+    if (partsError) {
+      console.error("❌ Error fetching product parts in batch:", partsError);
+      return costMap;
+    }
+
+    // Group parts by product_id
+    const partsByProduct = new Map<number, any[]>();
+    productParts?.forEach(part => {
+      if (!partsByProduct.has(part.product_id)) {
+        partsByProduct.set(part.product_id, []);
+      }
+      partsByProduct.get(part.product_id)?.push(part);
+    });
+
+    // Calculate cost for each item (only recipes and ingredients)
+    for (const item of items) {
+      const parts = partsByProduct.get(item.product_id) || [];
+      let totalCostPerUnit = 0;
+
+      for (const part of parts) {
+        const partQuantity = part.quantity || 0;
+
+        // Skip productOnly parts
+        if (part.productOnly) continue;
+
+        if (part.recipe_id && part.recipes) {
+          const pricePerKilo = (part.recipes as any).pricePerKilo || 0;
+          totalCostPerUnit += partQuantity * pricePerKilo;
+        } else if (part.ingredient_id && part.ingredients) {
+          const ingredientPrice = (part.ingredients as any).price || 0;
+          totalCostPerUnit += partQuantity * ingredientPrice;
+        }
+      }
+
+      // Store cost per unit (not total cost)
+      costMap.set(item.product_id, Math.round(totalCostPerUnit * 100) / 100);
+    }
+
+    console.log(`✅ Calculated costs for ${costMap.size} unique products`);
+    return costMap;
+  } catch (error) {
+    console.error("❌ Error calculating costs in batch:", error);
+    return costMap;
+  }
+};
+
 export const useSyncBakersForDate = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -175,11 +250,10 @@ export const useManualBakerSync = () => {
         order.order_items.map((item: any) => item.product_id)
       );
       
-      // Get all unique users for the results
-      const usersWithOrders = new Set(orders.map(order => order.user_id));
+      // Results array
       const results: SyncResult[] = [];
 
-      // Batch fetch all product_parts data for all products (including cost calculation data)
+      // Batch fetch all product_parts data for all products
       console.log(`\n🔍 Querying product_parts for ${allProductIds.length} unique product IDs`);
       
       const { data: allProductParts, error: productPartsError } = await supabase
@@ -187,21 +261,7 @@ export const useManualBakerSync = () => {
         .select(`
           product_id,
           recipe_id,
-          pastry_id,
-          quantity,
-          productOnly,
-          bakerOnly,
-          recipes (
-            id,
-            quantity,
-            price,
-            recipe_ingredients (
-              ingredient_id,
-              quantity,
-              ingredients (id, price, kiloPerUnit, unit)
-            )
-          ),
-          ingredients (id, price, kiloPerUnit, unit)
+          quantity
         `)
         .in('product_id', allProductIds);
       
@@ -211,80 +271,18 @@ export const useManualBakerSync = () => {
         console.warn('Error fetching product_parts:', productPartsError);
       }
 
-      // Note: Nested recipes (recipes that use other recipes as ingredients) are handled
-      // at the ingredient consumption level, not production grouping level.
-      // Each recipe remains its own production group for bakers.
-
-      // Create lookup map for product_parts and calculate costs
+      // Create lookup map for product_parts
       const productPartsMap = new Map();
-      const productCostMap = new Map<number, number>();
       
       if (allProductParts) {
-        
-        // Calculate cost for each product
-        const costsByProduct = new Map<number, number>();
-        
         for (const part of allProductParts as any[]) {
-          const productId = part.product_id;
-          let partCost = 0;
-          
-          // Skip productOnly parts (excluded from cost calculation)
-          if (!part.productOnly) {
-            // Calculate cost for direct ingredients
-            if (part.ingredient_id && part.ingredients) {
-              const ingredient = part.ingredients;
-              const quantityInKg = part.quantity * (ingredient.kiloPerUnit || 1);
-              partCost = quantityInKg * (ingredient.price || 0);
-            }
-            
-            // Calculate cost for recipe-based ingredients
-            if (part.recipe_id && part.recipes && part.recipes.recipe_ingredients) {
-              const recipe = part.recipes;
-              
-              // Calculate total weight and price from recipe ingredients
-              let totalRecipeWeight = 0;
-              let totalRecipePrice = 0;
-              
-              recipe.recipe_ingredients.forEach((recipeIng: any) => {
-                if (recipeIng.ingredients && recipeIng.quantity > 0) {
-                  const ingredient = recipeIng.ingredients;
-                  const weightInKg = recipeIng.quantity * (ingredient.kiloPerUnit || 1);
-                  totalRecipeWeight += weightInKg;
-                  
-                  if (ingredient.price) {
-                    totalRecipePrice += weightInKg * ingredient.price;
-                  }
-                }
-              });
-              
-              // Calculate price per kg and multiply by part quantity
-              if (totalRecipeWeight > 0) {
-                const recipePricePerKg = totalRecipePrice / totalRecipeWeight;
-                partCost = recipePricePerKg * part.quantity;
-              } else if (recipe.price) {
-                // Fallback to stored recipe price
-                partCost = recipe.price * part.quantity;
-              }
-            }
-          }
-          
-          // Add to product total cost
-          const existingCost = costsByProduct.get(productId) || 0;
-          costsByProduct.set(productId, existingCost + partCost);
-          
-          // Store in productPartsMap for recipe mapping
-          // Use direct recipe_id for production grouping (don't resolve nested recipes)
+          // Use direct recipe_id for production grouping
           if (part.recipe_id !== null && part.recipe_id !== undefined) {
             productPartsMap.set(part.product_id, {
-              recipe_id: part.recipe_id, // Use direct recipe, not nested
+              recipe_id: part.recipe_id,
               quantity: parseFloat(part.quantity)
             });
           }
-        }
-        
-        // Store costs in productCostMap
-        for (const [productId, cost] of costsByProduct.entries()) {
-          productCostMap.set(productId, cost);
         }
       }
 
@@ -357,10 +355,10 @@ export const useManualBakerSync = () => {
           continue;
         }
 
-        // Check if baker already exists for this recipe and date (regardless of user)
+        // Check if baker already exists for this recipe and date
         const { data: existingBaker, error: bakerCheckError } = await supabase
           .from('bakers')
-          .select('id, user_id')
+          .select('id')
           .eq('date', dateStr)
           .eq('recipe_id', recipeId)
           .maybeSingle();
@@ -374,13 +372,11 @@ export const useManualBakerSync = () => {
         let bakerId: number;
 
         if (existingBaker) {
-          // Update existing baker (change user_id to first user if different)
+          // Update existing baker
           bakerId = existingBaker.id;
-          const firstUserId = Array.from(usersWithOrders)[0]; // Use first user
           await supabase
             .from('bakers')
             .update({
-              user_id: firstUserId, // Update to first user
               notes: `Manuálně synchronizováno pro recept: ${recipeData.recipe_name}`,
               updated_at: new Date().toISOString()
             })
@@ -389,12 +385,10 @@ export const useManualBakerSync = () => {
           // Don't delete baker_items - we'll upsert them instead
         } else {
           // Create new baker
-          const firstUserId = Array.from(usersWithOrders)[0]; // Use first user
           const { data: newBaker, error: createError } = await supabase
             .from('bakers')
             .insert({
               date: dateStr,
-              user_id: firstUserId,
               recipe_id: recipeId,
               notes: `Manuálně vytvořené pro recept: ${recipeData.recipe_name}`
             })
@@ -410,8 +404,8 @@ export const useManualBakerSync = () => {
         bakerMap.set(recipeId, bakerId);
       }
 
-      // Now create baker_items for all recipes
-      const allBakerItems = [];
+      // Prepare all baker items for cost calculation
+      const allBakerItemsForCostCalc: Array<{ product_id: number; recipe_quantity: number }> = [];
       
       for (const [recipeId, recipeData] of recipeMap) {
         if (recipeId === 'no-recipe') continue;
@@ -419,48 +413,45 @@ export const useManualBakerSync = () => {
         const bakerId = bakerMap.get(recipeId);
         if (!bakerId) continue;
 
-        // Sum all products for this recipe before inserting
-        let totalIngredientNeeded = 0;
-        const productDetails = [];
-        
         for (const product of recipeData.products.values()) {
           if (product.quantity > 0) {
-            // Get the product_parts quantity from our pre-fetched data
             const productPart = productPartsMap.get(product.product_id);
-            const partQuantity = productPart?.quantity || 1; // Default to 1 if no product_parts data
+            const partQuantity = productPart?.quantity || 1;
             const ingredientForThisProduct = product.quantity * partQuantity;
+            const roundedRecipeQuantity = Math.round(ingredientForThisProduct * 100) / 100;
             
-            totalIngredientNeeded += ingredientForThisProduct;
-            productDetails.push({
+            allBakerItemsForCostCalc.push({
               product_id: product.product_id,
-              product_name: product.product_name,
-              ordered_quantity: product.quantity,
-              part_quantity: partQuantity,
-              ingredient_needed: ingredientForThisProduct
+              recipe_quantity: roundedRecipeQuantity
             });
           }
         }
+      }
+      
+      // Calculate costs for all products in batch
+      const costMap = await calculateBakerItemCostsBatch(allBakerItemsForCostCalc);
+      
+      // Now create baker_items for all recipes with costs
+      const allBakerItems = [];
+      
+      for (const [recipeId, recipeData] of recipeMap) {
+        if (recipeId === 'no-recipe') continue;
+
+        const bakerId = bakerMap.get(recipeId);
+        if (!bakerId) continue;
         
-        // Create baker_items for each product in this recipe
         for (const product of recipeData.products.values()) {
           if (product.quantity > 0) {
-            // Get the product_parts quantity from our pre-fetched data
             const productPart = productPartsMap.get(product.product_id);
-            const partQuantity = productPart?.quantity || 1; // Default to 1 if no product_parts data
+            const partQuantity = productPart?.quantity || 1;
             const ingredientForThisProduct = product.quantity * partQuantity;
-            
-            // Round to 2 decimal places to avoid floating point precision issues
             const roundedRecipeQuantity = Math.round(ingredientForThisProduct * 100) / 100;
-            
-            // Planned quantity: ceil of ingredient needed, minimum 1 (since we have orders)
             const ceiledQuantity = Math.max(1, Math.ceil(ingredientForThisProduct));
-            
-            // Get the cost for this product
-            const productCost = productCostMap.get(product.product_id) || 0;
+            const productCost = costMap.get(product.product_id) || 0;
             
             allBakerItems.push({
               production_id: bakerId,
-              product_id: product.product_id, // Use actual product ID
+              product_id: product.product_id,
               planned_quantity: ceiledQuantity,
               recipe_quantity: roundedRecipeQuantity,
               cost: productCost
@@ -469,106 +460,74 @@ export const useManualBakerSync = () => {
         }
       }
 
-      // Batch: Update or insert baker_items (preserving existing records)
-      let totalUpdated = 0;
+      // Batch: Update or insert baker_items (preserving actual_quantity if manually set)
       let totalInserted = 0;
-      let totalDeleted = 0;
+      let preservedCount = 0;
       
       if (allBakerItems.length > 0) {
-        // Group items by baker for efficient processing
-        const bakerIds = Array.from(bakerMap.values());
+        console.log("Upserting baker items with costs:", allBakerItems.length);
         
-        for (const bakerId of bakerIds) {
-          const itemsForThisBaker = allBakerItems.filter(item => item.production_id === bakerId);
-          
-          if (itemsForThisBaker.length === 0) continue;
-          
-          // Fetch existing baker_items for this baker
-          const { data: existingItems, error: fetchError } = await supabase
-            .from('baker_items')
-            .select('id, product_id, planned_quantity, recipe_quantity, cost')
-            .eq('production_id', bakerId);
-          
-          if (fetchError) throw fetchError;
-          
-          const existingMap = new Map(
-            (existingItems || []).map(item => [item.product_id, item])
-          );
-          
-          const itemsToInsert = [];
-          const itemsToUpdate = [];
-          
-          // Categorize items as update or insert
-          for (const newItem of itemsForThisBaker) {
-            const existing = existingMap.get(newItem.product_id);
-            
-            if (existing) {
-              // Update existing item
-              itemsToUpdate.push({
-                id: existing.id,
-                planned_quantity: newItem.planned_quantity,
-                recipe_quantity: newItem.recipe_quantity,
-                cost: newItem.cost
-              });
-            } else {
-              // Insert new item
-              itemsToInsert.push(newItem);
-            }
-          }
-          
-          // Perform batch updates - update each item individually
-          if (itemsToUpdate.length > 0) {
-            for (const item of itemsToUpdate) {
-              const { error: updateError } = await supabase
-                .from('baker_items')
-                .update({
-                  planned_quantity: item.planned_quantity,
-                  recipe_quantity: item.recipe_quantity,
-                  cost: item.cost,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', item.id);
-              
-              if (updateError) {
-                console.error(`❌ ERROR updating item:`, updateError);
-                throw updateError;
-              }
-            }
-            
-            totalUpdated += itemsToUpdate.length;
-          }
-          
-          // Perform batch inserts
-          if (itemsToInsert.length > 0) {
-            const { error: insertError } = await supabase
-              .from('baker_items')
-              .insert(itemsToInsert);
-            
-            if (insertError) throw insertError;
-            totalInserted += itemsToInsert.length;
-          }
-          
-          // Cleanup: Remove baker_items for products no longer in current orders
-          const currentProductIds = itemsForThisBaker.map(item => item.product_id);
-          
-          if (currentProductIds.length > 0 && existingItems && existingItems.length > 0) {
-            const itemsToDelete = existingItems
-              .filter(item => !currentProductIds.includes(item.product_id))
-              .map(item => item.id);
-            
-            if (itemsToDelete.length > 0) {
-              await supabase
-                .from('baker_items')
-                .delete()
-                .in('id', itemsToDelete);
-              totalDeleted += itemsToDelete.length;
-            }
-          }
+        // Fetch existing baker items to preserve actual_quantity
+        const bakerIds = Array.from(bakerMap.values());
+        const { data: existingItems } = await supabase
+          .from("baker_items")
+          .select("id, production_id, product_id, planned_quantity, actual_quantity")
+          .in("production_id", bakerIds);
+
+        // Create map of existing items by production_id and product_id
+        const existingItemsMap = new Map<string, any>();
+        if (existingItems) {
+          existingItems.forEach(item => {
+            const key = `${item.production_id}_${item.product_id}`;
+            existingItemsMap.set(key, item);
+          });
         }
+
+        // Update allBakerItems to preserve actual_quantity if it was manually set differently
+        const itemsToUpsert = allBakerItems.map(item => {
+          const key = `${item.production_id}_${item.product_id}`;
+          const existingItem = existingItemsMap.get(key);
+          
+          // If actual_quantity was manually set (differs from old planned_quantity), preserve it
+          if (existingItem && 
+              existingItem.actual_quantity !== null && 
+              existingItem.actual_quantity !== existingItem.planned_quantity) {
+            preservedCount++;
+            console.log(`Preserving actual_quantity for product ${item.product_id}: ${existingItem.actual_quantity} (old planned: ${existingItem.planned_quantity}, new planned: ${item.planned_quantity})`);
+            return {
+              ...item,
+              actual_quantity: existingItem.actual_quantity,
+            };
+          }
+          
+          return item;
+        });
+        
+        console.log(`Preserved actual_quantity for ${preservedCount} items`);
+
+        // Delete existing items for these productions
+        await supabase
+          .from("baker_items")
+          .delete()
+          .in("production_id", bakerIds);
+
+        // Insert updated items with preserved actual_quantity
+        const { data: insertedItems, error: itemsError } = await supabase
+          .from("baker_items")
+          .insert(itemsToUpsert)
+          .select();
+
+        if (itemsError) {
+          console.error("Error upserting baker items:", itemsError);
+          throw itemsError;
+        }
+
+        totalInserted = insertedItems?.length || 0;
+        console.log(`Upserted ${totalInserted} baker items (${preservedCount} with preserved actual_quantity)`);
       }
 
       // Log summary
-      console.log(`\n✅ SYNC COMPLETE: ${totalUpdated} updated, ${totalInserted} inserted, ${totalDeleted} deleted\n`);
+      console.log(`\n✅ SYNC COMPLETE: ${totalInserted} items upserted (${preservedCount} with preserved actual_quantity)\n`);
 
       // Create results summary
       for (const [recipeId, recipeData] of recipeMap) {
@@ -608,6 +567,237 @@ export const useManualBakerSync = () => {
       toast({
         title: "Chyba",
         description: `Nepodařilo se manuálně synchronizovat: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+};
+
+// Sync productions from orders - optimized version matching React Native
+export const useSyncProductionsFromOrders = () => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ date, recipeMap }: { 
+      date: string; 
+      recipeMap: Record<number, any>;
+    }) => {
+      console.log("=== SYNCING PRODUCTIONS FROM ORDERS (OPTIMIZED) ===");
+      console.log("Date:", date);
+      console.log("Number of recipes to process:", Object.keys(recipeMap).length);
+
+      let created = 0;
+      let updated = 0;
+
+      // Get all required recipe IDs
+      const requiredRecipeIds = Object.keys(recipeMap).map(id => parseInt(id));
+
+      // Check existing productions for all recipes at once
+      const { data: existingProductions, error: existingError } = await supabase
+        .from("bakers")
+        .select("id, recipe_id")
+        .eq("date", date)
+        .in("recipe_id", requiredRecipeIds);
+
+      if (existingError) {
+        console.error("Error fetching existing productions:", existingError);
+        throw existingError;
+      }
+
+      // Create a map of existing productions by recipe_id
+      const existingProductionsMap = new Map();
+      existingProductions?.forEach(prod => {
+        existingProductionsMap.set(prod.recipe_id, prod.id);
+      });
+
+      // Prepare productions to create
+      const productionsToCreate: any[] = [];
+      const recipesToUpdate: any[] = [];
+
+      requiredRecipeIds.forEach(recipeId => {
+        const recipe = recipeMap[recipeId];
+        if (!existingProductionsMap.has(recipeId)) {
+          // Need to create new production
+          productionsToCreate.push({
+            recipe_id: recipeId,
+            date: date,
+            status: "in_progress",
+          });
+        } else {
+          // Production exists, mark for update
+          recipesToUpdate.push({
+            recipeId,
+            productionId: existingProductionsMap.get(recipeId),
+            recipe
+          });
+        }
+      });
+
+      // Create new productions in batch
+      if (productionsToCreate.length > 0) {
+        console.log("Creating new productions:", productionsToCreate.length);
+        const { data: newProductions, error: createError } = await supabase
+          .from("bakers")
+          .insert(productionsToCreate)
+          .select("id, recipe_id");
+
+        if (createError) {
+          console.error("Error creating productions:", createError);
+          throw createError;
+        }
+
+        created = newProductions?.length || 0;
+        console.log("Created productions:", created);
+
+        // Add new productions to the map for baker items creation
+        newProductions?.forEach(prod => {
+          existingProductionsMap.set(prod.recipe_id, prod.id);
+        });
+      }
+
+      // Prepare all baker items for batch upsert and collect items for cost calculation
+      const allBakerItemsForCostCalc: Array<{ product_id: number; recipe_quantity: number }> = [];
+      
+      requiredRecipeIds.forEach(recipeId => {
+        const recipe = recipeMap[recipeId];
+        const productionId = existingProductionsMap.get(recipeId);
+        
+        if (productionId && recipe.products) {
+          recipe.products.forEach((product: any) => {
+            // Only include products with positive quantities to avoid constraint violations
+            if (product.totalQuantity > 0) {
+              allBakerItemsForCostCalc.push({
+                product_id: product.id,
+                recipe_quantity: product.receptQuantity || 0
+              });
+            }
+          });
+        }
+      });
+      
+      // Calculate costs for all products in batch
+      const costMap = await calculateBakerItemCostsBatch(allBakerItemsForCostCalc);
+      
+      const allBakerItems: any[] = [];
+      
+      requiredRecipeIds.forEach(recipeId => {
+        const recipe = recipeMap[recipeId];
+        const productionId = existingProductionsMap.get(recipeId);
+        
+        if (productionId && recipe.products) {
+          recipe.products.forEach((product: any) => {
+            // Only include products with positive quantities to avoid constraint violations
+            if (product.totalQuantity > 0) {
+              const recipeQuantity = Math.round((product.receptQuantity || 0) * 100) / 100;
+              const cost = costMap.get(product.id) || 0;
+              
+              allBakerItems.push({
+                production_id: productionId,
+                product_id: product.id,
+                planned_quantity: product.totalQuantity,
+                recipe_quantity: recipeQuantity,
+                cost: cost,
+                is_completed: false,
+              });
+            }
+          });
+        }
+      });
+
+      // Upsert all baker items with costs in batch, preserving actual_quantity
+      let preservedCount = 0;
+      
+      if (allBakerItems.length > 0) {
+        console.log("Upserting baker items with costs:", allBakerItems.length);
+        
+        // First, fetch existing baker items to preserve actual_quantity
+        const productionIds = Array.from(existingProductionsMap.values());
+        const { data: existingItems } = await supabase
+          .from("baker_items")
+          .select("id, production_id, product_id, planned_quantity, actual_quantity")
+          .in("production_id", productionIds);
+
+        // Create map of existing items by production_id and product_id
+        const existingItemsMap = new Map<string, any>();
+        if (existingItems) {
+          existingItems.forEach(item => {
+            const key = `${item.production_id}_${item.product_id}`;
+            existingItemsMap.set(key, item);
+          });
+        }
+
+        // Update allBakerItems to preserve actual_quantity if it was manually set differently
+        const itemsToUpsert = allBakerItems.map(item => {
+          const key = `${item.production_id}_${item.product_id}`;
+          const existingItem = existingItemsMap.get(key);
+          
+          // If actual_quantity was manually set (differs from old planned_quantity), preserve it
+          if (existingItem && 
+              existingItem.actual_quantity !== null && 
+              existingItem.actual_quantity !== existingItem.planned_quantity) {
+            preservedCount++;
+            console.log(`Preserving actual_quantity for product ${item.product_id}: ${existingItem.actual_quantity} (old planned: ${existingItem.planned_quantity}, new planned: ${item.planned_quantity})`);
+            return {
+              ...item,
+              actual_quantity: existingItem.actual_quantity,
+            };
+          }
+          
+          return item;
+        });
+        
+        console.log(`Preserved actual_quantity for ${preservedCount} items`);
+
+        // Delete existing items for these productions
+        await supabase
+          .from("baker_items")
+          .delete()
+          .in("production_id", productionIds);
+
+        // Insert updated items with preserved actual_quantity
+        const { data: insertedItems, error: itemsError } = await supabase
+          .from("baker_items")
+          .insert(itemsToUpsert)
+          .select();
+
+        if (itemsError) {
+          console.error("Error upserting baker items:", itemsError);
+          throw itemsError;
+        }
+
+        updated = insertedItems?.length || 0;
+        console.log(`Upserted ${updated} baker items (${preservedCount} with preserved actual_quantity)`);
+      }
+
+      console.log("Sync completed:", { 
+        created: `${created} new productions`, 
+        updated: `${updated} baker items updated`,
+        preserved: `${preservedCount} actual quantities preserved`
+      });
+      return { created, updated };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["baker-productions"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["baker-production-items"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["dailyProductionPlanner"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["bakers"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["baker_items"],
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Chyba",
+        description: `Nepodařilo se synchronizovat: ${error.message}`,
         variant: "destructive",
       });
     },

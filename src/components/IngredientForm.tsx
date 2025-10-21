@@ -99,7 +99,7 @@ const initialFormData: IngredientFormData = {
   supplier_codes: [],
 };
 
-const COMMON_UNITS = ["kg", "l", "ks"];
+const COMMON_UNITS = ["kg", "l", "ks", "kr"];
 
 export function IngredientForm() {
   const {

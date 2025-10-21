@@ -27,7 +27,6 @@ export const useCreateBakerProduction = () => {
           recipe_id: data.recipe_id,
           status: data.status,
           notes: data.notes,
-          user_id: (await supabase.auth.getUser()).data.user?.id || '',
         })
         .select()
         .single();

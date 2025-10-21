@@ -68,9 +68,11 @@ export function OrderDetailsDialog() {
     crateSmallReceived: 0,
     crateBigReceived: 0,
   });
+  const [isEditingCrates, setIsEditingCrates] = useState(false);
 
   useEffect(() => {
-    if (orders?.[0]) {
+    // Only update local state if user is not actively editing
+    if (orders?.[0] && !isEditingCrates) {
       setLocalCrates({
         crateSmall: orders[0].crateSmall || 0,
         crateBig: orders[0].crateBig || 0,
@@ -78,7 +80,7 @@ export function OrderDetailsDialog() {
         crateBigReceived: orders[0].crateBigReceived || 0,
       });
     }
-  }, [orders]);
+  }, [orders, isEditingCrates]);
 
   const saveNote = (id: number, note: string) => {
     updateOrder({
@@ -581,10 +583,11 @@ export function OrderDetailsDialog() {
                                   className="cursor-pointer text-stone-300 hover:text-green-800"
                                 />
                               )}
-                              <input
+                              <Input
                                 type="number"
                                 min="0"
                                 value={localCrates.crateSmall}
+                                onFocus={() => setIsEditingCrates(true)}
                                 onClick={(e) =>
                                   (e.target as HTMLInputElement).select()
                                 }
@@ -594,12 +597,13 @@ export function OrderDetailsDialog() {
                                     crateSmall: parseInt(e.target.value) || 0,
                                   })
                                 }
-                                onBlur={(e) =>
-                                  updateCrates(
+                                onBlur={async (e) => {
+                                  await updateCrates(
                                     "crateSmall",
                                     parseInt(e.target.value) || 0
-                                  )
-                                }
+                                  );
+                                  setIsEditingCrates(false);
+                                }}
                                 className="w-12 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
                               {!isLocked && (
@@ -632,10 +636,11 @@ export function OrderDetailsDialog() {
                                   className="cursor-pointer text-stone-300 hover:text-green-800"
                                 />
                               )}
-                              <input
+                              <Input
                                 type="number"
                                 min="0"
                                 value={localCrates.crateBig}
+                                onFocus={() => setIsEditingCrates(true)}
                                 onClick={(e) =>
                                   (e.target as HTMLInputElement).select()
                                 }
@@ -645,12 +650,13 @@ export function OrderDetailsDialog() {
                                     crateBig: parseInt(e.target.value) || 0,
                                   })
                                 }
-                                onBlur={(e) =>
-                                  updateCrates(
+                                onBlur={async (e) => {
+                                  await updateCrates(
                                     "crateBig",
                                     parseInt(e.target.value) || 0
-                                  )
-                                }
+                                  );
+                                  setIsEditingCrates(false);
+                                }}
                                 className="w-12 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
                               {!isLocked && (
@@ -688,10 +694,11 @@ export function OrderDetailsDialog() {
                                   className="cursor-pointer text-stone-300 hover:text-green-800"
                                 />
                               )}
-                              <input
+                              <Input
                                 type="number"
                                 min="0"
                                 value={localCrates.crateSmallReceived}
+                                onFocus={() => setIsEditingCrates(true)}
                                 onClick={(e) =>
                                   (e.target as HTMLInputElement).select()
                                 }
@@ -702,12 +709,13 @@ export function OrderDetailsDialog() {
                                       parseInt(e.target.value) || 0,
                                   })
                                 }
-                                onBlur={(e) =>
-                                  updateCrates(
+                                onBlur={async (e) => {
+                                  await updateCrates(
                                     "crateSmallReceived",
                                     parseInt(e.target.value) || 0
-                                  )
-                                }
+                                  );
+                                  setIsEditingCrates(false);
+                                }}
                                 className="w-12 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
                               <SquarePlus
@@ -738,10 +746,11 @@ export function OrderDetailsDialog() {
                                   className="cursor-pointer text-stone-300 hover:text-green-800"
                                 />
                               )}
-                              <input
+                              <Input
                                 type="number"
                                 min="0"
                                 value={localCrates.crateBigReceived}
+                                onFocus={() => setIsEditingCrates(true)}
                                 onClick={(e) =>
                                   (e.target as HTMLInputElement).select()
                                 }
@@ -752,12 +761,13 @@ export function OrderDetailsDialog() {
                                       parseInt(e.target.value) || 0,
                                   })
                                 }
-                                onBlur={(e) =>
-                                  updateCrates(
+                                onBlur={async (e) => {
+                                  await updateCrates(
                                     "crateBigReceived",
                                     parseInt(e.target.value) || 0
-                                  )
-                                }
+                                  );
+                                  setIsEditingCrates(false);
+                                }}
                                 className="w-12 mx-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
                               <SquarePlus

@@ -208,13 +208,16 @@ export function IngredientQuantityOverview() {
         0
       );
 
-      // If selected month is current month, use today as end date
+      // If selected month is current month, use tomorrow as end date to include today's transfers
       const today = new Date();
       const isCurrentMonth =
         selectedMonth.getFullYear() === today.getFullYear() &&
         selectedMonth.getMonth() === today.getMonth();
 
-      const endDate = isCurrentMonth ? today : lastDayOfMonth;
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const endDate = isCurrentMonth ? tomorrow : lastDayOfMonth;
 
       const formatLocalDate = (date: Date) => {
         const year = date.getFullYear();
@@ -320,13 +323,16 @@ export function IngredientQuantityOverview() {
         0
       );
 
-      // If selected month is current month, use today as end date
+      // If selected month is current month, use tomorrow as end date to include today's invoices
       const today = new Date();
       const isCurrentMonth =
         selectedMonth.getFullYear() === today.getFullYear() &&
         selectedMonth.getMonth() === today.getMonth();
 
-      const endDate = isCurrentMonth ? today : lastDayOfMonth;
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const endDate = isCurrentMonth ? tomorrow : lastDayOfMonth;
 
       const formatLocalDate = (date: Date) => {
         const year = date.getFullYear();
@@ -421,13 +427,16 @@ export function IngredientQuantityOverview() {
         0
       );
 
-      // If selected month is current month, use today as end date
+      // If selected month is current month, use tomorrow as end date to include today's production
       const today = new Date();
       const isCurrentMonth =
         selectedMonth.getFullYear() === today.getFullYear() &&
         selectedMonth.getMonth() === today.getMonth();
 
-      const endDate = isCurrentMonth ? today : lastDayOfMonth;
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const endDate = isCurrentMonth ? tomorrow : lastDayOfMonth;
 
       const formatLocalDate = (date: Date) => {
         const year = date.getFullYear();
@@ -595,14 +604,14 @@ export function IngredientQuantityOverview() {
         );
         console.log("=== END RECIPE INGREDIENTS COUNT ===");
 
-        // Calculate consumption
+        // Calculate consumption directly from recipe_quantity
         const consumptionMap = new Map<number, number>();
 
-        // Process bakers
+        // Process bakers - use recipe_quantity as the actual dough weight consumed
         bakers.forEach((baker: any) => {
           baker.baker_items?.forEach((item: any) => {
-            if (item.product_id && item.recipe_quantity && baker.recipe_id) {
-              const recipeQuantity = item.recipe_quantity;
+            if (item.recipe_quantity && baker.recipe_id) {
+              const doughWeightConsumed = item.recipe_quantity; // This is the actual kg of dough made
 
               // Get recipe ingredients for this baker's recipe
               const ingredientsForRecipe = (recipeIngredients || []).filter(
@@ -612,29 +621,33 @@ export function IngredientQuantityOverview() {
               ingredientsForRecipe.forEach((ri: any) => {
                 if (ri.ingredients && ri.recipes) {
                   const ingredient = ri.ingredients;
-                  const baseQty = ri.quantity || 0;
-                  const baseRecipeWeight = ri.recipes.quantity || 1;
-                  const proportion = baseQty / baseRecipeWeight;
-                  let ingredientQuantity = proportion * recipeQuantity;
+                  const ingredientQtyInRecipe = ri.quantity || 0; // kg of this ingredient in base recipe
+                  const baseRecipeWeight = ri.recipes.quantity || 1; // total kg of base recipe
 
+                  // Calculate how much of this ingredient was consumed
+                  // proportion = ingredient qty / total recipe weight
+                  // consumed = proportion * actual dough weight made
+                  const proportion = ingredientQtyInRecipe / baseRecipeWeight;
+                  let ingredientQuantityConsumed =
+                    proportion * doughWeightConsumed;
+
+                  // Convert to kg if ingredient is in different units
                   if (
                     ingredient.unit &&
                     ingredient.unit !== "kg" &&
                     ingredient.kiloPerUnit
                   ) {
-                    ingredientQuantity =
-                      ingredientQuantity * ingredient.kiloPerUnit;
+                    ingredientQuantityConsumed =
+                      ingredientQuantityConsumed * ingredient.kiloPerUnit;
                   }
 
                   const ingredientId = ingredient.id;
-                  if (consumptionMap.has(ingredientId)) {
-                    consumptionMap.set(
-                      ingredientId,
-                      consumptionMap.get(ingredientId)! + ingredientQuantity
-                    );
-                  } else {
-                    consumptionMap.set(ingredientId, ingredientQuantity);
-                  }
+                  const currentConsumption =
+                    consumptionMap.get(ingredientId) || 0;
+                  consumptionMap.set(
+                    ingredientId,
+                    currentConsumption + ingredientQuantityConsumed
+                  );
                 }
               });
             }
@@ -890,15 +903,16 @@ export function IngredientQuantityOverview() {
         0
       );
 
-      // If selected month is current month, use tomorrow as end date
+      // If selected month is current month, use tomorrow as end date to include today's consumption
       const today = new Date();
       const isCurrentMonth =
         selectedMonth.getFullYear() === today.getFullYear() &&
         selectedMonth.getMonth() === today.getMonth();
 
-      const endDate = isCurrentMonth
-        ? new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
-        : lastDayOfMonth;
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const endDate = isCurrentMonth ? tomorrow : lastDayOfMonth;
 
       const formatLocalDate = (date: Date) => {
         const year = date.getFullYear();
@@ -1877,8 +1891,11 @@ export function IngredientQuantityOverview() {
                                       selectedMonth.getMonth() ===
                                         today.getMonth();
                                     if (isCurrentMonth) {
+                                      // Show tomorrow's date to indicate it includes today
+                                      const tomorrow = new Date(today);
+                                      tomorrow.setDate(tomorrow.getDate() + 1);
                                       return String(
-                                        today.getDate() + 1
+                                        tomorrow.getDate()
                                       ).padStart(2, "0");
                                     } else {
                                       const lastDay = new Date(

@@ -1,7 +1,7 @@
 // cartStore.ts
 import { create } from 'zustand';
 import { Product, CartItem } from '../../types';
-import { supabase } from '@/lib/supabase';
+
 
 
 type CartStore = {
@@ -110,18 +110,6 @@ export const useCartStore = create<CartStore>((set, get) => ({
 
       await insertOrderItems(orderItems);
       console.log('Checkout completed successfully');
-
-      // Manually sync baker productions for this date (non-blocking)
-      // This runs in the background to avoid blocking checkout
-      const orderDateStr = adjustedDate.toISOString().split('T')[0];
-      supabase.rpc('manual_sync_baker_productions', { target_date: orderDateStr })
-        .then(({ data, error }) => {
-          if (error) {
-            console.error('Baker sync failed:', error);
-          } else {
-            console.log('Baker productions synced:', data);
-          }
-        });
 
       get().clearCart();
     } catch (error) {
