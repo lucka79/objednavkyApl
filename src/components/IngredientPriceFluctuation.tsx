@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, Calendar } from "lucide-react";
+import { TrendingUp, Calendar, Package } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 
@@ -204,10 +204,26 @@ export function IngredientPriceFluctuation({
         const supplierIngredientName =
           supplierCode?.supplier_ingredient_name || null;
 
+        // Get all other alternative names (from other suppliers)
+        const alternativeNames =
+          item.ingredient.ingredient_supplier_codes
+            ?.filter(
+              (code: any) =>
+                code.supplier_ingredient_name &&
+                code.supplier_ingredient_name !== supplierIngredientName &&
+                code.supplier_ingredient_name !== item.ingredient.name
+            )
+            .map((code: any) => code.supplier_ingredient_name)
+            .filter(
+              (name: string, index: number, arr: string[]) =>
+                arr.indexOf(name) === index
+            ) || [];
+
         ingredientMap.set(item.matched_ingredient_id, {
           id: item.matched_ingredient_id,
           name: item.ingredient.name,
           supplierIngredientName,
+          alternativeNames,
           basePrice: item.ingredient.price,
           supplierId: itemSupplierId,
         });
@@ -294,6 +310,8 @@ export function IngredientPriceFluctuation({
           unitPrice: item.unit_price,
           quantity: item.quantity,
           invoiceDate: new Date(item.invoices_received.invoice_date),
+          supplierName: item.invoices_received.supplier?.full_name || "—",
+          supplierId: item.invoices_received.supplier_id,
         };
       }
 
@@ -316,8 +334,19 @@ export function IngredientPriceFluctuation({
         "Cena z faktury": item.unitPrice,
         "Základní cena": basePrice,
         quantity: item.quantity,
+        supplierName: item.supplierName,
+        supplierId: item.supplierId,
       }));
   }, [priceData, selectedIngredient, ingredients]);
+
+  // Check if there are multiple suppliers
+  const hasMultipleSuppliers = useMemo(() => {
+    if (!chartData || chartData.length === 0) return false;
+    const uniqueSuppliers = new Set(
+      chartData.map((item: any) => item.supplierId)
+    );
+    return uniqueSuppliers.size > 1;
+  }, [chartData]);
 
   // Calculate statistics
   const statistics = useMemo(() => {
@@ -328,10 +357,15 @@ export function IngredientPriceFluctuation({
         maxPrice: 0,
         priceChange: 0,
         priceChangePercent: 0,
+        avgQuantity: 0,
+        avgWeekQuantity: 0,
+        totalQuantity: 0,
       };
     }
 
     const prices = chartData.map((item: any) => item["Cena z faktury"]);
+    const quantities = chartData.map((item: any) => item.quantity);
+
     const avgPrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
@@ -342,12 +376,79 @@ export function IngredientPriceFluctuation({
     const priceChangePercent =
       firstPrice > 0 ? (priceChange / firstPrice) * 100 : 0;
 
+    // Helper function to get ISO week number
+    const getWeekNumber = (date: Date) => {
+      const d = new Date(
+        Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+      );
+      const dayNum = d.getUTCDay() || 7;
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil(
+        ((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7
+      );
+      return `${d.getUTCFullYear()}-W${weekNo}`;
+    };
+
+    // Quantity statistics - group by month
+    const monthlyQuantities = chartData.reduce((acc: any, item: any) => {
+      // Extract year-month from date (e.g., "2024-01")
+      const dateParts = item.date.split(".");
+      if (dateParts.length >= 2) {
+        const month = dateParts[1]; // month
+        const year = dateParts[2]; // year
+        const monthKey = `${year}-${month}`;
+
+        if (!acc[monthKey]) {
+          acc[monthKey] = 0;
+        }
+        acc[monthKey] += item.quantity;
+      }
+      return acc;
+    }, {});
+
+    // Quantity statistics - group by week
+    const weeklyQuantities = chartData.reduce((acc: any, item: any) => {
+      // Parse Czech date format (dd.mm.yyyy)
+      const dateParts = item.date.split(".");
+      if (dateParts.length === 3) {
+        const day = parseInt(dateParts[0], 10);
+        const month = parseInt(dateParts[1], 10) - 1; // JS months are 0-indexed
+        const year = parseInt(dateParts[2], 10);
+        const date = new Date(year, month, day);
+        const weekKey = getWeekNumber(date);
+
+        if (!acc[weekKey]) {
+          acc[weekKey] = 0;
+        }
+        acc[weekKey] += item.quantity;
+      }
+      return acc;
+    }, {});
+
+    const monthlyTotals = Object.values(monthlyQuantities) as number[];
+    const weeklyTotals = Object.values(weeklyQuantities) as number[];
+    const totalQuantity = quantities.reduce((sum, q) => sum + q, 0);
+    const avgQuantity =
+      monthlyTotals.length > 0
+        ? monthlyTotals.reduce((sum: number, q: number) => sum + q, 0) /
+          monthlyTotals.length
+        : 0;
+    const avgWeekQuantity =
+      weeklyTotals.length > 0
+        ? weeklyTotals.reduce((sum: number, q: number) => sum + q, 0) /
+          weeklyTotals.length
+        : 0;
+
     return {
       avgPrice,
       minPrice,
       maxPrice,
       priceChange,
       priceChangePercent,
+      avgQuantity,
+      avgWeekQuantity,
+      totalQuantity,
     };
   }, [chartData]);
 
@@ -411,7 +512,17 @@ export function IngredientPriceFluctuation({
                       key={ingredient.id}
                       value={ingredient.id.toString()}
                     >
-                      {ingredient.supplierIngredientName || ingredient.name}
+                      <div className="flex flex-col">
+                        <span>
+                          {ingredient.supplierIngredientName || ingredient.name}
+                        </span>
+                        {ingredient.alternativeNames &&
+                          ingredient.alternativeNames.length > 0 && (
+                            <span className="text-xs text-blue-500 italic">
+                              {ingredient.alternativeNames.join(", ")}
+                            </span>
+                          )}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -516,6 +627,51 @@ export function IngredientPriceFluctuation({
                 </Card>
               </div>
 
+              {/* Quantity Statistics */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                      <Package className="h-4 w-4" />
+                      Celkové množství
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-blue-600">
+                      {statistics.totalQuantity.toFixed(1)} kg
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                      <Package className="h-4 w-4" />
+                      Průměrné množství (měsíčně)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-purple-600">
+                      {statistics.avgQuantity.toFixed(1)} kg
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                      <Package className="h-4 w-4" />
+                      Průměrné množství (týdně)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-orange-600">
+                      {statistics.avgWeekQuantity.toFixed(1)} kg
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
               {/* Data Table */}
               <Card>
                 <CardHeader>
@@ -528,6 +684,9 @@ export function IngredientPriceFluctuation({
                         <tr className="border-b">
                           <th className="text-left p-2">Datum</th>
                           <th className="text-left p-2">Číslo faktury</th>
+                          {hasMultipleSuppliers && (
+                            <th className="text-left p-2">Dodavatel</th>
+                          )}
                           <th className="text-right p-2">Cena z faktury</th>
                           <th className="text-right p-2">Základní cena</th>
                           <th className="text-right p-2">Rozdíl</th>
@@ -550,6 +709,11 @@ export function IngredientPriceFluctuation({
                             >
                               <td className="p-2">{item.date}</td>
                               <td className="p-2">{item.invoiceNumber}</td>
+                              {hasMultipleSuppliers && (
+                                <td className="p-2 text-muted-foreground">
+                                  {item.supplierName}
+                                </td>
+                              )}
                               <td className="text-right p-2 font-medium">
                                 {item["Cena z faktury"].toFixed(2)} Kč
                               </td>

@@ -140,7 +140,8 @@ export function IngredientQuantityOverview() {
               id,
               supplier_id,
               supplier_ingredient_name,
-              is_active
+              is_active,
+              price
             )
           )
         `
@@ -1223,7 +1224,6 @@ export function IngredientQuantityOverview() {
         return;
       }
 
-      const price = ingredient?.price || 0;
       const transfersData = transfersMap.get(ingredientId) || {
         sent: 0,
         received: 0,
@@ -1244,6 +1244,10 @@ export function IngredientQuantityOverview() {
       // Get active supplier's ingredient name
       const supplierIngredientName =
         (activeSupplierCode as any)?.supplier_ingredient_name || null;
+
+      // Get supplier price (from main/active supplier) or fallback to ingredient base price
+      const supplierPrice = supplierToUse?.price || null;
+      const finalPrice = supplierPrice || ingredient?.price || 0;
 
       // Get all other suppliers' ingredient names (non-active)
       const otherSupplierNames =
@@ -1291,8 +1295,10 @@ export function IngredientQuantityOverview() {
         category: ingredient?.ingredient_categories?.name || "Bez kategorie",
         supplier: supplierName,
         lastUpdated: new Date().toISOString(),
-        price,
-        totalValue: currentQuantity * price,
+        price: finalPrice,
+        supplierPrice: supplierPrice,
+        basePrice: ingredient?.price || 0,
+        totalValue: currentQuantity * finalPrice,
         created_at: ingredient?.created_at || null,
       });
     });
@@ -2052,27 +2058,20 @@ export function IngredientQuantityOverview() {
                                 </div>
                               </TableCell>
                               <TableCell className="text-right">
-                                {(() => {
-                                  const priceData =
-                                    priceComparisonData?.[item.ingredientId];
-                                  // Show comparison price (supplier price or base price) instead of outdated base price
-                                  const displayPrice =
-                                    priceData?.comparison_price ?? item.price;
-                                  return (
-                                    <div className="flex flex-col items-end">
-                                      <span className="text-sm font-semibold">
-                                        {displayPrice.toFixed(2)} Kč
-                                      </span>
-                                      {priceData?.supplier_price &&
-                                        priceData.supplier_price !==
-                                          priceData.base_price && (
-                                          <span className="text-xs text-muted-foreground">
-                                            (dodavatel)
-                                          </span>
-                                        )}
-                                    </div>
-                                  );
-                                })()}
+                                <div className="flex flex-col items-end">
+                                  <span className="text-sm font-semibold">
+                                    {item.price.toFixed(2)} Kč
+                                  </span>
+                                  {item.supplierPrice !== null ? (
+                                    <span className="text-xs text-muted-foreground">
+                                      (dodavatel)
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">
+                                      (základní)
+                                    </span>
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell className="text-right">
                                 {(() => {
@@ -2285,27 +2284,20 @@ export function IngredientQuantityOverview() {
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
-                            {(() => {
-                              const priceData =
-                                priceComparisonData?.[item.ingredientId];
-                              // Show comparison price (supplier price or base price) instead of outdated base price
-                              const displayPrice =
-                                priceData?.comparison_price ?? item.price;
-                              return (
-                                <div className="flex flex-col items-end">
-                                  <span className="text-sm font-semibold">
-                                    {displayPrice.toFixed(2)} Kč
-                                  </span>
-                                  {priceData?.supplier_price &&
-                                    priceData.supplier_price !==
-                                      priceData.base_price && (
-                                      <span className="text-xs text-muted-foreground">
-                                        (dodavatel)
-                                      </span>
-                                    )}
-                                </div>
-                              );
-                            })()}
+                            <div className="flex flex-col items-end">
+                              <span className="text-sm font-semibold">
+                                {item.price.toFixed(2)} Kč
+                              </span>
+                              {item.supplierPrice !== null ? (
+                                <span className="text-xs text-muted-foreground">
+                                  (dodavatel)
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">
+                                  (základní)
+                                </span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-right">
                             {(() => {

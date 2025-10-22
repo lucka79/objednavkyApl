@@ -99,13 +99,23 @@ export function CratesOverviewDialog({
         { crateSmall: number; crateBig: number }
       > = {};
 
-      // Initialize empty map for manually returned crates
+      // Initialize empty map for manually returned crates and get order stats
       const driverStats = calculateCrateStatsFromOrders(orders || []);
+
+      // Create a map of order-issued crates for quick lookup
+      const orderIssuedMap = new Map<
+        string,
+        { crateSmall: number; crateBig: number }
+      >();
       driverStats.forEach((driver) => {
         cratesMap[driver.driver_name] = {
           crateSmall: 0, // Start with 0 for manual returns
           crateBig: 0, // Start with 0 for manual returns
         };
+        orderIssuedMap.set(driver.driver_name, {
+          crateSmall: driver.crate_small_issued || 0,
+          crateBig: driver.crate_big_issued || 0,
+        });
       });
 
       // Then, load manually returned crates from database
@@ -175,10 +185,37 @@ export function CratesOverviewDialog({
               crateBig: crate.crate_big_received || 0,
             };
 
-            // For manually issued crates
+            // For manually issued crates, we need to subtract the order-issued portion
+            // to get only the manual portion
+            const orderIssued = orderIssuedMap.get(driver.full_name) || {
+              crateSmall: 0,
+              crateBig: 0,
+            };
+            const totalIssuedSmall = crate.crate_small_issued || 0;
+            const totalIssuedBig = crate.crate_big_issued || 0;
+
+            // Manual issued = Total issued - Order issued
+            const manualIssuedSmall = Math.max(
+              0,
+              totalIssuedSmall - orderIssued.crateSmall
+            );
+            const manualIssuedBig = Math.max(
+              0,
+              totalIssuedBig - orderIssued.crateBig
+            );
+
+            console.log(`Calculated manual issued for ${driver.full_name}:`, {
+              total_small: totalIssuedSmall,
+              order_small: orderIssued.crateSmall,
+              manual_small: manualIssuedSmall,
+              total_big: totalIssuedBig,
+              order_big: orderIssued.crateBig,
+              manual_big: manualIssuedBig,
+            });
+
             manualCratesMap[driver.full_name] = {
-              crateSmall: crate.crate_small_issued || 0,
-              crateBig: crate.crate_big_issued || 0,
+              crateSmall: manualIssuedSmall,
+              crateBig: manualIssuedBig,
             };
           } else {
             console.warn(
@@ -574,7 +611,10 @@ export function CratesOverviewDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl max-h-[90vh] flex flex-col">
+      <DialogContent
+        className="max-w-7xl max-h-[90vh] flex flex-col"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Přehled přepravek - řidičů - {period}</DialogTitle>
         </DialogHeader>
