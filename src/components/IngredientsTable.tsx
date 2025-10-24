@@ -79,7 +79,7 @@ export function IngredientsTable() {
   const { data: supplierUsers } = useSupplierUsers();
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
   const [ingredientUsage, setIngredientUsage] = useState<
-    Record<number, boolean>
+    Record<number, number>
   >({});
 
   // Check if user can delete ingredients
@@ -124,19 +124,31 @@ export function IngredientsTable() {
           return;
         }
 
-        // Create a set of used ingredient IDs from both recipes and product parts
-        const usedIngredientIds = new Set([
-          ...(recipeIngredients?.map((ri) => ri.ingredient_id) || []),
-          ...(productParts?.map((pp) => pp.ingredient_id) || []),
-        ]);
+        // Count occurrences of each ingredient ID from both recipes and product parts
+        const usageCountMap: Record<number, number> = {};
 
-        // Create a map of ingredient ID -> is used
-        const usageMap: Record<number, boolean> = {};
+        // Initialize all ingredients with 0 count
         ingredients.forEach((ingredient) => {
-          usageMap[ingredient.id] = usedIngredientIds.has(ingredient.id);
+          usageCountMap[ingredient.id] = 0;
         });
 
-        setIngredientUsage(usageMap);
+        // Count from recipe_ingredients
+        recipeIngredients?.forEach((ri) => {
+          if (ri.ingredient_id) {
+            usageCountMap[ri.ingredient_id] =
+              (usageCountMap[ri.ingredient_id] || 0) + 1;
+          }
+        });
+
+        // Count from product_parts
+        productParts?.forEach((pp) => {
+          if (pp.ingredient_id) {
+            usageCountMap[pp.ingredient_id] =
+              (usageCountMap[pp.ingredient_id] || 0) + 1;
+          }
+        });
+
+        setIngredientUsage(usageCountMap);
       } catch (error) {
         console.error("Error loading ingredient usage:", error);
       }
@@ -300,23 +312,48 @@ export function IngredientsTable() {
 
   const handleDelete = async (ingredient: (typeof ingredients)[0]) => {
     try {
-      // Check if ingredient is used in any recipes
+      // Check if ingredient is used in any recipes or products
       const { supabase } = await import("@/lib/supabase");
-      const { data: recipeIngredients, error: checkError } = await supabase
-        .from("recipe_ingredients")
-        .select("id, recipes(name)")
-        .eq("ingredient_id", ingredient.id)
-        .limit(5); // Get up to 5 recipes for error message
 
-      if (checkError) {
-        console.error("Error checking recipe usage:", checkError);
+      // Check recipe usage
+      const { data: recipeIngredients, error: recipeCheckError } =
+        await supabase
+          .from("recipe_ingredients")
+          .select("id, recipes(name)")
+          .eq("ingredient_id", ingredient.id)
+          .limit(5); // Get up to 5 recipes for error message
+
+      if (recipeCheckError) {
+        console.error("Error checking recipe usage:", recipeCheckError);
         toast({
           title: "Chyba",
-          description: "Nepodařilo se zkontrolovat použití ingredience",
+          description:
+            "Nepodařilo se zkontrolovat použití ingredience v receptech",
           variant: "destructive",
         });
         return;
       }
+
+      // Check product parts usage
+      const { data: productParts, error: productCheckError } = await supabase
+        .from("product_parts")
+        .select("id, products!product_parts_product_id_fkey(name)")
+        .eq("ingredient_id", ingredient.id)
+        .limit(5); // Get up to 5 products for error message
+
+      if (productCheckError) {
+        console.error("Error checking product usage:", productCheckError);
+        toast({
+          title: "Chyba",
+          description:
+            "Nepodařilo se zkontrolovat použití ingredience v produktech",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Build error message if ingredient is used
+      const usageMessages = [];
 
       if (recipeIngredients && recipeIngredients.length > 0) {
         const recipeNames = recipeIngredients
@@ -330,15 +367,34 @@ export function IngredientsTable() {
             ? ` a ${recipeIngredients.length - 3} dalších`
             : "";
 
+        usageMessages.push(`Recepty: ${recipeNames}${moreRecipes}`);
+      }
+
+      if (productParts && productParts.length > 0) {
+        const productNames = productParts
+          .map((pp: any) => pp.products?.name)
+          .filter(Boolean)
+          .slice(0, 3)
+          .join(", ");
+
+        const moreProducts =
+          productParts.length > 3
+            ? ` a ${productParts.length - 3} dalších`
+            : "";
+
+        usageMessages.push(`Produkty: ${productNames}${moreProducts}`);
+      }
+
+      if (usageMessages.length > 0) {
         toast({
           title: "Nelze smazat",
-          description: `Ingredience "${ingredient.name}" je použita v receptech: ${recipeNames}${moreRecipes}. Nejprve ji odstraňte z receptů.`,
+          description: `Ingredience "${ingredient.name}" je použita v:\n${usageMessages.join("\n")}.\n\nNejprve ji odstraňte z receptů a produktů.`,
           variant: "destructive",
         });
         return;
       }
 
-      // If not used in recipes, proceed with deletion
+      // If not used anywhere, proceed with deletion
       await deleteIngredient(ingredient.id);
       toast({
         title: "Úspěch",
@@ -513,7 +569,7 @@ export function IngredientsTable() {
       className="cursor-pointer hover:bg-orange-50 transition-colors"
       style={{ userSelect: "none" }}
     >
-      <TableCell className="font-medium">
+      <TableCell className="font-medium w-[200px]">
         <div className="flex flex-col gap-0.5">
           {(() => {
             // Get active supplier's ingredient name
@@ -574,7 +630,7 @@ export function IngredientsTable() {
           })()}
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="w-[150px]">
         <div className="flex items-center gap-1">
           {(() => {
             // Debug logging
@@ -629,12 +685,31 @@ export function IngredientsTable() {
               (supplierUsers || []).find((u: any) => u.id === supplierId)
                 ?.full_name || "—";
 
+            // Truncate supplier name to 15 characters
+            const truncatedSupplierName =
+              supplierName.length > 15
+                ? supplierName.substring(0, 12) + "..."
+                : supplierName;
+
             return (
               <>
                 {(hasMultipleSupplierGroups || hasMultipleCodes) && (
                   <ArrowRightLeft className="h-3 w-3 text-blue-600" />
                 )}
-                <span className="text-sm">{supplierName}</span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-sm cursor-help">
+                        {truncatedSupplierName}
+                      </span>
+                    </TooltipTrigger>
+                    {supplierName.length > 15 && (
+                      <TooltipContent>
+                        <p>{supplierName}</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
                 {hasMultipleCodes && (
                   <Badge
                     variant="outline"
@@ -648,7 +723,7 @@ export function IngredientsTable() {
           })()}
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="w-[120px]">
         <div className="flex items-center gap-1">
           <span className="text-sm font-mono">
             {(() => {
@@ -697,16 +772,16 @@ export function IngredientsTable() {
           </span>
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="w-[80px]">
         <div className="flex items-center gap-1">
           <Scale className="h-3 w-3 text-muted-foreground" />
           <span className="text-sm">{ingredient.unit}</span>
         </div>
       </TableCell>
-      <TableCell className="text-right">
+      <TableCell className="text-right w-[100px]">
         <span className="text-sm">{ingredient.kiloPerUnit.toFixed(3)}</span>
       </TableCell>
-      <TableCell className="text-right">
+      <TableCell className="text-right w-[120px]">
         <div className="flex items-center gap-1 justify-end">
           <span className="text-sm">
             {(() => {
@@ -763,7 +838,7 @@ export function IngredientsTable() {
           </span>
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="w-[80px]">
         <div className="flex items-center gap-1">
           <Package className="h-3 w-3 text-muted-foreground" />
           <span className="text-sm">
@@ -783,44 +858,63 @@ export function IngredientsTable() {
           </span>
         </div>
       </TableCell>
-      <TableCell className="text-right">
+      <TableCell className="text-right w-[70px]">
         <span className="text-sm">
           {ingredient.vat ? `${ingredient.vat}%` : "—"}
         </span>
       </TableCell>
-      <TableCell className="text-center">
+      <TableCell className="text-center w-[80px]">
         {ingredient.element && ingredient.element.trim() !== "" ? (
           <FileText className="h-4 w-4 text-blue-600 inline-block" />
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
       </TableCell>
-      <TableCell className="text-center">
+      <TableCell className="text-center w-[80px]">
         {ingredient.kJ || ingredient.kcal ? (
           <ZapIcon className="h-4 w-4 text-orange-500 inline-block" />
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
       </TableCell>
-      <TableCell className="text-center">
-        {ingredientUsage[ingredient.id] === false ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <AlertCircle className="h-4 w-4 text-amber-500 inline-block cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Nepoužívá se v žádném receptu</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : ingredientUsage[ingredient.id] === true ? (
-          <span className="text-muted-foreground">—</span>
+      <TableCell className="text-center w-[90px]">
+        {ingredientUsage[ingredient.id] !== undefined ? (
+          ingredientUsage[ingredient.id] === 0 ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <AlertCircle className="h-4 w-4 text-amber-500 inline-block cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Nepoužívá se v žádném receptu ani produktu</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant="outline"
+                    className="bg-green-50 text-green-700 border-green-300 cursor-help"
+                  >
+                    {ingredientUsage[ingredient.id]}×
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    Použito v {ingredientUsage[ingredient.id]}{" "}
+                    receptech/produktech
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell className="w-[90px]">
         <Badge
           variant={ingredient.active ? "default" : "secondary"}
           className={
@@ -832,7 +926,7 @@ export function IngredientsTable() {
           {ingredient.active ? "Aktivní" : "Neaktivní"}
         </Badge>
       </TableCell>
-      <TableCell>
+      <TableCell className="w-[120px]">
         <Badge
           variant="outline"
           className={
@@ -844,7 +938,7 @@ export function IngredientsTable() {
           {ingredient.storeOnly ? "Ano" : "Ne"}
         </Badge>
       </TableCell>
-      <TableCell className="text-right">
+      <TableCell className="text-right w-[100px]">
         <div className="flex justify-end gap-1">
           <Button
             variant="ghost"
@@ -991,22 +1085,32 @@ export function IngredientsTable() {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Název</TableHead>
-                            <TableHead>Dodavatel</TableHead>
-                            <TableHead>Kód</TableHead>
-                            <TableHead>Jednotka</TableHead>
-                            <TableHead className="text-right">
-                              kg/Jednotka
+                            <TableHead className="w-[200px]">Název</TableHead>
+                            <TableHead className="w-[150px]">
+                              Dodavatel
                             </TableHead>
-                            <TableHead className="text-right">Cena</TableHead>
-                            <TableHead>Balení</TableHead>
-                            <TableHead className="text-right">DPH</TableHead>
-                            <TableHead>Složení</TableHead>
-                            <TableHead>Výživa</TableHead>
-                            <TableHead>Použití</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Pouze prodejna</TableHead>
-                            <TableHead className="text-right">Akce</TableHead>
+                            <TableHead className="w-[120px]">Kód</TableHead>
+                            <TableHead className="w-[80px]">MJ</TableHead>
+                            <TableHead className="text-right w-[100px]">
+                              kg/MJ
+                            </TableHead>
+                            <TableHead className="text-right w-[120px]">
+                              Cena
+                            </TableHead>
+                            <TableHead className="w-[80px]">Balení</TableHead>
+                            <TableHead className="text-right w-[70px]">
+                              DPH
+                            </TableHead>
+                            <TableHead className="w-[80px]">Složení</TableHead>
+                            <TableHead className="w-[80px]">Výživa</TableHead>
+                            <TableHead className="w-[90px]">Použití</TableHead>
+                            <TableHead className="w-[90px]">Status</TableHead>
+                            <TableHead className="w-[120px]">
+                              Pouze prodejna
+                            </TableHead>
+                            <TableHead className="text-right w-[100px]">
+                              Akce
+                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1038,20 +1142,28 @@ export function IngredientsTable() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Název</TableHead>
-                      <TableHead>Dodavatel</TableHead>
-                      <TableHead>Kód</TableHead>
-                      <TableHead>Jednotka</TableHead>
-                      <TableHead className="text-right">kg/Jednotka</TableHead>
-                      <TableHead className="text-right">Cena</TableHead>
-                      <TableHead>Balení</TableHead>
-                      <TableHead className="text-right">DPH</TableHead>
-                      <TableHead>Složení</TableHead>
-                      <TableHead>Výživa</TableHead>
-                      <TableHead>Použití</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Pouze prodejna</TableHead>
-                      <TableHead className="text-right">Akce</TableHead>
+                      <TableHead className="w-[200px]">Název</TableHead>
+                      <TableHead className="w-[150px]">Dodavatel</TableHead>
+                      <TableHead className="w-[120px]">Kód</TableHead>
+                      <TableHead className="w-[80px]">Jednotka</TableHead>
+                      <TableHead className="text-right w-[100px]">
+                        kg/Jednotka
+                      </TableHead>
+                      <TableHead className="text-right w-[120px]">
+                        Cena
+                      </TableHead>
+                      <TableHead className="w-[80px]">Balení</TableHead>
+                      <TableHead className="text-right w-[70px]">DPH</TableHead>
+                      <TableHead className="w-[80px]">Složení</TableHead>
+                      <TableHead className="w-[80px]">Výživa</TableHead>
+                      <TableHead className="w-[90px]">Použití</TableHead>
+                      <TableHead className="w-[90px]">Status</TableHead>
+                      <TableHead className="w-[120px]">
+                        Pouze prodejna
+                      </TableHead>
+                      <TableHead className="text-right w-[100px]">
+                        Akce
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

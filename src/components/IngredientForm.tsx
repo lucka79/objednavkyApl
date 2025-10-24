@@ -138,11 +138,136 @@ export function IngredientForm() {
     }>
   >([]);
   const [isRecipesSectionOpen, setIsRecipesSectionOpen] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [productsUsingIngredient, setProductsUsingIngredient] = useState<
+    Array<{
+      id: number;
+      name: string;
+      quantity: number;
+      category_id: number;
+    }>
+  >([]);
+  const [isProductsSectionOpen, setIsProductsSectionOpen] = useState(false);
 
   // Load categories on mount
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
+
+  // Load products that use this ingredient
+  const loadProductsUsingIngredient = async (
+    ingredientId: number,
+    ingredientName?: string,
+    ingredientUnit?: string
+  ) => {
+    console.log("=== DEBUG: LOADING PRODUCTS FOR INGREDIENT ===");
+    console.log("Ingredient ID:", ingredientId);
+    console.log("Ingredient Name:", ingredientName || formData.name || "N/A");
+    console.log("Ingredient Unit:", ingredientUnit || formData.unit || "N/A");
+
+    if (!ingredientId) {
+      console.error("=== DEBUG: INVALID INGREDIENT ID ===");
+      console.error("Ingredient ID is null, undefined, or 0");
+      toast({
+        title: "Chyba",
+        description: "Neplatné ID suroviny",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoadingProducts(true);
+    try {
+      console.log("=== DEBUG: STARTING DATABASE QUERY FOR PRODUCTS ===");
+      console.log("Query params:", {
+        table: "product_parts",
+        ingredient_id: ingredientId,
+      });
+
+      const { data: productParts, error } = await supabase
+        .from("product_parts")
+        .select(
+          `
+          product_id,
+          quantity,
+          products!product_parts_product_id_fkey (
+            id,
+            name,
+            category_id
+          )
+        `
+        )
+        .eq("ingredient_id", ingredientId)
+        .not("products", "is", null);
+
+      console.log("=== DEBUG: QUERY COMPLETE ===");
+      console.log("Error:", error);
+      console.log("Data:", productParts);
+
+      if (error) {
+        console.error("=== DEBUG: DATABASE ERROR DETECTED ===");
+        console.error("Error object:", error);
+        console.error("Error message:", error.message);
+        throw error;
+      }
+
+      console.log("=== DEBUG: RAW PRODUCT PARTS DATA ===");
+      console.log(
+        "Total product_parts records found:",
+        productParts?.length || 0
+      );
+      console.log("Raw data:", productParts);
+
+      if (productParts && productParts.length > 0) {
+        console.log("=== DEBUG: PROCESSING PRODUCT PARTS ===");
+
+        const productsWithQuantity = productParts
+          .map((pp) => {
+            const product = pp.products as any;
+            const processed = {
+              id: product.id,
+              name: product.name,
+              quantity: pp.quantity,
+              category_id: product.category_id,
+            };
+
+            console.log("Processed product:", processed);
+            return processed;
+          })
+          .filter((product) => product !== null && "name" in product)
+          .sort((a, b) => a.name.localeCompare(b.name, "cs"));
+
+        console.log("=== DEBUG: FINAL PRODUCTS LIST ===");
+        console.log(
+          "Total products after processing:",
+          productsWithQuantity.length
+        );
+        console.log("Sorted products:", productsWithQuantity);
+
+        setProductsUsingIngredient(productsWithQuantity);
+        console.log("=== DEBUG: PRODUCTS STATE UPDATED ===");
+      } else {
+        console.log("=== DEBUG: NO PRODUCTS FOUND ===");
+        console.log("This ingredient is not used in any products");
+        setProductsUsingIngredient([]);
+      }
+
+      console.log("=== DEBUG: END LOADING PRODUCTS ===");
+    } catch (error: any) {
+      console.error("=== DEBUG: CATCH BLOCK ERROR ===");
+      console.error("Error:", error);
+      console.error("Error message:", error?.message);
+
+      toast({
+        title: "Chyba",
+        description: `Nepodařilo se načíst produkty používající tuto surovinu: ${error?.message || "Neznámá chyba"}`,
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingProducts(false);
+      console.log("=== DEBUG: LOADING COMPLETE ===");
+    }
+  };
 
   // Load recipes that use this ingredient
   const loadRecipesUsingIngredient = async (
@@ -375,8 +500,13 @@ export function IngredientForm() {
             is_active: code.is_active,
           })),
         });
-        // Load recipes that use this ingredient (pass ingredient data directly since state hasn't updated yet)
+        // Load recipes and products that use this ingredient (pass ingredient data directly since state hasn't updated yet)
         loadRecipesUsingIngredient(
+          selectedIngredient.id,
+          selectedIngredient.name,
+          selectedIngredient.unit
+        );
+        loadProductsUsingIngredient(
           selectedIngredient.id,
           selectedIngredient.name,
           selectedIngredient.unit
@@ -384,6 +514,7 @@ export function IngredientForm() {
       } else {
         setFormData(initialFormData);
         setRecipesUsingIngredient([]);
+        setProductsUsingIngredient([]);
       }
       setValidationErrors({});
     }
@@ -1645,6 +1776,86 @@ export function IngredientForm() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Products Using This Ingredient Section */}
+          {isEditMode && (
+            <Card>
+              <CardHeader
+                className="cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => setIsProductsSectionOpen(!isProductsSectionOpen)}
+              >
+                <CardTitle className="text-lg flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Produkty využívající tuto surovinu
+                    {productsUsingIngredient.length > 0 && (
+                      <span className="text-sm font-normal text-muted-foreground">
+                        ({productsUsingIngredient.length})
+                      </span>
+                    )}
+                  </div>
+                  {isProductsSectionOpen ? (
+                    <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </CardTitle>
+              </CardHeader>
+              {isProductsSectionOpen && (
+                <CardContent className="space-y-4 bg-green-50/50 rounded-lg p-4 border border-green-100">
+                  {loadingProducts ? (
+                    <div className="text-center py-4">
+                      <p className="text-muted-foreground">
+                        Načítání produktů...
+                      </p>
+                    </div>
+                  ) : productsUsingIngredient.length === 0 ? (
+                    <div className="text-center py-4">
+                      <p className="text-muted-foreground">
+                        Nenalezeny žádné produkty, které používají tuto
+                        surovinu.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="text-sm text-muted-foreground mb-3">
+                        Nalezeno {productsUsingIngredient.length} produkt
+                        {productsUsingIngredient.length === 1
+                          ? ""
+                          : productsUsingIngredient.length < 5
+                            ? "y"
+                            : "ů"}{" "}
+                        používajících tuto surovinu:
+                      </div>
+                      <div className="grid gap-2">
+                        {productsUsingIngredient.map((product) => {
+                          return (
+                            <div
+                              key={product.id}
+                              className="flex items-center justify-between p-3 bg-white/80 rounded border border-green-200 shadow-sm"
+                            >
+                              <div className="flex items-center gap-3 flex-1">
+                                <div>
+                                  <div className="font-medium text-gray-900">
+                                    {product.name}
+                                  </div>
+                                  <div className="text-sm text-gray-500">
+                                    Použité množství:{" "}
+                                    {product.quantity.toFixed(3)}{" "}
+                                    {formData.unit}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              )}
+            </Card>
+          )}
 
           {/* Recipes Using This Ingredient Section */}
           {isEditMode && (

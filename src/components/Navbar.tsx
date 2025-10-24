@@ -178,6 +178,12 @@ export function Navbar() {
                         >
                           Faktury
                         </Link>
+                        <Link
+                          to="/admin/invoice-templates"
+                          className="hover:text-gray-300"
+                        >
+                          Šablony faktur
+                        </Link>
                       </>
                     )}
                   </>

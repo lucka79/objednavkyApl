@@ -99,16 +99,6 @@ export function ProductPartsModal({
       }
     >
   >(new Map());
-  // Search states for each row - Map<rowIndex, searchText>
-  // const [recipeSearches, setRecipeSearches] = useState<Map<number, string>>(
-  //   new Map()
-  // );
-  // const [productSearches, setProductSearches] = useState<Map<number, string>>(
-  //   new Map()
-  // );
-  // const [ingredientSearches, setIngredientSearches] = useState<
-  //   Map<number, string>
-  // >(new Map());
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -456,6 +446,20 @@ export function ProductPartsModal({
 
   const updatePart = (index: number, field: keyof ProductPart, value: any) => {
     const updatedParts = [...productParts];
+
+    // Handle quantity updates - parse value properly
+    if (field === "quantity") {
+      // Parse the value properly, handling edge cases
+      let numericValue = typeof value === "string" ? parseFloat(value) : value;
+
+      // If parsing fails or is invalid, keep as 0
+      if (isNaN(numericValue) || numericValue < 0) {
+        numericValue = 0;
+      }
+
+      value = numericValue;
+    }
+
     updatedParts[index] = { ...updatedParts[index], [field]: value };
 
     // Clear other IDs when one is selected
@@ -1192,8 +1196,8 @@ export function ProductPartsModal({
 
   const getPartUnit = (part: ProductPart) => {
     if (part.ingredient_id) {
-      const ingredient = ingredients.find((i) => i.id === part.ingredient_id);
-      return ingredient?.unit || "kg";
+      // All ingredients use kg in ProductPartsModal (like RecipeForm)
+      return "kg";
     }
     if (part.recipe_id) {
       return "kg";
@@ -1204,13 +1208,56 @@ export function ProductPartsModal({
     return "ks";
   };
 
+  // Get the weight in kg for pastry parts by calculating from recipe ingredients
+  const getPartWeightKg = (part: ProductPart) => {
+    if (part.pastry_id) {
+      // Use the calculated weight from recipe ingredients if available
+      const calculatedWeight = calculatedWeights.get(part.pastry_id);
+      if (calculatedWeight && calculatedWeight > 0) {
+        return part.quantity * calculatedWeight;
+      }
+
+      // Fallback: try to find the product's recipe and calculate weight
+      const product = products.find((p) => p.id === part.pastry_id);
+      if (product) {
+        // Find recipes that match this product's name
+        const productRecipe = recipes.find(
+          (recipe) =>
+            recipe.name
+              .toLowerCase()
+              .includes(product.name.toLowerCase().split(" ")[0]) ||
+            product.name
+              .toLowerCase()
+              .includes(recipe.name.toLowerCase().split(" ")[0])
+        );
+
+        if (productRecipe && productRecipe.recipe_ingredients) {
+          let recipeWeightKg = 0;
+          productRecipe.recipe_ingredients.forEach((recipeIng: any) => {
+            if (recipeIng.ingredient && recipeIng.ingredient.kiloPerUnit) {
+              const weightInKg =
+                recipeIng.quantity * recipeIng.ingredient.kiloPerUnit;
+              recipeWeightKg += weightInKg;
+            }
+          });
+
+          if (recipeWeightKg > 0) {
+            return part.quantity * recipeWeightKg;
+          }
+        }
+      }
+    }
+    return null;
+  };
+
   const getPartPrice = (part: ProductPart) => {
     if (part.ingredient_id) {
       const ingredient = ingredients.find((i) => i.id === part.ingredient_id);
-      if (ingredient?.price) {
-        // Convert quantity to kg using kiloPerUnit, then multiply by price per kg
-        const weightInKg = part.quantity * ingredient.kiloPerUnit;
-        return weightInKg * ingredient.price;
+      if (ingredient?.price && ingredient?.kiloPerUnit) {
+        // Quantity is in kg, price is per unit (ks, kg, l, etc.)
+        // Convert kg to units, then multiply by price per unit
+        const quantityInUnits = part.quantity / ingredient.kiloPerUnit;
+        return quantityInUnits * ingredient.price;
       }
       return 0;
     }
@@ -1323,7 +1370,7 @@ export function ProductPartsModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
@@ -1450,7 +1497,7 @@ export function ProductPartsModal({
                     <TableRow>
                       <TableHead>Název</TableHead>
                       <TableHead className="text-right">Množství</TableHead>
-                      <TableHead>Jedn.</TableHead>
+                      <TableHead>Jednotka</TableHead>
                       <TableHead className="w-[120px] text-right">
                         Cena
                       </TableHead>
@@ -1518,19 +1565,56 @@ export function ProductPartsModal({
                             min="0"
                             value={part.quantity}
                             onChange={(e) =>
-                              updatePart(
-                                index,
-                                "quantity",
-                                parseFloat(e.target.value) || 0
-                              )
+                              updatePart(index, "quantity", e.target.value)
                             }
                             className="w-24 text-right no-spinner"
                           />
                         </TableCell>
                         <TableCell>
-                          <span className="text-sm text-muted-foreground">
+                          <div className="text-sm text-muted-foreground">
                             {getPartUnit(part)}
-                          </span>
+                            {part.pastry_id && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="text-xs mt-1 cursor-help underline decoration-dotted">
+                                      {getPartWeightKg(part) ? (
+                                        <span className="text-blue-600">
+                                          ≈ {getPartWeightKg(part)!.toFixed(3)}{" "}
+                                          kg
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-500">
+                                          hmotnost neznámá
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {getPartWeightKg(part) ? (
+                                      <p>
+                                        Hmotnost: {part.quantity} ks ×{" "}
+                                        {calculatedWeights
+                                          .get(part.pastry_id)
+                                          ?.toFixed(3) || "výpočet"}{" "}
+                                        kg/ks ={" "}
+                                        {getPartWeightKg(part)!.toFixed(3)} kg
+                                        <br />
+                                        <span className="text-xs text-gray-500">
+                                          (vypočítáno z receptu)
+                                        </span>
+                                      </p>
+                                    ) : (
+                                      <p>
+                                        Hmotnost nelze vypočítat - chybí recept
+                                        nebo suroviny
+                                      </p>
+                                    )}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-right">
                           <span className="text-sm text-muted-foreground">
@@ -2221,11 +2305,6 @@ export function ProductPartsModal({
                         allergens: product.allergens,
                         active: product.active,
                       });
-                      console.log("=== PRODUCT PART DEBUG ===");
-                      console.log("Product:", product.name);
-                      console.log("Product koef:", product.koef);
-                      console.log("Part quantity:", part.quantity);
-
                       // Use realistic weight per piece for products (not 1kg per piece!)
                       // Most bakery products weigh between 50g-300g per piece
                       let weightPerPiece = 0.15; // Default 150g per piece
@@ -3139,14 +3218,14 @@ function PartPickerModal({
     }
   };
 
-  const getItemUnit = (item: any) => {
+  const getItemUnit = () => {
     switch (selectedType) {
       case "recipe":
         return "kg";
       case "product":
         return "ks";
       case "ingredient":
-        return item.unit;
+        return "kg"; // Always use kg for ingredients in ProductPartsModal
       default:
         return "";
     }
@@ -3255,7 +3334,7 @@ function PartPickerModal({
                               {getItemName(item)}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              Jednotka: {getItemUnit(item)}
+                              Jednotka: {getItemUnit()}
                             </div>
                           </div>
                           {warning && (
@@ -3300,16 +3379,14 @@ function PartPickerModal({
                   onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)}
                   onFocus={(e) => e.target.select()}
                   className="w-24 no-spinner"
-                  placeholder="Množství"
+                  placeholder={
+                    selectedType === "ingredient" ? "kg" : "Množství"
+                  }
                   inputMode="decimal"
                   disabled={!selectedId}
                 />
                 <span className="text-sm text-muted-foreground">
-                  {selectedId
-                    ? getItemUnit(
-                        filteredItems.find((item) => item.id === selectedId)
-                      )
-                    : ""}
+                  {selectedId ? getItemUnit() : ""}
                 </span>
                 <Button
                   type="button"
