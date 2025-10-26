@@ -97,6 +97,9 @@ async def process_invoice(request: ProcessInvoiceRequest):
         
         logger.info(f"OCR completed for all pages, total text length: {len(raw_text)}")
         
+        # Remove page markers for cleaner display (keep them for logging only)
+        raw_text_display = re.sub(r'\n--- Page \d+ ---\n', '\n', raw_text)
+        
         # Extract data using template patterns
         patterns = request.template_config.get('patterns', {})
         
@@ -130,7 +133,7 @@ async def process_invoice(request: ProcessInvoiceRequest):
             total_amount=total_amount,
             items=items,
             confidence=confidence,
-            raw_text=raw_text if len(raw_text) < 20000 else raw_text[:20000] + "\n\n... (text truncated for display)",
+            raw_text=raw_text_display if len(raw_text_display) < 20000 else raw_text_display[:20000] + "\n\n... (text truncated for display)",
         )
         
     except Exception as e:
