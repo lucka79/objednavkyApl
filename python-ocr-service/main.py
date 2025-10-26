@@ -285,11 +285,30 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
                 groups = match.groups()
                 if len(groups) >= 5:
                     # Multi-line format: description, code, quantity, unit, price, total
+                    quantity_raw = groups[2] if len(groups) > 2 else "0"
+                    unit_raw = groups[3].strip() if len(groups) > 3 else None
+                    
+                    # Fix OCR issue: "101t" is actually "10 lt" (l looks like 1)
+                    quantity = extract_number(quantity_raw)
+                    unit = unit_raw
+                    
+                    if unit == 't' and quantity_raw and len(quantity_raw) > 1:
+                        # Last digit of quantity is actually "l" in unit
+                        # "101" → quantity: 10, unit: lt
+                        try:
+                            quantity_str = str(int(quantity))
+                            if len(quantity_str) >= 2:
+                                quantity = float(quantity_str[:-1])  # Remove last digit
+                                unit = 'lt'  # Change t to lt
+                                logger.info(f"Fixed OCR: {quantity_raw}t → {quantity} lt")
+                        except:
+                            pass  # Keep original if conversion fails
+                    
                     item = InvoiceItem(
                         description=groups[0].strip() if groups[0] else None,
                         product_code=groups[1].strip() if groups[1] else None,
-                        quantity=extract_number(groups[2]) if len(groups) > 2 else 0,
-                        unit_of_measure=groups[3].strip() if len(groups) > 3 else None,
+                        quantity=quantity,
+                        unit_of_measure=unit,
                         unit_price=extract_number(groups[4]) if len(groups) > 4 else 0,
                         line_total=extract_number(groups[5]) if len(groups) > 5 else 0,
                         line_number=match_no,
@@ -410,6 +429,15 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
     # Only return if we have at least a product code or meaningful data
     if not product_code and not description:
         return None
+    
+    # Fix OCR issue: "t" unit is actually "lt" (l looks like 1)
+    if unit == 't' and quantity > 10:
+        # Last digit of quantity is actually "l" in unit
+        quantity_str = str(int(quantity))
+        if len(quantity_str) >= 2:
+            quantity = float(quantity_str[:-1])  # Remove last digit
+            unit = 'lt'  # Change t to lt
+            logger.info(f"Fixed OCR: {quantity_str}t → {quantity} lt")
     
     # Validate that we have meaningful data
     if product_code and (quantity > 0 or unit_price > 0):
