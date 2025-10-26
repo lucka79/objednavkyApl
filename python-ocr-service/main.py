@@ -278,6 +278,8 @@ def extract_line_items(
             table_text = raw_text[start_pos:end_pos]
             
             logger.info(f"Extracted table section: {len(table_text)} characters from position {start_pos} to {end_pos}")
+            logger.info(f"Table text preview (first 500 chars): {table_text[:500]}")
+            logger.info(f"Table text preview (last 500 chars): {table_text[-500:]}")
             
             # Extract items from table text
             items = extract_items_from_text(table_text, table_columns)
