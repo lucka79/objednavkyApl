@@ -188,6 +188,10 @@ def fix_ocr_errors(text: str) -> str:
     # Pattern: space + "215" + space + amount (e.g., "570,00 215 1 140,00" → "570,00 21 % 1 140,00")
     text = re.sub(r'\s215(?=\s+\d+[\s,])', ' 21 %', text)
     
+    # Fix 5: Remove trailing period after numbers (e.g., "1,000." → "1,000")
+    # Match: number with optional thousand separators + period + space
+    text = re.sub(r'(\d+(?:[,\.]\d+)*)\.\s+', r'\1 ', text)
+    
     logger.info("Applied OCR error corrections")
     return text
 
