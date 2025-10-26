@@ -97,20 +97,38 @@ async def process_invoice(request: ProcessInvoiceRequest):
         
         logger.info(f"OCR completed for all pages, total text length: {len(raw_text)}")
         
-        # Remove page markers for cleaner display (keep them for logging only)
-        raw_text_display = re.sub(r'\n--- Page \d+ ---\n', '\n', raw_text)
+        # Remove page markers and clean up page breaks for seamless table extraction
+        raw_text_display = raw_text
         
-        # Extract data using template patterns
+        # Remove page markers
+        raw_text_display = re.sub(r'\n--- Page \d+ ---\n', '\n', raw_text_display)
+        
+        # Remove repeated footers (typically "Vystavil:" or similar at end of pages)
+        raw_text_display = re.sub(r'Vystavil:.*?[\-—]{2,}.*?\n', '', raw_text_display, flags=re.MULTILINE)
+        
+        # Remove repeated page headers (e.g., "DAŇOVÝ DOKLAD Číslo dokladu XXX Strana: N")
+        raw_text_display = re.sub(r'DAŇOVÝ DOKLAD.*?Strana:\s*\d+\n', '', raw_text_display, flags=re.IGNORECASE)
+        
+        # Remove repeated table headers (e.g., "Označení dodávky Množství Cena/MJ DPH...")
+        # This pattern matches common table header repetitions
+        raw_text_display = re.sub(
+            r'\n(Označení\s+dodávky\s+Množství\s+Cena/MJ\s+DPH\s+Sleva\s+Celkem)\n',
+            '\n',
+            raw_text_display,
+            count=10  # Remove up to 10 repetitions (for multi-page invoices)
+        )
+        
+        # Extract data using template patterns (use cleaned text for better extraction)
         patterns = request.template_config.get('patterns', {})
         
-        invoice_number = extract_pattern(raw_text, patterns.get('invoice_number'))
-        date = extract_pattern(raw_text, patterns.get('date'))
-        supplier = extract_pattern(raw_text, patterns.get('supplier'))
-        total_amount = extract_number(extract_pattern(raw_text, patterns.get('total_amount')))
+        invoice_number = extract_pattern(raw_text_display, patterns.get('invoice_number'))
+        date = extract_pattern(raw_text_display, patterns.get('date'))
+        supplier = extract_pattern(raw_text_display, patterns.get('supplier'))
+        total_amount = extract_number(extract_pattern(raw_text_display, patterns.get('total_amount')))
         
-        # Extract line items (use first page image for region-based extraction if needed)
+        # Extract line items (use cleaned text for seamless multi-page extraction)
         items = extract_line_items(
-            raw_text,
+            raw_text_display,
             images[0],
             request.template_config,
             language,
@@ -228,15 +246,7 @@ def extract_line_items(
             
             table_text = raw_text[start_pos:end_pos]
             
-            # Count how many pages are included
-            page_markers_in_table = len(re.findall(r'--- Page \d+ ---', table_text))
-            
-            # Remove page markers that might interfere with parsing
-            table_text = re.sub(r'\n--- Page \d+ ---\n', '\n', table_text)
-            
             logger.info(f"Extracted table section: {len(table_text)} characters from position {start_pos} to {end_pos}")
-            if page_markers_in_table > 0:
-                logger.info(f"Table spans {page_markers_in_table + 1} pages")
             
             # Extract items from table text
             items = extract_items_from_text(table_text, table_columns)
