@@ -222,11 +222,46 @@ def extract_line_items(
 
 def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]:
     """
-    Extract items from table text using line-by-line parsing
+    Extract items from table text using line-by-line or multi-line parsing
     """
     items = []
-    lines = text.strip().split('\n')
+    item_pattern = table_columns.get('line_pattern')
     
+    # Check if it's a multi-line pattern (contains \n in pattern)
+    if item_pattern and '\\n' in item_pattern:
+        logger.info(f"Using multi-line pattern extraction")
+        
+        # Use regex with MULTILINE and DOTALL flags
+        try:
+            matches = re.finditer(item_pattern, text, re.MULTILINE)
+            
+            for match_no, match in enumerate(matches, 1):
+                groups = match.groups()
+                if len(groups) >= 5:
+                    # Multi-line format: description, code, quantity, unit, price, total
+                    item = InvoiceItem(
+                        description=groups[0].strip() if groups[0] else None,
+                        product_code=groups[1].strip() if groups[1] else None,
+                        quantity=extract_number(groups[2]) if len(groups) > 2 else 0,
+                        unit_of_measure=groups[3].strip() if len(groups) > 3 else None,
+                        unit_price=extract_number(groups[4]) if len(groups) > 4 else 0,
+                        line_total=extract_number(groups[5]) if len(groups) > 5 else 0,
+                        line_number=match_no,
+                    )
+                    
+                    if item.product_code:
+                        items.append(item)
+                        logger.debug(f"Extracted item: {item.product_code} - {item.description}")
+            
+            logger.info(f"Extracted {len(items)} items using multi-line pattern")
+            return items
+            
+        except Exception as e:
+            logger.error(f"Error with multi-line pattern: {e}")
+            # Fall back to line-by-line
+    
+    # Single-line processing (original method)
+    lines = text.strip().split('\n')
     logger.info(f"Processing {len(lines)} lines for items")
     
     for line_no, line in enumerate(lines, 1):
