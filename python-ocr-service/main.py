@@ -75,20 +75,27 @@ async def process_invoice(request: ProcessInvoiceRequest):
         if not images:
             raise HTTPException(status_code=400, detail="Failed to convert file to images")
         
-        # Process first page (most invoices are single page or data is on first page)
-        image = images[0]
-        
         # Get OCR settings from template
         ocr_config = request.template_config.get('ocr_settings', {})
         dpi = ocr_config.get('dpi', 300)
         language = ocr_config.get('language', 'ces')
         psm = ocr_config.get('psm', 6)
         
-        # Perform OCR
+        # Perform OCR on all pages
         custom_config = f'--oem 3 --psm {psm}'
-        raw_text = pytesseract.image_to_string(image, lang=language, config=custom_config)
+        all_pages_text = []
         
-        logger.info(f"OCR completed, text length: {len(raw_text)}")
+        logger.info(f"Processing {len(images)} page(s)")
+        
+        for page_num, image in enumerate(images, 1):
+            page_text = pytesseract.image_to_string(image, lang=language, config=custom_config)
+            all_pages_text.append(f"\n--- Page {page_num} ---\n{page_text}")
+            logger.info(f"Page {page_num} OCR completed, text length: {len(page_text)}")
+        
+        # Combine all pages
+        raw_text = "\n".join(all_pages_text)
+        
+        logger.info(f"OCR completed for all pages, total text length: {len(raw_text)}")
         
         # Extract data using template patterns
         patterns = request.template_config.get('patterns', {})
@@ -98,10 +105,10 @@ async def process_invoice(request: ProcessInvoiceRequest):
         supplier = extract_pattern(raw_text, patterns.get('supplier'))
         total_amount = extract_number(extract_pattern(raw_text, patterns.get('total_amount')))
         
-        # Extract line items
+        # Extract line items (use first page image for region-based extraction if needed)
         items = extract_line_items(
             raw_text,
-            image,
+            images[0],
             request.template_config,
             language,
             psm
@@ -123,7 +130,7 @@ async def process_invoice(request: ProcessInvoiceRequest):
             total_amount=total_amount,
             items=items,
             confidence=confidence,
-            raw_text=raw_text if len(raw_text) < 5000 else raw_text[:5000] + "...",
+            raw_text=raw_text if len(raw_text) < 20000 else raw_text[:20000] + "\n\n... (text truncated for display)",
         )
         
     except Exception as e:
