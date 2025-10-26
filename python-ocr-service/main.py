@@ -126,6 +126,9 @@ async def process_invoice(request: ProcessInvoiceRequest):
         # Clean up excessive blank lines (more than 2 consecutive newlines)
         raw_text_display = re.sub(r'\n{3,}', '\n\n', raw_text_display)
         
+        # Apply OCR error corrections (common Tesseract mistakes)
+        raw_text_display = fix_ocr_errors(raw_text_display)
+        
         # Extract data using template patterns (use cleaned text for better extraction)
         patterns = request.template_config.get('patterns', {})
         
@@ -165,6 +168,26 @@ async def process_invoice(request: ProcessInvoiceRequest):
     except Exception as e:
         logger.error(f"Error processing invoice: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+def fix_ocr_errors(text: str) -> str:
+    """
+    Fix common OCR errors from Tesseract
+    """
+    # Fix 1: "xl" should be "x" in product descriptions (e.g., "12xl1kg" → "12x1kg")
+    text = re.sub(r'(\d+)xl(\d)', r'\1x\2', text)
+    
+    # Fix 2: Lowercase "l" followed by digit should be "1" (e.g., "1l2kg" → "12kg", "l1kg" → "11kg")
+    text = re.sub(r'l(\d)', r'1\1', text)
+    
+    # Fix 3: Number followed by "5" that should be "%" (e.g., "12 5" → "12 %", "215" at end should be "21 %")
+    # Pattern: digit(s), optional space, "5", followed by space or end of word
+    text = re.sub(r'(\d{1,2})\s*5(?=\s|$)', r'\1 %', text)
+    
+    # Fix 4: "215" specifically at the end of a line (common for "21 %")
+    text = re.sub(r'\s215(?=\s)', ' 21 %', text)
+    
+    logger.info("Applied OCR error corrections")
+    return text
 
 def convert_to_images(file_bytes: bytes, filename: str) -> List[Image.Image]:
     """Convert PDF or image file to PIL Image(s)"""
