@@ -32,7 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Edit, Trash2, Copy, FileText } from "lucide-react";
+import { Plus, Edit, Copy, FileText } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface InvoiceTemplateEditorProps {
@@ -42,14 +42,8 @@ interface InvoiceTemplateEditorProps {
 export function InvoiceTemplateEditor({
   supplierId,
 }: InvoiceTemplateEditorProps) {
-  const {
-    templates,
-    isLoading,
-    createTemplate,
-    updateTemplate,
-    deleteTemplate,
-    toggleActive,
-  } = useInvoiceTemplates(supplierId);
+  const { templates, isLoading, createTemplate, updateTemplate, toggleActive } =
+    useInvoiceTemplates(supplierId);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] =
@@ -211,19 +205,6 @@ export function InvoiceTemplateEditor({
                         >
                           <Copy className="h-4 w-4" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => {
-                            if (
-                              confirm("Opravdu chcete smazat tuto šablonu?")
-                            ) {
-                              deleteTemplate(template.id);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -268,8 +249,26 @@ function TemplateForm({
           table_start: "Označení dodávky",
         },
         table_columns: {
+          // CHOOSE ONE PATTERN BELOW BASED ON YOUR SUPPLIER'S FORMAT:
+
+          // ========== PATTERN A: Pešek-Rambousek (simple) ==========
+          // Format: Description \n Code Quantity+Unit Price VAT% Total
+          // line_pattern: "^([^\\n]+?)\\s*\\n\\s*(\\d+)\\s+([\\d,]+)\\s*([a-zA-Z]{1,5})\\s+([\\d,\\s]+)\\s+\\d+\\s*%?\\s*\\d*\\s+([\\d,\\.\\s]+)"
+
+          // ========== PATTERN B: Tab-separated with package quantity ==========
+          // Format: CODE \t PACKAGE_QTY NAME WEIGHT \t PRICE ... \t VAT_AMOUNT
+          // Example: "486510\t1,000 BORŮVKY KANADSKÉ VAN. 125g\t53.7 1 53,70 53,70 12,0\t6,44"
           line_pattern:
-            "^(\\d+)\\s+(.+?)\\s+(\\d+[.,]?\\d*)\\s+(.+?)\\s+(\\d+[.,]?\\d*)\\s+(\\d+[.,]?\\d*)$",
+            "^(\\d+)\\s+([\\d,]+)\\s+(.+?)\\s+(\\d+[a-zA-Z]+)\\s+([\\d,]+)",
+
+          // Column mapping for PATTERN B:
+          // group 1: product_code (486510)
+          // group 2: package_quantity (1,000) - will be used as quantity
+          // group 3: description (BORŮVKY KANADSKÉ VAN.)
+          // group 4: package_weight (125g) - can be appended to description
+          // group 5: unit_price (53.7 - first number in price data)
+
+          // NOTE: Modify line_pattern in "✏️ Použít jako vzor řádku" for your format!
         },
       },
       null,

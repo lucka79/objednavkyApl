@@ -665,10 +665,14 @@ export function ReceivedInvoices() {
     if (!filteredInvoices) return { count: 0, totalAmount: 0 };
 
     const count = filteredInvoices.length;
-    const totalAmount = filteredInvoices.reduce(
-      (sum, invoice) => sum + (invoice.total_amount || 0),
-      0
-    );
+    const totalAmount = filteredInvoices.reduce((sum, invoice) => {
+      // Calculate subtotal from items (without VAT)
+      const subtotal = (invoice.items || []).reduce(
+        (itemSum, item) => itemSum + (item.line_total || 0),
+        0
+      );
+      return sum + subtotal;
+    }, 0);
 
     return { count, totalAmount };
   }, [filteredInvoices]);
@@ -1054,6 +1058,9 @@ export function ReceivedInvoices() {
                     <span className="font-medium">{totals.count}</span> faktur
                   </div>
                   <div className="text-sm">
+                    <span className="text-muted-foreground">
+                      Celkem bez DPH:{" "}
+                    </span>
                     <span className="font-medium">
                       {totals.totalAmount.toFixed(2)} Kč
                     </span>
@@ -1119,7 +1126,14 @@ export function ReceivedInvoices() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          {(invoice.total_amount || 0).toFixed(2)} Kč
+                          {(() => {
+                            const subtotal = (invoice.items || []).reduce(
+                              (sum, item) => sum + (item.line_total || 0),
+                              0
+                            );
+                            return subtotal.toFixed(2);
+                          })()}{" "}
+                          Kč
                         </div>
                       </TableCell>
                       {/* <TableCell>
@@ -1262,7 +1276,22 @@ export function ReceivedInvoices() {
                     </div>
                     <div>
                       <Label className="text-sm font-medium">
-                        Celková částka
+                        Celková částka bez DPH
+                      </Label>
+                      <p className="text-lg font-semibold text-gray-700">
+                        {(() => {
+                          const subtotal = (selectedInvoice.items || []).reduce(
+                            (sum, item) => sum + (item.line_total || 0),
+                            0
+                          );
+                          return subtotal.toFixed(2);
+                        })()}{" "}
+                        Kč
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">
+                        Celková částka s DPH
                       </Label>
                       <p className="text-lg font-semibold text-green-600">
                         {(selectedInvoice.total_amount || 0).toFixed(2)} Kč

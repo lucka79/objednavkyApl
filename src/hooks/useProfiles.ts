@@ -404,6 +404,21 @@ export const useSupplierUsers = () => {
   });
 };
 
+export const useStoreUsers = () => {
+  return useQuery({
+    queryKey: ["storeUsers"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, role, active")
+        .eq("role", "store")
+        .order("full_name", { ascending: true });
+      if (error) throw error;
+      return (data || []).filter((u) => u.full_name);
+    },
+  });
+};
+
 // Get expedition user by email
 export const useExpeditionUser = () => {
   return useQuery({

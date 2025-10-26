@@ -905,11 +905,11 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                           <>
                             ✓ Multi-řádkový vzor detekován
                             <br />
-                            Extrakt: Popis (řádek 1) → Kód, Množství, Jednotka,
-                            Cena (řádek 2)
+                            Extrakt: Název (řádek 1) → Kód, Počet MU, Cena
+                            (řádek 2)
                           </>
                         ) : (
-                          "Jednoř řádkový vzor: Kód, Popis, Množství, Cena"
+                          "Jednoř. vzor: číslo zboží, počet MU, název zboží, zákl. cena, jedn. v MU, cena za MU, cena celkem"
                         )}
                       </p>
                     </AlertDescription>
@@ -955,67 +955,68 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-2">Kód produktu</th>
-                        <th className="text-left p-2">Popis faktury</th>
-                        <th className="text-right p-2">Množství</th>
-                        <th className="text-right p-2">Cena</th>
-                        <th className="text-left p-2">Surovina (matched)</th>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left p-2 text-xs">číslo zboží</th>
+                        <th className="text-right p-2 text-xs">počet MU</th>
+                        <th className="text-left p-2 text-xs">název zboží</th>
+                        <th className="text-right p-2 text-xs">zákl. cena</th>
+                        <th className="text-right p-2 text-xs">jedn. v MU</th>
+                        <th className="text-right p-2 text-xs">cena za MU</th>
+                        <th className="text-right p-2 text-xs">cena celkem</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {result.items?.map((item: any, idx: number) => (
-                        <tr key={idx} className="border-b hover:bg-gray-50">
-                          <td className="p-2">
-                            <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">
-                              {item.product_code || "???"}
-                            </code>
-                          </td>
-                          <td className="p-2 text-xs">
-                            {item.description || "-"}
-                          </td>
-                          <td className="p-2 text-right text-xs">
-                            {item.quantity} {item.unit_of_measure || ""}
-                          </td>
-                          <td className="p-2 text-right text-xs">
-                            {item.unit_price?.toLocaleString("cs-CZ")} Kč
-                          </td>
-                          <td className="p-2">
-                            {item.matched_ingredient_id ? (
-                              <div className="text-xs">
-                                <div className="text-green-600 font-semibold">
-                                  ✓ {item.matched_ingredient_name}
-                                </div>
-                                <div className="text-gray-500 text-xs">
-                                  {item.match_status === "exact"
-                                    ? "(přesná shoda kódu)"
-                                    : item.match_status === "fuzzy_name"
-                                      ? `(shoda názvu ${Math.round((item.match_confidence || 0) * 100)}%)`
-                                      : "(fuzzy shoda kódu)"}
-                                </div>
-                              </div>
-                            ) : item.suggested_ingredient_name ? (
-                              <div className="text-xs">
-                                <div className="text-orange-600">
-                                  ⚠ Navrženo: {item.suggested_ingredient_name}
-                                </div>
-                                <div className="text-gray-500 text-xs">
-                                  (vyžaduje potvrzení)
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="text-xs">
-                                <div className="text-red-600">
-                                  ✗ Neznámý kód
-                                </div>
-                                <div className="text-gray-500 text-xs">
-                                  (přidejte do mapování)
-                                </div>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      {result.items?.map((item: any, idx: number) => {
+                        const priceTotal =
+                          item.line_total ||
+                          item.quantity * item.unit_price ||
+                          0;
+
+                        return (
+                          <tr key={idx} className="border-b hover:bg-gray-50">
+                            {/* číslo zboží */}
+                            <td className="p-2">
+                              <code className="text-xs bg-blue-100 px-1 py-0.5 rounded font-mono">
+                                {item.product_code || "???"}
+                              </code>
+                            </td>
+                            {/* počet MU */}
+                            <td className="p-2 text-right text-xs font-semibold">
+                              {item.quantity.toLocaleString("cs-CZ")}{" "}
+                              {item.unit_of_measure || "ks"}
+                            </td>
+                            {/* název zboží */}
+                            <td className="p-2 text-xs">
+                              {item.description || "-"}
+                            </td>
+                            {/* zákl. cena (base price per package) */}
+                            <td className="p-2 text-right text-xs">
+                              {item.base_price?.toLocaleString("cs-CZ", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              }) || "-"}
+                            </td>
+                            {/* jedn. v MU (units in MU) */}
+                            <td className="p-2 text-right text-xs">
+                              {item.units_in_mu || "1"}
+                            </td>
+                            {/* cena za MU (price per MU) */}
+                            <td className="p-2 text-right text-xs">
+                              {item.unit_price?.toLocaleString("cs-CZ", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </td>
+                            {/* cena celkem */}
+                            <td className="p-2 text-right text-xs font-semibold">
+                              {priceTotal.toLocaleString("cs-CZ", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

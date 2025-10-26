@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,9 +22,10 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Upload, FileText, CheckCircle, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useSupplierUsers } from "@/hooks/useProfiles";
+import { useSupplierUsers, useStoreUsers } from "@/hooks/useProfiles";
 import { useDocumentAI } from "@/hooks/useDocumentAI";
 import { AddReceivedInvoiceForm } from "./AddReceivedInvoiceForm";
 
@@ -47,6 +49,7 @@ interface ParsedInvoice {
   invoiceNumber: string;
   date: string;
   totalAmount: number;
+  subtotal?: number;
   items: ParsedInvoiceItem[];
   confidence: number;
   status: "pending" | "reviewed" | "approved" | "rejected";
@@ -64,6 +67,8 @@ export function InvoiceUploadDialog() {
   );
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
   const [invoiceSupplier, setInvoiceSupplier] = useState<string>("");
+  const [selectedReceiver, setSelectedReceiver] = useState<string>("");
+  const [currentUserRole, setCurrentUserRole] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [currentStep, setCurrentStep] = useState<
     "supplier" | "upload" | "manual" | "review"
@@ -71,8 +76,38 @@ export function InvoiceUploadDialog() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { data: supplierUsers } = useSupplierUsers();
+  const { data: storeUsers } = useStoreUsers();
   const { processDocumentWithTemplate } = useDocumentAI();
+
+  // Get current user and set default receiver
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const { supabase } = await import("@/lib/supabase");
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+
+        if (profile) {
+          setCurrentUserRole(profile.role);
+          // If admin, set default receiver_id
+          if (profile.role === "admin") {
+            setSelectedReceiver("e597fcc9-7ce8-407d-ad1a-fdace061e42f");
+          }
+        }
+      }
+    };
+
+    fetchCurrentUser();
+  }, []);
 
   const handleSupplierSelect = (supplierId: string) => {
     setInvoiceSupplier(supplierId);
@@ -142,11 +177,14 @@ export function InvoiceUploadDialog() {
           ingredientName: item.matched_ingredient_name,
         }));
 
-        // Calculate total amount from items
-        const calculatedTotal = items.reduce((sum: number, item: any) => {
+        // Calculate subtotal (without VAT) from line items
+        const subtotal = items.reduce((sum: number, item: any) => {
           const itemTotal = item.total || item.quantity * item.price || 0;
           return sum + itemTotal;
         }, 0);
+
+        // Use the extracted total from invoice (includes VAT)
+        const extractedTotal = result.data.totalAmount || 0;
 
         // Get supplier name
         const supplierName =
@@ -158,13 +196,17 @@ export function InvoiceUploadDialog() {
           supplier: supplierName,
           invoiceNumber: result.data.invoiceNumber,
           date: result.data.date,
-          totalAmount: calculatedTotal,
+          totalAmount: extractedTotal, // Total with VAT
+          subtotal: subtotal, // Total without VAT (calculated from items)
           items,
           confidence: result.data.confidence / 100 || 0,
           status: "pending",
           unmappedCount: result.data.unmapped_codes || 0,
           templateUsed: result.data.template_used,
         });
+
+        // Auto-select the supplier in the dropdown
+        setSelectedSupplier(invoiceSupplier);
 
         const unmappedCount = items.filter(
           (i: any) => i.matchStatus === "unmapped"
@@ -191,23 +233,172 @@ export function InvoiceUploadDialog() {
     }
   };
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     if (!parsedInvoice) return;
 
-    // Here you would save the parsed invoice to your database
-    toast({
-      title: "Úspěch",
-      description: "Faktura byla schválena a uložena",
-    });
+    // Validate that a supplier is selected
+    const supplierId = selectedSupplier || invoiceSupplier;
+    if (!supplierId) {
+      toast({
+        title: "Chyba",
+        description: "Vyberte prosím dodavatele před uložením faktury",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    setIsOpen(false);
-    setParsedInvoice(null);
-    setSelectedFile(null);
-    setUploadProgress(0);
-    setCurrentStep("supplier");
-    setInvoiceSupplier("");
-    setSelectedSupplier("");
-    setNotes("");
+    try {
+      // Check if invoice with this number already exists
+      const { supabase } = await import("@/lib/supabase");
+
+      console.log("🔍 Checking for duplicate invoice:", {
+        invoiceNumber: parsedInvoice.invoiceNumber,
+        invoiceNumberType: typeof parsedInvoice.invoiceNumber,
+        supplierId: supplierId,
+      });
+
+      const { data: existingInvoice, error: checkError } = await supabase
+        .from("invoices_received")
+        .select("id, invoice_number, supplier_id")
+        .eq("invoice_number", parsedInvoice.invoiceNumber)
+        .eq("supplier_id", supplierId)
+        .maybeSingle();
+
+      console.log("✅ Duplicate check result:", {
+        found: !!existingInvoice,
+        existingInvoice,
+        checkError,
+      });
+
+      if (checkError && checkError.code !== "PGRST116") {
+        throw checkError;
+      }
+
+      // Convert date from DD.MM.YYYY to YYYY-MM-DD format
+      const convertDateToISO = (dateStr: string): string => {
+        const parts = dateStr.split(".");
+        if (parts.length === 3) {
+          const [day, month, year] = parts;
+          return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+        }
+        return dateStr; // Return as-is if already in correct format
+      };
+
+      const isoDate = convertDateToISO(parsedInvoice.date);
+
+      let savedInvoice;
+
+      if (existingInvoice) {
+        const confirmed = window.confirm(
+          `Faktura s číslem "${parsedInvoice.invoiceNumber}" od dodavatele "${parsedInvoice.supplier}" již existuje!\n\n` +
+            `Existující faktura ID: ${existingInvoice.id}\n\n` +
+            `Chcete přepsat existující fakturu a její položky?`
+        );
+
+        if (!confirmed) {
+          return; // User cancelled
+        }
+
+        // Delete existing items
+        const { error: deleteItemsError } = await supabase
+          .from("items_received")
+          .delete()
+          .eq("invoice_received_id", existingInvoice.id);
+
+        if (deleteItemsError) throw deleteItemsError;
+
+        // Update existing invoice
+        const { data: updatedInvoice, error: updateError } = await supabase
+          .from("invoices_received")
+          .update({
+            invoice_date: isoDate,
+            total_amount: parsedInvoice.totalAmount,
+            receiver_id: selectedReceiver || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingInvoice.id)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+        savedInvoice = updatedInvoice;
+      } else {
+        // Create new invoice
+        const { data: newInvoice, error: invoiceError } = await supabase
+          .from("invoices_received")
+          .insert({
+            invoice_number: parsedInvoice.invoiceNumber,
+            supplier_id: supplierId,
+            invoice_date: isoDate,
+            total_amount: parsedInvoice.totalAmount,
+            receiver_id: selectedReceiver || null,
+          })
+          .select()
+          .single();
+
+        if (invoiceError) throw invoiceError;
+        savedInvoice = newInvoice;
+      }
+
+      // Save items that have matched ingredients
+      const matchedItems = parsedInvoice.items.filter(
+        (item) => item.ingredientId
+      );
+
+      if (matchedItems.length > 0) {
+        const itemsToInsert = matchedItems.map((item, index) => ({
+          invoice_received_id: savedInvoice.id,
+          matched_ingredient_id: item.ingredientId!,
+          quantity: item.quantity,
+          unit_price: item.price,
+          line_total: item.total || item.quantity * item.price,
+          line_number: index + 1,
+          unit_of_measure: item.unit,
+          matching_confidence: item.confidence || 100,
+        }));
+
+        const { error: itemsError } = await supabase
+          .from("items_received")
+          .insert(itemsToInsert);
+
+        if (itemsError) throw itemsError;
+      }
+
+      // Show success message
+      const unmappedCount = parsedInvoice.items.length - matchedItems.length;
+      toast({
+        title: "✅ Faktura byla uložena!",
+        description:
+          unmappedCount > 0
+            ? `Uloženo ${matchedItems.length} položek (${unmappedCount} nenamapovaných přeskočeno)`
+            : `Všech ${matchedItems.length} položek bylo úspěšně uloženo`,
+      });
+
+      // Invalidate received invoices query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ["receivedInvoices"] });
+
+      setIsOpen(false);
+      setParsedInvoice(null);
+      setSelectedFile(null);
+      setUploadProgress(0);
+      setCurrentStep("supplier");
+      setInvoiceSupplier("");
+      setSelectedSupplier("");
+      setNotes("");
+      // Reset receiver to default if admin
+      if (currentUserRole === "admin") {
+        setSelectedReceiver("e597fcc9-7ce8-407d-ad1a-fdace061e42f");
+      } else {
+        setSelectedReceiver("");
+      }
+    } catch (error) {
+      console.error("Error checking/saving invoice:", error);
+      toast({
+        title: "Chyba",
+        description: "Nepodařilo se zkontrolovat nebo uložit fakturu",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleReject = () => {
@@ -216,6 +407,12 @@ export function InvoiceUploadDialog() {
     setUploadProgress(0);
     setCurrentStep("supplier");
     setInvoiceSupplier("");
+    // Reset receiver to default if admin
+    if (currentUserRole === "admin") {
+      setSelectedReceiver("e597fcc9-7ce8-407d-ad1a-fdace061e42f");
+    } else {
+      setSelectedReceiver("");
+    }
   };
 
   const getConfidenceColor = (confidence: number) => {
@@ -379,26 +576,48 @@ export function InvoiceUploadDialog() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Invoice Header */}
-                <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-md">
-                  <div>
-                    <Label className="text-sm font-medium">Dodavatel</Label>
-                    <p className="text-sm">{parsedInvoice.supplier}</p>
+                <div className="p-4 bg-gray-50 rounded-md space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium">Dodavatel</Label>
+                      <p className="text-sm">{parsedInvoice.supplier}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">
+                        Číslo faktury
+                      </Label>
+                      <p className="text-sm">{parsedInvoice.invoiceNumber}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Datum</Label>
+                      <p className="text-sm">{parsedInvoice.date}</p>
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-sm font-medium">Číslo faktury</Label>
-                    <p className="text-sm">{parsedInvoice.invoiceNumber}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Datum</Label>
-                    <p className="text-sm">{parsedInvoice.date}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">
-                      Celková částka
-                    </Label>
-                    <p className="text-sm font-semibold">
-                      {parsedInvoice.totalAmount.toFixed(2)} Kč
-                    </p>
+                  <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">
+                        Mezisoučet (bez DPH)
+                      </Label>
+                      <p className="text-base">
+                        {parsedInvoice.subtotal?.toLocaleString("cs-CZ", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }) || "0,00"}{" "}
+                        Kč
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-green-700">
+                        Celková částka (s DPH)
+                      </Label>
+                      <p className="text-lg font-bold text-green-600">
+                        {parsedInvoice.totalAmount.toLocaleString("cs-CZ", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        Kč
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -422,19 +641,62 @@ export function InvoiceUploadDialog() {
                   </Select>
                 </div>
 
+                {/* Receiver Selection */}
+                <div>
+                  <Label htmlFor="receiver-select">Odběratel (provoz)</Label>
+                  <Select
+                    value={selectedReceiver}
+                    onValueChange={setSelectedReceiver}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Vyberte provoz" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {storeUsers?.map((store: any) => (
+                        <SelectItem key={store.id} value={store.id}>
+                          {store.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {/* Invoice Items */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <Label className="text-sm font-medium">
                       Položky faktury ({parsedInvoice.items.length})
                     </Label>
-                    {parsedInvoice.unmappedCount &&
-                      parsedInvoice.unmappedCount > 0 && (
-                        <Badge variant="destructive" className="text-xs">
-                          {parsedInvoice.unmappedCount} nenamapováno
-                        </Badge>
-                      )}
+                    <div className="flex gap-2">
+                      <Badge variant="default" className="text-xs bg-green-600">
+                        {
+                          parsedInvoice.items.filter((i) => i.ingredientId)
+                            .length
+                        }{" "}
+                        namapováno
+                      </Badge>
+                      {parsedInvoice.unmappedCount &&
+                        parsedInvoice.unmappedCount > 0 && (
+                          <Badge variant="destructive" className="text-xs">
+                            {parsedInvoice.unmappedCount} nenamapováno
+                          </Badge>
+                        )}
+                    </div>
                   </div>
+
+                  {/* Warning for unmapped items */}
+                  {parsedInvoice.items.filter(
+                    (i) => i.matchStatus === "unmapped"
+                  ).length > 0 && (
+                    <Alert className="mb-4 bg-orange-50 border-orange-200">
+                      <AlertDescription className="text-sm text-orange-800">
+                        <strong>⚠️ Upozornění:</strong> Následující položky
+                        nejsou namapované a<strong> nebudou uloženy</strong>.
+                        Nejprve je namapujte v sekci "Nenamapované kódy".
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
                   <div className="mt-2 space-y-2">
                     {parsedInvoice.items.map((item) => (
                       <div
@@ -487,6 +749,51 @@ export function InvoiceUploadDialog() {
                     ))}
                   </div>
                 </div>
+
+                {/* Unmapped Items Detail */}
+                {parsedInvoice.items.filter((i) => i.matchStatus === "unmapped")
+                  .length > 0 && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+                    <Label className="text-sm font-semibold text-red-800 mb-2 block">
+                      ⚠️ Položky, které NEBUDOU uloženy (
+                      {
+                        parsedInvoice.items.filter(
+                          (i) => i.matchStatus === "unmapped"
+                        ).length
+                      }
+                      ):
+                    </Label>
+                    <div className="space-y-2">
+                      {parsedInvoice.items
+                        .filter((i) => i.matchStatus === "unmapped")
+                        .map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between p-2 bg-white rounded border border-red-200"
+                          >
+                            <div className="flex items-center gap-2">
+                              <code className="text-xs bg-red-800 text-white px-1.5 py-0.5 rounded">
+                                {item.supplierCode}
+                              </code>
+                              <span className="text-sm text-red-900">
+                                {item.name}
+                              </span>
+                            </div>
+                            <span className="text-xs text-red-600">
+                              {item.quantity} {item.unit}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                    <p className="text-xs text-red-700 mt-2">
+                      💡 Pro uložení těchto položek přejděte do{" "}
+                      <strong>
+                        Admin → Šablony faktur → Nenamapované kódy
+                      </strong>{" "}
+                      a namapujte je na suroviny.
+                    </p>
+                  </div>
+                )}
 
                 {/* Notes */}
                 <div>
