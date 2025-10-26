@@ -179,12 +179,13 @@ def fix_ocr_errors(text: str) -> str:
     # Fix 2: Lowercase "l" followed by digit should be "1" (e.g., "1l2kg" → "12kg", "l1kg" → "11kg")
     text = re.sub(r'l(\d)', r'1\1', text)
     
-    # Fix 3: Number followed by "5" that should be "%" (e.g., "12 5" → "12 %", "215" at end should be "21 %")
-    # Pattern: digit(s), optional space, "5", followed by space or end of word
-    text = re.sub(r'(\d{1,2})\s*5(?=\s|$)', r'\1 %', text)
+    # Fix 3: VAT percentage - "12 5" should be "12 %"
+    # Only in table rows (NOT after ":" to avoid fixing amounts like "95 223,00")
+    # Match when: 1-2 digits + optional space + "5" + space + digits + comma/space (table format)
+    text = re.sub(r'(?<!:)\s(\d{1,2})\s+5(?=\s+\d+[,\s])', r' \1 %', text)
     
-    # Fix 4: "215" specifically at the end of a line (common for "21 %")
-    text = re.sub(r'\s215(?=\s)', ' 21 %', text)
+    # Fix 4: "215" at end of line should be "21 %" (but not in amounts)
+    text = re.sub(r'(\d)\s+215(?=\s+\d+,\d+)', r'\1 21 %', text)
     
     logger.info("Applied OCR error corrections")
     return text
