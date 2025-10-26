@@ -204,17 +204,42 @@ def extract_line_items(
     # Extract table section
     try:
         start_match = re.search(table_start_pattern, raw_text, re.IGNORECASE | re.MULTILINE)
-        end_match = re.search(table_end_pattern, raw_text, re.IGNORECASE | re.MULTILINE) if table_end_pattern else None
         
         if start_match:
             start_pos = start_match.end()
-            end_pos = end_match.start() if end_match else len(raw_text)
+            
+            # For table_end, search for the LAST occurrence (not first) to handle multi-page tables
+            if table_end_pattern:
+                # Find all matches
+                end_matches = list(re.finditer(table_end_pattern, raw_text, re.IGNORECASE | re.MULTILINE))
+                if end_matches:
+                    # Use the last match (for multi-page tables)
+                    end_pos = end_matches[-1].start()
+                    logger.info(f"Found {len(end_matches)} table end markers, using the last one")
+                else:
+                    end_pos = len(raw_text)
+                    logger.info("No table end marker found, using end of text")
+            else:
+                end_pos = len(raw_text)
+                logger.info("No table end pattern configured, using end of text")
+            
             table_text = raw_text[start_pos:end_pos]
             
-            logger.info(f"Extracted table section: {len(table_text)} characters")
+            # Count how many pages are included
+            page_markers_in_table = len(re.findall(r'--- Page \d+ ---', table_text))
+            
+            # Remove page markers that might interfere with parsing
+            table_text = re.sub(r'\n--- Page \d+ ---\n', '\n', table_text)
+            
+            logger.info(f"Extracted table section: {len(table_text)} characters from position {start_pos} to {end_pos}")
+            if page_markers_in_table > 0:
+                logger.info(f"Table spans {page_markers_in_table + 1} pages")
             
             # Extract items from table text
             items = extract_items_from_text(table_text, table_columns)
+        else:
+            logger.warning(f"Table start pattern not found: {table_start_pattern}")
+            
     except Exception as e:
         logger.error(f"Error extracting table section: {e}")
     
