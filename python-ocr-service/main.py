@@ -104,19 +104,27 @@ async def process_invoice(request: ProcessInvoiceRequest):
         raw_text_display = re.sub(r'\n--- Page \d+ ---\n', '\n', raw_text_display)
         
         # Remove repeated footers (typically "Vystavil:" or similar at end of pages)
-        raw_text_display = re.sub(r'Vystavil:.*?[\-—]{2,}.*?\n', '', raw_text_display, flags=re.MULTILINE)
+        # Look for pattern: Vystavil: [text] [dashes]
+        raw_text_display = re.sub(r'Vystavil:.*?[\-—]{2,}.*?(?=\n|$)', '', raw_text_display, flags=re.MULTILINE | re.DOTALL)
         
         # Remove repeated page headers (e.g., "DAŇOVÝ DOKLAD Číslo dokladu XXX Strana: N")
         raw_text_display = re.sub(r'DAŇOVÝ DOKLAD.*?Strana:\s*\d+\n', '', raw_text_display, flags=re.IGNORECASE)
         
-        # Remove repeated table headers (e.g., "Označení dodávky Množství Cena/MJ DPH...")
-        # This pattern matches common table header repetitions
-        raw_text_display = re.sub(
-            r'\n(Označení\s+dodávky\s+Množství\s+Cena/MJ\s+DPH\s+Sleva\s+Celkem)\n',
-            '\n',
-            raw_text_display,
-            count=10  # Remove up to 10 repetitions (for multi-page invoices)
-        )
+        # Find and keep ONLY the first table header, remove all subsequent ones
+        table_header_pattern = r'Označení\s+dodávky\s+Množství\s+Cena/MJ\s+DPH\s+Sleva\s+Celkem'
+        matches = list(re.finditer(table_header_pattern, raw_text_display))
+        
+        if len(matches) > 1:
+            # Keep the first match, remove all others
+            logger.info(f"Found {len(matches)} table headers, keeping first and removing {len(matches) - 1} duplicates")
+            
+            # Replace all matches except the first with empty string
+            for match in reversed(matches[1:]):  # Reverse to maintain positions
+                start, end = match.span()
+                raw_text_display = raw_text_display[:start] + raw_text_display[end:]
+        
+        # Clean up excessive blank lines (more than 2 consecutive newlines)
+        raw_text_display = re.sub(r'\n{3,}', '\n\n', raw_text_display)
         
         # Extract data using template patterns (use cleaned text for better extraction)
         patterns = request.template_config.get('patterns', {})
