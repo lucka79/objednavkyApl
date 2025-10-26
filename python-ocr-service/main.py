@@ -184,8 +184,9 @@ def fix_ocr_errors(text: str) -> str:
     # Match when: 1-2 digits + optional space + "5" + space + digits + comma/space (table format)
     text = re.sub(r'(?<!:)\s(\d{1,2})\s+5(?=\s+\d+[,\s])', r' \1 %', text)
     
-    # Fix 4: "215" at end of line should be "21 %" (but not in amounts)
-    text = re.sub(r'(\d)\s+215(?=\s+\d+,\d+)', r'\1 21 %', text)
+    # Fix 4: "215" should be "21 %" when it appears as VAT rate
+    # Pattern: space + "215" + space + amount (e.g., "570,00 215 1 140,00" → "570,00 21 % 1 140,00")
+    text = re.sub(r'\s215(?=\s+\d+[\s,])', ' 21 %', text)
     
     logger.info("Applied OCR error corrections")
     return text
