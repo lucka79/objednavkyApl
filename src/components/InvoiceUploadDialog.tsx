@@ -36,6 +36,9 @@ interface ParsedInvoiceItem {
   total: number;
   supplierCode?: string;
   confidence: number;
+  matchStatus?: string;
+  ingredientId?: number | null;
+  ingredientName?: string | null;
 }
 
 interface ParsedInvoice {
@@ -47,6 +50,8 @@ interface ParsedInvoice {
   items: ParsedInvoiceItem[];
   confidence: number;
   status: "pending" | "reviewed" | "approved" | "rejected";
+  unmappedCount?: number;
+  templateUsed?: string;
 }
 
 export function InvoiceUploadDialog() {
@@ -67,7 +72,7 @@ export function InvoiceUploadDialog() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { data: supplierUsers } = useSupplierUsers();
-  const { processDocument } = useDocumentAI();
+  const { processDocumentWithTemplate } = useDocumentAI();
 
   const handleSupplierSelect = (supplierId: string) => {
     setInvoiceSupplier(supplierId);
@@ -111,35 +116,66 @@ export function InvoiceUploadDialog() {
         });
       }, 200);
 
-      // Use the Document AI hook with specific parser
-      const result = await processDocument(selectedFile, invoiceSupplier);
+      // Use the NEW template-based processor with auto-matching
+      const result = await processDocumentWithTemplate(
+        selectedFile,
+        invoiceSupplier
+      );
 
       if (result.success && result.data) {
+        clearInterval(progressInterval);
         setUploadProgress(100);
         setCurrentStep("review");
+
+        // Map extracted items with ingredient matching info
+        const items = result.data.items.map((item: any, index: number) => ({
+          id: (index + 1).toString(),
+          name: item.description || item.name,
+          quantity: item.quantity,
+          unit: item.unit_of_measure || item.unit,
+          price: item.unit_price || item.price,
+          total: item.total_price || item.total,
+          supplierCode: item.product_code || item.supplierCode,
+          confidence: item.match_confidence || item.confidence || 0,
+          matchStatus: item.match_status,
+          ingredientId: item.matched_ingredient_id,
+          ingredientName: item.matched_ingredient_name,
+        }));
+
+        // Calculate total amount from items
+        const calculatedTotal = items.reduce((sum: number, item: any) => {
+          const itemTotal = item.total || item.quantity * item.price || 0;
+          return sum + itemTotal;
+        }, 0);
+
+        // Get supplier name
+        const supplierName =
+          supplierUsers?.find((s: any) => s.id === invoiceSupplier)
+            ?.full_name || invoiceSupplier;
+
         setParsedInvoice({
           id: `inv_${Date.now()}`,
-          supplier: result.data.supplier,
+          supplier: supplierName,
           invoiceNumber: result.data.invoiceNumber,
           date: result.data.date,
-          totalAmount: result.data.totalAmount,
-          items: result.data.items.map((item: any, index: number) => ({
-            id: (index + 1).toString(),
-            name: item.name,
-            quantity: item.quantity,
-            unit: item.unit,
-            price: item.price,
-            total: item.total,
-            supplierCode: item.supplierCode,
-            confidence: item.confidence || 0.9,
-          })),
-          confidence: result.data.confidence || 0.9,
+          totalAmount: calculatedTotal,
+          items,
+          confidence: result.data.confidence / 100 || 0,
           status: "pending",
+          unmappedCount: result.data.unmapped_codes || 0,
+          templateUsed: result.data.template_used,
         });
 
+        const unmappedCount = items.filter(
+          (i: any) => i.matchStatus === "unmapped"
+        ).length;
+
         toast({
-          title: "Úspěch",
-          description: "Faktura byla úspěšně zpracována",
+          title: "✅ Faktura zpracována!",
+          description:
+            unmappedCount > 0
+              ? `Extrahováno ${items.length} položek (${unmappedCount} nenamapováno)`
+              : `Všech ${items.length} položek úspěšně namapováno`,
         });
       } else {
         throw new Error(result.error || "Failed to process document");
@@ -209,7 +245,7 @@ export function InvoiceUploadDialog() {
           <DialogTitle>Nahrát a zpracovat fakturu</DialogTitle>
           <DialogDescription>
             Nahrajte fakturu od dodavatele pro automatické zpracování pomocí
-            Google Document AI
+            natrénovaných šablon s inteligentním mapováním surovin
           </DialogDescription>
         </DialogHeader>
 
@@ -220,7 +256,7 @@ export function InvoiceUploadDialog() {
               <CardHeader>
                 <CardTitle className="text-lg">1. Výběr dodavatele</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Vyberte dodavatele pro použití správného parseru faktury
+                  Vyberte dodavatele pro použití správné šablony faktury
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -234,9 +270,7 @@ export function InvoiceUploadDialog() {
                     >
                       <div className="font-medium">{supplier.full_name}</div>
                       <div className="text-xs text-muted-foreground">
-                        {supplier.id === "pesek-rambousek"
-                          ? "Speciální parser pro Pešek - Rambousek"
-                          : "Standardní parser"}
+                        Natrénovaná šablona OCR + auto-mapování
                       </div>
                     </Button>
                   ))}
@@ -251,11 +285,9 @@ export function InvoiceUploadDialog() {
               <CardHeader>
                 <CardTitle className="text-lg">2. Výběr souboru</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Dodavatel:{" "}
-                  {
-                    supplierUsers?.find((s: any) => s.id === invoiceSupplier)
-                      ?.full_name
-                  }
+                  <span className="font-semibold">Dodavatel:</span>{" "}
+                  {supplierUsers?.find((s: any) => s.id === invoiceSupplier)
+                    ?.full_name || "Neznámý"}
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -392,27 +424,63 @@ export function InvoiceUploadDialog() {
 
                 {/* Invoice Items */}
                 <div>
-                  <Label className="text-sm font-medium">Položky faktury</Label>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-sm font-medium">
+                      Položky faktury ({parsedInvoice.items.length})
+                    </Label>
+                    {parsedInvoice.unmappedCount &&
+                      parsedInvoice.unmappedCount > 0 && (
+                        <Badge variant="destructive" className="text-xs">
+                          {parsedInvoice.unmappedCount} nenamapováno
+                        </Badge>
+                      )}
+                  </div>
                   <div className="mt-2 space-y-2">
                     {parsedInvoice.items.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between p-3 border rounded-md"
+                        className={`flex items-center justify-between p-3 border rounded-md ${
+                          item.matchStatus === "unmapped"
+                            ? "border-red-300 bg-red-50"
+                            : item.matchStatus === "exact"
+                              ? "border-green-300 bg-green-50"
+                              : "border-yellow-300 bg-yellow-50"
+                        }`}
                       >
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
+                            {item.supplierCode && (
+                              <code className="text-xs bg-gray-800 text-white px-1.5 py-0.5 rounded">
+                                {item.supplierCode}
+                              </code>
+                            )}
                             <span className="font-medium">{item.name}</span>
-                            {getConfidenceBadge(item.confidence)}
                           </div>
-                          <div className="text-sm text-gray-600">
+                          {item.ingredientName && (
+                            <div className="text-sm text-green-700 font-medium mt-1">
+                              ✓ {item.ingredientName}
+                              {item.matchStatus === "fuzzy_name" &&
+                                ` (${Math.round((item.confidence || 0) * 100)}% shoda)`}
+                            </div>
+                          )}
+                          {item.matchStatus === "unmapped" && (
+                            <div className="text-sm text-red-600 mt-1">
+                              ✗ Nenamapovaný kód - vyžaduje ruční přiřazení
+                            </div>
+                          )}
+                          <div className="text-sm text-gray-600 mt-1">
                             {item.quantity} {item.unit} ×{" "}
-                            {item.price.toFixed(2)} Kč
-                            {item.supplierCode && ` (${item.supplierCode})`}
+                            {(item.price || 0).toFixed(2)} Kč
                           </div>
                         </div>
                         <div className="text-right">
                           <div className="font-semibold">
-                            {item.total.toFixed(2)} Kč
+                            {(
+                              item.total ||
+                              item.quantity * item.price ||
+                              0
+                            ).toFixed(2)}{" "}
+                            Kč
                           </div>
                         </div>
                       </div>

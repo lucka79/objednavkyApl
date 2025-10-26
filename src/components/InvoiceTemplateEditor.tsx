@@ -262,11 +262,10 @@ function TemplateForm({
           psm: 6,
         },
         patterns: {
-          invoice_number: "Faktura č\\.: (\\d+)",
-          date: "Datum: (\\d{2}\\.\\d{2}\\.\\d{4})",
-          total_amount: "Celkem:\\s+([\\d\\s,]+)",
-          table_start: "Kód\\s+Položka\\s+Množství",
-          table_end: "Celkem:",
+          invoice_number: "Číslo dokladu\\s+(\\d+)",
+          date: "Datum uskutečnění plnění:\\s*(\\d{1,2}\\.\\d{1,2}\\.\\d{4})",
+          total_amount: "Celková částka[^:]*:\\s*([\\d\\s,]+)",
+          table_start: "Označení dodávky",
         },
         table_columns: {
           line_pattern:
@@ -350,6 +349,23 @@ function TemplateForm({
 
       <div className="space-y-2">
         <Label htmlFor="config">Konfigurace (JSON)</Label>
+
+        <Alert className="bg-blue-50 border-blue-200">
+          <AlertDescription className="text-xs">
+            <strong>💡 Důležité:</strong> Systém mapuje položky pomocí{" "}
+            <code className="bg-white px-1 py-0.5 rounded">product_code</code> z
+            faktur:
+            <br />
+            <code className="text-xs">
+              product_code (faktura) → ingredient_supplier_codes → ingredients
+              (suroviny)
+            </code>
+            <br />
+            Nastavte regex vzory tak, aby správně extrahovaly product_code z
+            faktur.
+          </AlertDescription>
+        </Alert>
+
         <Textarea
           id="config"
           value={formData.config}

@@ -49,10 +49,18 @@ serve(async (req) => {
 
     console.log(`File downloaded: ${fileData.size} bytes`);
 
-    // Convert to base64 for Python service
+    // Convert to base64 for Python service (in chunks to avoid stack overflow)
     const arrayBuffer = await fileData.arrayBuffer();
     const fileBytes = new Uint8Array(arrayBuffer);
-    const base64File = btoa(String.fromCharCode(...fileBytes));
+    
+    // Convert in chunks to avoid "Maximum call stack size exceeded"
+    let binaryString = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < fileBytes.length; i += chunkSize) {
+      const chunk = fileBytes.slice(i, i + chunkSize);
+      binaryString += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    const base64File = btoa(binaryString);
 
     // Call Python OCR service
     const pythonServiceUrl = Deno.env.get("PYTHON_OCR_SERVICE_URL") || "http://localhost:8000";
@@ -106,6 +114,7 @@ serve(async (req) => {
         confidence: ocrResult.confidence || 0,
         template_used: template.template_name,
         unmapped_codes: matchedItems.filter((item: any) => !item.matched_ingredient_id).length,
+        raw_text: ocrResult.raw_text || '', // Include raw OCR text for debugging
       },
     };
 
@@ -178,6 +187,9 @@ async function matchIngredientsWithCodes(
   items: any[],
   supplierId: string
 ) {
+  console.log(`\n=== Starting ingredient matching for supplier: ${supplierId} ===`);
+  console.log(`Total items to match: ${items.length}`);
+  
   const matchedItems = [];
 
   for (const item of items) {
@@ -188,30 +200,53 @@ async function matchIngredientsWithCodes(
       continue;
     }
 
-    // Try exact match first
+    // Try exact match first (case-insensitive, trimmed)
+    const trimmedCode = productCode.trim();
+    console.log(`\nSearching for code: "${trimmedCode}" (original: "${productCode}", length: ${trimmedCode.length})`);
+    
     let { data: match, error } = await supabase
       .from('ingredient_supplier_codes')
       .select(`
         ingredient_id,
+        product_code,
         supplier_ingredient_name,
-        ingredients!inner(id, name, unit, category)
+        ingredients!inner(id, name, unit, category_id)
       `)
-      .eq('product_code', productCode)
+      .ilike('product_code', trimmedCode)
       .eq('supplier_id', supplierId)
-      .eq('is_active', true)
       .maybeSingle();
 
+    if (error) {
+      console.error(`Error searching for code "${productCode}":`, error);
+    }
+
     if (match) {
+      console.log(`✓ Exact match found for "${trimmedCode}": ${match.ingredients.name} (DB code: "${match.product_code}")`);
       matchedItems.push({
         ...item,
         matched_ingredient_id: match.ingredients.id,
         matched_ingredient_name: match.ingredients.name,
         matched_ingredient_unit: match.ingredients.unit,
-        matched_ingredient_category: match.ingredients.category,
+        matched_ingredient_category: match.ingredients.category_id,
         match_status: 'exact',
         match_confidence: 1.0,
       });
       continue;
+    } else {
+      console.log(`✗ No exact match for "${trimmedCode}" (supplier: ${supplierId})`);
+      
+      // Debug: Show some existing codes for this supplier
+      const { data: existingCodes } = await supabase
+        .from('ingredient_supplier_codes')
+        .select('product_code')
+        .eq('supplier_id', supplierId)
+        .limit(10);
+      
+      if (existingCodes && existingCodes.length > 0) {
+        console.log(`  Available codes for this supplier (first 10): ${existingCodes.map((c: any) => `"${c.product_code}"`).join(', ')}`);
+      } else {
+        console.log(`  No codes found in database for supplier: ${supplierId}`);
+      }
     }
 
     // Try fuzzy matching (remove leading zeros, spaces, etc.)
@@ -225,10 +260,9 @@ async function matchIngredientsWithCodes(
           ingredient_id,
           product_code,
           supplier_ingredient_name,
-          ingredients!inner(id, name, unit, category)
+          ingredients!inner(id, name, unit, category_id)
         `)
         .eq('supplier_id', supplierId)
-        .eq('is_active', true)
         .ilike('product_code', `%${variation}%`)
         .limit(1)
         .maybeSingle();
@@ -245,15 +279,64 @@ async function matchIngredientsWithCodes(
         matched_ingredient_id: fuzzyMatch.ingredients.id,
         matched_ingredient_name: fuzzyMatch.ingredients.name,
         matched_ingredient_unit: fuzzyMatch.ingredients.unit,
-        matched_ingredient_category: fuzzyMatch.ingredients.category,
+        matched_ingredient_category: fuzzyMatch.ingredients.category_id,
         match_status: 'fuzzy',
         match_confidence: 0.7,
       });
       continue;
     }
 
-    // No match found - suggest based on description
-    const suggestion = await suggestIngredient(supabase, item.description);
+    // Try fuzzy name matching on ingredient names
+    if (item.description) {
+      console.log(`Trying fuzzy name match for: "${item.description}"`);
+      
+      // Get first few words of description (remove size/quantity info)
+      const descWords = item.description.trim().split(/\s+/).slice(0, 3).join(' ').toLowerCase();
+      
+      const { data: nameMatches, error: nameError } = await supabase
+        .from('ingredient_supplier_codes')
+        .select(`
+          ingredient_id,
+          supplier_ingredient_name,
+          product_code,
+          ingredients!inner(id, name, unit, category_id)
+        `)
+        .eq('supplier_id', supplierId)
+        .limit(100);  // Get more records for better fuzzy matching
+
+      if (nameMatches && nameMatches.length > 0) {
+        // Score each match based on name similarity
+        let bestMatch = null;
+        let bestScore = 0;
+
+        for (const candidate of nameMatches) {
+          const candidateName = (candidate.supplier_ingredient_name || candidate.ingredients.name).toLowerCase();
+          const score = calculateSimilarity(descWords, candidateName);
+          
+          if (score > bestScore && score > 0.6) {  // Threshold: 60% similarity
+            bestScore = score;
+            bestMatch = candidate;
+          }
+        }
+
+        if (bestMatch) {
+          console.log(`✓ Fuzzy name match found for "${item.description}": ${bestMatch.ingredients.name} (score: ${bestScore})`);
+          matchedItems.push({
+            ...item,
+            matched_ingredient_id: bestMatch.ingredients.id,
+            matched_ingredient_name: bestMatch.ingredients.name,
+            matched_ingredient_unit: bestMatch.ingredients.unit,
+            matched_ingredient_category: bestMatch.ingredients.category_id,
+            match_status: 'fuzzy_name',
+            match_confidence: bestScore,
+          });
+          continue;
+        }
+      }
+    }
+
+    // No match found - suggest based on product code and description
+    const suggestion = await suggestIngredient(supabase, productCode, item.description, supplierId);
     
     matchedItems.push({
       ...item,
@@ -261,11 +344,43 @@ async function matchIngredientsWithCodes(
       suggested_ingredient_id: suggestion?.id || null,
       suggested_ingredient_name: suggestion?.name || null,
       match_status: 'unmapped',
-      match_confidence: suggestion ? 0.5 : 0,
+      match_confidence: suggestion?.confidence || 0,
     });
   }
 
   return matchedItems;
+}
+
+/**
+ * Calculate similarity between two strings (0-1)
+ */
+function calculateSimilarity(str1: string, str2: string): number {
+  const s1 = str1.toLowerCase();
+  const s2 = str2.toLowerCase();
+  
+  // Exact match
+  if (s1 === s2) return 1.0;
+  
+  // Contains match
+  if (s2.includes(s1) || s1.includes(s2)) return 0.9;
+  
+  // Word overlap
+  const words1 = s1.split(/\s+/);
+  const words2 = s2.split(/\s+/);
+  
+  let matchingWords = 0;
+  for (const word1 of words1) {
+    if (word1.length < 3) continue;  // Skip short words
+    for (const word2 of words2) {
+      if (word2.includes(word1) || word1.includes(word2)) {
+        matchingWords++;
+        break;
+      }
+    }
+  }
+  
+  const maxWords = Math.max(words1.length, words2.length);
+  return matchingWords / maxWords;
 }
 
 /**
@@ -300,22 +415,96 @@ function generateCodeVariations(code: string): string[] {
 }
 
 /**
- * Suggest ingredient based on description
+ * Suggest ingredient based on product code and description
  */
-async function suggestIngredient(supabase: any, description: string) {
-  if (!description || description.length < 3) {
+async function suggestIngredient(supabase: any, productCode: string, description: string, supplierId: string) {
+  if (!productCode && (!description || description.length < 3)) {
     return null;
   }
 
-  // Search ingredients by name similarity
-  const { data, error } = await supabase
-    .from('ingredients')
-    .select('id, name, unit, category')
-    .or(`name.ilike.%${description}%`)
-    .limit(1)
-    .maybeSingle();
+  console.log(`Suggesting ingredient for code: "${productCode}", description: "${description}"`);
+  
+  // PRIORITY 1: Try to find by similar product_code in ingredient_supplier_codes (this supplier)
+  if (productCode && productCode.length >= 3) {
+    const { data: codeMatches, error: codeError } = await supabase
+      .from('ingredient_supplier_codes')
+      .select(`
+        ingredient_id,
+        product_code,
+        ingredients!inner(id, name, unit, category_id)
+      `)
+      .eq('supplier_id', supplierId)
+      .limit(50);
 
-  return data;
+    if (codeMatches && codeMatches.length > 0) {
+      // Find best code match using similarity
+      let bestMatch = null;
+      let bestScore = 0;
+
+      for (const candidate of codeMatches) {
+        const candidateCode = candidate.product_code.toLowerCase();
+        const searchCode = productCode.toLowerCase();
+        
+        // Calculate code similarity
+        let score = 0;
+        
+        // Exact match (shouldn't happen, but just in case)
+        if (candidateCode === searchCode) {
+          score = 1.0;
+        }
+        // Starts with
+        else if (candidateCode.startsWith(searchCode) || searchCode.startsWith(candidateCode)) {
+          score = 0.8;
+        }
+        // Contains
+        else if (candidateCode.includes(searchCode) || searchCode.includes(candidateCode)) {
+          score = 0.6;
+        }
+        // First 3 chars match
+        else if (candidateCode.substring(0, 3) === searchCode.substring(0, 3)) {
+          score = 0.5;
+        }
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = candidate;
+        }
+      }
+
+      // If we found a decent match by code, use it
+      if (bestMatch && bestScore >= 0.5) {
+        console.log(`✓ Suggested by code similarity (${Math.round(bestScore * 100)}%): ${bestMatch.ingredients.name}`);
+        return {
+          id: bestMatch.ingredients.id,
+          name: bestMatch.ingredients.name,
+          unit: bestMatch.ingredients.unit,
+          category: bestMatch.ingredients.category,
+          confidence: bestScore,
+        };
+      }
+    }
+  }
+
+  // PRIORITY 2: Try to find by name similarity
+  if (description && description.length >= 3) {
+    // Get first few words of description (remove size/quantity info)
+    const keywords = description.trim().split(/\s+/).slice(0, 3).join(' ');
+    
+    // Search ingredients by name similarity
+    const { data, error } = await supabase
+      .from('ingredients')
+      .select('id, name, unit, category')
+      .ilike('name', `%${keywords}%`)
+      .limit(1)
+      .maybeSingle();
+
+    if (data) {
+      console.log(`✓ Suggested by name similarity: ${data.name}`);
+      return { ...data, confidence: 0.5 };
+    }
+  }
+
+  return null;
 }
 
 /**

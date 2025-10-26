@@ -1123,12 +1123,12 @@ function generateLineItemPattern(exampleLine: string): string {
 
     if (lines.length >= 2) {
       // Line 1: Description (anything)
-      // Line 2: Code Quantity Unit Price VAT% Total
+      // Line 2: Code Quantity+Unit Price VAT% Total
       const pattern =
         "^([^\\n]+?)\\s*\\n" + // Description (line 1)
         "\\s*(\\d+)\\s+" + // Product code (flexible length)
-        "([\\d,]+)\\s*" + // Quantity
-        "([a-zA-Z0-9]{1,6})\\s+" + // Unit (flexible: kg, ks, lt, ml, 1kr, 2kr, etc - allows digits)
+        "([\\d,]+)\\s*" + // Quantity (digits only)
+        "([a-zA-Z]{1,5})\\s+" + // Unit (letters only: kg, ks, lt, ml, kr, etc)
         "([\\d,\\s]+)\\s+" + // Unit price (allow spaces in numbers)
         "\\d+\\s*%?\\s*\\d*\\s+" + // VAT % (optional % and optional number after)
         "([\\d,\\.\\s]+)"; // Total price (allow spaces and dots)

@@ -99,20 +99,43 @@ export const useUnmappedCodes = (supplierId?: string) => {
 
       // Create mapping in ingredient_supplier_codes if requested
       if (createMapping) {
-        const { error: mappingError } = await supabase
+        // First check if mapping already exists (case-insensitive)
+        const { data: existingMapping } = await supabase
           .from("ingredient_supplier_codes")
-          .insert({
-            ingredient_id: ingredientId,
-            supplier_id: code.supplier_id,
-            product_code: code.product_code,
-            supplier_ingredient_name: code.description,
-            is_active: true,
-          });
+          .select("id, product_code, is_active")
+          .eq("supplier_id", code.supplier_id)
+          .eq("ingredient_id", ingredientId)
+          .ilike("product_code", code.product_code)
+          .maybeSingle();
 
-        if (mappingError) {
-          // Check if it's a duplicate error
-          if (mappingError.code !== '23505') {
-            throw mappingError;
+        if (existingMapping) {
+          // Mapping already exists - just activate it if needed
+          if (!existingMapping.is_active) {
+            await supabase
+              .from("ingredient_supplier_codes")
+              .update({ is_active: true })
+              .eq("id", existingMapping.id);
+          }
+          console.log("Mapping already exists, reusing:", existingMapping);
+        } else {
+          // Create new mapping
+          const { error: mappingError } = await supabase
+            .from("ingredient_supplier_codes")
+            .insert({
+              ingredient_id: ingredientId,
+              supplier_id: code.supplier_id,
+              product_code: code.product_code,
+              supplier_ingredient_name: code.description,
+              price: code.last_seen_price || 0, // Use price from invoice, default to 0
+              is_active: true,
+            });
+
+          if (mappingError) {
+            console.error("Error creating mapping:", mappingError);
+            // Check if it's a duplicate error (might happen with race conditions)
+            if (mappingError.code !== '23505') {
+              throw mappingError;
+            }
           }
         }
       }
