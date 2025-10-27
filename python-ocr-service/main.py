@@ -452,21 +452,32 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     base_price_val = extract_number(groups[3]) if len(groups) > 3 else None
                     units_in_mu_val = extract_number(groups[4]) if len(groups) > 4 else None
                     description = groups[2].strip() if len(groups) > 2 else None
-                    quantity = extract_number(groups[1]) if len(groups) > 1 else 0
+                    quantity_field = extract_number(groups[1]) if len(groups) > 1 else 0
                     line_total = extract_number(groups[6]) if len(groups) > 6 else 0
                     
                     logger.info(f"Extracting 10-group MAKRO format - base_price: {base_price_val}, units_in_mu: {units_in_mu_val}")
+                    
+                    # Detect format: items starting with "*" are sold by weight (Format B)
+                    is_weight_format = description and description.startswith('*')
                     
                     # Extract weight from description and calculate price per kg
                     package_weight_kg = extract_weight_from_description(description)
                     total_weight_kg = None
                     price_per_kg = None
+                    quantity = quantity_field
                     
-                    if package_weight_kg and quantity > 0:
-                        total_weight_kg = package_weight_kg * quantity
+                    if is_weight_format:
+                        # Format B: quantity field is actually total weight in kg
+                        total_weight_kg = quantity_field
+                        price_per_kg = base_price_val  # base_price is actually price per kg
+                        quantity = 1  # No package count, just weight
+                        logger.info(f"Format B (by weight): total_weight={total_weight_kg} kg, price_per_kg={price_per_kg} Kč/kg")
+                    elif package_weight_kg and quantity_field > 0:
+                        # Format A: quantity is package count
+                        total_weight_kg = package_weight_kg * quantity_field
                         if total_weight_kg > 0 and line_total > 0:
                             price_per_kg = line_total / total_weight_kg
-                            logger.info(f"Calculated price per kg: {price_per_kg:.2f} Kč/kg (total: {line_total}, weight: {total_weight_kg:.3f} kg)")
+                            logger.info(f"Format A (by package): calculated price per kg: {price_per_kg:.2f} Kč/kg (total: {line_total}, weight: {total_weight_kg:.3f} kg)")
                     
                     return InvoiceItem(
                         product_code=groups[0] if len(groups) > 0 else None,
