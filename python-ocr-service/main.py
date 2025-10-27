@@ -43,6 +43,8 @@ class InvoiceItem(BaseModel):
     unit_price: float = 0
     line_total: float = 0
     line_number: int = 0
+    base_price: Optional[float] = None  # MAKRO: zákl. cena (base price per package)
+    units_in_mu: Optional[float] = None  # MAKRO: jedn. v MU (units in measurement unit)
 
 class ProcessInvoiceResponse(BaseModel):
     invoice_number: Optional[str] = None
@@ -389,15 +391,37 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
             match = re.match(item_pattern, line)
             if match:
                 groups = match.groups()
-                return InvoiceItem(
-                    product_code=groups[0] if len(groups) > 0 else None,
-                    description=groups[1] if len(groups) > 1 else None,
-                    quantity=extract_number(groups[2]) if len(groups) > 2 else 0,
-                    unit_of_measure=groups[3] if len(groups) > 3 else None,
-                    unit_price=extract_number(groups[4]) if len(groups) > 4 else 0,
-                    line_total=extract_number(groups[5]) if len(groups) > 5 else 0,
-                    line_number=line_number,
-                )
+                
+                # Handle different pattern formats:
+                # Format 1 (6 groups): code, description, quantity, unit, price, total
+                # Format 2 (7 groups): code, quantity, description, base_price, units_in_mu, price_per_mu, total
+                
+                if len(groups) >= 7:
+                    # MAKRO format: 7 captures
+                    # code, quantity, description (with unit at end), base_price, units_in_mu, price_per_mu, total
+                    
+                    return InvoiceItem(
+                        product_code=groups[0] if len(groups) > 0 else None,
+                        quantity=extract_number(groups[1]) if len(groups) > 1 else 0,
+                        description=groups[2].strip() if len(groups) > 2 else None,  # Keep description as-is (includes unit)
+                        unit_of_measure=None,  # Unit is in description, not separate
+                        base_price=extract_number(groups[3]) if len(groups) > 3 else None,
+                        units_in_mu=extract_number(groups[4]) if len(groups) > 4 else None,
+                        unit_price=extract_number(groups[5]) if len(groups) > 5 else 0,
+                        line_total=extract_number(groups[6]) if len(groups) > 6 else 0,
+                        line_number=line_number,
+                    )
+                else:
+                    # Original 6-group format
+                    return InvoiceItem(
+                        product_code=groups[0] if len(groups) > 0 else None,
+                        description=groups[1] if len(groups) > 1 else None,
+                        quantity=extract_number(groups[2]) if len(groups) > 2 else 0,
+                        unit_of_measure=groups[3] if len(groups) > 3 else None,
+                        unit_price=extract_number(groups[4]) if len(groups) > 4 else 0,
+                        line_total=extract_number(groups[5]) if len(groups) > 5 else 0,
+                        line_number=line_number,
+                    )
         except Exception as e:
             logger.error(f"Error matching line pattern: {e}")
     

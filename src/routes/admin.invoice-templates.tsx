@@ -982,8 +982,7 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                             </td>
                             {/* počet MU */}
                             <td className="p-2 text-right text-xs font-semibold">
-                              {item.quantity.toLocaleString("cs-CZ")}{" "}
-                              {item.unit_of_measure || "ks"}
+                              {item.quantity.toLocaleString("cs-CZ")}
                             </td>
                             {/* název zboží */}
                             <td className="p-2 text-xs">
