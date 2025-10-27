@@ -14,6 +14,9 @@ import io
 import base64
 from typing import Dict, List, Optional, Any
 import logging
+from pyzbar import pyzbar
+import numpy as np
+import cv2
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -52,6 +55,11 @@ class InvoiceItem(BaseModel):
     total_weight_kg: Optional[float] = None  # Total weight: quantity × package_weight_kg
     price_per_kg: Optional[float] = None  # Price per kilogram: line_total / total_weight_kg
 
+class QRCodeData(BaseModel):
+    data: str
+    type: str
+    page: int
+    
 class ProcessInvoiceResponse(BaseModel):
     invoice_number: Optional[str] = None
     date: Optional[str] = None
@@ -60,6 +68,7 @@ class ProcessInvoiceResponse(BaseModel):
     items: List[InvoiceItem] = []
     confidence: float = 0
     raw_text: Optional[str] = None
+    qr_codes: List[QRCodeData] = []
 
 @app.get("/health")
 async def health_check():
@@ -154,6 +163,17 @@ async def process_invoice(request: ProcessInvoiceRequest):
             psm
         )
         
+        # Detect QR codes from all pages
+        qr_codes = []
+        for page_num, image in enumerate(images, 1):
+            page_qr_codes = detect_qr_codes(image, page_num)
+            qr_codes.extend(page_qr_codes)
+        
+        if qr_codes:
+            logger.info(f"Found {len(qr_codes)} QR code(s) across all pages")
+            for qr in qr_codes:
+                logger.info(f"  Page {qr.page}: {qr.type} - {qr.data[:100]}...")
+        
         # Calculate confidence based on extracted data
         confidence = calculate_confidence({
             'invoice_number': invoice_number,
@@ -171,6 +191,7 @@ async def process_invoice(request: ProcessInvoiceRequest):
             items=items,
             confidence=confidence,
             raw_text=raw_text_display if len(raw_text_display) < 20000 else raw_text_display[:20000] + "\n\n... (text truncated for display)",
+            qr_codes=qr_codes,
         )
         
     except Exception as e:
@@ -217,6 +238,43 @@ def convert_to_images(file_bytes: bytes, filename: str) -> List[Image.Image]:
     except Exception as e:
         logger.error(f"Error converting file: {e}")
         return []
+
+def detect_qr_codes(image: Image.Image, page_num: int) -> List[QRCodeData]:
+    """
+    Detect and decode QR codes from an image
+    """
+    qr_codes = []
+    
+    try:
+        # Convert PIL Image to numpy array for OpenCV
+        img_array = np.array(image)
+        
+        # Convert RGB to BGR (OpenCV uses BGR)
+        if len(img_array.shape) == 3 and img_array.shape[2] == 3:
+            img_array = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+        
+        # Convert to grayscale for better QR detection
+        gray = cv2.cvtColor(img_array, cv2.COLOR_BGR2GRAY)
+        
+        # Detect QR codes using pyzbar
+        decoded_objects = pyzbar.decode(gray)
+        
+        for obj in decoded_objects:
+            qr_data = obj.data.decode('utf-8', errors='ignore')
+            qr_type = obj.type
+            
+            qr_codes.append(QRCodeData(
+                data=qr_data,
+                type=qr_type,
+                page=page_num
+            ))
+            
+            logger.info(f"Detected {qr_type} on page {page_num}: {qr_data[:100]}")
+    
+    except Exception as e:
+        logger.error(f"Error detecting QR codes on page {page_num}: {e}")
+    
+    return qr_codes
 
 def extract_pattern(text: str, pattern: Optional[str]) -> Optional[str]:
     """Extract data using regex pattern"""

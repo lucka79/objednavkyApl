@@ -43,6 +43,7 @@ export interface TemplateConfig {
     language?: string;
     psm?: number;
   };
+  display_layout?: "standard" | "makro" | "two-line";
 }
 
 interface Region {
