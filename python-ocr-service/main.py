@@ -472,12 +472,20 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         price_per_kg = base_price_val  # base_price is actually price per kg
                         quantity = 1  # No package count, just weight
                         logger.info(f"Format B (by weight): total_weight={total_weight_kg} kg, price_per_kg={price_per_kg} Kč/kg")
-                    elif package_weight_kg and quantity_field > 0:
-                        # Format A: quantity is package count
-                        total_weight_kg = package_weight_kg * quantity_field
-                        if total_weight_kg > 0 and line_total > 0:
+                    elif package_weight_kg:
+                        # Format A: calculate total weight based on units_in_mu or quantity
+                        # If units_in_mu > 1, it means multiple units per package (e.g., "100g 12x" = 1.2 kg)
+                        # If units_in_mu = 1, use quantity as package count
+                        if units_in_mu_val and units_in_mu_val > 1:
+                            total_weight_kg = package_weight_kg * units_in_mu_val
+                            logger.info(f"Format A (multi-unit package): {package_weight_kg} kg × {units_in_mu_val} units = {total_weight_kg:.3f} kg")
+                        elif quantity_field > 0:
+                            total_weight_kg = package_weight_kg * quantity_field
+                            logger.info(f"Format A (by quantity): {package_weight_kg} kg × {quantity_field} packages = {total_weight_kg:.3f} kg")
+                        
+                        if total_weight_kg and total_weight_kg > 0 and line_total > 0:
                             price_per_kg = line_total / total_weight_kg
-                            logger.info(f"Format A (by package): calculated price per kg: {price_per_kg:.2f} Kč/kg (total: {line_total}, weight: {total_weight_kg:.3f} kg)")
+                            logger.info(f"Calculated price per kg: {price_per_kg:.2f} Kč/kg (total: {line_total}, weight: {total_weight_kg:.3f} kg)")
                     
                     return InvoiceItem(
                         product_code=groups[0] if len(groups) > 0 else None,
