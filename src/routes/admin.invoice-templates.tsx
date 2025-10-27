@@ -989,10 +989,13 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                             <td className="p-2 text-right text-xs font-semibold">
                               {item.description?.startsWith("*") ? (
                                 <span className="text-purple-600">
-                                  {item.total_weight_kg?.toLocaleString("cs-CZ", {
-                                    minimumFractionDigits: 3,
-                                    maximumFractionDigits: 3,
-                                  })}{" "}
+                                  {item.total_weight_kg?.toLocaleString(
+                                    "cs-CZ",
+                                    {
+                                      minimumFractionDigits: 3,
+                                      maximumFractionDigits: 3,
+                                    }
+                                  )}{" "}
                                   kg
                                 </span>
                               ) : (
