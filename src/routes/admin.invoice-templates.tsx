@@ -987,7 +987,17 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                             </td>
                             {/* počet MU */}
                             <td className="p-2 text-right text-xs font-semibold">
-                              {item.quantity.toLocaleString("cs-CZ")}
+                              {item.description?.startsWith("*") ? (
+                                <span className="text-purple-600">
+                                  {item.total_weight_kg?.toLocaleString("cs-CZ", {
+                                    minimumFractionDigits: 3,
+                                    maximumFractionDigits: 3,
+                                  })}{" "}
+                                  kg
+                                </span>
+                              ) : (
+                                item.quantity.toLocaleString("cs-CZ")
+                              )}
                             </td>
                             {/* název zboží */}
                             <td className="p-2 text-xs">
@@ -996,7 +1006,9 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                             {/* hmot. bal. (package weight) */}
                             <td className="p-2 text-right text-xs text-blue-600">
                               {item.package_weight_kg
-                                ? `${(item.package_weight_kg * 1000).toLocaleString("cs-CZ", {
+                                ? `${(
+                                    item.package_weight_kg * 1000
+                                  ).toLocaleString("cs-CZ", {
                                     maximumFractionDigits: 0,
                                   })} g`
                                 : "-"}
@@ -1004,18 +1016,34 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                             {/* celk. hmot. (total weight) */}
                             <td className="p-2 text-right text-xs text-green-600 font-medium">
                               {item.total_weight_kg
-                                ? `${item.total_weight_kg.toLocaleString("cs-CZ", {
-                                    minimumFractionDigits: 3,
-                                    maximumFractionDigits: 3,
-                                  })} kg`
+                                ? `${item.total_weight_kg.toLocaleString(
+                                    "cs-CZ",
+                                    {
+                                      minimumFractionDigits: 3,
+                                      maximumFractionDigits: 3,
+                                    }
+                                  )} kg`
                                 : "-"}
                             </td>
-                            {/* zákl. cena (base price per package) */}
+                            {/* zákl. cena (base price per package OR price per kg for * items) */}
                             <td className="p-2 text-right text-xs">
-                              {item.base_price?.toLocaleString("cs-CZ", {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              }) || "-"}
+                              {item.base_price ? (
+                                <span
+                                  className={
+                                    item.description?.startsWith("*")
+                                      ? "text-purple-600 font-medium"
+                                      : ""
+                                  }
+                                >
+                                  {item.base_price.toLocaleString("cs-CZ", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                  {item.description?.startsWith("*") && " /kg"}
+                                </span>
+                              ) : (
+                                "-"
+                              )}
                             </td>
                             {/* jedn. v MU (units in MU) */}
                             <td className="p-2 text-right text-xs">
