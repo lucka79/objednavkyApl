@@ -391,6 +391,7 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
             match = re.match(item_pattern, line)
             if match:
                 groups = match.groups()
+                logger.debug(f"Pattern matched with {len(groups)} groups: {groups}")
                 
                 # Handle different pattern formats:
                 # Format 1 (6 groups): code, description, quantity, unit, price, total
@@ -400,13 +401,18 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     # MAKRO format: 7 captures
                     # code, quantity, description (with unit at end), base_price, units_in_mu, price_per_mu, total
                     
+                    base_price_val = extract_number(groups[3]) if len(groups) > 3 else None
+                    units_in_mu_val = extract_number(groups[4]) if len(groups) > 4 else None
+                    
+                    logger.info(f"Extracting 7-group MAKRO format - base_price: {base_price_val}, units_in_mu: {units_in_mu_val}")
+                    
                     return InvoiceItem(
                         product_code=groups[0] if len(groups) > 0 else None,
                         quantity=extract_number(groups[1]) if len(groups) > 1 else 0,
                         description=groups[2].strip() if len(groups) > 2 else None,  # Keep description as-is (includes unit)
                         unit_of_measure=None,  # Unit is in description, not separate
-                        base_price=extract_number(groups[3]) if len(groups) > 3 else None,
-                        units_in_mu=extract_number(groups[4]) if len(groups) > 4 else None,
+                        base_price=base_price_val,
+                        units_in_mu=units_in_mu_val,
                         unit_price=extract_number(groups[5]) if len(groups) > 5 else 0,
                         line_total=extract_number(groups[6]) if len(groups) > 6 else 0,
                         line_number=line_number,
