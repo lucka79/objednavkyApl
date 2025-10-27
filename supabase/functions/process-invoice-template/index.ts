@@ -115,6 +115,7 @@ serve(async (req) => {
         template_used: template.template_name,
         unmapped_codes: matchedItems.filter((item: any) => !item.matched_ingredient_id).length,
         raw_text: ocrResult.raw_text || '', // Include raw OCR text for debugging
+        qr_codes: ocrResult.qr_codes || [], // Include QR codes detected from all pages
       },
     };
 

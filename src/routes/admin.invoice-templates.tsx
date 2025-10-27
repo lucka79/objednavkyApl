@@ -864,19 +864,19 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
             </div>
 
             {/* QR Codes Display */}
-            {result.qr_codes && result.qr_codes.length > 0 && (
-              <Card className="border-purple-200 bg-purple-50/30">
-                <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <span className="text-lg">📱</span>
-                    QR kódy nalezené ve faktuře
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Automaticky detekovány a dekódovány ze všech stránek
-                    dokumentu
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
+            <Card className="border-purple-200 bg-purple-50/30">
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <span className="text-lg">📱</span>
+                  QR kódy a čárové kódy
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Automatická detekce QR kódů, čárových kódů a Data Matrix ze
+                  všech stránek
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {result.qr_codes && result.qr_codes.length > 0 ? (
                   <div className="space-y-3">
                     {result.qr_codes.map((qr: any, idx: number) => (
                       <div
@@ -910,9 +910,27 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                ) : result.qr_codes !== undefined ? (
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <AlertDescription className="text-sm">
+                      ℹ️ Žádné QR kódy ani čárové kódy nebyly nalezeny na této
+                      faktuře.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <Alert className="bg-amber-50 border-amber-200">
+                    <AlertDescription className="text-sm">
+                      ⚠️ QR detekce není dostupná - OCR služba se aktualizuje.
+                      <br />
+                      <span className="text-xs text-gray-600 mt-1 block">
+                        Nahrajte fakturu znovu za chvíli pro aktivaci QR
+                        detekce.
+                      </span>
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-start justify-between">
