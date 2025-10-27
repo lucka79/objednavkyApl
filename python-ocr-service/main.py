@@ -371,6 +371,22 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
         if not line or len(line) < 5:
             continue
         
+        # Skip metadata/info lines that don't start with a product code
+        # Examples: "BC GTIN...", "OVOCE A ZELENINA", section headers, etc.
+        if re.match(r'^[A-Z]{2,}\s+(GTIN|Šarže)', line, re.IGNORECASE):
+            logger.debug(f"Skipping metadata line: {line[:50]}")
+            continue
+        
+        # Skip section headers (lines with only uppercase letters and spaces)
+        if re.match(r'^[A-ZĚŠČŘŽÝÁÍÉÚŮĎŤŇĹ\s]+$', line) and len(line) < 50:
+            logger.debug(f"Skipping header line: {line}")
+            continue
+        
+        # Skip lines that don't start with a digit (product codes should be numeric)
+        if not re.match(r'^\d', line):
+            logger.debug(f"Skipping non-product line: {line[:50]}")
+            continue
+        
         # Try to extract item from line
         item = extract_item_from_line(line, table_columns, line_no)
         
