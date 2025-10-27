@@ -959,10 +959,15 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                         <th className="text-left p-2 text-xs">číslo zboží</th>
                         <th className="text-right p-2 text-xs">počet MU</th>
                         <th className="text-left p-2 text-xs">název zboží</th>
+                        <th className="text-right p-2 text-xs">hmot. bal.</th>
+                        <th className="text-right p-2 text-xs">celk. hmot.</th>
                         <th className="text-right p-2 text-xs">zákl. cena</th>
                         <th className="text-right p-2 text-xs">jedn. v MU</th>
                         <th className="text-right p-2 text-xs">cena za MU</th>
                         <th className="text-right p-2 text-xs">cena celkem</th>
+                        <th className="text-right p-2 text-xs bg-orange-50">
+                          Cena/kg
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -988,6 +993,23 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                             <td className="p-2 text-xs">
                               {item.description || "-"}
                             </td>
+                            {/* hmot. bal. (package weight) */}
+                            <td className="p-2 text-right text-xs text-blue-600">
+                              {item.package_weight_kg
+                                ? `${(item.package_weight_kg * 1000).toLocaleString("cs-CZ", {
+                                    maximumFractionDigits: 0,
+                                  })} g`
+                                : "-"}
+                            </td>
+                            {/* celk. hmot. (total weight) */}
+                            <td className="p-2 text-right text-xs text-green-600 font-medium">
+                              {item.total_weight_kg
+                                ? `${item.total_weight_kg.toLocaleString("cs-CZ", {
+                                    minimumFractionDigits: 3,
+                                    maximumFractionDigits: 3,
+                                  })} kg`
+                                : "-"}
+                            </td>
                             {/* zákl. cena (base price per package) */}
                             <td className="p-2 text-right text-xs">
                               {item.base_price?.toLocaleString("cs-CZ", {
@@ -1012,6 +1034,20 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                               })}
+                            </td>
+                            {/* Cena/kg (calculated) */}
+                            <td className="p-2 text-right text-xs bg-orange-50">
+                              {item.price_per_kg ? (
+                                <span className="text-orange-600 font-bold">
+                                  {item.price_per_kg.toLocaleString("cs-CZ", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}{" "}
+                                  Kč/kg
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
                             </td>
                           </tr>
                         );
