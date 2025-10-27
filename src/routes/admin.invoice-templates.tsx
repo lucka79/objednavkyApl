@@ -1507,22 +1507,22 @@ function generateRegexPattern(text: string, mode: string): string {
 
     case "payment_type":
       // Extract the payment type text after the label
-      // Example: "Plateb.podmínky Hotově" -> "Plateb\.podmínky\s+([^\n]+)"
-      // Example: "Způsob platby: Hotově" -> "Způsob platby:\s*([^\n]+)"
-      // [^\n]+ matches everything except newline (stops at line break)
+      // Example: "Plateb.podmínky Hotově" -> "Plateb\.podmínky\s+([a-zA-Zá-žÁ-Ž]+)"
+      // Example: "Způsob platby: Hotově" -> "Způsob platby:\s*([a-zA-Zá-žÁ-Ž]+)"
+      // Only captures letters (Czech + English), stops at numbers or special chars
       const words = text.trim().split(/\s+/);
       if (words.length > 1) {
         // Find the label (everything before the last word)
         const labelWords = words.slice(0, -1);
 
-        // Create pattern: Label + capture until newline
+        // Create pattern: Label + capture only letters
         const labelEscaped = labelWords
           .join(" ")
           .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        return `${labelEscaped}\\s*([^\\n]+)`;
+        return `${labelEscaped}\\s*([a-zA-Zá-žÁ-Ž]+)`;
       }
-      // Fallback for simple text
-      return escaped.replace(/[^\n]+$/g, "([^\\n]+)");
+      // Fallback for simple text - capture only word characters
+      return escaped.replace(/[a-záčďéěíňóřšťúůýž]+$/gi, "([a-zA-Zá-žÁ-Ž]+)");
 
     case "table_start":
     case "table_end":
