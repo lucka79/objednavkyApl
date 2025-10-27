@@ -487,11 +487,46 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
     logger.info(f"Extracted {len(items)} valid items")
     return items
 
+def apply_code_corrections(product_code: str, corrections: Dict) -> str:
+    """
+    Apply code corrections based on configured rules
+    
+    Supports:
+    - prepend_if_starts_with: {"0000": "1"} -> prepends "1" to codes starting with "0000"
+    - replace_pattern: [{"pattern": "^0+", "replacement": "1"}] -> regex replacements
+    """
+    if not product_code or not corrections:
+        return product_code
+    
+    # Rule 1: Prepend if starts with specific pattern
+    prepend_rules = corrections.get('prepend_if_starts_with', {})
+    for starts_with, prepend_text in prepend_rules.items():
+        if product_code.startswith(starts_with):
+            corrected = prepend_text + product_code
+            logger.info(f"Code correction: {product_code} -> {corrected} (prepended '{prepend_text}')")
+            return corrected
+    
+    # Rule 2: Regex pattern replacements
+    replace_rules = corrections.get('replace_pattern', [])
+    for rule in replace_rules:
+        pattern = rule.get('pattern')
+        replacement = rule.get('replacement', '')
+        if pattern:
+            corrected = re.sub(pattern, replacement, product_code)
+            if corrected != product_code:
+                logger.info(f"Code correction: {product_code} -> {corrected} (pattern: {pattern})")
+                return corrected
+    
+    return product_code
+
 def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> Optional[InvoiceItem]:
     """
     Extract single item from a line of text
     Uses configurable patterns or whitespace splitting
     """
+    
+    # Get code correction rules if configured
+    code_corrections = table_columns.get('code_corrections', {})
     
     # Method 1: Use regex patterns if configured
     item_pattern = table_columns.get('line_pattern')
@@ -548,8 +583,12 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             price_per_kg = line_total / total_weight_kg
                             logger.info(f"Calculated price per kg: {price_per_kg:.2f} Kč/kg (total: {line_total}, weight: {total_weight_kg:.3f} kg)")
                     
+                    # Apply code corrections if configured
+                    raw_code = groups[0] if len(groups) > 0 else None
+                    corrected_code = apply_code_corrections(raw_code, code_corrections) if raw_code else None
+                    
                     return InvoiceItem(
-                        product_code=groups[0] if len(groups) > 0 else None,
+                        product_code=corrected_code,
                         quantity=quantity,
                         description=description,
                         unit_of_measure=None,  # Unit is in description, not separate
@@ -574,8 +613,12 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     
                     logger.info(f"Extracting 7-group MAKRO format - base_price: {base_price_val}, units_in_mu: {units_in_mu_val}")
                     
+                    # Apply code corrections if configured
+                    raw_code = groups[0] if len(groups) > 0 else None
+                    corrected_code = apply_code_corrections(raw_code, code_corrections) if raw_code else None
+                    
                     return InvoiceItem(
-                        product_code=groups[0] if len(groups) > 0 else None,
+                        product_code=corrected_code,
                         quantity=extract_number(groups[1]) if len(groups) > 1 else 0,
                         description=groups[2].strip() if len(groups) > 2 else None,
                         unit_of_measure=None,
@@ -587,8 +630,12 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     )
                 else:
                     # Original 6-group format
+                    # Apply code corrections if configured
+                    raw_code = groups[0] if len(groups) > 0 else None
+                    corrected_code = apply_code_corrections(raw_code, code_corrections) if raw_code else None
+                    
                     return InvoiceItem(
-                        product_code=groups[0] if len(groups) > 0 else None,
+                        product_code=corrected_code,
                         description=groups[1] if len(groups) > 1 else None,
                         quantity=extract_number(groups[2]) if len(groups) > 2 else 0,
                         unit_of_measure=groups[3] if len(groups) > 3 else None,
@@ -670,8 +717,11 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
     
     # Validate that we have meaningful data
     if product_code and (quantity > 0 or unit_price > 0):
+        # Apply code corrections if configured
+        corrected_code = apply_code_corrections(product_code, code_corrections)
+        
         return InvoiceItem(
-            product_code=product_code,
+            product_code=corrected_code,
             description=description,
             quantity=quantity,
             unit_of_measure=unit,

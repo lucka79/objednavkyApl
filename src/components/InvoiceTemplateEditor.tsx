@@ -270,6 +270,15 @@ function TemplateForm({
           // group 5: unit_price (53.7 - first number in price data)
 
           // NOTE: Modify line_pattern in "✏️ Použít jako vzor řádku" for your format!
+
+          // ========== CODE CORRECTIONS (for OCR errors) ==========
+          // Fix common OCR misreads in product codes
+          // Example for Zeelandia: OCR reads "0000891" but should be "10000891"
+          // code_corrections: {
+          //   prepend_if_starts_with: {
+          //     "0000": "1"
+          //   }
+          // }
         },
       },
       null,
