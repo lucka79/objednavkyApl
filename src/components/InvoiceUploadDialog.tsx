@@ -41,6 +41,12 @@ interface ParsedInvoiceItem {
   matchStatus?: string;
   ingredientId?: number | null;
   ingredientName?: string | null;
+  // Weight-based fields (for MAKRO and similar suppliers)
+  packageWeightKg?: number;
+  totalWeightKg?: number;
+  pricePerKg?: number;
+  basePrice?: number;
+  unitsInMu?: number;
 }
 
 interface ParsedInvoice {
@@ -56,6 +62,9 @@ interface ParsedInvoice {
   unmappedCount?: number;
   templateUsed?: string;
 }
+
+// MAKRO supplier ID (weight-based layout)
+const MAKRO_SUPPLIER_ID = "16293f61-b9e8-4016-9882-0b8fa90125e4";
 
 export function InvoiceUploadDialog() {
   const [isOpen, setIsOpen] = useState(false);
@@ -169,12 +178,18 @@ export function InvoiceUploadDialog() {
           quantity: item.quantity,
           unit: item.unit_of_measure || item.unit,
           price: item.unit_price || item.price,
-          total: item.total_price || item.total,
+          total: item.total_price || item.total || item.line_total,
           supplierCode: item.product_code || item.supplierCode,
           confidence: item.match_confidence || item.confidence || 0,
           matchStatus: item.match_status,
           ingredientId: item.matched_ingredient_id,
           ingredientName: item.matched_ingredient_name,
+          // Weight-based fields
+          packageWeightKg: item.package_weight_kg,
+          totalWeightKg: item.total_weight_kg,
+          pricePerKg: item.price_per_kg,
+          basePrice: item.base_price,
+          unitsInMu: item.units_in_mu,
         }));
 
         // Calculate subtotal (without VAT) from line items
@@ -346,16 +361,31 @@ export function InvoiceUploadDialog() {
       );
 
       if (matchedItems.length > 0) {
-        const itemsToInsert = matchedItems.map((item, index) => ({
-          invoice_received_id: savedInvoice.id,
-          matched_ingredient_id: item.ingredientId!,
-          quantity: item.quantity,
-          unit_price: item.price,
-          line_total: item.total || item.quantity * item.price,
-          line_number: index + 1,
-          unit_of_measure: item.unit,
-          matching_confidence: item.confidence || 100,
-        }));
+        const itemsToInsert = matchedItems.map((item, index) => {
+          const baseInsert: any = {
+            invoice_received_id: savedInvoice.id,
+            matched_ingredient_id: item.ingredientId!,
+            quantity: item.quantity,
+            unit_price: item.price,
+            line_total: item.total || item.quantity * item.price,
+            line_number: index + 1,
+            unit_of_measure: item.unit,
+            matching_confidence: item.confidence || 100,
+          };
+
+          // Add weight-based fields if available (for MAKRO and similar suppliers)
+          if (item.totalWeightKg !== undefined) {
+            baseInsert.total_weight_kg = item.totalWeightKg;
+          }
+          if (item.pricePerKg !== undefined) {
+            baseInsert.price_per_kg = item.pricePerKg;
+          }
+          if (item.packageWeightKg !== undefined) {
+            baseInsert.package_weight_kg = item.packageWeightKg;
+          }
+
+          return baseInsert;
+        });
 
         const { error: itemsError } = await supabase
           .from("items_received")
@@ -697,57 +727,198 @@ export function InvoiceUploadDialog() {
                     </Alert>
                   )}
 
-                  <div className="mt-2 space-y-2">
-                    {parsedInvoice.items.map((item) => (
-                      <div
-                        key={item.id}
-                        className={`flex items-center justify-between p-3 border rounded-md ${
-                          item.matchStatus === "unmapped"
-                            ? "border-red-300 bg-red-50"
-                            : item.matchStatus === "exact"
-                              ? "border-green-300 bg-green-50"
-                              : "border-yellow-300 bg-yellow-50"
-                        }`}
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            {item.supplierCode && (
-                              <code className="text-xs bg-gray-800 text-white px-1.5 py-0.5 rounded">
-                                {item.supplierCode}
-                              </code>
+                  {/* Weight-based layout for MAKRO */}
+                  {(selectedSupplier === MAKRO_SUPPLIER_ID || invoiceSupplier === MAKRO_SUPPLIER_ID) ? (
+                    <div className="mt-2 overflow-x-auto border rounded-md">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-gray-50">
+                            <th className="text-left p-2 text-xs">číslo zboží</th>
+                            <th className="text-right p-2 text-xs">počet MU</th>
+                            <th className="text-left p-2 text-xs">název zboží</th>
+                            <th className="text-right p-2 text-xs">hmot. bal.</th>
+                            <th className="text-right p-2 text-xs">celk. hmot.</th>
+                            <th className="text-right p-2 text-xs">zákl. cena</th>
+                            <th className="text-right p-2 text-xs">jedn. v MU</th>
+                            <th className="text-right p-2 text-xs">cena za MU</th>
+                            <th className="text-right p-2 text-xs">cena celkem</th>
+                            <th className="text-right p-2 text-xs bg-orange-50">Cena/kg</th>
+                            <th className="text-left p-2 text-xs bg-blue-50">Namapováno</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {parsedInvoice.items.map((item) => {
+                            const isWeightFormat = item.name?.startsWith("*");
+                            return (
+                              <tr
+                                key={item.id}
+                                className={`border-b ${
+                                  item.matchStatus === "unmapped"
+                                    ? "bg-red-50"
+                                    : item.matchStatus === "exact"
+                                      ? "bg-green-50"
+                                      : "bg-yellow-50"
+                                }`}
+                              >
+                                {/* číslo zboží */}
+                                <td className="p-2">
+                                  <code className="text-xs bg-blue-100 px-1 py-0.5 rounded font-mono">
+                                    {item.supplierCode || "???"}
+                                  </code>
+                                </td>
+                                {/* počet MU */}
+                                <td className="p-2 text-right text-xs font-semibold">
+                                  {isWeightFormat ? (
+                                    <span className="text-purple-600">
+                                      {item.totalWeightKg?.toLocaleString("cs-CZ", {
+                                        minimumFractionDigits: 3,
+                                        maximumFractionDigits: 3,
+                                      })}{" "}
+                                      kg
+                                    </span>
+                                  ) : (
+                                    item.quantity.toLocaleString("cs-CZ")
+                                  )}
+                                </td>
+                                {/* název zboží */}
+                                <td className="p-2 text-xs">{item.name || "-"}</td>
+                                {/* hmot. bal. */}
+                                <td className="p-2 text-right text-xs text-blue-600">
+                                  {item.packageWeightKg
+                                    ? `${(item.packageWeightKg * 1000).toLocaleString(
+                                        "cs-CZ",
+                                        { maximumFractionDigits: 0 }
+                                      )} g`
+                                    : "-"}
+                                </td>
+                                {/* celk. hmot. */}
+                                <td className="p-2 text-right text-xs text-green-600 font-medium">
+                                  {item.totalWeightKg
+                                    ? `${item.totalWeightKg.toLocaleString("cs-CZ", {
+                                        minimumFractionDigits: 3,
+                                        maximumFractionDigits: 3,
+                                      })} kg`
+                                    : "-"}
+                                </td>
+                                {/* zákl. cena */}
+                                <td className="p-2 text-right text-xs">
+                                  {item.basePrice ? (
+                                    <span className={isWeightFormat ? "text-purple-600 font-medium" : ""}>
+                                      {item.basePrice.toLocaleString("cs-CZ", {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}
+                                      {isWeightFormat && " /kg"}
+                                    </span>
+                                  ) : (
+                                    "-"
+                                  )}
+                                </td>
+                                {/* jedn. v MU */}
+                                <td className="p-2 text-right text-xs">
+                                  {item.unitsInMu || "1"}
+                                </td>
+                                {/* cena za MU */}
+                                <td className="p-2 text-right text-xs">
+                                  {item.price?.toLocaleString("cs-CZ", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </td>
+                                {/* cena celkem */}
+                                <td className="p-2 text-right text-xs font-semibold">
+                                  {(item.total || item.quantity * item.price || 0).toLocaleString(
+                                    "cs-CZ",
+                                    {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    }
+                                  )}
+                                </td>
+                                {/* Cena/kg */}
+                                <td className="p-2 text-right text-xs bg-orange-50">
+                                  {item.pricePerKg ? (
+                                    <span className="text-orange-600 font-bold">
+                                      {item.pricePerKg.toLocaleString("cs-CZ", {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}{" "}
+                                      Kč/kg
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-400">-</span>
+                                  )}
+                                </td>
+                                {/* Namapováno */}
+                                <td className="p-2 text-xs bg-blue-50">
+                                  {item.ingredientName ? (
+                                    <div className="text-green-700 font-medium">
+                                      ✓ {item.ingredientName}
+                                    </div>
+                                  ) : (
+                                    <div className="text-red-600">✗ Neznámý kód</div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    /* Standard layout for other suppliers */
+                    <div className="mt-2 space-y-2">
+                      {parsedInvoice.items.map((item) => (
+                        <div
+                          key={item.id}
+                          className={`flex items-center justify-between p-3 border rounded-md ${
+                            item.matchStatus === "unmapped"
+                              ? "border-red-300 bg-red-50"
+                              : item.matchStatus === "exact"
+                                ? "border-green-300 bg-green-50"
+                                : "border-yellow-300 bg-yellow-50"
+                          }`}
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              {item.supplierCode && (
+                                <code className="text-xs bg-gray-800 text-white px-1.5 py-0.5 rounded">
+                                  {item.supplierCode}
+                                </code>
+                              )}
+                              <span className="font-medium">{item.name}</span>
+                            </div>
+                            {item.ingredientName && (
+                              <div className="text-sm text-green-700 font-medium mt-1">
+                                ✓ {item.ingredientName}
+                                {item.matchStatus === "fuzzy_name" &&
+                                  ` (${Math.round((item.confidence || 0) * 100)}% shoda)`}
+                              </div>
                             )}
-                            <span className="font-medium">{item.name}</span>
+                            {item.matchStatus === "unmapped" && (
+                              <div className="text-sm text-red-600 mt-1">
+                                ✗ Nenamapovaný kód - vyžaduje ruční přiřazení
+                              </div>
+                            )}
+                            <div className="text-sm text-gray-600 mt-1">
+                              {item.quantity} {item.unit} ×{" "}
+                              {(item.price || 0).toFixed(2)} Kč
+                            </div>
                           </div>
-                          {item.ingredientName && (
-                            <div className="text-sm text-green-700 font-medium mt-1">
-                              ✓ {item.ingredientName}
-                              {item.matchStatus === "fuzzy_name" &&
-                                ` (${Math.round((item.confidence || 0) * 100)}% shoda)`}
+                          <div className="text-right">
+                            <div className="font-semibold">
+                              {(
+                                item.total ||
+                                item.quantity * item.price ||
+                                0
+                              ).toFixed(2)}{" "}
+                              Kč
                             </div>
-                          )}
-                          {item.matchStatus === "unmapped" && (
-                            <div className="text-sm text-red-600 mt-1">
-                              ✗ Nenamapovaný kód - vyžaduje ruční přiřazení
-                            </div>
-                          )}
-                          <div className="text-sm text-gray-600 mt-1">
-                            {item.quantity} {item.unit} ×{" "}
-                            {(item.price || 0).toFixed(2)} Kč
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-semibold">
-                            {(
-                              item.total ||
-                              item.quantity * item.price ||
-                              0
-                            ).toFixed(2)}{" "}
-                            Kč
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Unmapped Items Detail */}
