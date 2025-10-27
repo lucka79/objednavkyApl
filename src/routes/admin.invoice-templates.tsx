@@ -1507,14 +1507,22 @@ function generateRegexPattern(text: string, mode: string): string {
 
     case "payment_type":
       // Extract the payment type text after the label
-      // Example: "Plateb.podmínky Hotově" -> capture "Hotově"
+      // Example: "Plateb.podmínky Hotově" -> "Plateb\.podmínky\s+([^\n]+)"
+      // Example: "Způsob platby: Hotově" -> "Způsob platby:\s*([^\n]+)"
+      // [^\n]+ matches everything except newline (stops at line break)
       const words = text.trim().split(/\s+/);
       if (words.length > 1) {
-        // Take the last word(s) as the payment type
-        const paymentValue = words.slice(-1).join(' ');
-        return escaped.replace(paymentValue, "(.+?)");
+        // Find the label (everything before the last word)
+        const labelWords = words.slice(0, -1);
+
+        // Create pattern: Label + capture until newline
+        const labelEscaped = labelWords
+          .join(" ")
+          .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return `${labelEscaped}\\s*([^\\n]+)`;
       }
-      return escaped.replace(/\w+$/g, "(.+?)");
+      // Fallback for simple text
+      return escaped.replace(/[^\n]+$/g, "([^\\n]+)");
 
     case "table_start":
     case "table_end":
