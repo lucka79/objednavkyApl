@@ -57,11 +57,13 @@ interface ParsedInvoice {
   date: string;
   totalAmount: number;
   subtotal?: number;
+  paymentType?: string;
   items: ParsedInvoiceItem[];
   confidence: number;
   status: "pending" | "reviewed" | "approved" | "rejected";
   unmappedCount?: number;
   templateUsed?: string;
+  qrCodes?: Array<{ data: string; type: string; page: number }>;
 }
 
 // MAKRO supplier ID (weight-based layout)
@@ -222,11 +224,13 @@ export function InvoiceUploadDialog() {
           date: result.data.date,
           totalAmount: extractedTotal, // Total with VAT
           subtotal: subtotal, // Total without VAT (calculated from items)
+          paymentType: result.data.paymentType,
           items,
           confidence: result.data.confidence / 100 || 0,
           status: "pending",
           unmappedCount: result.data.unmapped_codes || 0,
           templateUsed: result.data.template_used,
+          qrCodes: result.data.qr_codes,
         });
 
         // Auto-select the supplier in the dropdown
@@ -633,7 +637,7 @@ export function InvoiceUploadDialog() {
               <CardContent className="space-y-4">
                 {/* Invoice Header */}
                 <div className="p-4 bg-gray-50 rounded-md space-y-4">
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-4 gap-4">
                     <div>
                       <Label className="text-sm font-medium">Dodavatel</Label>
                       <p className="text-sm">{parsedInvoice.supplier}</p>
@@ -647,6 +651,14 @@ export function InvoiceUploadDialog() {
                     <div>
                       <Label className="text-sm font-medium">Datum</Label>
                       <p className="text-sm">{parsedInvoice.date}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Způsob platby</Label>
+                      <p className="text-sm">
+                        {parsedInvoice.paymentType || (
+                          <span className="text-gray-400">Nenalezeno</span>
+                        )}
+                      </p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4 pt-2 border-t">
@@ -676,6 +688,54 @@ export function InvoiceUploadDialog() {
                     </div>
                   </div>
                 </div>
+
+                {/* QR Codes Section */}
+                {parsedInvoice.qrCodes && parsedInvoice.qrCodes.length > 0 && (
+                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-md">
+                    <Label className="text-sm font-semibold text-purple-800 mb-3 block flex items-center gap-2">
+                      <span className="text-lg">📱</span>
+                      QR kódy a čárové kódy nalezené na faktuře
+                    </Label>
+                    <div className="space-y-2">
+                      {parsedInvoice.qrCodes.map((qr, idx) => (
+                        <div
+                          key={idx}
+                          className="bg-white border border-purple-200 rounded-md p-3"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-purple-100 text-purple-700 text-xs">
+                                Strana {qr.page}
+                              </Badge>
+                              <span className="text-xs text-gray-600">
+                                {qr.type === "QRCODE" ? "QR kód" : "Čárový kód"}
+                              </span>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => {
+                                navigator.clipboard.writeText(qr.data);
+                                toast({
+                                  title: "Zkopírováno",
+                                  description: "Data byla zkopírována do schránky",
+                                });
+                              }}
+                            >
+                              📋 Kopírovat
+                            </Button>
+                          </div>
+                          <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                            <code className="text-xs break-all font-mono text-gray-700">
+                              {qr.data}
+                            </code>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Supplier Selection */}
                 <div>
