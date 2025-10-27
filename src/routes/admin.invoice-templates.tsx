@@ -889,7 +889,7 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                               Strana {qr.page}
                             </span>
                             <span className="text-xs text-gray-500">
-                              Typ: {qr.type}
+                              {qr.type === "QRCODE" ? "QR kód" : "Čárový kód"}
                             </span>
                           </div>
                           <Button
