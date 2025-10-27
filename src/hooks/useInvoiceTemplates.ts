@@ -35,6 +35,7 @@ export interface TemplateConfig {
     date?: string;
     supplier?: string;
     total_amount?: string;
+    payment_type?: string;
     table_start?: string;
     table_end?: string;
   };

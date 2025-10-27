@@ -65,6 +65,7 @@ class ProcessInvoiceResponse(BaseModel):
     date: Optional[str] = None
     supplier: Optional[str] = None
     total_amount: float = 0
+    payment_type: Optional[str] = None
     items: List[InvoiceItem] = []
     confidence: float = 0
     raw_text: Optional[str] = None
@@ -153,6 +154,7 @@ async def process_invoice(request: ProcessInvoiceRequest):
         date = extract_pattern(raw_text_display, patterns.get('date'))
         supplier = extract_pattern(raw_text_display, patterns.get('supplier'))
         total_amount = extract_number(extract_pattern(raw_text_display, patterns.get('total_amount')))
+        payment_type = extract_pattern(raw_text_display, patterns.get('payment_type'))
         
         # Extract line items (use cleaned text for seamless multi-page extraction)
         items = extract_line_items(
@@ -188,6 +190,7 @@ async def process_invoice(request: ProcessInvoiceRequest):
             date=date,
             supplier=supplier,
             total_amount=total_amount,
+            payment_type=payment_type,
             items=items,
             confidence=confidence,
             raw_text=raw_text_display if len(raw_text_display) < 20000 else raw_text_display[:20000] + "\n\n... (text truncated for display)",

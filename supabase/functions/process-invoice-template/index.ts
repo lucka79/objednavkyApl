@@ -110,6 +110,7 @@ serve(async (req) => {
         invoiceNumber: ocrResult.invoice_number || '',
         date: ocrResult.date || new Date().toISOString().split('T')[0],
         totalAmount: ocrResult.total_amount || 0,
+        paymentType: ocrResult.payment_type || '',
         items: matchedItems,
         confidence: ocrResult.confidence || 0,
         template_used: template.template_name,

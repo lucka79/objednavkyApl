@@ -713,6 +713,44 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
               </Card>
 
               <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm">Způsob platby</CardTitle>
+                  {selectedText && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        const pattern = generateRegexPattern(
+                          selectedText,
+                          "payment_type"
+                        );
+                        setEditedPatterns((prev: any) => ({
+                          ...prev,
+                          payment_type: pattern,
+                        }));
+                        setHasChanges(true);
+                        setSelectedText("");
+                      }}
+                    >
+                      ✏️ Použít označený text
+                    </Button>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <p className="text-lg font-semibold">
+                    {result.paymentType || (
+                      <span className="text-orange-600">Nenalezeno</span>
+                    )}
+                  </p>
+                  {editedPatterns.payment_type && (
+                    <p className="text-xs text-green-600 mt-1">
+                      ✓ Nový vzor: {editedPatterns.payment_type}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-sm">Položky</CardTitle>
                   {activeTemplate?.config?.patterns?.table_end && (
@@ -1466,6 +1504,17 @@ function generateRegexPattern(text: string, mode: string): string {
     case "total_amount":
       // Replace numbers and decimals
       return escaped.replace(/[\d\s,\.]+/g, "([\\d\\s,\\.]+)");
+
+    case "payment_type":
+      // Extract the payment type text after the label
+      // Example: "Plateb.podmínky Hotově" -> capture "Hotově"
+      const words = text.trim().split(/\s+/);
+      if (words.length > 1) {
+        // Take the last word(s) as the payment type
+        const paymentValue = words.slice(-1).join(' ');
+        return escaped.replace(paymentValue, "(.+?)");
+      }
+      return escaped.replace(/\w+$/g, "(.+?)");
 
     case "table_start":
     case "table_end":
