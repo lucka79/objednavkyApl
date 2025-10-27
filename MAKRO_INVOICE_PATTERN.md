@@ -20,13 +20,15 @@
 
 ## Regex Pattern (10 columns - FULL):
 ```regex
-^(\d+)\s+([\d,]+)\s+(.+?)\s+([\d,]+)\s+(\d+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s*$
+^(\d+)\s+([\d,]+)\s+(\S.*?)\s+([\d,]+)\s+(\d+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s*$
 ```
+
+**Change:** `(.+?)` → `(\S.*?)` to ensure description starts with non-whitespace character
 
 ### Capture Groups (10):
 1. `(\d+)` - product code (6 digits)
 2. `([\d,]+)` - quantity (with decimal comma)
-3. `(.+?)` - description (non-greedy, includes unit at end)
+3. `(\S.*?)` - description (non-greedy, starts with non-whitespace, includes unit at end)
 4. `([\d,]+)` - base price (zákl. cena)
 5. `(\d+)` - units in MU (jedn. v MU - integer only)
 6. `([\d,]+)` - price per MU (cena za MU)
