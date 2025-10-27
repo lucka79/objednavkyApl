@@ -45,6 +45,9 @@ class InvoiceItem(BaseModel):
     line_number: int = 0
     base_price: Optional[float] = None  # MAKRO: zákl. cena (base price per package)
     units_in_mu: Optional[float] = None  # MAKRO: jedn. v MU (units in measurement unit)
+    vat_rate: Optional[float] = None  # MAKRO: DPH%
+    vat_amount: Optional[float] = None  # MAKRO: DPH (CZK)
+    total_with_vat: Optional[float] = None  # MAKRO: Celkem s DPH
 
 class ProcessInvoiceResponse(BaseModel):
     invoice_number: Optional[str] = None
@@ -395,11 +398,34 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                 
                 # Handle different pattern formats:
                 # Format 1 (6 groups): code, description, quantity, unit, price, total
-                # Format 2 (7 groups): code, quantity, description, base_price, units_in_mu, price_per_mu, total
+                # Format 2 (10 groups): code, quantity, description, base_price, units_in_mu, price_per_mu, total, vat_rate, vat_amount, total_with_vat
                 
-                if len(groups) >= 7:
-                    # MAKRO format: 7 captures
-                    # code, quantity, description (with unit at end), base_price, units_in_mu, price_per_mu, total
+                if len(groups) >= 10:
+                    # MAKRO format: 10 captures (full format with VAT)
+                    # code, quantity, description, base_price, units_in_mu, price_per_mu, total, vat_rate, vat_amount, total_with_vat
+                    
+                    base_price_val = extract_number(groups[3]) if len(groups) > 3 else None
+                    units_in_mu_val = extract_number(groups[4]) if len(groups) > 4 else None
+                    
+                    logger.info(f"Extracting 10-group MAKRO format - base_price: {base_price_val}, units_in_mu: {units_in_mu_val}")
+                    
+                    return InvoiceItem(
+                        product_code=groups[0] if len(groups) > 0 else None,
+                        quantity=extract_number(groups[1]) if len(groups) > 1 else 0,
+                        description=groups[2].strip() if len(groups) > 2 else None,  # Keep description as-is (includes unit)
+                        unit_of_measure=None,  # Unit is in description, not separate
+                        base_price=base_price_val,
+                        units_in_mu=units_in_mu_val,
+                        unit_price=extract_number(groups[5]) if len(groups) > 5 else 0,
+                        line_total=extract_number(groups[6]) if len(groups) > 6 else 0,
+                        vat_rate=extract_number(groups[7]) if len(groups) > 7 else None,
+                        vat_amount=extract_number(groups[8]) if len(groups) > 8 else None,
+                        total_with_vat=extract_number(groups[9]) if len(groups) > 9 else None,
+                        line_number=line_number,
+                    )
+                elif len(groups) >= 7:
+                    # MAKRO format: 7 captures (without VAT columns)
+                    # code, quantity, description, base_price, units_in_mu, price_per_mu, total
                     
                     base_price_val = extract_number(groups[3]) if len(groups) > 3 else None
                     units_in_mu_val = extract_number(groups[4]) if len(groups) > 4 else None
@@ -409,8 +435,8 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     return InvoiceItem(
                         product_code=groups[0] if len(groups) > 0 else None,
                         quantity=extract_number(groups[1]) if len(groups) > 1 else 0,
-                        description=groups[2].strip() if len(groups) > 2 else None,  # Keep description as-is (includes unit)
-                        unit_of_measure=None,  # Unit is in description, not separate
+                        description=groups[2].strip() if len(groups) > 2 else None,
+                        unit_of_measure=None,
                         base_price=base_price_val,
                         units_in_mu=units_in_mu_val,
                         unit_price=extract_number(groups[5]) if len(groups) > 5 else 0,

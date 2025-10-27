@@ -18,19 +18,22 @@
 6. **cena za MU**: price per MU (e.g., `53,70` or `567,00`)
 7. **cena celkem**: total price (e.g., `53,70` or `567,00`)
 
-## Regex Pattern:
+## Regex Pattern (10 columns - FULL):
 ```regex
-^(\d+)\s+([\d,]+)\s+(.+?)\s+([\d,]+)\s+(\d+)\s+([\d,]+)\s+([\d,]+)\s*$
+^(\d+)\s+([\d,]+)\s+(.+?)\s+([\d,]+)\s+(\d+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s*$
 ```
 
-### Capture Groups:
+### Capture Groups (10):
 1. `(\d+)` - product code (6 digits)
 2. `([\d,]+)` - quantity (with decimal comma)
-3. `(.+?)` - description (non-greedy to stop before prices)
-4. `([\d,]+)` - base price
-5. `(\d+)` - units in MU (integer only)
-6. `([\d,]+)` - price per MU
-7. `([\d,]+)` - total price
+3. `(.+?)` - description (non-greedy, includes unit at end)
+4. `([\d,]+)` - base price (zákl. cena)
+5. `(\d+)` - units in MU (jedn. v MU - integer only)
+6. `([\d,]+)` - price per MU (cena za MU)
+7. `([\d,]+)` - total price without VAT (cena celkem)
+8. `([\d,]+)` - VAT rate (DPH%)
+9. `([\d,]+)` - VAT amount (DPH CZK)
+10. `([\d,]+)` - total price with VAT (Celkem s DPH)
 
 ## Note:
 - The MU (unit) appears to be embedded in the description (e.g., "ks" at the end)
