@@ -20,22 +20,24 @@
 
 ## Regex Pattern (10 columns - FULL):
 ```regex
-^(\d+)\s+([\d,]+)\s+(\S.*?)\s+([\d,]+)\s+(\d+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s*$
+^(\d+)\s+([\d,\s]+)\s+(\S.*?)\s+([\d,\s]+)\s+(\d+)\s+([\d,\s]+)\s+([\d,\s]+)\s+([\d,\s]+)\s+([\d,\s]+)\s+([\d,\s]+)\s*$
 ```
 
-**Change:** `(.+?)` → `(\S.*?)` to ensure description starts with non-whitespace character
+**Changes:** 
+- `(.+?)` → `(\S.*?)` to ensure description starts with non-whitespace character
+- `([\d,]+)` → `([\d,\s]+)` to handle both comma (`,`) and space (` `) as thousand separators (e.g., `1 080,52`)
 
 ### Capture Groups (10):
 1. `(\d+)` - product code (6 digits)
-2. `([\d,]+)` - quantity (with decimal comma)
+2. `([\d,\s]+)` - quantity (with comma and/or space separators)
 3. `(\S.*?)` - description (non-greedy, starts with non-whitespace, includes unit at end)
-4. `([\d,]+)` - base price (zákl. cena)
+4. `([\d,\s]+)` - base price (zákl. cena)
 5. `(\d+)` - units in MU (jedn. v MU - integer only)
-6. `([\d,]+)` - price per MU (cena za MU)
-7. `([\d,]+)` - total price without VAT (cena celkem)
-8. `([\d,]+)` - VAT rate (DPH%)
-9. `([\d,]+)` - VAT amount (DPH CZK)
-10. `([\d,]+)` - total price with VAT (Celkem s DPH)
+6. `([\d,\s]+)` - price per MU (cena za MU)
+7. `([\d,\s]+)` - total price without VAT (cena celkem)
+8. `([\d,\s]+)` - VAT rate (DPH%)
+9. `([\d,\s]+)` - VAT amount (DPH CZK)
+10. `([\d,\s]+)` - total price with VAT (Celkem s DPH - e.g., `1 080,52`)
 
 ## Note:
 - The MU (unit) appears to be embedded in the description (e.g., "ks" at the end)
