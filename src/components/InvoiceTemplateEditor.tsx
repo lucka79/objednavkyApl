@@ -25,6 +25,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -235,6 +242,7 @@ function TemplateForm({
     template_name: template?.template_name || "",
     version: template?.version || "1.0",
     is_active: template?.is_active ?? true,
+    display_layout: template?.config?.display_layout || "standard",
     config: JSON.stringify(
       template?.config || {
         ocr_settings: {
@@ -303,6 +311,9 @@ function TemplateForm({
 
     try {
       const config = JSON.parse(formData.config);
+      // Merge display_layout into config
+      config.display_layout = formData.display_layout;
+
       onSave({
         supplier_id: supplierId,
         template_name: formData.template_name,
@@ -354,6 +365,31 @@ function TemplateForm({
           />
           <Label htmlFor="is_active">Aktivní šablona</Label>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="display_layout">Typ zobrazení položek</Label>
+        <Select
+          value={formData.display_layout}
+          onValueChange={(
+            value: "standard" | "makro" | "two-line" | "zeelandia"
+          ) => setFormData({ ...formData, display_layout: value })}
+        >
+          <SelectTrigger id="display_layout">
+            <SelectValue placeholder="Vyberte typ zobrazení" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="standard">
+              Standard (základní tabulka)
+            </SelectItem>
+            <SelectItem value="two-line">Two-line (Pešek-Rambousek)</SelectItem>
+            <SelectItem value="makro">MAKRO (rozšířená)</SelectItem>
+            <SelectItem value="zeelandia">Zeelandia</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-sm text-muted-foreground">
+          Určuje, jak se zobrazí extrahované položky v testovacím náhledu
+        </p>
       </div>
 
       <div className="space-y-2">
