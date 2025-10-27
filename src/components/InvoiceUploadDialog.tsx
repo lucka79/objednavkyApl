@@ -27,6 +27,7 @@ import { Upload, FileText, CheckCircle, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupplierUsers, useStoreUsers } from "@/hooks/useProfiles";
 import { useDocumentAI } from "@/hooks/useDocumentAI";
+import { useInvoiceTemplates } from "@/hooks/useInvoiceTemplates";
 import { AddReceivedInvoiceForm } from "./AddReceivedInvoiceForm";
 
 interface ParsedInvoiceItem {
@@ -89,6 +90,7 @@ export function InvoiceUploadDialog() {
   const { data: supplierUsers } = useSupplierUsers();
   const { data: storeUsers } = useStoreUsers();
   const { processDocumentWithTemplate } = useDocumentAI();
+  const { templates } = useInvoiceTemplates(); // Fetch all templates to check which suppliers have them
 
   // Get current user and set default receiver
   useEffect(() => {
@@ -121,6 +123,13 @@ export function InvoiceUploadDialog() {
   const handleSupplierSelect = (supplierId: string) => {
     setInvoiceSupplier(supplierId);
     setCurrentStep("upload");
+  };
+
+  // Helper function to check if supplier has an active template
+  const hasActiveTemplate = (supplierId: string) => {
+    return templates?.some(
+      (template) => template.supplier_id === supplierId && template.is_active
+    );
   };
 
   const handleManualEntry = () => {
@@ -467,7 +476,7 @@ export function InvoiceUploadDialog() {
           Nahrát fakturu
         </Button>
       </DialogTrigger>
-      <DialogContent 
+      <DialogContent
         className="max-w-7xl max-h-[90vh] overflow-y-auto"
         onInteractOutside={(e) => e.preventDefault()}
       >
@@ -491,19 +500,33 @@ export function InvoiceUploadDialog() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {supplierUsers?.map((supplier: any) => (
-                    <Button
-                      key={supplier.id}
-                      variant="outline"
-                      className="h-20 flex flex-col items-center justify-center gap-2 hover:bg-orange-50 hover:border-orange-300"
-                      onClick={() => handleSupplierSelect(supplier.id)}
-                    >
-                      <div className="font-medium">{supplier.full_name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Natrénovaná šablona OCR + auto-mapování
-                      </div>
-                    </Button>
-                  ))}
+                  {supplierUsers?.map((supplier: any) => {
+                    const hasTrained = hasActiveTemplate(supplier.id);
+                    return (
+                      <Button
+                        key={supplier.id}
+                        variant="outline"
+                        className={`h-20 flex flex-col items-center justify-center gap-2 ${
+                          hasTrained
+                            ? "bg-green-50 border-green-300 hover:bg-green-100 hover:border-green-400"
+                            : "bg-gray-50 border-gray-300 hover:bg-gray-100 hover:border-gray-400"
+                        }`}
+                        onClick={() => handleSupplierSelect(supplier.id)}
+                      >
+                        <div className="font-medium flex items-center gap-2">
+                          {hasTrained && (
+                            <span className="text-green-600">✓</span>
+                          )}
+                          {supplier.full_name}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {hasTrained
+                            ? "✓ Natrénovaná šablona OCR + auto-mapování"
+                            : "⚠️ Šablona není natrénována"}
+                        </div>
+                      </Button>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
