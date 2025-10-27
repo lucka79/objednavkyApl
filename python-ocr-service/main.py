@@ -48,6 +48,9 @@ class InvoiceItem(BaseModel):
     vat_rate: Optional[float] = None  # MAKRO: DPH%
     vat_amount: Optional[float] = None  # MAKRO: DPH (CZK)
     total_with_vat: Optional[float] = None  # MAKRO: Celkem s DPH
+    package_weight_kg: Optional[float] = None  # Weight per package in kg (extracted from description)
+    total_weight_kg: Optional[float] = None  # Total weight: quantity × package_weight_kg
+    price_per_kg: Optional[float] = None  # Price per kilogram: line_total / total_weight_kg
 
 class ProcessInvoiceResponse(BaseModel):
     invoice_number: Optional[str] = None
@@ -226,6 +229,32 @@ def extract_pattern(text: str, pattern: Optional[str]) -> Optional[str]:
             return match.group(1) if match.groups() else match.group(0)
     except Exception as e:
         logger.error(f"Error extracting pattern '{pattern}': {e}")
+    
+    return None
+
+def extract_weight_from_description(description: str) -> Optional[float]:
+    """
+    Extract weight from product description and convert to kg.
+    Examples: "125g" -> 0.125, "2,5kg" -> 2.5, "750ml" -> 0.75
+    """
+    if not description:
+        return None
+    
+    # Pattern: number followed by weight unit (g, kg, l, ml)
+    weight_pattern = r'(\d+[,.]?\d*)\s*(kg|g|l|ml)\b'
+    match = re.search(weight_pattern, description, re.IGNORECASE)
+    
+    if match:
+        weight_str = match.group(1).replace(',', '.')
+        unit = match.group(2).lower()
+        weight = float(weight_str)
+        
+        # Convert to kg
+        if unit in ['g', 'ml']:
+            weight = weight / 1000
+        
+        logger.debug(f"Extracted weight: {weight} kg from '{description}'")
+        return weight
     
     return None
 
@@ -422,22 +451,39 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     
                     base_price_val = extract_number(groups[3]) if len(groups) > 3 else None
                     units_in_mu_val = extract_number(groups[4]) if len(groups) > 4 else None
+                    description = groups[2].strip() if len(groups) > 2 else None
+                    quantity = extract_number(groups[1]) if len(groups) > 1 else 0
+                    line_total = extract_number(groups[6]) if len(groups) > 6 else 0
                     
                     logger.info(f"Extracting 10-group MAKRO format - base_price: {base_price_val}, units_in_mu: {units_in_mu_val}")
                     
+                    # Extract weight from description and calculate price per kg
+                    package_weight_kg = extract_weight_from_description(description)
+                    total_weight_kg = None
+                    price_per_kg = None
+                    
+                    if package_weight_kg and quantity > 0:
+                        total_weight_kg = package_weight_kg * quantity
+                        if total_weight_kg > 0 and line_total > 0:
+                            price_per_kg = line_total / total_weight_kg
+                            logger.info(f"Calculated price per kg: {price_per_kg:.2f} Kč/kg (total: {line_total}, weight: {total_weight_kg:.3f} kg)")
+                    
                     return InvoiceItem(
                         product_code=groups[0] if len(groups) > 0 else None,
-                        quantity=extract_number(groups[1]) if len(groups) > 1 else 0,
-                        description=groups[2].strip() if len(groups) > 2 else None,  # Keep description as-is (includes unit)
+                        quantity=quantity,
+                        description=description,
                         unit_of_measure=None,  # Unit is in description, not separate
                         base_price=base_price_val,
                         units_in_mu=units_in_mu_val,
                         unit_price=extract_number(groups[5]) if len(groups) > 5 else 0,
-                        line_total=extract_number(groups[6]) if len(groups) > 6 else 0,
+                        line_total=line_total,
                         vat_rate=extract_number(groups[7]) if len(groups) > 7 else None,
                         vat_amount=extract_number(groups[8]) if len(groups) > 8 else None,
                         total_with_vat=extract_number(groups[9]) if len(groups) > 9 else None,
                         line_number=line_number,
+                        package_weight_kg=package_weight_kg,
+                        total_weight_kg=total_weight_kg,
+                        price_per_kg=price_per_kg,
                     )
                 elif len(groups) >= 7:
                     # MAKRO format: 7 captures (without VAT columns)
