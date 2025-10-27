@@ -467,7 +467,10 @@ export function InvoiceUploadDialog() {
           Nahrát fakturu
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        className="max-w-7xl max-h-[90vh] overflow-y-auto"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Nahrát a zpracovat fakturu</DialogTitle>
           <DialogDescription>
@@ -728,22 +731,43 @@ export function InvoiceUploadDialog() {
                   )}
 
                   {/* Weight-based layout for MAKRO */}
-                  {(selectedSupplier === MAKRO_SUPPLIER_ID || invoiceSupplier === MAKRO_SUPPLIER_ID) ? (
+                  {selectedSupplier === MAKRO_SUPPLIER_ID ||
+                  invoiceSupplier === MAKRO_SUPPLIER_ID ? (
                     <div className="mt-2 overflow-x-auto border rounded-md">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b bg-gray-50">
-                            <th className="text-left p-2 text-xs">číslo zboží</th>
+                            <th className="text-left p-2 text-xs">
+                              číslo zboží
+                            </th>
                             <th className="text-right p-2 text-xs">počet MU</th>
-                            <th className="text-left p-2 text-xs">název zboží</th>
-                            <th className="text-right p-2 text-xs">hmot. bal.</th>
-                            <th className="text-right p-2 text-xs">celk. hmot.</th>
-                            <th className="text-right p-2 text-xs">zákl. cena</th>
-                            <th className="text-right p-2 text-xs">jedn. v MU</th>
-                            <th className="text-right p-2 text-xs">cena za MU</th>
-                            <th className="text-right p-2 text-xs">cena celkem</th>
-                            <th className="text-right p-2 text-xs bg-orange-50">Cena/kg</th>
-                            <th className="text-left p-2 text-xs bg-blue-50">Namapováno</th>
+                            <th className="text-left p-2 text-xs">
+                              název zboží
+                            </th>
+                            <th className="text-right p-2 text-xs">
+                              hmot. bal.
+                            </th>
+                            <th className="text-right p-2 text-xs">
+                              celk. hmot.
+                            </th>
+                            <th className="text-right p-2 text-xs">
+                              zákl. cena
+                            </th>
+                            <th className="text-right p-2 text-xs">
+                              jedn. v MU
+                            </th>
+                            <th className="text-right p-2 text-xs">
+                              cena za MU
+                            </th>
+                            <th className="text-right p-2 text-xs">
+                              cena celkem
+                            </th>
+                            <th className="text-right p-2 text-xs bg-orange-50">
+                              Cena/kg
+                            </th>
+                            <th className="text-left p-2 text-xs bg-blue-50">
+                              Namapováno
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -770,10 +794,13 @@ export function InvoiceUploadDialog() {
                                 <td className="p-2 text-right text-xs font-semibold">
                                   {isWeightFormat ? (
                                     <span className="text-purple-600">
-                                      {item.totalWeightKg?.toLocaleString("cs-CZ", {
-                                        minimumFractionDigits: 3,
-                                        maximumFractionDigits: 3,
-                                      })}{" "}
+                                      {item.totalWeightKg?.toLocaleString(
+                                        "cs-CZ",
+                                        {
+                                          minimumFractionDigits: 3,
+                                          maximumFractionDigits: 3,
+                                        }
+                                      )}{" "}
                                       kg
                                     </span>
                                   ) : (
@@ -781,29 +808,41 @@ export function InvoiceUploadDialog() {
                                   )}
                                 </td>
                                 {/* název zboží */}
-                                <td className="p-2 text-xs">{item.name || "-"}</td>
+                                <td className="p-2 text-xs">
+                                  {item.name || "-"}
+                                </td>
                                 {/* hmot. bal. */}
                                 <td className="p-2 text-right text-xs text-blue-600">
                                   {item.packageWeightKg
-                                    ? `${(item.packageWeightKg * 1000).toLocaleString(
-                                        "cs-CZ",
-                                        { maximumFractionDigits: 0 }
-                                      )} g`
+                                    ? `${(
+                                        item.packageWeightKg * 1000
+                                      ).toLocaleString("cs-CZ", {
+                                        maximumFractionDigits: 0,
+                                      })} g`
                                     : "-"}
                                 </td>
                                 {/* celk. hmot. */}
                                 <td className="p-2 text-right text-xs text-green-600 font-medium">
                                   {item.totalWeightKg
-                                    ? `${item.totalWeightKg.toLocaleString("cs-CZ", {
-                                        minimumFractionDigits: 3,
-                                        maximumFractionDigits: 3,
-                                      })} kg`
+                                    ? `${item.totalWeightKg.toLocaleString(
+                                        "cs-CZ",
+                                        {
+                                          minimumFractionDigits: 3,
+                                          maximumFractionDigits: 3,
+                                        }
+                                      )} kg`
                                     : "-"}
                                 </td>
                                 {/* zákl. cena */}
                                 <td className="p-2 text-right text-xs">
                                   {item.basePrice ? (
-                                    <span className={isWeightFormat ? "text-purple-600 font-medium" : ""}>
+                                    <span
+                                      className={
+                                        isWeightFormat
+                                          ? "text-purple-600 font-medium"
+                                          : ""
+                                      }
+                                    >
                                       {item.basePrice.toLocaleString("cs-CZ", {
                                         minimumFractionDigits: 2,
                                         maximumFractionDigits: 2,
@@ -827,13 +866,14 @@ export function InvoiceUploadDialog() {
                                 </td>
                                 {/* cena celkem */}
                                 <td className="p-2 text-right text-xs font-semibold">
-                                  {(item.total || item.quantity * item.price || 0).toLocaleString(
-                                    "cs-CZ",
-                                    {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    }
-                                  )}
+                                  {(
+                                    item.total ||
+                                    item.quantity * item.price ||
+                                    0
+                                  ).toLocaleString("cs-CZ", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
                                 </td>
                                 {/* Cena/kg */}
                                 <td className="p-2 text-right text-xs bg-orange-50">
@@ -856,7 +896,9 @@ export function InvoiceUploadDialog() {
                                       ✓ {item.ingredientName}
                                     </div>
                                   ) : (
-                                    <div className="text-red-600">✗ Neznámý kód</div>
+                                    <div className="text-red-600">
+                                      ✗ Neznámý kód
+                                    </div>
                                   )}
                                 </td>
                               </tr>
