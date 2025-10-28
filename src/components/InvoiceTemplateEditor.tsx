@@ -102,6 +102,7 @@ export function InvoiceTemplateEditor({
                 </DialogDescription>
               </DialogHeader>
               <TemplateForm
+                key={editingTemplate?.id || "new"}
                 supplierId={supplierId}
                 template={editingTemplate}
                 onSave={(template) => {
@@ -260,15 +261,20 @@ function TemplateForm({
         table_columns: {
           // CHOOSE ONE PATTERN BELOW BASED ON YOUR SUPPLIER'S FORMAT:
 
-          // ========== PATTERN A: Pešek-Rambousek (simple) ==========
+          // ========== PATTERN A: Pešek-Rambousek (multi-line) ==========
           // Format: Description \n Code Quantity+Unit Price VAT% Total
           // line_pattern: "^([^\\n]+?)\\s*\\n\\s*(\\d+)\\s+([\\d,]+)\\s*([a-zA-Z]{1,5})\\s+([\\d,\\s]+)\\s+\\d+\\s*%?\\s*\\d*\\s+([\\d,\\.\\s]+)"
 
           // ========== PATTERN B: Tab-separated with package quantity ==========
           // Format: CODE \t PACKAGE_QTY NAME WEIGHT \t PRICE ... \t VAT_AMOUNT
           // Example: "486510\t1,000 BORŮVKY KANADSKÉ VAN. 125g\t53.7 1 53,70 53,70 12,0\t6,44"
+          // line_pattern: "^(\\d+)\\s+([\\d,]+)\\s+(.+?)\\s+(\\d+[a-zA-Z]+)\\s+([\\d,]+)"
+
+          // ========== PATTERN C: Zeelandia (single-line) ==========
+          // Format: CODE Description Quantity+Unit Price+Unit Total+Currency VAT%
+          // Example: "10000891 ON Hruška gel 1kg 12 BAG 1,00 KG 12,00 KG 64,00 768,00 CZ 2%"
           line_pattern:
-            "^(\\d+)\\s+([\\d,]+)\\s+(.+?)\\s+(\\d+[a-zA-Z]+)\\s+([\\d,]+)",
+            "^(\\d{7})\\s+(.+?)\\s+(\\d+)\\s+([A-Z]+)\\s+([\\d,]+)\\s+([A-Z]+)\\s+([\\d,]+)\\s+([A-Z]+)\\s+([\\d,]+)\\s+([\\d,]+)\\s+([A-Z]+)\\s+(\\d+)%",
 
           // Column mapping for PATTERN B:
           // group 1: product_code (486510)
@@ -299,6 +305,10 @@ function TemplateForm({
   // Update form data when template changes
   useEffect(() => {
     if (template) {
+      console.log(
+        "Template changed, updating form with display_layout:",
+        template.config?.display_layout
+      );
       setFormData({
         template_name: template.template_name,
         version: template.version,
@@ -326,6 +336,12 @@ function TemplateForm({
       const config = JSON.parse(formData.config);
       // Merge display_layout into config
       config.display_layout = formData.display_layout;
+
+      console.log(
+        "Saving template with display_layout:",
+        formData.display_layout
+      );
+      console.log("Config being saved:", config);
 
       onSave({
         supplier_id: supplierId,
@@ -382,11 +398,27 @@ function TemplateForm({
 
       <div className="space-y-2">
         <Label htmlFor="display_layout">Typ zobrazení položek</Label>
+        <div className="text-xs text-blue-600 mb-1">
+          Current value: {formData.display_layout}
+        </div>
         <Select
           value={formData.display_layout}
           onValueChange={(
             value: "standard" | "makro" | "two-line" | "zeelandia"
-          ) => setFormData({ ...formData, display_layout: value })}
+          ) => {
+            console.log(
+              "Display layout dropdown changed from",
+              formData.display_layout,
+              "to:",
+              value
+            );
+            setFormData((prev) => {
+              console.log("Previous state:", prev);
+              const newState = { ...prev, display_layout: value };
+              console.log("New state:", newState);
+              return newState;
+            });
+          }}
         >
           <SelectTrigger id="display_layout">
             <SelectValue placeholder="Vyberte typ zobrazení" />
