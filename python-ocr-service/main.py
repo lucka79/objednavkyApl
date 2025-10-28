@@ -519,6 +519,29 @@ def apply_code_corrections(product_code: str, corrections: Dict) -> str:
     
     return product_code
 
+def apply_description_corrections(description: str, corrections: Dict) -> str:
+    """
+    Apply description corrections based on configured rules
+    
+    Supports:
+    - replace_pattern: [{"pattern": "Tikg", "replacement": "11kg"}] -> regex replacements
+    """
+    if not description or not corrections:
+        return description
+    
+    # Apply regex pattern replacements
+    replace_rules = corrections.get('replace_pattern', [])
+    for rule in replace_rules:
+        pattern = rule.get('pattern')
+        replacement = rule.get('replacement', '')
+        if pattern:
+            corrected = re.sub(pattern, replacement, description)
+            if corrected != description:
+                logger.info(f"Description correction: {description} -> {corrected} (pattern: {pattern})")
+                return corrected
+    
+    return description
+
 def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> Optional[InvoiceItem]:
     """
     Extract single item from a line of text
@@ -564,9 +587,13 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     # Apply code corrections if configured
                     corrected_code = apply_code_corrections(product_code, code_corrections) if product_code else None
                     
+                    # Apply description corrections if configured
+                    description_corrections = table_columns.get('description_corrections', {})
+                    corrected_description = apply_description_corrections(description, description_corrections) if description else None
+                    
                     return InvoiceItem(
                         product_code=corrected_code,
-                        description=description,
+                        description=corrected_description,
                         quantity=quantity,
                         unit_of_measure=unit_of_measure,
                         unit_price=unit_price,
