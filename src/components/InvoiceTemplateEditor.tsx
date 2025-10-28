@@ -273,9 +273,10 @@ function TemplateForm({
           // ========== PATTERN C: Zeelandia (single-line) ==========
           // Format: CODE Description Quantity+Unit Obsah Fakt.mn UnitPrice TotalPrice Currency VAT%
           // Example: "10000891 ON Hruška gel 1kg 12 BAG 1,00 KG 12,00 KG 64,00 768,00 CZ 2%"
-          // Pattern designed from the end: VAT% → Currency → TotalPrice → UnitPrice → Fakt.mn → Obsah → Quantity+Unit → Description → Code
-          // Focus on Cena celkem (group 11) and Fakt.mn (groups 8-9) - the most important columns
-          // 13 groups total: code, description, quantity, unit, obsah, obsah_unit, fakt_mn, fakt_mn_unit, unit_price, total_price, currency, vat_rate
+          // Zeelandia pattern - 12 groups total
+          // Group mapping: 1=code, 2=description, 3=quantity, 4=unit, 5=obsah, 6=obsah_unit, 7=fakt_mn, 8=fakt_mn_unit, 9=unit_price, 10=total_price, 11=currency, 12=vat_rate
+          // Example: "0000930 ON Jablko skořice gel Tikg 13 BKT 11,00 KG 143,00 KG 53,00 7 579,00 CZ 12%"
+          // Groups:    1       2                          3   4   5      6   7      8   9     10       11 12
           line_pattern:
             "^(\\d{7})\\s+(.+?)\\s+(\\d+)\\s+(BAG|BKT|PCE)\\s+([\\d,]+)\\s+(KG|PCE)\\s+([\\d,]+)\\s+(KG|PCE)\\s+([\\d,]+)\\s+([\\d,]+)\\s+([A-Z]+)\\s+(\\d+)%",
 
