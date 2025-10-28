@@ -306,6 +306,10 @@ function TemplateForm({
                 pattern: "Tikg",
                 replacement: "11kg",
               },
+              {
+                pattern: "Rosette 1 ",
+                replacement: "Rosette 1l ",
+              },
             ],
           },
         },
