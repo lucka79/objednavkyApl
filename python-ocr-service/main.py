@@ -649,10 +649,14 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     raw_code = groups[0] if len(groups) > 0 else None
                     corrected_code = apply_code_corrections(raw_code, code_corrections) if raw_code else None
                     
+                    # Apply description corrections if configured
+                    description_corrections = table_columns.get('description_corrections', {})
+                    corrected_description = apply_description_corrections(description, description_corrections) if description else None
+                    
                     return InvoiceItem(
                         product_code=corrected_code,
                         quantity=quantity,
-                        description=description,
+                        description=corrected_description,
                         unit_of_measure=None,  # Unit is in description, not separate
                         base_price=base_price_val,
                         units_in_mu=units_in_mu_val,
@@ -696,9 +700,14 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     raw_code = groups[0] if len(groups) > 0 else None
                     corrected_code = apply_code_corrections(raw_code, code_corrections) if raw_code else None
                     
+                    # Apply description corrections if configured
+                    description_corrections = table_columns.get('description_corrections', {})
+                    raw_description = groups[1] if len(groups) > 1 else None
+                    corrected_description = apply_description_corrections(raw_description, description_corrections) if raw_description else None
+                    
                     return InvoiceItem(
                         product_code=corrected_code,
-                        description=groups[1] if len(groups) > 1 else None,
+                        description=corrected_description,
                         quantity=extract_number(groups[2]) if len(groups) > 2 else 0,
                         unit_of_measure=groups[3] if len(groups) > 3 else None,
                         unit_price=extract_number(groups[4]) if len(groups) > 4 else 0,
@@ -782,9 +791,13 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
         # Apply code corrections if configured
         corrected_code = apply_code_corrections(product_code, code_corrections)
         
+        # Apply description corrections if configured
+        description_corrections = table_columns.get('description_corrections', {})
+        corrected_description = apply_description_corrections(description, description_corrections) if description else None
+        
         return InvoiceItem(
             product_code=corrected_code,
-            description=description,
+            description=corrected_description,
             quantity=quantity,
             unit_of_measure=unit,
             unit_price=unit_price,
