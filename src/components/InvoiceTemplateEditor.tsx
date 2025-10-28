@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   useInvoiceTemplates,
   type InvoiceTemplate,
@@ -295,6 +295,19 @@ function TemplateForm({
   });
 
   const [configError, setConfigError] = useState<string | null>(null);
+
+  // Update form data when template changes
+  useEffect(() => {
+    if (template) {
+      setFormData({
+        template_name: template.template_name,
+        version: template.version,
+        is_active: template.is_active,
+        display_layout: template.config?.display_layout || "standard",
+        config: JSON.stringify(template.config, null, 2),
+      });
+    }
+  }, [template]);
 
   const handleConfigChange = (value: string) => {
     setFormData({ ...formData, config: value });

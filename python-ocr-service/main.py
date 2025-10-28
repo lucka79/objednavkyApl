@@ -541,7 +541,42 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                 # Format 1 (6 groups): code, description, quantity, unit, price, total
                 # Format 2 (10 groups): code, quantity, description, base_price, units_in_mu, price_per_mu, total, vat_rate, vat_amount, total_with_vat
                 
-                if len(groups) >= 10:
+                if len(groups) >= 12:
+                    # Zeelandia format: 12 captures
+                    # code, description, quantity, unit, package_weight, weight_unit, total_weight, weight_unit, unit_price, total_price, currency, vat_rate
+                    
+                    # Map Zeelandia format: 10000891 ON Hruška gel 1kg 12 BAG 1,00 KG 12,00 KG 64,00 768,00 CZ 2%
+                    product_code = groups[0] if len(groups) > 0 else None
+                    description = groups[1].strip() if len(groups) > 1 else None
+                    quantity = extract_number(groups[2]) if len(groups) > 2 else 0
+                    unit_of_measure = groups[3] if len(groups) > 3 else None
+                    package_weight = extract_number(groups[4]) if len(groups) > 4 else None
+                    package_weight_unit = groups[5] if len(groups) > 5 else None
+                    total_weight = extract_number(groups[6]) if len(groups) > 6 else None
+                    total_weight_unit = groups[7] if len(groups) > 7 else None
+                    unit_price = extract_number(groups[8]) if len(groups) > 8 else 0
+                    line_total = extract_number(groups[9]) if len(groups) > 9 else 0
+                    currency = groups[10] if len(groups) > 10 else None
+                    vat_rate = extract_number(groups[11]) if len(groups) > 11 else None
+                    
+                    logger.info(f"Extracting Zeelandia format - quantity: {quantity}, unit: {unit_of_measure}, package_weight: {package_weight}, total_weight: {total_weight}, unit_price: {unit_price}, total: {line_total}")
+                    
+                    # Apply code corrections if configured
+                    corrected_code = apply_code_corrections(product_code, code_corrections) if product_code else None
+                    
+                    return InvoiceItem(
+                        product_code=corrected_code,
+                        description=description,
+                        quantity=quantity,
+                        unit_of_measure=unit_of_measure,
+                        unit_price=unit_price,
+                        line_total=line_total,
+                        package_weight_kg=package_weight if package_weight_unit == 'KG' else None,
+                        total_weight_kg=total_weight if total_weight_unit == 'KG' else None,
+                        vat_rate=vat_rate,
+                        line_number=line_number,
+                    )
+                elif len(groups) >= 10:
                     # MAKRO format: 10 captures (full format with VAT)
                     # code, quantity, description, base_price, units_in_mu, price_per_mu, total, vat_rate, vat_amount, total_with_vat
                     

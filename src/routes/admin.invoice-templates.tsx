@@ -1328,6 +1328,8 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                     );
                   } else if (layout === "zeelandia") {
                     /* Zeelandia layout */
+                    console.log("Using Zeelandia layout, items:", result.items);
+                    console.log("Items count:", result.items?.length);
                     return (
                       <div className="overflow-x-auto border border-gray-300 rounded-lg">
                         <table className="w-full border-collapse">
@@ -1386,23 +1388,31 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                                     {item.description || "-"}
                                   </td>
                                   <td className="px-3 py-2 text-center text-xs text-gray-600 border-r border-gray-200">
-                                    {item.unit_of_measure || "-"}
+                                    {item.quantity
+                                      ? `${item.quantity.toLocaleString("cs-CZ")} ${item.unit_of_measure || ""}`
+                                      : "-"}
                                   </td>
                                   <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
                                     {item.package_weight_kg
-                                      ? `${item.package_weight_kg.toLocaleString("cs-CZ", {
-                                          minimumFractionDigits: 2,
-                                          maximumFractionDigits: 2,
-                                        })} kg`
+                                      ? `${item.package_weight_kg.toLocaleString(
+                                          "cs-CZ",
+                                          {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          }
+                                        )} kg`
                                       : "-"}
                                   </td>
                                   <td className="px-3 py-2 text-right text-sm text-gray-900 border-r border-gray-200">
                                     {item.total_weight_kg
-                                      ? `${item.total_weight_kg.toLocaleString("cs-CZ", {
-                                          minimumFractionDigits: 2,
-                                          maximumFractionDigits: 2,
-                                        })} kg`
-                                      : `${item.quantity.toLocaleString("cs-CZ")} ${item.unit_of_measure || ""}`}
+                                      ? `${item.total_weight_kg.toLocaleString(
+                                          "cs-CZ",
+                                          {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          }
+                                        )} kg`
+                                      : "-"}
                                   </td>
                                   <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
                                     {item.unit_price?.toLocaleString("cs-CZ", {
