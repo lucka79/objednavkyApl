@@ -275,7 +275,7 @@ function TemplateForm({
           // Example: "10000891 ON Hruška gel 1kg 12 BAG 1,00 KG 12,00 KG 64,00 768,00 CZ 2%"
           // Captures: code, description, quantity, unit(BAG/BKT/PCE), obsah, obsah_unit, fakt_mn, fakt_mn_unit, unit_price, total_price, currency, vat_rate
           line_pattern:
-            "^(\\d{7})\\s+([^\\d]+?\\d*[a-zA-Z]*)\\s+(\\d+)\\s+(BAG|BKT|PCE)\\s+([\\d,]+)\\s+(KG|PCE)\\s+([\\d,]+)\\s+(KG|PCE)\\s+([\\d,]+)\\s+([\\d,]+)\\s+([A-Z]+)\\s+(\\d+)%",
+            "^(\\d{7})\\s+(.+?)\\s+(\\d+)\\s+(BAG|BKT|PCE)\\s+([\\d,]+)\\s+(KG|PCE)\\s+([\\d,]+)\\s+(KG|PCE)\\s+([\\d,]+)\\s+([\\d,]+)\\s+([A-Z]+)\\s+(\\d+)%",
 
           // Column mapping for PATTERN B:
           // group 1: product_code (486510)
