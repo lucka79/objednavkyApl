@@ -224,6 +224,14 @@ def fix_ocr_errors(text: str) -> str:
     # Only match when there's a comma separator to avoid breaking decimals
     text = re.sub(r'(\d+,\d+)\.\s+', r'\1 ', text)
     
+    # Fix 6: VAT rate corrections - "2%" should be "12%" in most cases
+    # Pattern: space + "2%" at the end of a line or before currency
+    text = re.sub(r'\s2%(?=\s+[A-Z]{2,3}\s|$)', ' 12%', text)
+    
+    # Fix 7: Another common VAT error - "21%" sometimes appears as "215" 
+    # Pattern: "215" followed by space and currency or end of line
+    text = re.sub(r'215(?=\s+[A-Z]{2,3}\s|$)', '21%', text)
+    
     logger.info("Applied OCR error corrections")
     return text
 
