@@ -653,7 +653,9 @@ export function InvoiceUploadDialog() {
                       <p className="text-sm">{parsedInvoice.date}</p>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium">Způsob platby</Label>
+                      <Label className="text-sm font-medium">
+                        Způsob platby
+                      </Label>
                       <p className="text-sm">
                         {parsedInvoice.paymentType || (
                           <span className="text-gray-400">Nenalezeno</span>
@@ -692,7 +694,7 @@ export function InvoiceUploadDialog() {
                 {/* QR Codes Section */}
                 {parsedInvoice.qrCodes && parsedInvoice.qrCodes.length > 0 && (
                   <div className="p-4 bg-purple-50 border border-purple-200 rounded-md">
-                    <Label className="text-sm font-semibold text-purple-800 mb-3 block flex items-center gap-2">
+                    <Label className="text-sm font-semibold text-purple-800 mb-3 flex items-center gap-2">
                       <span className="text-lg">📱</span>
                       QR kódy a čárové kódy nalezené na faktuře
                     </Label>
@@ -719,7 +721,8 @@ export function InvoiceUploadDialog() {
                                 navigator.clipboard.writeText(qr.data);
                                 toast({
                                   title: "Zkopírováno",
-                                  description: "Data byla zkopírována do schránky",
+                                  description:
+                                    "Data byla zkopírována do schránky",
                                 });
                               }}
                             >

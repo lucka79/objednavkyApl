@@ -235,6 +235,8 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
   const [selectedText, setSelectedText] = useState<string>("");
   const [editedPatterns, setEditedPatterns] = useState<any>({});
   const [hasChanges, setHasChanges] = useState(false);
+  const [showColumnMapping, setShowColumnMapping] = useState(false);
+  const [columnMappings, setColumnMappings] = useState<any>({});
 
   // Get the active template for this supplier
   const activeTemplate = templates.find((t) => t.is_active);
@@ -430,61 +432,9 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-sm">Náhled faktury</CardTitle>
-                      <CardDescription className="text-xs">
-                        {pdfUrl &&
-                          "Označte text v PDF a použijte tlačítka v kartách vpravo"}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {pdfUrl ? (
-                        <div className="relative">
-                          <iframe
-                            src={pdfUrl}
-                            className="w-full h-96 border rounded"
-                            title="Invoice PDF"
-                            onLoad={(event) => {
-                              // Enable text selection in iframe
-                              const iframe = event.target as HTMLIFrameElement;
-                              try {
-                                iframe.contentWindow?.addEventListener(
-                                  "mouseup",
-                                  () => {
-                                    const selection =
-                                      iframe.contentWindow?.getSelection();
-                                    const text = selection?.toString().trim();
-                                    if (text && text.length > 0) {
-                                      setSelectedText(text);
-                                    }
-                                  }
-                                );
-                              } catch (err) {
-                                console.log(
-                                  "Cannot access iframe content (CORS)"
-                                );
-                              }
-                            }}
-                          />
-                        </div>
-                      ) : filePreview && filePreview !== "PDF" ? (
-                        <img
-                          src={filePreview}
-                          alt="Invoice preview"
-                          className="w-full border rounded"
-                        />
-                      ) : (
-                        <div className="border rounded p-8 text-center text-muted-foreground">
-                          📄 PDF soubor: {uploadedFile.name}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
                       <CardTitle className="text-sm">Raw OCR Text</CardTitle>
                       <CardDescription className="text-xs">
-                        Vyberte text myší a použijte tlačítka výše
+                        Vyberte text myší a použijte tlačítka vpravo
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -500,7 +450,10 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                           }}
                         >
                           <pre className="text-xs whitespace-pre-wrap font-mono">
-                            {result.raw_text}
+                            {highlightMappedText(
+                              result.raw_text,
+                              columnMappings
+                            )}
                           </pre>
                         </div>
                       ) : (
@@ -510,6 +463,329 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                       )}
                     </CardContent>
                   </Card>
+
+                  {/* Column Mapping Interface */}
+                  {showColumnMapping &&
+                    result.items &&
+                    result.items.length > 0 && (
+                      <Card className="bg-blue-50 border-blue-200">
+                        <CardHeader>
+                          <CardTitle className="text-sm">
+                            🎯 Mapování řádků - {result.items.length} položek
+                          </CardTitle>
+                          <CardDescription className="text-xs">
+                            Označte text v OCR a přiřaďte ho ke sloupcům pro
+                            každý řádek
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3 max-h-96 overflow-y-auto">
+                            {result.items.map((item: any, rowIndex: number) => (
+                              <Card
+                                key={rowIndex}
+                                className="bg-white border border-gray-200"
+                              >
+                                <CardHeader className="pb-2">
+                                  <CardTitle className="text-xs">
+                                    Řádek {rowIndex + 1}:{" "}
+                                    {item.product_code || "N/A"} -{" "}
+                                    {item.description || "N/A"}
+                                  </CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-0">
+                                  <div className="grid grid-cols-2 gap-1">
+                                    <div className="space-y-1">
+                                      <Button
+                                        size="sm"
+                                        variant={
+                                          columnMappings[`row_${rowIndex}_code`]
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                        className="w-full justify-start text-xs h-7"
+                                        onClick={() => {
+                                          if (selectedText) {
+                                            setColumnMappings((prev: any) => ({
+                                              ...prev,
+                                              [`row_${rowIndex}_code`]:
+                                                selectedText,
+                                            }));
+                                          }
+                                        }}
+                                        disabled={!selectedText}
+                                      >
+                                        {columnMappings[`row_${rowIndex}_code`]
+                                          ? `✓ Kód: ${columnMappings[`row_${rowIndex}_code`]}`
+                                          : "Kód"}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant={
+                                          columnMappings[
+                                            `row_${rowIndex}_description`
+                                          ]
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                        className="w-full justify-start text-xs h-7"
+                                        onClick={() => {
+                                          if (selectedText) {
+                                            setColumnMappings((prev: any) => ({
+                                              ...prev,
+                                              [`row_${rowIndex}_description`]:
+                                                selectedText,
+                                            }));
+                                          }
+                                        }}
+                                        disabled={!selectedText}
+                                      >
+                                        {columnMappings[
+                                          `row_${rowIndex}_description`
+                                        ]
+                                          ? `✓ Popis: ${columnMappings[`row_${rowIndex}_description`]}`
+                                          : "Popis"}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant={
+                                          columnMappings[
+                                            `row_${rowIndex}_quantity`
+                                          ]
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                        className="w-full justify-start text-xs h-7"
+                                        onClick={() => {
+                                          if (selectedText) {
+                                            setColumnMappings((prev: any) => ({
+                                              ...prev,
+                                              [`row_${rowIndex}_quantity`]:
+                                                selectedText,
+                                            }));
+                                          }
+                                        }}
+                                        disabled={!selectedText}
+                                      >
+                                        {columnMappings[
+                                          `row_${rowIndex}_quantity`
+                                        ]
+                                          ? `✓ Množství: ${columnMappings[`row_${rowIndex}_quantity`]}`
+                                          : "Množství"}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant={
+                                          columnMappings[`row_${rowIndex}_unit`]
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                        className="w-full justify-start text-xs h-7"
+                                        onClick={() => {
+                                          if (selectedText) {
+                                            setColumnMappings((prev: any) => ({
+                                              ...prev,
+                                              [`row_${rowIndex}_unit`]:
+                                                selectedText,
+                                            }));
+                                          }
+                                        }}
+                                        disabled={!selectedText}
+                                      >
+                                        {columnMappings[`row_${rowIndex}_unit`]
+                                          ? `✓ Jednotka: ${columnMappings[`row_${rowIndex}_unit`]}`
+                                          : "Jednotka"}
+                                      </Button>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Button
+                                        size="sm"
+                                        variant={
+                                          columnMappings[
+                                            `row_${rowIndex}_obsah`
+                                          ]
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                        className="w-full justify-start text-xs h-7"
+                                        onClick={() => {
+                                          if (selectedText) {
+                                            setColumnMappings((prev: any) => ({
+                                              ...prev,
+                                              [`row_${rowIndex}_obsah`]:
+                                                selectedText,
+                                            }));
+                                          }
+                                        }}
+                                        disabled={!selectedText}
+                                      >
+                                        {columnMappings[`row_${rowIndex}_obsah`]
+                                          ? `✓ Obsah: ${columnMappings[`row_${rowIndex}_obsah`]}`
+                                          : "Obsah"}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant={
+                                          columnMappings[
+                                            `row_${rowIndex}_fakt_mn`
+                                          ]
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                        className="w-full justify-start text-xs h-7"
+                                        onClick={() => {
+                                          if (selectedText) {
+                                            setColumnMappings((prev: any) => ({
+                                              ...prev,
+                                              [`row_${rowIndex}_fakt_mn`]:
+                                                selectedText,
+                                            }));
+                                          }
+                                        }}
+                                        disabled={!selectedText}
+                                      >
+                                        {columnMappings[
+                                          `row_${rowIndex}_fakt_mn`
+                                        ]
+                                          ? `✓ Fakt.mn: ${columnMappings[`row_${rowIndex}_fakt_mn`]}`
+                                          : "Fakt.mn"}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant={
+                                          columnMappings[
+                                            `row_${rowIndex}_unit_price`
+                                          ]
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                        className="w-full justify-start text-xs h-7"
+                                        onClick={() => {
+                                          if (selectedText) {
+                                            setColumnMappings((prev: any) => ({
+                                              ...prev,
+                                              [`row_${rowIndex}_unit_price`]:
+                                                selectedText,
+                                            }));
+                                          }
+                                        }}
+                                        disabled={!selectedText}
+                                      >
+                                        {columnMappings[
+                                          `row_${rowIndex}_unit_price`
+                                        ]
+                                          ? `✓ Cena/jed: ${columnMappings[`row_${rowIndex}_unit_price`]}`
+                                          : "Cena/jed"}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant={
+                                          columnMappings[
+                                            `row_${rowIndex}_total_price`
+                                          ]
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                        className="w-full justify-start text-xs h-7"
+                                        onClick={() => {
+                                          if (selectedText) {
+                                            setColumnMappings((prev: any) => ({
+                                              ...prev,
+                                              [`row_${rowIndex}_total_price`]:
+                                                selectedText,
+                                            }));
+                                          }
+                                        }}
+                                        disabled={!selectedText}
+                                      >
+                                        {columnMappings[
+                                          `row_${rowIndex}_total_price`
+                                        ]
+                                          ? `✓ Cena celkem: ${columnMappings[`row_${rowIndex}_total_price`]}`
+                                          : "Cena celkem"}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))}
+
+                            <div className="flex gap-1 pt-2 border-t">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs flex-1"
+                                onClick={() => {
+                                  // Generate pattern from all mapped rows
+                                  const pattern =
+                                    generatePatternFromMappings(columnMappings);
+                                  setEditedPatterns((prev: any) => ({
+                                    ...prev,
+                                    line_pattern: pattern,
+                                  }));
+                                  setHasChanges(true);
+                                  setShowColumnMapping(false);
+                                }}
+                                disabled={
+                                  Object.keys(columnMappings).length < 3
+                                }
+                              >
+                                🔧 Generovat z{" "}
+                                {
+                                  Object.keys(columnMappings).filter((key) =>
+                                    key.startsWith("row_")
+                                  ).length
+                                }{" "}
+                                řádků
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs"
+                                onClick={() => {
+                                  setColumnMappings({});
+                                  setSelectedText("");
+                                }}
+                              >
+                                🗑️
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs"
+                                onClick={() => {
+                                  setShowColumnMapping(false);
+                                }}
+                              >
+                                ❌
+                              </Button>
+                            </div>
+                          </div>
+
+                          {selectedText && (
+                            <Alert className="mt-3 bg-green-50 border-green-200">
+                              <AlertDescription className="text-xs">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <strong>✓ Označený text:</strong>{" "}
+                                    {selectedText}
+                                    <br />
+                                    Klikněte na sloupec v řádku pro přiřazení
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 px-2 text-xs"
+                                    onClick={() => setSelectedText("")}
+                                  >
+                                    ✕
+                                  </Button>
+                                </div>
+                              </AlertDescription>
+                            </Alert>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )}
                 </div>
               </div>
             )}
@@ -901,6 +1177,210 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
               </Card>
             </div>
 
+            {/* Položky and PDF Preview in 2-column layout */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Položky</CardTitle>
+                  {activeTemplate?.config?.patterns?.table_end && (
+                    <CardDescription className="text-xs text-orange-600">
+                      ⚠️ table_end: "{activeTemplate.config.patterns.table_end}"
+                    </CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="text-lg font-semibold">
+                      {result.items?.length || 0} položek
+                    </p>
+                    {result.unmapped_codes > 0 && (
+                      <p className="text-sm text-orange-600">
+                        {result.unmapped_codes} nenamapovaných kódů
+                      </p>
+                    )}
+
+                    {/* Always show table_end if it exists */}
+                    {activeTemplate?.config?.patterns?.table_end && (
+                      <div className="p-2 bg-blue-50 border border-blue-200 rounded">
+                        <p className="text-xs font-semibold">
+                          ⚙️ table_end aktivní:
+                        </p>
+                        <code className="text-xs bg-white px-2 py-1 rounded block mt-1">
+                          {activeTemplate.config.patterns.table_end}
+                        </code>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Extrakce zastaví při nalezení tohoto textu
+                        </p>
+                        <p className="text-xs text-orange-600 mt-1 font-semibold">
+                          💡 Pro multi-page: Označte text AFTER všech položek
+                          (např. "Celková částka" nebo "Zaokrouhlení")
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Multi-page warning - detect if table seems incomplete */}
+                  {result.items &&
+                    result.items.length > 0 &&
+                    result.items.length < 20 &&
+                    activeTemplate?.config?.patterns?.table_end && (
+                      <Alert className="mt-2 bg-orange-50 border-orange-200">
+                        <AlertDescription className="text-xs">
+                          ⚠️{" "}
+                          <strong>
+                            Extrahováno jen {result.items.length} položek -
+                            možná chybí položky z dalších stránek!
+                          </strong>
+                          <br />
+                          <br />
+                          <strong>Problém:</strong> table_end "
+                          {activeTemplate.config.patterns.table_end}" je
+                          pravděpodobně na konci stránky 1.
+                          <br />
+                          <br />
+                          <strong>Řešení A:</strong> Přenastavte table_end na
+                          text AFTER všech položek:
+                          <ol className="list-decimal list-inside ml-2 mt-1 space-y-1">
+                            <li>Scroll v OCR textu úplně dolů</li>
+                            <li>
+                              Označte text jako "Celková částka" nebo
+                              "Zaokrouhlení:"
+                            </li>
+                            <li>Klikněte "✏️ Nastavit jako konec tabulky"</li>
+                          </ol>
+                          <br />
+                          <strong>Řešení B:</strong> Nebo odeberte table_end
+                          úplně:
+                          <br />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="mt-2 text-xs"
+                            onClick={() => {
+                              setEditedPatterns((prev: any) => ({
+                                ...prev,
+                                table_end: null, // Remove table_end
+                              }));
+                              setHasChanges(true);
+                            }}
+                          >
+                            🗑️ Odstranit table_end vzor
+                          </Button>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                  {selectedText && (
+                    <div className="mt-2 space-y-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full text-xs"
+                        onClick={() => {
+                          const pattern = generateRegexPattern(
+                            selectedText,
+                            "table_start"
+                          );
+                          setEditedPatterns((prev: any) => ({
+                            ...prev,
+                            table_start: pattern,
+                          }));
+                          setHasChanges(true);
+                          setSelectedText("");
+                        }}
+                      >
+                        ✏️ Nastavit jako začátek tabulky
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full text-xs"
+                        onClick={() => {
+                          const pattern = generateRegexPattern(
+                            selectedText,
+                            "table_end"
+                          );
+                          setEditedPatterns((prev: any) => ({
+                            ...prev,
+                            table_end: pattern,
+                          }));
+                          setHasChanges(true);
+                          setSelectedText("");
+                        }}
+                      >
+                        ✏️ Nastavit jako konec tabulky
+                      </Button>
+                    </div>
+                  )}
+                  {(editedPatterns.table_start ||
+                    editedPatterns.table_end !== undefined) && (
+                    <div className="text-xs text-green-600 mt-2 space-y-1">
+                      {editedPatterns.table_start && (
+                        <p>✓ Začátek: {editedPatterns.table_start}</p>
+                      )}
+                      {editedPatterns.table_end === null && (
+                        <p>✓ Konec: (odstraněno pro multi-page)</p>
+                      )}
+                      {editedPatterns.table_end && (
+                        <p>✓ Konec: {editedPatterns.table_end}</p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* PDF Preview */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Náhled faktury</CardTitle>
+                  <CardDescription className="text-xs">
+                    {pdfUrl &&
+                      "Označte text v PDF a použijte tlačítka v kartách vlevo"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {pdfUrl ? (
+                    <div className="relative">
+                      <iframe
+                        src={pdfUrl}
+                        className="w-full h-96 border rounded"
+                        title="Invoice PDF"
+                        onLoad={(event) => {
+                          // Enable text selection in iframe
+                          const iframe = event.target as HTMLIFrameElement;
+                          try {
+                            iframe.contentWindow?.addEventListener(
+                              "mouseup",
+                              () => {
+                                const selection =
+                                  iframe.contentWindow?.getSelection();
+                                const text = selection?.toString().trim();
+                                if (text && text.length > 0) {
+                                  setSelectedText(text);
+                                }
+                              }
+                            );
+                          } catch (err) {
+                            console.log("Cannot access iframe content (CORS)");
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : filePreview && filePreview !== "PDF" ? (
+                    <img
+                      src={filePreview}
+                      alt="Invoice preview"
+                      className="w-full border rounded"
+                    />
+                  ) : (
+                    <div className="border rounded p-8 text-center text-muted-foreground">
+                      📄 PDF soubor: {uploadedFile?.name || "Neznámý soubor"}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
             {/* QR Codes Display */}
             <Card className="border-purple-200 bg-purple-50/30">
               <CardHeader>
@@ -980,22 +1460,34 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                   </CardDescription>
                 </div>
                 {selectedText && result.items && result.items.length > 0 && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      // Generate a line pattern from selected text
-                      const pattern = generateLineItemPattern(selectedText);
-                      setEditedPatterns((prev: any) => ({
-                        ...prev,
-                        line_pattern: pattern,
-                      }));
-                      setHasChanges(true);
-                      setSelectedText("");
-                    }}
-                  >
-                    ✏️ Použít jako vzor řádku
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        // Generate a line pattern from selected text
+                        const pattern = generateLineItemPattern(selectedText);
+                        setEditedPatterns((prev: any) => ({
+                          ...prev,
+                          line_pattern: pattern,
+                        }));
+                        setHasChanges(true);
+                        setSelectedText("");
+                      }}
+                    >
+                      ✏️ Použít jako vzor řádku
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        // Show column mapping interface
+                        setShowColumnMapping(true);
+                      }}
+                    >
+                      🎯 Mapovat sloupce
+                    </Button>
+                  </div>
                 )}
               </CardHeader>
               <CardContent>
@@ -1022,6 +1514,7 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                     </AlertDescription>
                   </Alert>
                 )}
+
                 {/* Check if description looks wrong (contains only numbers) */}
                 {result.items &&
                   result.items.length > 0 &&
@@ -1717,6 +2210,244 @@ function generateLineItemPattern(exampleLine: string): string {
   pattern += ".*?([\\d,]+)$";
 
   return pattern;
+}
+
+// Generate pattern from column mappings using highlighted text positions
+function generatePatternFromMappings(mappings: any) {
+  // Analyze all mapped values to create intelligent patterns
+  const columnGroups: { [columnType: string]: string[] } = {};
+
+  // Group all mappings by column type
+  Object.entries(mappings).forEach(([key, value]) => {
+    if (typeof value === "string" && value.trim()) {
+      const columnType = key.replace(/^row_\d+_/, "");
+      if (!columnGroups[columnType]) {
+        columnGroups[columnType] = [];
+      }
+      columnGroups[columnType].push(value.trim());
+    }
+  });
+
+  // Use the highlighted mappings to create the pattern
+  // If we have mappings, use them; otherwise fall back to default pattern
+  if (Object.keys(columnGroups).length > 0) {
+    // Create pattern based on actual highlighted values
+    const createPatternFromMappings = (
+      columnType: string,
+      values: string[]
+    ) => {
+      if (values.length === 0) {
+        // Default patterns if no data
+        switch (columnType) {
+          case "code":
+            return "(\\d{7})";
+          case "description":
+            return "(.+?)";
+          case "quantity":
+            return "(\\d+)";
+          case "unit":
+            return "(BAG|BKT|PCE|KG)";
+          case "obsah":
+            return "([\\d,\\s]+)";
+          case "fakt_mn":
+            return "([\\d,\\s]+)";
+          case "unit_price":
+            return "([\\d,\\s]+)";
+          case "total_price":
+            return "([\\d,\\s]+)";
+          case "currency":
+            return "([A-Z]+)";
+          case "vat_rate":
+            return "(\\d+)%";
+          default:
+            return "(.+?)";
+        }
+      }
+
+      // Use the actual highlighted values to create patterns
+      const uniqueValues = [...new Set(values)];
+
+      if (columnType === "total_price") {
+        // For total_price, use a pattern that handles Czech numbers with currency
+        // This ensures Czech numbers with spaces are captured correctly
+        // Pattern: digits, optional space, more digits, comma, two digits, optional currency
+        // Examples: "768,00" or "7 579,00" or "1575,00CZK"
+        return "([\\d]+\\s*[\\d]*,\\d{2}[A-Z]*)";
+      } else if (columnType === "unit") {
+        // Use all observed unit values
+        const unitValues = uniqueValues
+          .map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+          .join("|");
+        return `(${unitValues})`;
+      } else if (columnType === "currency") {
+        // Use all observed currency values
+        const currencyValues = uniqueValues
+          .map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+          .join("|");
+        return `(${currencyValues})`;
+      } else if (["obsah", "fakt_mn", "unit_price"].includes(columnType)) {
+        // Czech number format for other price fields
+        return "([\\d,\\s]+)";
+      } else if (columnType === "code") {
+        return "(\\d{7})";
+      } else if (columnType === "description") {
+        return "(.+?)";
+      } else if (columnType === "quantity") {
+        return "(\\d+)";
+      } else if (columnType === "vat_rate") {
+        return "(\\d+)%";
+      }
+
+      return "(.+?)";
+    };
+
+    // Build pattern using the highlighted mappings
+    const columnOrder = [
+      "code",
+      "description",
+      "quantity",
+      "unit",
+      "obsah",
+      "unit",
+      "fakt_mn",
+      "unit",
+      "unit_price",
+      "total_price",
+      "currency",
+      "vat_rate",
+    ];
+
+    const patternParts = columnOrder.map((column) => {
+      return createPatternFromMappings(column, columnGroups[column] || []);
+    });
+
+    return `^${patternParts.join("\\s+")}`;
+  }
+
+  // Fallback to default pattern if no mappings
+  const patternParts = [
+    "(\\d{7})", // Code: 7 digits
+    "(.+?)", // Description: non-greedy until quantity
+    "(\\d+)", // Quantity: number
+    "(BAG|BKT|PCE)", // Unit: specific values
+    "([\\d,\\s]+)", // Obsah: Czech number format
+    "(KG|PCE)", // Obsah unit: specific values
+    "([\\d,\\s]+)", // Fakt.mn: Czech number format
+    "(KG|PCE)", // Fakt.mn unit: specific values
+    "([\\d,\\s]+)", // Unit price: Czech number format
+    "([\\d]+\\s*[\\d]*,\\d{2}[A-Z]*)", // Total price: Czech number format (with spaces for thousands)
+    "([A-Z]+)", // Currency: uppercase letters
+    "(\\d+)%", // VAT rate: number with %
+  ];
+
+  return `^${patternParts.join("\\s+")}`;
+}
+
+// Highlight mapped text in OCR
+function highlightMappedText(text: string, mappings: any) {
+  if (!mappings || Object.keys(mappings).length === 0) {
+    return text;
+  }
+
+  let highlightedText = text;
+  const colors = {
+    code: "bg-blue-200 border border-blue-300",
+    description: "bg-green-200 border border-green-300",
+    quantity: "bg-yellow-200 border border-yellow-300",
+    unit: "bg-purple-200 border border-purple-300",
+    obsah: "bg-orange-200 border border-orange-300",
+    fakt_mn: "bg-pink-200 border border-pink-300",
+    unit_price: "bg-indigo-200 border border-indigo-300",
+    total_price: "bg-red-200 border border-red-300",
+    vat_rate: "bg-teal-200 border border-teal-300",
+  };
+
+  // Group mappings by column type to handle multiple rows
+  const columnGroups: { [columnType: string]: string[] } = {};
+
+  Object.entries(mappings).forEach(([key, mappedText]) => {
+    if (!mappedText || typeof mappedText !== "string") return;
+
+    const columnType = key.replace(/^row_\d+_/, "");
+    if (!columnGroups[columnType]) {
+      columnGroups[columnType] = [];
+    }
+    columnGroups[columnType].push(mappedText);
+  });
+
+  // Process each column type
+  Object.entries(columnGroups).forEach(([columnType, values]) => {
+    const color =
+      colors[columnType as keyof typeof colors] ||
+      "bg-gray-200 border border-gray-300";
+    const label = `[${columnType}]`;
+
+    // Remove duplicates and sort by length (longest first to avoid partial matches)
+    const uniqueValues = [...new Set(values)].sort(
+      (a, b) => b.length - a.length
+    );
+
+    uniqueValues.forEach((mappedText) => {
+      // Create a more specific regex that considers context
+      let regex;
+      if (columnType === "quantity") {
+        // For quantity, look for numbers that are likely quantities
+        regex = new RegExp(
+          `\\b${mappedText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b(?=\\s*(BAG|BKT|PCE|KG|ks|kg|g|ml|l|lt)?\\s|$)`,
+          "g"
+        );
+      } else if (columnType === "code") {
+        // For codes, match the exact pattern
+        regex = new RegExp(
+          `\\b${mappedText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+          "g"
+        );
+      } else if (columnType === "total_price") {
+        // For total prices, be more specific to avoid matching other numbers
+        // Look for numbers that are likely prices (with commas, spaces, etc.)
+        // Handle cases where currency is directly attached (e.g., "1575,00CZK")
+        // or separated by space (e.g., "7 579,00 CZ")
+        const escapedText = mappedText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+        // Try multiple patterns to catch different formats
+        const patterns = [
+          `\\b${escapedText}(?=\\s+[A-Z]|\\s*$|$)`, // Space before currency or end
+          `\\b${escapedText}(?=[A-Z]|$)`, // Direct currency or end
+          `\\b${escapedText}\\b`, // Word boundary fallback
+        ];
+
+        // Use the first pattern that matches
+        for (const pattern of patterns) {
+          const testRegex = new RegExp(pattern, "g");
+          if (testRegex.test(text)) {
+            regex = testRegex;
+            break;
+          }
+        }
+
+        // Fallback to the most permissive pattern
+        if (!regex) {
+          regex = new RegExp(`\\b${escapedText}\\b`, "g");
+        }
+      } else {
+        // For other fields, use word boundaries
+        regex = new RegExp(
+          `\\b${mappedText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+          "g"
+        );
+      }
+
+      // Only replace if the text hasn't been highlighted already
+      if (!highlightedText.includes(`${mappedText}[${columnType}]`)) {
+        highlightedText = highlightedText.replace(
+          regex,
+          `<span class="${color} px-1 rounded text-xs font-semibold" title="${columnType}">${mappedText}${label}</span>`
+        );
+      }
+    });
+  });
+
+  return <span dangerouslySetInnerHTML={{ __html: highlightedText }} />;
 }
 
 // Supplier selector component
