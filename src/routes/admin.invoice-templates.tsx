@@ -371,110 +371,110 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
         )}
       </CardContent>
 
-      {result && (
+        {result && (
         <CardContent className="space-y-4">
-          <Alert>
+            <Alert>
             <AlertDescription>✅ Faktura úspěšně zpracována!</AlertDescription>
-          </Alert>
+            </Alert>
 
-          {/* Invoice Preview and Raw Text with Annotation Tools */}
-          {uploadedFile && (
-            <div className="space-y-4">
-              {/* Selected Text Indicator */}
-              {selectedText && (
-                <Alert className="bg-yellow-50 border-yellow-200">
-                  <AlertDescription>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <strong>✓ Text označen:</strong>{" "}
-                        <code className="bg-white px-2 py-1 rounded text-sm">
-                          {selectedText.length > 50
-                            ? selectedText.substring(0, 50) + "..."
-                            : selectedText}
-                        </code>
+            {/* Invoice Preview and Raw Text with Annotation Tools */}
+            {uploadedFile && (
+              <div className="space-y-4">
+                {/* Selected Text Indicator */}
+                {selectedText && (
+                  <Alert className="bg-yellow-50 border-yellow-200">
+                    <AlertDescription>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <strong>✓ Text označen:</strong>{" "}
+                          <code className="bg-white px-2 py-1 rounded text-sm">
+                            {selectedText.length > 50
+                              ? selectedText.substring(0, 50) + "..."
+                              : selectedText}
+                          </code>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setSelectedText("")}
+                        >
+                          ✕ Zrušit
+                        </Button>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setSelectedText("")}
-                      >
-                        ✕ Zrušit
-                      </Button>
-                    </div>
-                    <p className="text-xs mt-2 text-muted-foreground">
+                      <p className="text-xs mt-2 text-muted-foreground">
                       👆 Klikněte na tlačítko "✏️ Použít označený text" u pole,
                       které chcete aktualizovat
-                    </p>
-                  </AlertDescription>
-                </Alert>
-              )}
+                      </p>
+                    </AlertDescription>
+                  </Alert>
+                )}
 
-              {/* Quick Instructions */}
-              <Card className="bg-blue-50 border-blue-200">
-                <CardHeader>
-                  <CardTitle className="text-sm">🎯 Jak použít</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ol className="text-xs space-y-1 list-decimal list-inside">
-                    <li>Označte text v PDF nebo v OCR výstupu myší</li>
-                    <li>
-                      Klikněte na tlačítko "✏️ Použít označený text" u
-                      příslušného pole
-                    </li>
-                    <li>Systém automaticky vytvoří regex vzor</li>
-                    <li>Zkontrolujte vzory a klikněte "💾 Uložit změny"</li>
-                    <li>Nahrajte fakturu znovu pro test nových vzorů</li>
-                  </ol>
-                </CardContent>
-              </Card>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <Card>
+                {/* Quick Instructions */}
+                <Card className="bg-blue-50 border-blue-200">
                   <CardHeader>
-                    <CardTitle className="text-sm">Raw OCR Text</CardTitle>
-                    <CardDescription className="text-xs">
-                      Vyberte text myší a použijte tlačítka vpravo
-                    </CardDescription>
+                    <CardTitle className="text-sm">🎯 Jak použít</CardTitle>
                   </CardHeader>
                   <CardContent>
+                    <ol className="text-xs space-y-1 list-decimal list-inside">
+                      <li>Označte text v PDF nebo v OCR výstupu myší</li>
+                      <li>
+                        Klikněte na tlačítko "✏️ Použít označený text" u
+                        příslušného pole
+                      </li>
+                      <li>Systém automaticky vytvoří regex vzor</li>
+                      <li>Zkontrolujte vzory a klikněte "💾 Uložit změny"</li>
+                      <li>Nahrajte fakturu znovu pro test nových vzorů</li>
+                    </ol>
+                  </CardContent>
+                </Card>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader>
+                    <CardTitle className="text-sm">Raw OCR Text</CardTitle>
+                      <CardDescription className="text-xs">
+                      Vyberte text myší a použijte tlačítka vpravo
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
                     {result.raw_text ? (
                       <div
                         className="bg-gray-50 p-4 rounded border max-h-96 overflow-y-auto select-text"
                         onMouseUp={() => {
                           const selection = window.getSelection();
-                          const text = selection?.toString().trim();
+                                    const text = selection?.toString().trim();
                           if (text) {
-                            setSelectedText(text);
+                                      setSelectedText(text);
                           }
                         }}
                       >
                         <pre className="text-xs whitespace-pre-wrap font-mono">
                           {highlightMappedText(result.raw_text, columnMappings)}
                         </pre>
-                      </div>
+                        </div>
                     ) : (
                       <div className="text-sm text-muted-foreground">
                         OCR text není k dispozici
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
 
                 {/* Column Mapping Interface */}
                 {showColumnMapping &&
                   result.items &&
                   result.items.length > 0 && (
                     <Card className="bg-blue-50 border-blue-200">
-                      <CardHeader>
+                    <CardHeader>
                         <CardTitle className="text-sm">
                           🎯 Mapování řádků - {result.items.length} položek
                         </CardTitle>
-                        <CardDescription className="text-xs">
+                      <CardDescription className="text-xs">
                           Označte text v OCR a přiřaďte ho ke sloupcům pro každý
                           řádek
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
                         <div className="space-y-3 max-h-96 overflow-y-auto">
                           {result.items.map((item: any, rowIndex: number) => (
                             <Card
@@ -591,7 +591,7 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                                         ? `✓ Jednotka: ${columnMappings[`row_${rowIndex}_unit`]}`
                                         : "Jednotka"}
                                     </Button>
-                                  </div>
+                        </div>
                                   <div className="space-y-1">
                                     <Button
                                       size="sm"
@@ -695,7 +695,7 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                                         ? `✓ Cena celkem: ${columnMappings[`row_${rowIndex}_total_price`]}`
                                         : "Cena celkem"}
                                     </Button>
-                                  </div>
+                        </div>
                                 </div>
                               </CardContent>
                             </Card>
@@ -772,248 +772,249 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                               </div>
                             </AlertDescription>
                           </Alert>
-                        )}
-                      </CardContent>
-                    </Card>
+                      )}
+                    </CardContent>
+                  </Card>
                   )}
-              </div>
-            </div>
-          )}
-
-          {/* Quick Update Patterns */}
-          {hasChanges && (
-            <Alert>
-              <AlertDescription className="flex items-center justify-between">
-                <span>✏️ Máte neuložené změny ve vzorech</span>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setEditedPatterns({});
-                      setHasChanges(false);
-                    }}
-                  >
-                    Zrušit
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={async () => {
-                      if (!activeTemplate) return;
-
-                      // Separate line_pattern and table_end from other patterns
-                      const { line_pattern, table_end, ...otherPatterns } =
-                        editedPatterns;
-
-                      // Build updated patterns, removing table_end if it's null
-                      const updatedPatterns = {
-                        ...activeTemplate.config.patterns,
-                        ...otherPatterns,
-                      };
-
-                      // Handle table_end: remove if null, update if provided
-                      if (table_end === null) {
-                        delete updatedPatterns.table_end;
-                      } else if (table_end) {
-                        updatedPatterns.table_end = table_end;
-                      }
-
-                      const updatedConfig = {
-                        ...activeTemplate.config,
-                        patterns: updatedPatterns,
-                        // Add line_pattern to table_columns if it exists
-                        ...(line_pattern && {
-                          table_columns: {
-                            ...activeTemplate.config.table_columns,
-                            line_pattern: line_pattern,
-                          },
-                        }),
-                      };
-
-                      await updateTemplate({
-                        id: activeTemplate.id,
-                        updates: { config: updatedConfig },
-                      });
-
-                      setEditedPatterns({});
-                      setHasChanges(false);
-                      alert(
-                        "Vzory úspěšně uloženy! Nahrajte fakturu znovu pro test."
-                      );
-                    }}
-                  >
-                    💾 Uložit změny
-                  </Button>
                 </div>
-              </AlertDescription>
-            </Alert>
-          )}
+              </div>
+            )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm">Číslo faktury</CardTitle>
-                {selectedText && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      const pattern = generateRegexPattern(
-                        selectedText,
-                        "invoice_number"
-                      );
-                      setEditedPatterns((prev: any) => ({
-                        ...prev,
-                        invoice_number: pattern,
-                      }));
-                      setHasChanges(true);
-                      setSelectedText("");
-                    }}
-                  >
-                    ✏️ Použít označený text
-                  </Button>
-                )}
-              </CardHeader>
-              <CardContent>
-                <p className="text-lg font-semibold">
-                  {result.invoiceNumber || (
-                    <span className="text-orange-600">Nenalezeno</span>
+            {/* Quick Update Patterns */}
+            {hasChanges && (
+              <Alert>
+                <AlertDescription className="flex items-center justify-between">
+                  <span>✏️ Máte neuložené změny ve vzorech</span>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditedPatterns({});
+                        setHasChanges(false);
+                      }}
+                    >
+                      Zrušit
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        if (!activeTemplate) return;
+
+                        // Separate line_pattern and table_end from other patterns
+                        const { line_pattern, table_end, ...otherPatterns } =
+                          editedPatterns;
+
+                        // Build updated patterns, removing table_end if it's null
+                        const updatedPatterns = {
+                          ...activeTemplate.config.patterns,
+                          ...otherPatterns,
+                        };
+
+                        // Handle table_end: remove if null, update if provided
+                        if (table_end === null) {
+                          delete updatedPatterns.table_end;
+                        } else if (table_end) {
+                          updatedPatterns.table_end = table_end;
+                        }
+
+                        const updatedConfig = {
+                          ...activeTemplate.config,
+                          patterns: updatedPatterns,
+                          // Add line_pattern to table_columns if it exists
+                          ...(line_pattern && {
+                            table_columns: {
+                              ...activeTemplate.config.table_columns,
+                              line_pattern: line_pattern,
+                            },
+                          }),
+                        };
+
+                        await updateTemplate({
+                          id: activeTemplate.id,
+                          updates: { config: updatedConfig },
+                        });
+
+                        setEditedPatterns({});
+                        setHasChanges(false);
+                        alert(
+                          "Vzory úspěšně uloženy! Nahrajte fakturu znovu pro test."
+                        );
+                      }}
+                    >
+                      💾 Uložit změny
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm">Číslo faktury</CardTitle>
+                  {selectedText && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        const pattern = generateRegexPattern(
+                          selectedText,
+                          "invoice_number"
+                        );
+                        setEditedPatterns((prev: any) => ({
+                          ...prev,
+                          invoice_number: pattern,
+                        }));
+                        setHasChanges(true);
+                        setSelectedText("");
+                      }}
+                    >
+                      ✏️ Použít označený text
+                    </Button>
                   )}
-                </p>
-                {editedPatterns.invoice_number && (
-                  <p className="text-xs text-green-600 mt-1">
-                    ✓ Nový vzor: {editedPatterns.invoice_number}
+                </CardHeader>
+                <CardContent>
+                  <p className="text-lg font-semibold">
+                    {result.invoiceNumber || (
+                      <span className="text-orange-600">Nenalezeno</span>
+                    )}
                   </p>
-                )}
-                {result.invoiceNumber && result.invoiceNumber.length <= 2 && (
-                  <Alert className="mt-2">
-                    <AlertDescription className="text-xs">
-                      ⚠️ Číslo "{result.invoiceNumber}" vypadá jako číslo
-                      stránky!
-                      <br />
-                      Označte v OCR textu správné číslo faktury (např. "Číslo
+                  {editedPatterns.invoice_number && (
+                    <p className="text-xs text-green-600 mt-1">
+                      ✓ Nový vzor: {editedPatterns.invoice_number}
+                    </p>
+                  )}
+                  {result.invoiceNumber && result.invoiceNumber.length <= 2 && (
+                    <Alert className="mt-2">
+                      <AlertDescription className="text-xs">
+                        ⚠️ Číslo "{result.invoiceNumber}" vypadá jako číslo
+                        stránky!
+                        <br />
+                        Označte v OCR textu správné číslo faktury (např. "Číslo
                       dokladu 2531898") a klikněte na "✏️ Použít označený text"
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm">Datum</CardTitle>
-                {selectedText && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      const pattern = generateRegexPattern(
-                        selectedText,
-                        "date"
-                      );
-                      setEditedPatterns((prev: any) => ({
-                        ...prev,
-                        date: pattern,
-                      }));
-                      setHasChanges(true);
-                      setSelectedText("");
-                    }}
-                  >
-                    ✏️ Použít označený text
-                  </Button>
-                )}
-              </CardHeader>
-              <CardContent>
-                <p className="text-lg font-semibold">
-                  {result.date || (
-                    <span className="text-orange-600">Nenalezeno</span>
+                      </AlertDescription>
+                    </Alert>
                   )}
-                </p>
-                {editedPatterns.date && (
-                  <p className="text-xs text-green-600 mt-1">
-                    ✓ Nový vzor: {editedPatterns.date}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm">Celková částka</CardTitle>
-                {selectedText && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      const pattern = generateRegexPattern(
-                        selectedText,
-                        "total_amount"
-                      );
-                      setEditedPatterns((prev: any) => ({
-                        ...prev,
-                        total_amount: pattern,
-                      }));
-                      setHasChanges(true);
-                      setSelectedText("");
-                    }}
-                  >
-                    ✏️ Použít označený text
-                  </Button>
-                )}
-              </CardHeader>
-              <CardContent>
-                <p className="text-lg font-semibold">
-                  {result.totalAmount ? (
-                    `${result.totalAmount.toLocaleString("cs-CZ")} Kč`
-                  ) : (
-                    <span className="text-orange-600">Nenalezeno</span>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm">Datum</CardTitle>
+                  {selectedText && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        const pattern = generateRegexPattern(
+                          selectedText,
+                          "date"
+                        );
+                        setEditedPatterns((prev: any) => ({
+                          ...prev,
+                          date: pattern,
+                        }));
+                        setHasChanges(true);
+                        setSelectedText("");
+                      }}
+                    >
+                      ✏️ Použít označený text
+                    </Button>
                   )}
-                </p>
-                {editedPatterns.total_amount && (
-                  <p className="text-xs text-green-600 mt-1">
-                    ✓ Nový vzor: {editedPatterns.total_amount}
+                </CardHeader>
+                <CardContent>
+                  <p className="text-lg font-semibold">
+                    {result.date || (
+                      <span className="text-orange-600">Nenalezeno</span>
+                    )}
                   </p>
-                )}
-              </CardContent>
-            </Card>
+                  {editedPatterns.date && (
+                    <p className="text-xs text-green-600 mt-1">
+                      ✓ Nový vzor: {editedPatterns.date}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm">Způsob platby</CardTitle>
-                {selectedText && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      const pattern = generateRegexPattern(
-                        selectedText,
-                        "payment_type"
-                      );
-                      setEditedPatterns((prev: any) => ({
-                        ...prev,
-                        payment_type: pattern,
-                      }));
-                      setHasChanges(true);
-                      setSelectedText("");
-                    }}
-                  >
-                    ✏️ Použít označený text
-                  </Button>
-                )}
-              </CardHeader>
-              <CardContent>
-                <p className="text-lg font-semibold">
-                  {result.paymentType || (
-                    <span className="text-orange-600">Nenalezeno</span>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm">Celková částka</CardTitle>
+                  {selectedText && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        const pattern = generateRegexPattern(
+                          selectedText,
+                          "total_amount"
+                        );
+                        setEditedPatterns((prev: any) => ({
+                          ...prev,
+                          total_amount: pattern,
+                        }));
+                        setHasChanges(true);
+                        setSelectedText("");
+                      }}
+                    >
+                      ✏️ Použít označený text
+                    </Button>
                   )}
-                </p>
-                {editedPatterns.payment_type && (
-                  <p className="text-xs text-green-600 mt-1">
-                    ✓ Nový vzor: {editedPatterns.payment_type}
+                </CardHeader>
+                <CardContent>
+                  <p className="text-lg font-semibold">
+                    {result.totalAmount ? (
+                      `${result.totalAmount.toLocaleString("cs-CZ")} Kč`
+                    ) : (
+                      <span className="text-orange-600">Nenalezeno</span>
+                    )}
                   </p>
-                )}
-              </CardContent>
-            </Card>
+                  {editedPatterns.total_amount && (
+                    <p className="text-xs text-green-600 mt-1">
+                      ✓ Nový vzor: {editedPatterns.total_amount}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm">Způsob platby</CardTitle>
+                  {selectedText && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        const pattern = generateRegexPattern(
+                          selectedText,
+                          "payment_type"
+                        );
+                        setEditedPatterns((prev: any) => ({
+                          ...prev,
+                          payment_type: pattern,
+                        }));
+                        setHasChanges(true);
+                        setSelectedText("");
+                      }}
+                    >
+                      ✏️ Použít označený text
+                    </Button>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <p className="text-lg font-semibold">
+                    {result.paymentType || (
+                      <span className="text-orange-600">Nenalezeno</span>
+                    )}
+                  </p>
+                  {editedPatterns.payment_type && (
+                    <p className="text-xs text-green-600 mt-1">
+                      ✓ Nový vzor: {editedPatterns.payment_type}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
             {/* Položky and PDF Preview in 2-column layout */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -1168,7 +1169,7 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
               </Card>
 
               {/* PDF Preview */}
-              <Card>
+            <Card>
                 <CardHeader>
                   <CardTitle className="text-sm">Náhled faktury</CardTitle>
                   <CardDescription className="text-xs">
@@ -1203,7 +1204,7 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                           }
                         }}
                       />
-                    </div>
+                </div>
                   ) : filePreview && filePreview !== "PDF" ? (
                     <img
                       src={filePreview}
@@ -1248,17 +1249,17 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                               {qr.type === "QRCODE" ? "QR kód" : "Čárový kód"}
                             </span>
                           </div>
-                          <Button
-                            size="sm"
+                  <Button
+                    size="sm"
                             variant="ghost"
                             className="h-6 px-2 text-xs"
-                            onClick={() => {
+                    onClick={() => {
                               navigator.clipboard.writeText(qr.data);
                               alert("QR kód zkopírován do schránky!");
                             }}
                           >
                             📋 Kopírovat
-                          </Button>
+                  </Button>
                         </div>
                         <div className="bg-gray-50 p-2 rounded border border-gray-200">
                           <code className="text-xs break-all">{qr.data}</code>
@@ -1288,649 +1289,654 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-start justify-between">
-                <div>
-                  <CardTitle className="text-sm">Extrahované položky</CardTitle>
-                  <CardDescription className="text-xs">
-                    🔍 Mapování: Kód produktu → ingredient_supplier_codes →
-                    surovina
-                  </CardDescription>
-                </div>
-                {selectedText && result.items && result.items.length > 0 && (
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        // Generate a line pattern from selected text
-                        const pattern = generateLineItemPattern(selectedText);
-                        setEditedPatterns((prev: any) => ({
-                          ...prev,
-                          line_pattern: pattern,
-                        }));
-                        setHasChanges(true);
-                        setSelectedText("");
-                      }}
-                    >
-                      ✏️ Použít jako vzor řádku
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        // Show column mapping interface
-                        setShowColumnMapping(true);
-                      }}
-                    >
-                      🎯 Mapovat sloupce
-                    </Button>
-                  </div>
-                )}
-              </CardHeader>
-              <CardContent>
-                {editedPatterns.line_pattern && (
-                  <Alert className="mb-4 bg-yellow-50">
-                    <AlertDescription className="text-xs">
-                      <strong>⚠️ Upravený vzor řádku:</strong>
-                      <br />
-                      <code className="text-xs bg-white px-2 py-1 rounded mt-1 inline-block break-all">
-                        {editedPatterns.line_pattern}
-                      </code>
-                      <p className="mt-2 text-muted-foreground">
-                        {editedPatterns.line_pattern.includes("\\n") ? (
-                          <>
-                            ✓ Multi-řádkový vzor detekován
-                            <br />
-                            Extrakt: Název (řádek 1) → Kód, Počet MU, Cena
-                            (řádek 2)
-                          </>
-                        ) : (
-                          "Jednoř. vzor: číslo zboží, počet MU, název zboží, zákl. cena, jedn. v MU, cena za MU, cena celkem"
-                        )}
-                      </p>
-                    </AlertDescription>
-                  </Alert>
-                )}
+      </CardContent>
+      )}
 
-                {/* Check if description looks wrong (contains only numbers) */}
-                {result.items &&
-                  result.items.length > 0 &&
-                  result.items.some(
-                    (item: any) =>
-                      item.description && /^\d+$/.test(item.description.trim())
-                  ) && (
-                    <Alert className="mb-4 bg-orange-50 border-orange-200">
-                      <AlertDescription className="text-xs">
-                        ⚠️ <strong>Popis obsahuje pouze čísla!</strong>
-                        <br />
-                        Vzor extrakce řádků je pravděpodobně špatný.
-                        <br />
-                        <strong>Jak opravit:</strong>
-                        <ol className="list-decimal list-inside mt-2 space-y-1">
-                          <li>
-                            Označte v OCR textu OBA řádky položky (popis +
-                            data):
-                            <br />
-                            <code className="text-xs bg-white px-1 py-0.5">
-                              sůl jemná 25kg
-                              <br />
-                              0201 50kg 6,80 12 % 340,00
-                            </code>
-                          </li>
-                          <li>
-                            Klikněte na tlačítko "✏️ Použít jako vzor řádku"
-                            vpravo nahoře
-                          </li>
-                          <li>
-                            Systém vygeneruje multi-řádkový regex vzor pro
-                            správné rozdělení
-                          </li>
-                        </ol>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                {/* Layout based on template configuration */}
-                {(() => {
-                  const layout =
-                    activeTemplate?.config?.display_layout || "standard";
-
-                  if (layout === "makro") {
-                    return (
-                      <div className="overflow-x-auto border rounded-md">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b bg-gray-50">
-                              <th className="text-left p-2 text-xs">
-                                číslo zboží
-                              </th>
-                              <th className="text-right p-2 text-xs">
-                                počet MU
-                              </th>
-                              <th className="text-left p-2 text-xs">
-                                název zboží
-                              </th>
-                              <th className="text-right p-2 text-xs">
-                                hmot. bal.
-                              </th>
-                              <th className="text-right p-2 text-xs">
-                                celk. hmot.
-                              </th>
-                              <th className="text-right p-2 text-xs">
-                                zákl. cena
-                              </th>
-                              <th className="text-right p-2 text-xs">
-                                jedn. v MU
-                              </th>
-                              <th className="text-right p-2 text-xs">
-                                cena za MU
-                              </th>
-                              <th className="text-right p-2 text-xs">
-                                cena celkem
-                              </th>
-                              <th className="text-right p-2 text-xs bg-orange-50">
-                                Cena/kg
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {result.items?.map((item: any, idx: number) => {
-                              const priceTotal =
-                                item.line_total ||
-                                item.quantity * item.unit_price ||
-                                0;
-
-                              return (
-                                <tr
-                                  key={idx}
-                                  className="border-b hover:bg-gray-50"
-                                >
-                                  {/* číslo zboží */}
-                                  <td className="p-2">
-                                    <code className="text-xs bg-blue-100 px-1 py-0.5 rounded font-mono">
-                                      {item.product_code || "???"}
-                                    </code>
-                                  </td>
-                                  {/* počet MU */}
-                                  <td className="p-2 text-right text-xs font-semibold">
-                                    {item.description?.startsWith("*") ? (
-                                      <span className="text-purple-600">
-                                        {item.total_weight_kg?.toLocaleString(
-                                          "cs-CZ",
-                                          {
-                                            minimumFractionDigits: 3,
-                                            maximumFractionDigits: 3,
-                                          }
-                                        )}{" "}
-                                        kg
-                                      </span>
-                                    ) : (
-                                      item.quantity.toLocaleString("cs-CZ")
-                                    )}
-                                  </td>
-                                  {/* název zboží */}
-                                  <td className="p-2 text-xs">
-                                    {item.description || "-"}
-                                  </td>
-                                  {/* hmot. bal. (package weight) */}
-                                  <td className="p-2 text-right text-xs text-blue-600">
-                                    {item.package_weight_kg
-                                      ? `${(
-                                          item.package_weight_kg * 1000
-                                        ).toLocaleString("cs-CZ", {
-                                          maximumFractionDigits: 0,
-                                        })} g`
-                                      : "-"}
-                                  </td>
-                                  {/* celk. hmot. (total weight) */}
-                                  <td className="p-2 text-right text-xs text-green-600 font-medium">
-                                    {item.total_weight_kg
-                                      ? `${item.total_weight_kg.toLocaleString(
-                                          "cs-CZ",
-                                          {
-                                            minimumFractionDigits: 3,
-                                            maximumFractionDigits: 3,
-                                          }
-                                        )} kg`
-                                      : "-"}
-                                  </td>
-                                  {/* zákl. cena (base price per package OR price per kg for * items) */}
-                                  <td className="p-2 text-right text-xs">
-                                    {item.base_price ? (
-                                      <span
-                                        className={
-                                          item.description?.startsWith("*")
-                                            ? "text-purple-600 font-medium"
-                                            : ""
-                                        }
-                                      >
-                                        {item.base_price.toLocaleString(
-                                          "cs-CZ",
-                                          {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                          }
-                                        )}
-                                        {item.description?.startsWith("*") &&
-                                          " /kg"}
-                                      </span>
-                                    ) : (
-                                      "-"
-                                    )}
-                                  </td>
-                                  {/* jedn. v MU (units in MU) */}
-                                  <td className="p-2 text-right text-xs">
-                                    {item.units_in_mu || "1"}
-                                  </td>
-                                  {/* cena za MU (price per MU) */}
-                                  <td className="p-2 text-right text-xs">
-                                    {item.unit_price?.toLocaleString("cs-CZ", {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}
-                                  </td>
-                                  {/* cena celkem */}
-                                  <td className="p-2 text-right text-xs font-semibold">
-                                    {priceTotal.toLocaleString("cs-CZ", {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}
-                                  </td>
-                                  {/* Cena/kg (calculated) */}
-                                  <td className="p-2 text-right text-xs bg-orange-50">
-                                    {item.price_per_kg ? (
-                                      <span className="text-orange-600 font-bold">
-                                        {item.price_per_kg.toLocaleString(
-                                          "cs-CZ",
-                                          {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                          }
-                                        )}{" "}
-                                        Kč/kg
-                                      </span>
-                                    ) : (
-                                      <span className="text-gray-400">-</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    );
-                  } else if (layout === "two-line") {
-                    /* Two-line layout for Pešek-Rambousek */
-                    return (
-                      <div className="overflow-x-auto border border-gray-300 rounded-lg">
-                        <table className="w-full border-collapse">
-                          <thead>
-                            <tr className="bg-gray-50 border-b-2 border-gray-300">
-                              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                                Kód
-                              </th>
-                              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                                Název položky
-                              </th>
-                              <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                                Množství
-                              </th>
-                              <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                                Jedn. cena
-                              </th>
-                              <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                                Celkem bez DPH
-                              </th>
-                              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700">
-                                Namapováno
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white">
-                            {result.items?.map((item: any, idx: number) => {
-                              const priceTotal =
-                                item.line_total ||
-                                item.quantity * item.unit_price ||
-                                0;
-
-                              return (
-                                <tr
-                                  key={idx}
-                                  className={`border-b border-gray-200 hover:bg-gray-50 ${
-                                    item.matched_ingredient_id
-                                      ? ""
-                                      : item.suggested_ingredient_name
-                                        ? "bg-orange-50/30"
-                                        : "bg-red-50/30"
-                                  }`}
-                                >
-                                  <td className="px-3 py-2 border-r border-gray-200">
-                                    <code className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-mono">
-                                      {item.product_code || "???"}
-                                    </code>
-                                  </td>
-                                  <td className="px-3 py-2 text-sm text-gray-900 border-r border-gray-200">
-                                    {item.description || "-"}
-                                  </td>
-                                  <td className="px-3 py-2 text-right text-sm text-gray-900 border-r border-gray-200">
-                                    {item.quantity.toLocaleString("cs-CZ")}{" "}
-                                    <span className="text-gray-500 text-xs">
-                                      {item.unit_of_measure}
-                                    </span>
-                                  </td>
-                                  <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
-                                    {item.unit_price?.toLocaleString("cs-CZ", {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}
-                                  </td>
-                                  <td className="px-3 py-2 text-right text-sm font-medium text-gray-900 border-r border-gray-200">
-                                    {priceTotal.toLocaleString("cs-CZ", {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}
-                                  </td>
-                                  <td className="px-3 py-2 text-sm">
-                                    {item.matched_ingredient_id ? (
-                                      <div className="flex items-center gap-1 text-green-700">
-                                        <span className="text-sm">✓</span>
-                                        {item.matched_ingredient_name}
-                                      </div>
-                                    ) : item.suggested_ingredient_name ? (
-                                      <div className="flex items-center gap-1 text-orange-600">
-                                        <span className="text-sm">⚠</span>
-                                        {item.suggested_ingredient_name}
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-center gap-1 text-red-600">
-                                        <span className="text-sm">✗</span>
-                                        Neznámý kód
-                                      </div>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    );
-                  } else if (layout === "zeelandia") {
-                    /* Zeelandia layout */
-                    console.log("Using Zeelandia layout, items:", result.items);
-                    console.log("Items count:", result.items?.length);
-                    return (
-                      <div className="overflow-x-auto border border-gray-300 rounded-lg">
-                        <table className="w-full border-collapse">
-                          <thead>
-                            <tr className="bg-gray-50 border-b-2 border-gray-300">
-                              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                                Číslo položky
-                              </th>
-                              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                                Název
-                              </th>
-                              <th className="text-center px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                                MJ
-                              </th>
-                              <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                                Obsah
-                              </th>
-                              <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                                Fakt. mn.
-                              </th>
-                              <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                                Cena/jed
-                              </th>
-                              <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                                Cena celkem
-                              </th>
-                              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700">
-                                Namapováno
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white">
-                            {result.items?.map((item: any, idx: number) => {
-                              const priceTotal =
-                                item.line_total ||
-                                item.quantity * item.unit_price ||
-                                0;
-
-                              return (
-                                <tr
-                                  key={idx}
-                                  className={`border-b border-gray-200 hover:bg-gray-50 ${
-                                    item.matched_ingredient_id
-                                      ? ""
-                                      : item.suggested_ingredient_name
-                                        ? "bg-orange-50/30"
-                                        : "bg-red-50/30"
-                                  }`}
-                                >
-                                  <td className="px-3 py-2 border-r border-gray-200">
-                                    <code className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-mono">
-                                      {item.product_code || "???"}
-                                    </code>
-                                  </td>
-                                  <td className="px-3 py-2 text-sm text-gray-900 border-r border-gray-200">
-                                    {item.description || "-"}
-                                  </td>
-                                  <td className="px-3 py-2 text-center text-xs text-gray-600 border-r border-gray-200">
-                                    {item.quantity
-                                      ? `${item.quantity.toLocaleString("cs-CZ")} ${item.unit_of_measure || ""}`
-                                      : "-"}
-                                  </td>
-                                  <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
-                                    {item.package_weight_kg
-                                      ? `${item.package_weight_kg.toLocaleString(
-                                          "cs-CZ",
-                                          {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                          }
-                                        )} kg`
-                                      : "-"}
-                                  </td>
-                                  <td className="px-3 py-2 text-right text-sm text-gray-900 border-r border-gray-200">
-                                    {item.total_weight_kg
-                                      ? `${item.total_weight_kg.toLocaleString(
-                                          "cs-CZ",
-                                          {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                          }
-                                        )} kg`
-                                      : "-"}
-                                  </td>
-                                  <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
-                                    {item.unit_price?.toLocaleString("cs-CZ", {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}
-                                  </td>
-                                  <td className="px-3 py-2 text-right text-sm font-medium text-gray-900 border-r border-gray-200">
-                                    {priceTotal.toLocaleString("cs-CZ", {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}
-                                  </td>
-                                  <td className="px-3 py-2 text-sm">
-                                    {item.matched_ingredient_id ? (
-                                      <div className="flex items-center gap-1 text-green-700">
-                                        <span className="text-sm">✓</span>
-                                        {item.matched_ingredient_name}
-                                      </div>
-                                    ) : item.suggested_ingredient_name ? (
-                                      <div className="flex items-center gap-1 text-orange-600">
-                                        <span className="text-sm">⚠</span>
-                                        {item.suggested_ingredient_name}
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-center gap-1 text-red-600">
-                                        <span className="text-sm">✗</span>
-                                        Neznámý kód
-                                      </div>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    );
-                  } else {
-                    /* Standard table layout */
-                    return (
-                      <div className="overflow-x-auto border border-gray-300 rounded-lg">
-                        <table className="w-full border-collapse">
-                          <thead>
-                            <tr className="bg-gray-50 border-b-2 border-gray-300">
-                              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                                Kód
-                              </th>
-                              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                                Název položky
-                              </th>
-                              <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                                Množství
-                              </th>
-                              <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                                Jedn. cena
-                              </th>
-                              <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                                Celkem
-                              </th>
-                              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700">
-                                Namapováno
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white">
-                            {result.items?.map((item: any, idx: number) => {
-                              const priceTotal =
-                                item.line_total ||
-                                item.quantity * item.unit_price ||
-                                0;
-
-                              return (
-                                <tr
-                                  key={idx}
-                                  className={`border-b border-gray-200 hover:bg-gray-50 ${
-                                    item.matched_ingredient_id
-                                      ? ""
-                                      : item.suggested_ingredient_name
-                                        ? "bg-orange-50/30"
-                                        : "bg-red-50/30"
-                                  }`}
-                                >
-                                  <td className="px-3 py-2 border-r border-gray-200">
-                                    <code className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-mono">
-                                      {item.product_code || "???"}
-                                    </code>
-                                  </td>
-                                  <td className="px-3 py-2 text-sm text-gray-900 border-r border-gray-200">
-                                    {item.description || "-"}
-                                  </td>
-                                  <td className="px-3 py-2 text-right text-sm text-gray-900 border-r border-gray-200">
-                                    {item.quantity.toLocaleString("cs-CZ")}{" "}
-                                    <span className="text-gray-500 text-xs">
-                                      {item.unit_of_measure}
-                                    </span>
-                                  </td>
-                                  <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
-                                    {item.unit_price?.toLocaleString("cs-CZ", {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}
-                                  </td>
-                                  <td className="px-3 py-2 text-right text-sm font-medium text-gray-900 border-r border-gray-200">
-                                    {priceTotal.toLocaleString("cs-CZ", {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}
-                                  </td>
-                                  <td className="px-3 py-2 text-sm">
-                                    {item.matched_ingredient_id ? (
-                                      <div className="flex items-center gap-1 text-green-700">
-                                        <span className="text-sm">✓</span>
-                                        {item.matched_ingredient_name}
-                                      </div>
-                                    ) : item.suggested_ingredient_name ? (
-                                      <div className="flex items-center gap-1 text-orange-600">
-                                        <span className="text-sm">⚠</span>
-                                        {item.suggested_ingredient_name}
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-center gap-1 text-red-600">
-                                        <span className="text-sm">✗</span>
-                                        Neznámý kód
-                                      </div>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    );
-                  }
-                })()}
-              </CardContent>
-            </Card>
-
-            {/* Mapping Statistics */}
-            <div className="grid grid-cols-3 gap-4">
-              <Card className="bg-green-50">
-                <CardContent className="pt-4">
-                  <div className="text-2xl font-bold text-green-600">
-                    {result.items?.filter((i: any) => i.matched_ingredient_id)
-                      .length || 0}
-                  </div>
-                  <div className="text-xs text-gray-600">✓ Namapováno</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-orange-50">
-                <CardContent className="pt-4">
-                  <div className="text-2xl font-bold text-orange-600">
-                    {result.items?.filter(
-                      (i: any) =>
-                        !i.matched_ingredient_id && i.suggested_ingredient_name
-                    ).length || 0}
-                  </div>
-                  <div className="text-xs text-gray-600">⚠ Navrženo</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-red-50">
-                <CardContent className="pt-4">
-                  <div className="text-2xl font-bold text-red-600">
-                    {result.items?.filter(
-                      (i: any) =>
-                        !i.matched_ingredient_id && !i.suggested_ingredient_name
-                    ).length || 0}
-                  </div>
-                  <div className="text-xs text-gray-600">✗ Neznámé</div>
-                </CardContent>
-              </Card>
+      {/* Extrahované položky - Full width section */}
+      {result && (
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between">
+            <div>
+              <CardTitle className="text-sm">Extrahované položky</CardTitle>
+              <CardDescription className="text-xs">
+                🔍 Mapování: Kód produktu → ingredient_supplier_codes →
+                surovina
+              </CardDescription>
             </div>
-
-            {result.unmapped_codes > 0 && (
-              <Alert>
-                <AlertDescription>
-                  💡 Přejděte na záložku "Nenamapované kódy" pro přiřazení
-                  surovin k nenamapovaným kódům pomocí product_code.
+            {selectedText && result.items && result.items.length > 0 && (
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    // Generate a line pattern from selected text
+                    const pattern = generateLineItemPattern(selectedText);
+                    setEditedPatterns((prev: any) => ({
+                      ...prev,
+                      line_pattern: pattern,
+                    }));
+                    setHasChanges(true);
+                    setSelectedText("");
+                  }}
+                >
+                  ✏️ Použít jako vzor řádku
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    // Show column mapping interface
+                    setShowColumnMapping(true);
+                  }}
+                >
+                  🎯 Mapovat sloupce
+                </Button>
+              </div>
+            )}
+          </CardHeader>
+          <CardContent>
+            {editedPatterns.line_pattern && (
+              <Alert className="mb-4 bg-yellow-50">
+                <AlertDescription className="text-xs">
+                  <strong>⚠️ Upravený vzor řádku:</strong>
+                  <br />
+                  <code className="text-xs bg-white px-2 py-1 rounded mt-1 inline-block break-all">
+                    {editedPatterns.line_pattern}
+                  </code>
+                  <p className="mt-2 text-muted-foreground">
+                    {editedPatterns.line_pattern.includes("\\n") ? (
+                      <>
+                        ✓ Multi-řádkový vzor detekován
+                        <br />
+                        Extrakt: Název (řádek 1) → Kód, Počet MU, Cena
+                        (řádek 2)
+                      </>
+                    ) : (
+                      "Jednoř. vzor: číslo zboží, počet MU, název zboží, zákl. cena, jedn. v MU, cena za MU, cena celkem"
+                    )}
+                  </p>
                 </AlertDescription>
               </Alert>
             )}
+
+            {/* Check if description looks wrong (contains only numbers) */}
+            {result.items &&
+              result.items.length > 0 &&
+              result.items.some(
+                (item: any) =>
+                  item.description && /^\d+$/.test(item.description.trim())
+              ) && (
+                <Alert className="mb-4 bg-orange-50 border-orange-200">
+                  <AlertDescription className="text-xs">
+                    ⚠️ <strong>Popis obsahuje pouze čísla!</strong>
+                    <br />
+                    Vzor extrakce řádků je pravděpodobně špatný.
+                    <br />
+                    <strong>Jak opravit:</strong>
+                    <ol className="list-decimal list-inside mt-2 space-y-1">
+                      <li>
+                        Označte v OCR textu OBA řádky položky (popis +
+                        data):
+                        <br />
+                        <code className="text-xs bg-white px-1 py-0.5">
+                          sůl jemná 25kg
+                          <br />
+                          0201 50kg 6,80 12 % 340,00
+                        </code>
+                      </li>
+                      <li>
+                        Klikněte na tlačítko "✏️ Použít jako vzor řádku"
+                        vpravo nahoře
+                      </li>
+                      <li>
+                        Systém vygeneruje multi-řádkový regex vzor pro
+                        správné rozdělení
+                      </li>
+                    </ol>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+            {/* Layout based on template configuration */}
+            {(() => {
+              const layout =
+                activeTemplate?.config?.display_layout || "standard";
+
+              if (layout === "makro") {
+                return (
+                  <div className="overflow-x-auto border rounded-md">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                            <th className="text-left p-2 text-xs">
+                              číslo zboží
+                            </th>
+                            <th className="text-right p-2 text-xs">
+                              počet MU
+                            </th>
+                            <th className="text-left p-2 text-xs">
+                              název zboží
+                            </th>
+                            <th className="text-right p-2 text-xs">
+                              hmot. bal.
+                            </th>
+                            <th className="text-right p-2 text-xs">
+                              celk. hmot.
+                            </th>
+                            <th className="text-right p-2 text-xs">
+                              zákl. cena
+                            </th>
+                            <th className="text-right p-2 text-xs">
+                              jedn. v MU
+                            </th>
+                            <th className="text-right p-2 text-xs">
+                              cena za MU
+                            </th>
+                            <th className="text-right p-2 text-xs">
+                              cena celkem
+                            </th>
+                        <th className="text-right p-2 text-xs bg-orange-50">
+                          Cena/kg
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.items?.map((item: any, idx: number) => {
+                        const priceTotal =
+                          item.line_total ||
+                          item.quantity * item.unit_price ||
+                          0;
+
+                        return (
+                              <tr
+                                key={idx}
+                                className="border-b hover:bg-gray-50"
+                              >
+                            {/* číslo zboží */}
+                            <td className="p-2">
+                              <code className="text-xs bg-blue-100 px-1 py-0.5 rounded font-mono">
+                                {item.product_code || "???"}
+                              </code>
+                            </td>
+                            {/* počet MU */}
+                            <td className="p-2 text-right text-xs font-semibold">
+                              {item.description?.startsWith("*") ? (
+                                <span className="text-purple-600">
+                                  {item.total_weight_kg?.toLocaleString(
+                                    "cs-CZ",
+                                    {
+                                      minimumFractionDigits: 3,
+                                      maximumFractionDigits: 3,
+                                    }
+                                  )}{" "}
+                                  kg
+                                </span>
+                              ) : (
+                                item.quantity.toLocaleString("cs-CZ")
+                              )}
+                            </td>
+                            {/* název zboží */}
+                            <td className="p-2 text-xs">
+                              {item.description || "-"}
+                            </td>
+                            {/* hmot. bal. (package weight) */}
+                            <td className="p-2 text-right text-xs text-blue-600">
+                              {item.package_weight_kg
+                                ? `${(
+                                    item.package_weight_kg * 1000
+                                  ).toLocaleString("cs-CZ", {
+                                    maximumFractionDigits: 0,
+                                  })} g`
+                                : "-"}
+                            </td>
+                            {/* celk. hmot. (total weight) */}
+                            <td className="p-2 text-right text-xs text-green-600 font-medium">
+                              {item.total_weight_kg
+                                ? `${item.total_weight_kg.toLocaleString(
+                                    "cs-CZ",
+                                    {
+                                      minimumFractionDigits: 3,
+                                      maximumFractionDigits: 3,
+                                    }
+                                  )} kg`
+                                : "-"}
+                            </td>
+                            {/* zákl. cena (base price per package OR price per kg for * items) */}
+                            <td className="p-2 text-right text-xs">
+                              {item.base_price ? (
+                                <span
+                                  className={
+                                    item.description?.startsWith("*")
+                                      ? "text-purple-600 font-medium"
+                                      : ""
+                                  }
+                                >
+                                      {item.base_price.toLocaleString(
+                                        "cs-CZ",
+                                        {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                        }
+                                      )}
+                                      {item.description?.startsWith("*") &&
+                                        " /kg"}
+                                </span>
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                            {/* jedn. v MU (units in MU) */}
+                            <td className="p-2 text-right text-xs">
+                              {item.units_in_mu || "1"}
+                            </td>
+                            {/* cena za MU (price per MU) */}
+                            <td className="p-2 text-right text-xs">
+                              {item.unit_price?.toLocaleString("cs-CZ", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </td>
+                            {/* cena celkem */}
+                            <td className="p-2 text-right text-xs font-semibold">
+                              {priceTotal.toLocaleString("cs-CZ", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </td>
+                            {/* Cena/kg (calculated) */}
+                            <td className="p-2 text-right text-xs bg-orange-50">
+                              {item.price_per_kg ? (
+                                <span className="text-orange-600 font-bold">
+                                      {item.price_per_kg.toLocaleString(
+                                        "cs-CZ",
+                                        {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                        }
+                                      )}{" "}
+                                  Kč/kg
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                  );
+                } else if (layout === "two-line") {
+                  /* Two-line layout for Pešek-Rambousek */
+                  return (
+                    <div className="overflow-x-auto border border-gray-300 rounded-lg">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50 border-b-2 border-gray-300">
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Kód
+                            </th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Název položky
+                            </th>
+                            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Množství
+                            </th>
+                            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Jedn. cena
+                            </th>
+                            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Celkem bez DPH
+                            </th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700">
+                              Namapováno
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white">
+                          {result.items?.map((item: any, idx: number) => {
+                            const priceTotal =
+                              item.line_total ||
+                              item.quantity * item.unit_price ||
+                              0;
+
+                            return (
+                              <tr
+                                key={idx}
+                                className={`border-b border-gray-200 hover:bg-gray-50 ${
+                                  item.matched_ingredient_id
+                                    ? ""
+                                    : item.suggested_ingredient_name
+                                      ? "bg-orange-50/30"
+                                      : "bg-red-50/30"
+                                }`}
+                              >
+                                <td className="px-3 py-2 border-r border-gray-200">
+                                  <code className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-mono">
+                                    {item.product_code || "???"}
+                                  </code>
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-900 border-r border-gray-200">
+                                  {item.description || "-"}
+                                </td>
+                                <td className="px-3 py-2 text-right text-sm text-gray-900 border-r border-gray-200">
+                                  {item.quantity.toLocaleString("cs-CZ")}{" "}
+                                  <span className="text-gray-500 text-xs">
+                                    {item.unit_of_measure}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
+                                  {item.unit_price?.toLocaleString("cs-CZ", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </td>
+                                <td className="px-3 py-2 text-right text-sm font-medium text-gray-900 border-r border-gray-200">
+                                  {priceTotal.toLocaleString("cs-CZ", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </td>
+                                <td className="px-3 py-2 text-sm">
+                                  {item.matched_ingredient_id ? (
+                                    <div className="flex items-center gap-1 text-green-700">
+                                      <span className="text-sm">✓</span>
+                                      {item.matched_ingredient_name}
+                                    </div>
+                                  ) : item.suggested_ingredient_name ? (
+                                    <div className="flex items-center gap-1 text-orange-600">
+                                      <span className="text-sm">⚠</span>
+                                      {item.suggested_ingredient_name}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1 text-red-600">
+                                      <span className="text-sm">✗</span>
+                                      Neznámý kód
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                } else if (layout === "zeelandia") {
+                  /* Zeelandia layout */
+                  console.log("Using Zeelandia layout, items:", result.items);
+                  console.log("Items count:", result.items?.length);
+                  return (
+                    <div className="overflow-x-auto border border-gray-300 rounded-lg">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50 border-b-2 border-gray-300">
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Číslo položky
+                            </th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Název
+                            </th>
+                            <th className="text-center px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              MJ
+                            </th>
+                            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Obsah
+                            </th>
+                            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Fakt. mn.
+                            </th>
+                            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Cena/jed
+                            </th>
+                            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Cena celkem
+                            </th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700">
+                              Namapováno
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white">
+                          {result.items?.map((item: any, idx: number) => {
+                            const priceTotal =
+                              item.line_total ||
+                              item.quantity * item.unit_price ||
+                              0;
+
+                            return (
+                              <tr
+                                key={idx}
+                                className={`border-b border-gray-200 hover:bg-gray-50 ${
+                                  item.matched_ingredient_id
+                                    ? ""
+                                    : item.suggested_ingredient_name
+                                      ? "bg-orange-50/30"
+                                      : "bg-red-50/30"
+                                }`}
+                              >
+                                <td className="px-3 py-2 border-r border-gray-200">
+                                  <code className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-mono">
+                                    {item.product_code || "???"}
+                                  </code>
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-900 border-r border-gray-200">
+                                  {item.description || "-"}
+                                </td>
+                                <td className="px-3 py-2 text-center text-xs text-gray-600 border-r border-gray-200">
+                                  {item.quantity
+                                    ? `${item.quantity.toLocaleString("cs-CZ")} ${item.unit_of_measure || ""}`
+                                    : "-"}
+                                </td>
+                                <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
+                                  {item.package_weight_kg
+                                    ? `${item.package_weight_kg.toLocaleString(
+                                        "cs-CZ",
+                                        {
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2,
+                                        }
+                                      )} kg`
+                                    : "-"}
+                                </td>
+                                <td className="px-3 py-2 text-right text-sm text-gray-900 border-r border-gray-200">
+                                  {item.total_weight_kg
+                                    ? `${item.total_weight_kg.toLocaleString(
+                                        "cs-CZ",
+                                        {
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2,
+                                        }
+                                      )} kg`
+                                    : "-"}
+                                </td>
+                                <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
+                                  {item.unit_price?.toLocaleString("cs-CZ", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </td>
+                                <td className="px-3 py-2 text-right text-sm font-medium text-gray-900 border-r border-gray-200">
+                                  {priceTotal.toLocaleString("cs-CZ", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </td>
+                                <td className="px-3 py-2 text-sm">
+                                  {item.matched_ingredient_id ? (
+                                    <div className="flex items-center gap-1 text-green-700">
+                                      <span className="text-sm">✓</span>
+                                      {item.matched_ingredient_name}
+                                    </div>
+                                  ) : item.suggested_ingredient_name ? (
+                                    <div className="flex items-center gap-1 text-orange-600">
+                                      <span className="text-sm">⚠</span>
+                                      {item.suggested_ingredient_name}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1 text-red-600">
+                                      <span className="text-sm">✗</span>
+                                      Neznámý kód
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                } else {
+                  /* Standard table layout */
+                  return (
+                    <div className="overflow-x-auto border border-gray-300 rounded-lg">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50 border-b-2 border-gray-300">
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Kód
+                            </th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Název položky
+                            </th>
+                            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Množství
+                            </th>
+                            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Jedn. cena
+                            </th>
+                            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Celkem
+                            </th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700">
+                              Namapováno
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white">
+                          {result.items?.map((item: any, idx: number) => {
+                            const priceTotal =
+                              item.line_total ||
+                              item.quantity * item.unit_price ||
+                              0;
+
+                            return (
+                              <tr
+                                key={idx}
+                                className={`border-b border-gray-200 hover:bg-gray-50 ${
+                                  item.matched_ingredient_id
+                                    ? ""
+                                    : item.suggested_ingredient_name
+                                      ? "bg-orange-50/30"
+                                      : "bg-red-50/30"
+                                }`}
+                              >
+                                <td className="px-3 py-2 border-r border-gray-200">
+                                  <code className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-mono">
+                                    {item.product_code || "???"}
+                                  </code>
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-900 border-r border-gray-200">
+                                  {item.description || "-"}
+                                </td>
+                                <td className="px-3 py-2 text-right text-sm text-gray-900 border-r border-gray-200">
+                                  {item.quantity.toLocaleString("cs-CZ")}{" "}
+                                  <span className="text-gray-500 text-xs">
+                                    {item.unit_of_measure}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
+                                  {item.unit_price?.toLocaleString("cs-CZ", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </td>
+                                <td className="px-3 py-2 text-right text-sm font-medium text-gray-900 border-r border-gray-200">
+                                  {priceTotal.toLocaleString("cs-CZ", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </td>
+                                <td className="px-3 py-2 text-sm">
+                                  {item.matched_ingredient_id ? (
+                                    <div className="flex items-center gap-1 text-green-700">
+                                      <span className="text-sm">✓</span>
+                                      {item.matched_ingredient_name}
+                                    </div>
+                                  ) : item.suggested_ingredient_name ? (
+                                    <div className="flex items-center gap-1 text-orange-600">
+                                      <span className="text-sm">⚠</span>
+                                      {item.suggested_ingredient_name}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1 text-red-600">
+                                      <span className="text-sm">✗</span>
+                                      Neznámý kód
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                }
+              })()}
+            </CardContent>
+          </Card>
+
+          {/* Mapping Statistics */}
+          <div className="grid grid-cols-3 gap-4">
+            <Card className="bg-green-50">
+              <CardContent className="pt-4">
+                <div className="text-2xl font-bold text-green-600">
+                  {result.items?.filter((i: any) => i.matched_ingredient_id)
+                    .length || 0}
+                </div>
+                <div className="text-xs text-gray-600">✓ Namapováno</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-orange-50">
+              <CardContent className="pt-4">
+                <div className="text-2xl font-bold text-orange-600">
+                  {result.items?.filter(
+                    (i: any) =>
+                      !i.matched_ingredient_id && i.suggested_ingredient_name
+                  ).length || 0}
+                </div>
+                <div className="text-xs text-gray-600">⚠ Navrženo</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-red-50">
+              <CardContent className="pt-4">
+                <div className="text-2xl font-bold text-red-600">
+                  {result.items?.filter(
+                    (i: any) =>
+                      !i.matched_ingredient_id && !i.suggested_ingredient_name
+                  ).length || 0}
+                </div>
+                <div className="text-xs text-gray-600">✗ Neznámé</div>
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      )}
-    </Card>
-  );
+
+          {result.unmapped_codes > 0 && (
+            <Alert>
+              <AlertDescription>
+                💡 Přejděte na záložku "Nenamapované kódy" pro přiřazení
+                surovin k nenamapovaným kódům pomocí product_code.
+              </AlertDescription>
+            </Alert>
+          )}
+        )}
+      </Card>
+      
+
+  )}
 }
 
 // Helper function to generate regex patterns from selected text
