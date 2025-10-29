@@ -160,17 +160,20 @@ export function InvoiceUploadDialog() {
   // Calculate subtotal using edited values for Zeelandia
   const calculateSubtotal = () => {
     if (!parsedInvoice) return 0;
-    
-    const isZeelandia = selectedSupplier === ZEELANDIA_SUPPLIER_ID || invoiceSupplier === ZEELANDIA_SUPPLIER_ID;
-    
+
+    const isZeelandia =
+      selectedSupplier === ZEELANDIA_SUPPLIER_ID ||
+      invoiceSupplier === ZEELANDIA_SUPPLIER_ID;
+
     if (isZeelandia) {
       return parsedInvoice.items.reduce((sum, item) => {
-        const finalTotalWeight = editedTotalWeights[item.id] ?? item.totalWeightKg ?? 0;
+        const finalTotalWeight =
+          editedTotalWeights[item.id] ?? item.totalWeightKg ?? 0;
         const finalPrice = editedPrices[item.id] ?? item.price ?? 0;
-        return sum + (Math.floor(finalTotalWeight) * Math.floor(finalPrice));
+        return sum + parseFloat((Math.floor(finalTotalWeight) * Math.floor(finalPrice)).toFixed(2));
       }, 0);
     }
-    
+
     // For non-Zeelandia, use original calculation
     return parsedInvoice.items.reduce((sum, item) => {
       const itemTotal = item.total || item.quantity * item.price || 0;
@@ -587,12 +590,14 @@ export function InvoiceUploadDialog() {
 
           // Use edited values if available, otherwise fall back to original values
           const quantity = isZeelandia
-            ? Math.floor((editedTotalWeights[item.id] ?? item.totalWeightKg) || 0)
+            ? Math.floor(
+                (editedTotalWeights[item.id] ?? item.totalWeightKg) || 0
+              )
             : item.quantity;
-          const unitPrice = isZeelandia 
+          const unitPrice = isZeelandia
             ? Math.floor((editedPrices[item.id] ?? item.price) || 0)
             : item.price;
-          const lineTotal = Math.floor(quantity) * Math.floor(unitPrice); // Use Math.floor for both before multiplying
+          const lineTotal = parseFloat((Math.floor(quantity) * Math.floor(unitPrice)).toFixed(2)); // Use Math.floor for both before multiplying and fix decimals
 
           const baseInsert: any = {
             invoice_received_id: savedInvoice.id,
@@ -1247,8 +1252,9 @@ export function InvoiceUploadDialog() {
                               0;
                             const finalPrice =
                               editedPrices[item.id] ?? item.price ?? 0;
-                            const priceTotal =
-                              Math.floor(finalTotalWeight) * Math.floor(finalPrice);
+                            const priceTotal = parseFloat(
+                              (Math.floor(finalTotalWeight) * Math.floor(finalPrice)).toFixed(2)
+                            );
 
                             return (
                               <tr
@@ -1281,14 +1287,20 @@ export function InvoiceUploadDialog() {
                                       value={
                                         editedTotalWeights[item.id] !==
                                         undefined
-                                          ? Math.floor(editedTotalWeights[item.id]).toString()
-                                          : Math.floor(item.totalWeightKg ?? 0).toString()
+                                          ? Math.floor(
+                                              editedTotalWeights[item.id]
+                                            ).toString()
+                                          : Math.floor(
+                                              item.totalWeightKg ?? 0
+                                            ).toString()
                                       }
                                       onChange={(e) => {
                                         const value = e.target.value;
                                         setEditedTotalWeights((prev) => ({
                                           ...prev,
-                                          [item.id]: Math.floor(parseFloat(value) || 0),
+                                          [item.id]: Math.floor(
+                                            parseFloat(value) || 0
+                                          ),
                                         }));
                                       }}
                                       onBlur={() => {
@@ -1330,7 +1342,7 @@ export function InvoiceUploadDialog() {
                                       item.totalWeightKg)
                                         ? `${Math.floor(
                                             editedTotalWeights[item.id] ??
-                                            item.totalWeightKg
+                                              item.totalWeightKg
                                           ).toLocaleString("cs-CZ")} kg`
                                         : "-"}
                                     </span>
