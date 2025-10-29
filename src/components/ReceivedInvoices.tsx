@@ -1357,9 +1357,6 @@ export function ReceivedInvoices() {
                       </p>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium">
-                        Celková částka s DPH
-                      </Label>
                       <div className="flex items-center gap-3">
                         <p className="text-lg font-semibold text-green-600">
                           {(selectedInvoice.total_amount || 0).toFixed(2)} Kč
@@ -1372,7 +1369,7 @@ export function ReceivedInvoices() {
                               <div className="bg-white p-1 rounded border border-gray-200">
                                 <QRCodeSVG
                                   value={selectedInvoice.qr_codes[0].data}
-                                  size={60}
+                                  size={100}
                                   level="M"
                                   includeMargin={true}
                                 />
