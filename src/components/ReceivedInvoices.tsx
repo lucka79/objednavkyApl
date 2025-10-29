@@ -1403,24 +1403,21 @@ export function ReceivedInvoices() {
                 </CardContent>
               </Card>
 
-              {/* QR Codes Section */}
+              {/* QR Codes in Invoice Info Section */}
               {selectedInvoice.qr_codes &&
                 selectedInvoice.qr_codes.length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <span className="text-lg">📱</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium">
                         QR kódy a čárové kódy
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
+                      </Label>
+                      <div className="mt-2 space-y-3">
                         {selectedInvoice.qr_codes.map((qr, idx) => (
                           <div
                             key={idx}
-                            className="bg-white border border-purple-200 rounded-md p-4"
+                            className="bg-white border border-purple-200 rounded-md p-3"
                           >
-                            <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-2">
                                 <Badge className="bg-purple-100 text-purple-700 text-xs">
                                   Strana {qr.page}
@@ -1450,35 +1447,25 @@ export function ReceivedInvoices() {
 
                             {/* QR Code Image */}
                             {qr.type === "QRCODE" && (
-                              <div className="flex flex-col items-center space-y-3">
-                                <div className="bg-white p-3 rounded-lg border-2 border-gray-200">
+                              <div className="flex flex-col items-center space-y-2">
+                                <div className="bg-white p-2 rounded-lg border border-gray-200">
                                   <QRCodeSVG
                                     value={qr.data}
-                                    size={128}
+                                    size={80}
                                     level="M"
                                     includeMargin={true}
                                   />
                                 </div>
-                                <div className="text-xs text-gray-500 text-center max-w-xs">
-                                  Naskenujte QR kód pro rychlý přístup k datům
+                                <div className="text-xs text-gray-500 text-center">
+                                  Naskenujte QR kód
                                 </div>
                               </div>
                             )}
-
-                            {/* Raw Data */}
-                            <div className="mt-3 bg-gray-50 p-2 rounded border border-gray-200">
-                              <div className="text-xs text-gray-600 mb-1">
-                                Surová data:
-                              </div>
-                              <code className="text-xs break-all font-mono text-gray-700">
-                                {qr.data}
-                              </code>
-                            </div>
                           </div>
                         ))}
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 )}
 
               {/* Invoice Items */}
