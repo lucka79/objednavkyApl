@@ -722,6 +722,7 @@ export type Database = {
           payment_terms: string | null
           processed_document_url: string | null
           processing_errors: string[] | null
+          qr_codes: Json | null
           raw_document_ai_response: Json | null
           receiver_id: string | null
           supplier_address: string | null
@@ -744,6 +745,7 @@ export type Database = {
           payment_terms?: string | null
           processed_document_url?: string | null
           processing_errors?: string[] | null
+          qr_codes?: Json | null
           raw_document_ai_response?: Json | null
           receiver_id?: string | null
           supplier_address?: string | null
@@ -766,6 +768,7 @@ export type Database = {
           payment_terms?: string | null
           processed_document_url?: string | null
           processing_errors?: string[] | null
+          qr_codes?: Json | null
           raw_document_ai_response?: Json | null
           receiver_id?: string | null
           supplier_address?: string | null
@@ -803,7 +806,9 @@ export type Database = {
       items_received: {
         Row: {
           bounding_box: Json | null
+          cena_jed: number | null
           created_at: string | null
+          fakt_mn: number | null
           id: string
           invoice_received_id: string | null
           line_number: number | null
@@ -811,17 +816,22 @@ export type Database = {
           manual_match: boolean | null
           matched_ingredient_id: number | null
           matching_confidence: number | null
+          package_weight_kg: number | null
+          price_per_kg: number | null
           quantity: number | null
           raw_line_data: Json | null
           tax_amount: number | null
           tax_rate: number | null
+          total_weight_kg: number | null
           unit_of_measure: string | null
           unit_price: number | null
           updated_at: string | null
         }
         Insert: {
           bounding_box?: Json | null
+          cena_jed?: number | null
           created_at?: string | null
+          fakt_mn?: number | null
           id?: string
           invoice_received_id?: string | null
           line_number?: number | null
@@ -829,17 +839,22 @@ export type Database = {
           manual_match?: boolean | null
           matched_ingredient_id?: number | null
           matching_confidence?: number | null
+          package_weight_kg?: number | null
+          price_per_kg?: number | null
           quantity?: number | null
           raw_line_data?: Json | null
           tax_amount?: number | null
           tax_rate?: number | null
+          total_weight_kg?: number | null
           unit_of_measure?: string | null
           unit_price?: number | null
           updated_at?: string | null
         }
         Update: {
           bounding_box?: Json | null
+          cena_jed?: number | null
           created_at?: string | null
+          fakt_mn?: number | null
           id?: string
           invoice_received_id?: string | null
           line_number?: number | null
@@ -847,10 +862,13 @@ export type Database = {
           manual_match?: boolean | null
           matched_ingredient_id?: number | null
           matching_confidence?: number | null
+          package_weight_kg?: number | null
+          price_per_kg?: number | null
           quantity?: number | null
           raw_line_data?: Json | null
           tax_amount?: number | null
           tax_rate?: number | null
+          total_weight_kg?: number | null
           unit_of_measure?: string | null
           unit_price?: number | null
           updated_at?: string | null

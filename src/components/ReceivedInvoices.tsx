@@ -41,6 +41,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { QRCodeSVG } from "qrcode.react";
 
 import { useUsers } from "@/hooks/useProfiles";
 import {
@@ -55,6 +56,7 @@ import { AddReceivedInvoiceForm } from "./AddReceivedInvoiceForm";
 import { useIngredients } from "@/hooks/useIngredients";
 import { removeDiacritics } from "@/utils/removeDiacritics";
 import { IngredientPriceFluctuation } from "./IngredientPriceFluctuation";
+import { Badge } from "./ui/badge";
 
 // Add Item Modal Component
 function AddItemModal({
@@ -236,11 +238,15 @@ export function ReceivedInvoices() {
       quantity,
       unitPrice,
       invoiceId,
+      faktMn,
+      cenaJed,
     }: {
       itemId: string;
       quantity: number;
       unitPrice: number;
       invoiceId: string;
+      faktMn?: number;
+      cenaJed?: number;
     }) => {
       const lineTotal = Math.round(quantity * unitPrice * 100) / 100; // Round to 2 decimal places
 
@@ -251,13 +257,23 @@ export function ReceivedInvoices() {
       console.log("Line Total:", lineTotal);
 
       // Update the item
+      const updateData: any = {
+        quantity,
+        unit_price: unitPrice,
+        line_total: lineTotal,
+      };
+
+      // Add Zeelandia fields if provided
+      if (faktMn !== undefined) {
+        updateData.fakt_mn = faktMn;
+      }
+      if (cenaJed !== undefined) {
+        updateData.cena_jed = cenaJed;
+      }
+
       const { data: itemData, error: itemError } = await supabase
         .from("items_received")
-        .update({
-          quantity,
-          unit_price: unitPrice,
-          line_total: lineTotal,
-        })
+        .update(updateData)
         .eq("id", itemId)
         .select()
         .single();
@@ -315,6 +331,8 @@ export function ReceivedInvoices() {
               quantity: result.itemData.quantity,
               unit_price: result.itemData.unit_price,
               line_total: result.itemData.line_total,
+              fakt_mn: result.itemData.fakt_mn,
+              cena_jed: result.itemData.cena_jed,
             };
           }
           return item;
@@ -532,6 +550,8 @@ export function ReceivedInvoices() {
   const [editItemForm, setEditItemForm] = useState({
     quantity: 0,
     unit_price: 0,
+    fakt_mn: 0,
+    cena_jed: 0,
   });
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
   const [isPriceFluctuationOpen, setIsPriceFluctuationOpen] = useState(false);
@@ -778,6 +798,8 @@ export function ReceivedInvoices() {
     setEditItemForm({
       quantity: item.quantity || 0,
       unit_price: item.unit_price || 0,
+      fakt_mn: item.fakt_mn || 0,
+      cena_jed: item.cena_jed || 0,
     });
     setIsEditItemDialogOpen(true);
   };
@@ -796,6 +818,8 @@ export function ReceivedInvoices() {
         quantity: editItemForm.quantity,
         unitPrice: editItemForm.unit_price,
         invoiceId: selectedInvoice?.id || "",
+        faktMn: editItemForm.fakt_mn,
+        cenaJed: editItemForm.cena_jed,
       });
 
       // Update the selectedInvoice state to reflect the changes
@@ -807,6 +831,8 @@ export function ReceivedInvoices() {
               quantity: editItemForm.quantity,
               unit_price: editItemForm.unit_price,
               line_total: editItemForm.quantity * editItemForm.unit_price,
+              fakt_mn: editItemForm.fakt_mn,
+              cena_jed: editItemForm.cena_jed,
             };
           }
           return item;
@@ -1094,7 +1120,8 @@ export function ReceivedInvoices() {
                       {totals.totalAmount.toLocaleString("cs-CZ", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
-                      })} Kč
+                      })}{" "}
+                      Kč
                     </span>
                   </div>
                 </div>
@@ -1163,10 +1190,13 @@ export function ReceivedInvoices() {
                               (sum, item) => sum + (item.line_total || 0),
                               0
                             );
-                            return Math.round(subtotal).toLocaleString("cs-CZ", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            });
+                            return Math.round(subtotal).toLocaleString(
+                              "cs-CZ",
+                              {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              }
+                            );
                           })()}{" "}
                           Kč
                         </div>
@@ -1373,6 +1403,84 @@ export function ReceivedInvoices() {
                 </CardContent>
               </Card>
 
+              {/* QR Codes Section */}
+              {selectedInvoice.qr_codes &&
+                selectedInvoice.qr_codes.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <span className="text-lg">📱</span>
+                        QR kódy a čárové kódy
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {selectedInvoice.qr_codes.map((qr, idx) => (
+                          <div
+                            key={idx}
+                            className="bg-white border border-purple-200 rounded-md p-4"
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <Badge className="bg-purple-100 text-purple-700 text-xs">
+                                  Strana {qr.page}
+                                </Badge>
+                                <span className="text-xs text-gray-600">
+                                  {qr.type === "QRCODE"
+                                    ? "QR kód"
+                                    : "Čárový kód"}
+                                </span>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(qr.data);
+                                  toast({
+                                    title: "Zkopírováno",
+                                    description:
+                                      "Data byla zkopírována do schránky",
+                                  });
+                                }}
+                              >
+                                📋 Kopírovat
+                              </Button>
+                            </div>
+
+                            {/* QR Code Image */}
+                            {qr.type === "QRCODE" && (
+                              <div className="flex flex-col items-center space-y-3">
+                                <div className="bg-white p-3 rounded-lg border-2 border-gray-200">
+                                  <QRCodeSVG
+                                    value={qr.data}
+                                    size={128}
+                                    level="M"
+                                    includeMargin={true}
+                                  />
+                                </div>
+                                <div className="text-xs text-gray-500 text-center max-w-xs">
+                                  Naskenujte QR kód pro rychlý přístup k datům
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Raw Data */}
+                            <div className="mt-3 bg-gray-50 p-2 rounded border border-gray-200">
+                              <div className="text-xs text-gray-600 mb-1">
+                                Surová data:
+                              </div>
+                              <code className="text-xs break-all font-mono text-gray-700">
+                                {qr.data}
+                              </code>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
               {/* Invoice Items */}
               <Card>
                 <CardHeader>
@@ -1446,7 +1554,8 @@ export function ReceivedInvoices() {
                                 </span>
                               </div>
                               <div className="col-span-3 text-right font-medium pr-6">
-                                {Math.round((item.line_total || 0) * 100) / 100} Kč
+                                {Math.round((item.line_total || 0) * 100) / 100}{" "}
+                                Kč
                               </div>
                               <div className="col-span-1 flex justify-end gap-1 pl-2">
                                 <Button
@@ -1552,6 +1661,43 @@ export function ReceivedInvoices() {
                       setEditItemForm((prev) => ({
                         ...prev,
                         unit_price: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    className="no-spinner text-right"
+                  />
+                </div>
+              </div>
+
+              {/* Zeelandia-specific fields */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="fakt_mn">Fakt. mn. (kg)</Label>
+                  <Input
+                    id="fakt_mn"
+                    type="number"
+                    step="0.001"
+                    value={editItemForm.fakt_mn}
+                    onChange={(e) =>
+                      setEditItemForm((prev) => ({
+                        ...prev,
+                        fakt_mn: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    className="no-spinner text-right"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cena_jed">Cena/jed (Kč/kg)</Label>
+                  <Input
+                    id="cena_jed"
+                    type="number"
+                    step="0.01"
+                    value={editItemForm.cena_jed}
+                    onChange={(e) =>
+                      setEditItemForm((prev) => ({
+                        ...prev,
+                        cena_jed: parseFloat(e.target.value) || 0,
                       }))
                     }
                     className="no-spinner text-right"

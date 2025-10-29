@@ -509,6 +509,8 @@ export function InvoiceUploadDialog() {
 
             receiver_id: selectedReceiver || null,
 
+            qr_codes: parsedInvoice.qrCodes || null,
+
             updated_at: new Date().toISOString(),
           })
 
@@ -538,6 +540,8 @@ export function InvoiceUploadDialog() {
             total_amount: parsedInvoice.totalAmount,
 
             receiver_id: selectedReceiver || null,
+
+            qr_codes: parsedInvoice.qrCodes || null,
           })
 
           .select()
@@ -557,20 +561,27 @@ export function InvoiceUploadDialog() {
 
       if (matchedItems.length > 0) {
         const itemsToInsert = matchedItems.map((item, index) => {
+          // For Zeelandia, use totalWeightKg as quantity and price as unit_price
+          const isZeelandia = selectedSupplier === ZEELANDIA_SUPPLIER_ID || invoiceSupplier === ZEELANDIA_SUPPLIER_ID;
+          
+          const quantity = isZeelandia ? (item.totalWeightKg || 0) : item.quantity;
+          const unitPrice = isZeelandia ? (item.price || 0) : item.price;
+          const lineTotal = Math.round(quantity * unitPrice * 100) / 100; // Round to 2 decimal places
+
           const baseInsert: any = {
             invoice_received_id: savedInvoice.id,
 
             matched_ingredient_id: item.ingredientId!,
 
-            quantity: item.quantity,
+            quantity: quantity,
 
-            unit_price: item.price,
+            unit_price: unitPrice,
 
-            line_total: item.total || item.quantity * item.price,
+            line_total: lineTotal,
 
             line_number: index + 1,
 
-            unit_of_measure: item.unit,
+            unit_of_measure: isZeelandia ? "kg" : item.unit,
 
             matching_confidence: item.confidence || 100,
           };
@@ -587,6 +598,17 @@ export function InvoiceUploadDialog() {
 
           if (item.packageWeightKg !== undefined) {
             baseInsert.package_weight_kg = item.packageWeightKg;
+          }
+
+          // Add Zeelandia-specific fields if available
+          if (isZeelandia) {
+            if (item.totalWeightKg !== undefined) {
+              baseInsert.fakt_mn = item.totalWeightKg; // Fakt. mn. = total weight
+            }
+
+            if (item.price !== undefined) {
+              baseInsert.cena_jed = item.price; // Cena/jed = unit price
+            }
           }
 
           return baseInsert;
@@ -1127,24 +1149,15 @@ export function InvoiceUploadDialog() {
                             <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
                               Název
                             </th>
-                            <th className="text-center px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                              MJ
-                            </th>
                             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
                               <div className="flex items-center justify-end gap-1">
-                                Obsah
+                                Fakt. mn. (kg)
                                 <Pencil className="w-3 h-3 text-gray-400" />
                               </div>
                             </th>
                             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
                               <div className="flex items-center justify-end gap-1">
-                                Fakt. mn.
-                                <Pencil className="w-3 h-3 text-gray-400" />
-                              </div>
-                            </th>
-                            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-                              <div className="flex items-center justify-end gap-1">
-                                Cena/jed
+                                Cena/jed (Kč/kg)
                                 <Pencil className="w-3 h-3 text-gray-400" />
                               </div>
                             </th>
@@ -1190,76 +1203,7 @@ export function InvoiceUploadDialog() {
                                 <td className="px-3 py-2 text-sm text-gray-900 border-r border-gray-200">
                                   {item.name || "-"}
                                 </td>
-                                {/* MJ */}
-                                <td className="px-3 py-2 text-center text-xs text-gray-600 border-r border-gray-200">
-                                  {item.quantity
-                                    ? `${item.quantity.toLocaleString("cs-CZ")} ${item.unit || ""}`
-                                    : "-"}
-                                </td>
-                                {/* Obsah */}
-                                <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
-                                  {editingItemId === item.id &&
-                                  editingField === "packageWeight" ? (
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      value={
-                                        editedPackageWeights[item.id] ??
-                                        item.packageWeightKg ??
-                                        ""
-                                      }
-                                      onChange={(e) =>
-                                        setEditedPackageWeights((prev) => ({
-                                          ...prev,
-                                          [item.id]:
-                                            parseFloat(e.target.value) || 0,
-                                        }))
-                                      }
-                                      onBlur={() => {
-                                        setEditingItemId(null);
-                                        setEditingField(null);
-                                      }}
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                          setEditingItemId(null);
-                                          setEditingField(null);
-                                        }
-                                        if (e.key === "Escape") {
-                                          setEditedPackageWeights((prev) => {
-                                            const newState = { ...prev };
-                                            delete newState[item.id];
-                                            return newState;
-                                          });
-                                          setEditingItemId(null);
-                                          setEditingField(null);
-                                        }
-                                      }}
-                                      autoFocus
-                                      className="h-7 text-sm text-right"
-                                    />
-                                  ) : (
-                                    <span
-                                      onClick={() => {
-                                        setEditingItemId(item.id);
-                                        setEditingField("packageWeight");
-                                      }}
-                                      className="cursor-pointer hover:bg-gray-100 px-1 rounded"
-                                      title="Klikněte pro úpravu"
-                                    >
-                                      {(editedPackageWeights[item.id] ??
-                                      item.packageWeightKg)
-                                        ? `${(
-                                            editedPackageWeights[item.id] ??
-                                            item.packageWeightKg
-                                          ).toLocaleString("cs-CZ", {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                          })} kg`
-                                        : "-"}
-                                    </span>
-                                  )}
-                                </td>
-                                {/* Fakt. mn. */}
+                                {/* Fakt. mn. (kg) - This will be saved as quantity */}
                                 <td className="px-3 py-2 text-right text-sm text-gray-900 border-r border-gray-200">
                                   {editingItemId === item.id &&
                                   editingField === "totalWeight" ? (
@@ -1322,7 +1266,7 @@ export function InvoiceUploadDialog() {
                                     </span>
                                   )}
                                 </td>
-                                {/* Cena/jed */}
+                                {/* Cena/jed (Kč/kg) - This will be saved as unit_price */}
                                 <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
                                   {editingItemId === item.id &&
                                   editingField === "price" ? (

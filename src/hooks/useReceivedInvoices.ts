@@ -12,6 +12,7 @@ export interface ReceivedInvoice {
   supplier_name: string | null;
   created_at: string | null;
   updated_at: string | null;
+  qr_codes?: Array<{ data: string; type: string; page: number }> | null;
   supplier?: {
     id: string;
     full_name: string;
@@ -33,6 +34,13 @@ export interface ReceivedItem {
   unit_of_measure: string | null;
   created_at: string | null;
   updated_at: string | null;
+  // Zeelandia-specific fields
+  fakt_mn?: number | null; // Fakt. mn. (total weight in kg)
+  cena_jed?: number | null; // Cena/jed (unit price per kg)
+  // Weight-based fields (for MAKRO and similar suppliers)
+  package_weight_kg?: number | null;
+  total_weight_kg?: number | null;
+  price_per_kg?: number | null;
   ingredient?: {
     id: number;
     name: string;
