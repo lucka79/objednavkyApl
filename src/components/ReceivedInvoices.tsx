@@ -1320,28 +1320,11 @@ export function ReceivedInvoices() {
                     </div>
                     <div>
                       <Label className="text-sm font-medium">Dodavatel</Label>
-                      <div className="flex items-center gap-3">
-                        <p className="text-lg">
-                          {selectedInvoice.supplier?.full_name ||
-                            selectedInvoice.supplier_name ||
-                            "Neznámý dodavatel"}
-                        </p>
-                        {/* QR Code next to Dodavatel */}
-                        {selectedInvoice.qr_codes &&
-                          selectedInvoice.qr_codes.length > 0 &&
-                          selectedInvoice.qr_codes[0].type === "QRCODE" && (
-                            <div className="flex-shrink-0">
-                              <div className="bg-white p-1 rounded border border-gray-200">
-                                <QRCodeSVG
-                                  value={selectedInvoice.qr_codes[0].data}
-                                  size={40}
-                                  level="M"
-                                  includeMargin={true}
-                                />
-                              </div>
-                            </div>
-                          )}
-                      </div>
+                      <p className="text-lg">
+                        {selectedInvoice.supplier?.full_name ||
+                          selectedInvoice.supplier_name ||
+                          "Neznámý dodavatel"}
+                      </p>
                     </div>
                     <div>
                       <Label className="text-sm font-medium">
@@ -1377,9 +1360,26 @@ export function ReceivedInvoices() {
                       <Label className="text-sm font-medium">
                         Celková částka s DPH
                       </Label>
-                      <p className="text-lg font-semibold text-green-600">
-                        {(selectedInvoice.total_amount || 0).toFixed(2)} Kč
-                      </p>
+                      <div className="flex items-center gap-3">
+                        <p className="text-lg font-semibold text-green-600">
+                          {(selectedInvoice.total_amount || 0).toFixed(2)} Kč
+                        </p>
+                        {/* QR Code next to Celková částka */}
+                        {selectedInvoice.qr_codes &&
+                          selectedInvoice.qr_codes.length > 0 &&
+                          selectedInvoice.qr_codes[0].type === "QRCODE" && (
+                            <div className="flex-shrink-0">
+                              <div className="bg-white p-1 rounded border border-gray-200">
+                                <QRCodeSVG
+                                  value={selectedInvoice.qr_codes[0].data}
+                                  size={60}
+                                  level="M"
+                                  includeMargin={true}
+                                />
+                              </div>
+                            </div>
+                          )}
+                      </div>
                     </div>
                     <div>
                       <Label className="text-sm font-medium">Příjemce</Label>
