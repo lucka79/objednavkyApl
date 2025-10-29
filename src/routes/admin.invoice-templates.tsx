@@ -2242,7 +2242,7 @@ function generatePatternFromMappings(mappings: any) {
           case "code":
             return "(\\d{7})";
           case "description":
-            return "([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*)";
+            return "([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*(?:\\s+\\d+[a-zA-Z]+)?)";
           case "quantity":
             return "(\\d+)";
           case "unit":
@@ -2291,7 +2291,7 @@ function generatePatternFromMappings(mappings: any) {
       } else if (columnType === "code") {
         return "(\\d{7})";
       } else if (columnType === "description") {
-        return "([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*)";
+        return "([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*(?:\\s+\\d+[a-zA-Z]+)?)";
       } else if (columnType === "quantity") {
         return "(\\d+)";
       } else if (columnType === "vat_rate") {
@@ -2327,7 +2327,7 @@ function generatePatternFromMappings(mappings: any) {
   // Fallback to default pattern if no mappings
   const patternParts = [
     "(\\d{7})", // Code: 7 digits
-    "([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*)", // Description: letters only (single or multiple words)
+    "([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*(?:\\s+\\d+[a-zA-Z]+)?)", // Description: letters + optional weight (e.g. "Bolognese 5kg")
     "(\\d+)", // Quantity: number
     "(BAG|BKT|PCE)", // Unit: specific values
     "([\\d,\\s]+)", // Obsah: Czech number format
