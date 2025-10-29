@@ -333,8 +333,12 @@ def extract_number(text: Optional[str]) -> float:
         return 0
     
     # Handle Czech number format: "7 579,00" -> 7579.00
-    # First, replace Czech decimal comma with period
-    cleaned = text.replace(',', '.')
+    # First, remove any currency codes (CZK, EUR, etc.)
+    import re
+    cleaned = re.sub(r'[A-Z]{2,}$', '', text.strip())
+    
+    # Then replace Czech decimal comma with period
+    cleaned = cleaned.replace(',', '.')
     
     # Then remove spaces (thousands separators in Czech format)
     cleaned = cleaned.replace(' ', '')
