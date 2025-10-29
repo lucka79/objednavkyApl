@@ -1294,33 +1294,33 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
 
       {/* Extrahované položky - Full width section */}
       {result && (
-        <Card>
-          <CardHeader className="flex flex-row items-start justify-between">
-            <div>
-              <CardTitle className="text-sm">Extrahované položky</CardTitle>
-              <CardDescription className="text-xs">
-                🔍 Mapování: Kód produktu → ingredient_supplier_codes →
-                surovina
-              </CardDescription>
-            </div>
-            {selectedText && result.items && result.items.length > 0 && (
+            <Card>
+              <CardHeader className="flex flex-row items-start justify-between">
+                <div>
+                  <CardTitle className="text-sm">Extrahované položky</CardTitle>
+                  <CardDescription className="text-xs">
+                    🔍 Mapování: Kód produktu → ingredient_supplier_codes →
+                    surovina
+                  </CardDescription>
+                </div>
+                {selectedText && result.items && result.items.length > 0 && (
               <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    // Generate a line pattern from selected text
-                    const pattern = generateLineItemPattern(selectedText);
-                    setEditedPatterns((prev: any) => ({
-                      ...prev,
-                      line_pattern: pattern,
-                    }));
-                    setHasChanges(true);
-                    setSelectedText("");
-                  }}
-                >
-                  ✏️ Použít jako vzor řádku
-                </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      // Generate a line pattern from selected text
+                      const pattern = generateLineItemPattern(selectedText);
+                      setEditedPatterns((prev: any) => ({
+                        ...prev,
+                        line_pattern: pattern,
+                      }));
+                      setHasChanges(true);
+                      setSelectedText("");
+                    }}
+                  >
+                    ✏️ Použít jako vzor řádku
+                  </Button>
                 <Button
                   size="sm"
                   variant="outline"
@@ -1332,70 +1332,70 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                   🎯 Mapovat sloupce
                 </Button>
               </div>
-            )}
-          </CardHeader>
-          <CardContent>
-            {editedPatterns.line_pattern && (
-              <Alert className="mb-4 bg-yellow-50">
-                <AlertDescription className="text-xs">
-                  <strong>⚠️ Upravený vzor řádku:</strong>
-                  <br />
-                  <code className="text-xs bg-white px-2 py-1 rounded mt-1 inline-block break-all">
-                    {editedPatterns.line_pattern}
-                  </code>
-                  <p className="mt-2 text-muted-foreground">
-                    {editedPatterns.line_pattern.includes("\\n") ? (
-                      <>
-                        ✓ Multi-řádkový vzor detekován
-                        <br />
-                        Extrakt: Název (řádek 1) → Kód, Počet MU, Cena
-                        (řádek 2)
-                      </>
-                    ) : (
-                      "Jednoř. vzor: číslo zboží, počet MU, název zboží, zákl. cena, jedn. v MU, cena za MU, cena celkem"
-                    )}
-                  </p>
-                </AlertDescription>
-              </Alert>
-            )}
+                )}
+              </CardHeader>
+              <CardContent>
+                {editedPatterns.line_pattern && (
+                  <Alert className="mb-4 bg-yellow-50">
+                    <AlertDescription className="text-xs">
+                      <strong>⚠️ Upravený vzor řádku:</strong>
+                      <br />
+                      <code className="text-xs bg-white px-2 py-1 rounded mt-1 inline-block break-all">
+                        {editedPatterns.line_pattern}
+                      </code>
+                      <p className="mt-2 text-muted-foreground">
+                        {editedPatterns.line_pattern.includes("\\n") ? (
+                          <>
+                            ✓ Multi-řádkový vzor detekován
+                            <br />
+                            Extrakt: Název (řádek 1) → Kód, Počet MU, Cena
+                            (řádek 2)
+                          </>
+                        ) : (
+                          "Jednoř. vzor: číslo zboží, počet MU, název zboží, zákl. cena, jedn. v MU, cena za MU, cena celkem"
+                        )}
+                      </p>
+                    </AlertDescription>
+                  </Alert>
+                )}
 
-            {/* Check if description looks wrong (contains only numbers) */}
-            {result.items &&
-              result.items.length > 0 &&
-              result.items.some(
-                (item: any) =>
-                  item.description && /^\d+$/.test(item.description.trim())
-              ) && (
-                <Alert className="mb-4 bg-orange-50 border-orange-200">
-                  <AlertDescription className="text-xs">
-                    ⚠️ <strong>Popis obsahuje pouze čísla!</strong>
-                    <br />
-                    Vzor extrakce řádků je pravděpodobně špatný.
-                    <br />
-                    <strong>Jak opravit:</strong>
-                    <ol className="list-decimal list-inside mt-2 space-y-1">
-                      <li>
-                        Označte v OCR textu OBA řádky položky (popis +
-                        data):
+                {/* Check if description looks wrong (contains only numbers) */}
+                {result.items &&
+                  result.items.length > 0 &&
+                  result.items.some(
+                    (item: any) =>
+                      item.description && /^\d+$/.test(item.description.trim())
+                  ) && (
+                    <Alert className="mb-4 bg-orange-50 border-orange-200">
+                      <AlertDescription className="text-xs">
+                        ⚠️ <strong>Popis obsahuje pouze čísla!</strong>
                         <br />
-                        <code className="text-xs bg-white px-1 py-0.5">
-                          sůl jemná 25kg
-                          <br />
-                          0201 50kg 6,80 12 % 340,00
-                        </code>
-                      </li>
-                      <li>
-                        Klikněte na tlačítko "✏️ Použít jako vzor řádku"
-                        vpravo nahoře
-                      </li>
-                      <li>
-                        Systém vygeneruje multi-řádkový regex vzor pro
-                        správné rozdělení
-                      </li>
-                    </ol>
-                  </AlertDescription>
-                </Alert>
-              )}
+                        Vzor extrakce řádků je pravděpodobně špatný.
+                        <br />
+                        <strong>Jak opravit:</strong>
+                        <ol className="list-decimal list-inside mt-2 space-y-1">
+                          <li>
+                            Označte v OCR textu OBA řádky položky (popis +
+                            data):
+                            <br />
+                            <code className="text-xs bg-white px-1 py-0.5">
+                              sůl jemná 25kg
+                              <br />
+                              0201 50kg 6,80 12 % 340,00
+                            </code>
+                          </li>
+                          <li>
+                            Klikněte na tlačítko "✏️ Použít jako vzor řádku"
+                            vpravo nahoře
+                          </li>
+                          <li>
+                            Systém vygeneruje multi-řádkový regex vzor pro
+                            správné rozdělení
+                          </li>
+                        </ol>
+                      </AlertDescription>
+                    </Alert>
+                  )}
 
             {/* Layout based on template configuration */}
             {(() => {
@@ -1932,11 +1932,10 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
               </AlertDescription>
             </Alert>
           )}
-        )}
-      </Card>
-      
-
-  )}
+        </Card>
+      )}
+    </Card>
+  );
 }
 
 // Helper function to generate regex patterns from selected text
