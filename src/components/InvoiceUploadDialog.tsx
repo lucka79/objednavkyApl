@@ -96,7 +96,7 @@ interface ParsedInvoice {
 
   subtotal?: number;
 
-  payment_method?: string;
+  payment_terms?: string;
   items: ParsedInvoiceItem[];
 
   confidence: number;
@@ -380,7 +380,7 @@ export function InvoiceUploadDialog() {
 
           subtotal: subtotal, // Total without VAT (calculated from items)
 
-          payment_method: result.data.payment_method,
+          payment_terms: result.data.payment_terms,
           items,
 
           confidence: result.data.confidence / 100 || 0,
@@ -536,7 +536,7 @@ export function InvoiceUploadDialog() {
 
             receiver_id: selectedReceiver || null,
 
-            payment_method: parsedInvoice.payment_method || null,
+            payment_terms: parsedInvoice.payment_terms || null,
 
             qr_codes: parsedInvoice.qrCodes || null,
 
@@ -570,7 +570,7 @@ export function InvoiceUploadDialog() {
 
             receiver_id: selectedReceiver || null,
 
-            payment_method: parsedInvoice.payment_method || null,
+            payment_terms: parsedInvoice.payment_terms || null,
 
             qr_codes: parsedInvoice.qrCodes || null,
           })
@@ -965,7 +965,7 @@ export function InvoiceUploadDialog() {
                         Způsob platby
                       </Label>
                       <p className="text-sm">
-                        {parsedInvoice.payment_method || (
+                        {parsedInvoice.payment_terms || (
                           <span className="text-gray-400">Nenalezeno</span>
                         )}
                       </p>
