@@ -466,10 +466,10 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                   </CardContent>
                 </Card>
 
-                {/* Column Mapping Interface */}
+                {/* Column Mapping Interface OR PDF Preview */}
                 {showColumnMapping &&
                   result.items &&
-                  result.items.length > 0 && (
+                  result.items.length > 0 ? (
                     <Card className="bg-blue-50 border-blue-200">
                       <CardHeader>
                         <CardTitle className="text-sm">
@@ -781,6 +781,57 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                         )}
                       </CardContent>
                     </Card>
+                  ) : (
+                    /* PDF Preview - shown when column mapping is not active */
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-sm">Náhled faktury</CardTitle>
+                        <CardDescription className="text-xs">
+                          {pdfUrl &&
+                            "Označte text v PDF a použijte tlačítka v kartách vlevo"}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {pdfUrl ? (
+                          <div className="relative">
+                            <iframe
+                              src={pdfUrl}
+                              className="w-full h-96 border rounded"
+                              title="Invoice PDF"
+                              onLoad={(event) => {
+                                // Enable text selection in iframe
+                                const iframe = event.target as HTMLIFrameElement;
+                                try {
+                                  iframe.contentWindow?.addEventListener(
+                                    "mouseup",
+                                    () => {
+                                      const selection =
+                                        iframe.contentWindow?.getSelection();
+                                      const text = selection?.toString().trim();
+                                      if (text && text.length > 0) {
+                                        setSelectedText(text);
+                                      }
+                                    }
+                                  );
+                                } catch (err) {
+                                  console.log("Cannot access iframe content (CORS)");
+                                }
+                              }}
+                            />
+                          </div>
+                        ) : filePreview && filePreview !== "PDF" ? (
+                          <img
+                            src={filePreview}
+                            alt="Invoice preview"
+                            className="w-full border rounded"
+                          />
+                        ) : (
+                          <div className="border rounded p-8 text-center text-muted-foreground">
+                            📄 PDF soubor: {uploadedFile?.name || "Neznámý soubor"}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
                   )}
               </div>
             </div>
@@ -1021,6 +1072,75 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
               </CardContent>
             </Card>
 
+            {/* QR Codes Display - Moved next to Celková částka */}
+            <Card className="border-purple-200 bg-purple-50/30">
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <span className="text-lg">📱</span>
+                  QR kódy a čárové kódy
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Automatická detekce QR kódů, čárových kódů a Data Matrix ze
+                  všech stránek
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {result.qr_codes && result.qr_codes.length > 0 ? (
+                  <div className="space-y-3">
+                    {result.qr_codes.map((qr: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="bg-white border border-purple-200 rounded-lg p-3"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-purple-700 bg-purple-100 px-2 py-1 rounded">
+                              Strana {qr.page}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {qr.type === "QRCODE" ? "QR kód" : "Čárový kód"}
+                            </span>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => {
+                              navigator.clipboard.writeText(qr.data);
+                              alert("QR kód zkopírován do schránky!");
+                            }}
+                          >
+                            📋 Kopírovat
+                          </Button>
+                        </div>
+                        <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                          <code className="text-xs break-all">{qr.data}</code>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : result.qr_codes !== undefined ? (
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <AlertDescription className="text-sm">
+                      ℹ️ Žádné QR kódy ani čárové kódy nebyly nalezeny na této
+                      faktuře.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <Alert className="bg-amber-50 border-amber-200">
+                    <AlertDescription className="text-sm">
+                      ⚠️ QR detekce není dostupná - OCR služba se aktualizuje.
+                      <br />
+                      <span className="text-xs text-gray-600 mt-1 block">
+                        Nahrajte fakturu znovu za chvíli pro aktivaci QR
+                        detekce.
+                      </span>
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Položky and PDF Preview in 2-column layout */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <Card>
@@ -1172,293 +1292,174 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                   )}
                 </CardContent>
               </Card>
-
-              {/* PDF Preview */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Náhled faktury</CardTitle>
-                  <CardDescription className="text-xs">
-                    {pdfUrl &&
-                      "Označte text v PDF a použijte tlačítka v kartách vlevo"}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {pdfUrl ? (
-                    <div className="relative">
-                      <iframe
-                        src={pdfUrl}
-                        className="w-full h-96 border rounded"
-                        title="Invoice PDF"
-                        onLoad={(event) => {
-                          // Enable text selection in iframe
-                          const iframe = event.target as HTMLIFrameElement;
-                          try {
-                            iframe.contentWindow?.addEventListener(
-                              "mouseup",
-                              () => {
-                                const selection =
-                                  iframe.contentWindow?.getSelection();
-                                const text = selection?.toString().trim();
-                                if (text && text.length > 0) {
-                                  setSelectedText(text);
-                                }
-                              }
-                            );
-                          } catch (err) {
-                            console.log("Cannot access iframe content (CORS)");
-                          }
-                        }}
-                      />
-                    </div>
-                  ) : filePreview && filePreview !== "PDF" ? (
-                    <img
-                      src={filePreview}
-                      alt="Invoice preview"
-                      className="w-full border rounded"
-                    />
-                  ) : (
-                    <div className="border rounded p-8 text-center text-muted-foreground">
-                      📄 PDF soubor: {uploadedFile?.name || "Neznámý soubor"}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
             </div>
-
-            {/* QR Codes Display */}
-            <Card className="border-purple-200 bg-purple-50/30">
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <span className="text-lg">📱</span>
-                  QR kódy a čárové kódy
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Automatická detekce QR kódů, čárových kódů a Data Matrix ze
-                  všech stránek
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {result.qr_codes && result.qr_codes.length > 0 ? (
-                  <div className="space-y-3">
-                    {result.qr_codes.map((qr: any, idx: number) => (
-                      <div
-                        key={idx}
-                        className="bg-white border border-purple-200 rounded-lg p-3"
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-purple-700 bg-purple-100 px-2 py-1 rounded">
-                              Strana {qr.page}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {qr.type === "QRCODE" ? "QR kód" : "Čárový kód"}
-                            </span>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 px-2 text-xs"
-                            onClick={() => {
-                              navigator.clipboard.writeText(qr.data);
-                              alert("QR kód zkopírován do schránky!");
-                            }}
-                          >
-                            📋 Kopírovat
-                          </Button>
-                        </div>
-                        <div className="bg-gray-50 p-2 rounded border border-gray-200">
-                          <code className="text-xs break-all">{qr.data}</code>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : result.qr_codes !== undefined ? (
-                  <Alert className="bg-blue-50 border-blue-200">
-                    <AlertDescription className="text-sm">
-                      ℹ️ Žádné QR kódy ani čárové kódy nebyly nalezeny na této
-                      faktuře.
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <Alert className="bg-amber-50 border-amber-200">
-                    <AlertDescription className="text-sm">
-                      ⚠️ QR detekce není dostupná - OCR služba se aktualizuje.
-                      <br />
-                      <span className="text-xs text-gray-600 mt-1 block">
-                        Nahrajte fakturu znovu za chvíli pro aktivaci QR
-                        detekce.
-                      </span>
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-start justify-between">
-                <div>
-                  <CardTitle className="text-sm">Extrahované položky</CardTitle>
-                  <CardDescription className="text-xs">
-                    🔍 Mapování: Kód produktu → ingredient_supplier_codes →
-                    surovina
-                  </CardDescription>
-                </div>
-                {selectedText && result.items && result.items.length > 0 && (
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        // Generate a line pattern from selected text
-                        const pattern = generateLineItemPattern(selectedText);
-                        setEditedPatterns((prev: any) => ({
-                          ...prev,
-                          line_pattern: pattern,
-                        }));
-                        setHasChanges(true);
-                        setSelectedText("");
-                      }}
-                    >
-                      ✏️ Použít jako vzor řádku
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        // Show column mapping interface
-                        setShowColumnMapping(true);
-                      }}
-                    >
-                      🎯 Mapovat sloupce
-                    </Button>
-                  </div>
-                )}
-          </CardHeader>
-          <CardContent>
-            {editedPatterns.line_pattern && (
-                  <Alert className="mb-4 bg-yellow-50">
-                    <AlertDescription className="text-xs">
-                      <strong>⚠️ Upravený vzor řádku:</strong>
-                      <br />
-                      <code className="text-xs bg-white px-2 py-1 rounded mt-1 inline-block break-all">
-                        {editedPatterns.line_pattern}
-                      </code>
-                      <p className="mt-2 text-muted-foreground">
-                        {editedPatterns.line_pattern.includes("\\n") ? (
-                          <>
-                            ✓ Multi-řádkový vzor detekován
-                            <br />
-                            Extrakt: Název (řádek 1) → Kód, Počet MU, Cena
-                            (řádek 2)
-                          </>
-                        ) : (
-                          "Jednoř. vzor: číslo zboží, počet MU, název zboží, zákl. cena, jedn. v MU, cena za MU, cena celkem"
-                        )}
-                      </p>
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {/* Check if description looks wrong (contains only numbers) */}
-                {result.items &&
-                  result.items.length > 0 &&
-                  result.items.some(
-                    (item: any) =>
-                      item.description && /^\d+$/.test(item.description.trim())
-                  ) && (
-                    <Alert className="mb-4 bg-orange-50 border-orange-200">
-                      <AlertDescription className="text-xs">
-                        ⚠️ <strong>Popis obsahuje pouze čísla!</strong>
-                        <br />
-                        Vzor extrakce řádků je pravděpodobně špatný.
-                        <br />
-                        <strong>Jak opravit:</strong>
-                        <ol className="list-decimal list-inside mt-2 space-y-1">
-                          <li>
-                            Označte v OCR textu OBA řádky položky (popis +
-                            data):
-                            <br />
-                            <code className="text-xs bg-white px-1 py-0.5">
-                              sůl jemná 25kg
-                              <br />
-                              0201 50kg 6,80 12 % 340,00
-                            </code>
-                          </li>
-                          <li>
-                            Klikněte na tlačítko "✏️ Použít jako vzor řádku"
-                            vpravo nahoře
-                          </li>
-                          <li>
-                            Systém vygeneruje multi-řádkový regex vzor pro
-                            správné rozdělení
-                          </li>
-                        </ol>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                {/* Layout based on template configuration */}
-                {(() => {
-                  const layout =
-                    activeTemplate?.config?.display_layout || "standard";
-
-                  if (layout === "makro") {
-                    return <MakroInvoiceLayout items={result.items} />;
-                  } else if (layout === "two-line") {
-                    return <TwoLineInvoiceLayout items={result.items} />;
-                  } else if (layout === "zeelandia") {
-                    return <ZeelandiaInvoiceLayout items={result.items} />;
-                  } else {
-                    return <StandardInvoiceLayout items={result.items} />;
-                  }
-                })()}
-
-                {/* Mapping Statistics */}
-                <div className="grid grid-cols-3 gap-4 mt-6">
-                  <Card className="bg-green-50">
-                    <CardContent className="pt-4">
-                      <div className="text-2xl font-bold text-green-600">
-                        {result.items?.filter((i: any) => i.matched_ingredient_id)
-                          .length || 0}
-                      </div>
-                      <div className="text-xs text-gray-600">✓ Namapováno</div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-orange-50">
-                    <CardContent className="pt-4">
-                      <div className="text-2xl font-bold text-orange-600">
-                        {result.items?.filter(
-                          (i: any) =>
-                            !i.matched_ingredient_id && i.suggested_ingredient_name
-                        ).length || 0}
-                      </div>
-                      <div className="text-xs text-gray-600">⚠ Navrženo</div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-red-50">
-                    <CardContent className="pt-4">
-                      <div className="text-2xl font-bold text-red-600">
-                        {result.items?.filter(
-                          (i: any) =>
-                            !i.matched_ingredient_id && !i.suggested_ingredient_name
-                        ).length || 0}
-                      </div>
-                      <div className="text-xs text-gray-600">✗ Neznámé</div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {result.unmapped_codes > 0 && (
-                  <Alert className="mt-6">
-                    <AlertDescription>
-                      💡 Přejděte na záložku "Nenamapované kódy" pro přiřazení
-                      surovin k nenamapovaným kódům pomocí product_code.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
           </div>
+
+          <Card>
+            <CardHeader className="flex flex-row items-start justify-between">
+              <div>
+                <CardTitle className="text-sm">Extrahované položky</CardTitle>
+                <CardDescription className="text-xs">
+                  🔍 Mapování: Kód produktu → ingredient_supplier_codes →
+                  surovina
+                </CardDescription>
+              </div>
+              {selectedText && result.items && result.items.length > 0 && (
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      // Generate a line pattern from selected text
+                      const pattern = generateLineItemPattern(selectedText);
+                      setEditedPatterns((prev: any) => ({
+                        ...prev,
+                        line_pattern: pattern,
+                      }));
+                      setHasChanges(true);
+                      setSelectedText("");
+                    }}
+                  >
+                    ✏️ Použít jako vzor řádku
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      // Show column mapping interface
+                      setShowColumnMapping(true);
+                    }}
+                  >
+                    🎯 Mapovat sloupce
+                  </Button>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent>
+              {editedPatterns.line_pattern && (
+                <Alert className="mb-4 bg-yellow-50">
+                  <AlertDescription className="text-xs">
+                    <strong>⚠️ Upravený vzor řádku:</strong>
+                    <br />
+                    <code className="text-xs bg-white px-2 py-1 rounded mt-1 inline-block break-all">
+                      {editedPatterns.line_pattern}
+                    </code>
+                    <p className="mt-2 text-muted-foreground">
+                      {editedPatterns.line_pattern.includes("\\n") ? (
+                        <>
+                          ✓ Multi-řádkový vzor detekován
+                          <br />
+                          Extrakt: Název (řádek 1) → Kód, Počet MU, Cena (řádek
+                          2)
+                        </>
+                      ) : (
+                        "Jednoř. vzor: číslo zboží, počet MU, název zboží, zákl. cena, jedn. v MU, cena za MU, cena celkem"
+                      )}
+                    </p>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Check if description looks wrong (contains only numbers) */}
+              {result.items &&
+                result.items.length > 0 &&
+                result.items.some(
+                  (item: any) =>
+                    item.description && /^\d+$/.test(item.description.trim())
+                ) && (
+                  <Alert className="mb-4 bg-orange-50 border-orange-200">
+                    <AlertDescription className="text-xs">
+                      ⚠️ <strong>Popis obsahuje pouze čísla!</strong>
+                      <br />
+                      Vzor extrakce řádků je pravděpodobně špatný.
+                      <br />
+                      <strong>Jak opravit:</strong>
+                      <ol className="list-decimal list-inside mt-2 space-y-1">
+                        <li>
+                          Označte v OCR textu OBA řádky položky (popis + data):
+                          <br />
+                          <code className="text-xs bg-white px-1 py-0.5">
+                            sůl jemná 25kg
+                            <br />
+                            0201 50kg 6,80 12 % 340,00
+                          </code>
+                        </li>
+                        <li>
+                          Klikněte na tlačítko "✏️ Použít jako vzor řádku"
+                          vpravo nahoře
+                        </li>
+                        <li>
+                          Systém vygeneruje multi-řádkový regex vzor pro správné
+                          rozdělení
+                        </li>
+                      </ol>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+              {/* Layout based on template configuration */}
+              {(() => {
+                const layout =
+                  activeTemplate?.config?.display_layout || "standard";
+
+                if (layout === "makro") {
+                  return <MakroInvoiceLayout items={result.items} />;
+                } else if (layout === "two-line") {
+                  return <TwoLineInvoiceLayout items={result.items} />;
+                } else if (layout === "zeelandia") {
+                  return <ZeelandiaInvoiceLayout items={result.items} />;
+                } else {
+                  return <StandardInvoiceLayout items={result.items} />;
+                }
+              })()}
+
+              {/* Mapping Statistics */}
+              <div className="grid grid-cols-3 gap-4 mt-6">
+                <Card className="bg-green-50">
+                  <CardContent className="pt-4">
+                    <div className="text-2xl font-bold text-green-600">
+                      {result.items?.filter((i: any) => i.matched_ingredient_id)
+                        .length || 0}
+                    </div>
+                    <div className="text-xs text-gray-600">✓ Namapováno</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-orange-50">
+                  <CardContent className="pt-4">
+                    <div className="text-2xl font-bold text-orange-600">
+                      {result.items?.filter(
+                        (i: any) =>
+                          !i.matched_ingredient_id &&
+                          i.suggested_ingredient_name
+                      ).length || 0}
+                    </div>
+                    <div className="text-xs text-gray-600">⚠ Navrženo</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-red-50">
+                  <CardContent className="pt-4">
+                    <div className="text-2xl font-bold text-red-600">
+                      {result.items?.filter(
+                        (i: any) =>
+                          !i.matched_ingredient_id &&
+                          !i.suggested_ingredient_name
+                      ).length || 0}
+                    </div>
+                    <div className="text-xs text-gray-600">✗ Neznámé</div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {result.unmapped_codes > 0 && (
+                <Alert className="mt-6">
+                  <AlertDescription>
+                    💡 Přejděte na záložku "Nenamapované kódy" pro přiřazení
+                    surovin k nenamapovaným kódům pomocí product_code.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
         </CardContent>
       )}
     </Card>
