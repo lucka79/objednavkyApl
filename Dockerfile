@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
 # Copy application code (this layer will change most often)
-COPY python-ocr-service/main.py python-ocr-service/start.sh .
+COPY python-ocr-service/main.py start.sh .
 
 # Make startup script executable
 RUN chmod +x start.sh
