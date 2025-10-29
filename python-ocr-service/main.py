@@ -598,7 +598,11 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     currency = groups[10] if len(groups) > 10 else None
                     vat_rate = extract_number(groups[11]) if len(groups) > 11 else None
                     
-                    logger.info(f"Extracting Zeelandia format - quantity: {quantity}, unit: {unit_of_measure}, package_weight: {package_weight}, total_weight: {total_weight}, unit_price: {unit_price}, total: {line_total}")
+                    # Calculate line_total from total_weight * unit_price for more accuracy
+                    # This avoids OCR errors in the total price field
+                    calculated_line_total = total_weight * unit_price if total_weight and unit_price else line_total
+                    
+                    logger.info(f"Extracting Zeelandia format - quantity: {quantity}, unit: {unit_of_measure}, package_weight: {package_weight}, total_weight: {total_weight}, unit_price: {unit_price}, calculated_total: {calculated_line_total}")
                     
                     # Apply code corrections if configured
                     corrected_code = apply_code_corrections(product_code, code_corrections) if product_code else None
@@ -613,7 +617,7 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         quantity=quantity,
                         unit_of_measure=unit_of_measure,
                         unit_price=unit_price,
-                        line_total=line_total,
+                        line_total=calculated_line_total,
                         package_weight_kg=package_weight if package_weight_unit == 'KG' else None,
                         total_weight_kg=total_weight if total_weight_unit == 'KG' else None,
                         vat_rate=vat_rate,
