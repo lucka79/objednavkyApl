@@ -568,8 +568,8 @@ export function InvoiceUploadDialog() {
           const quantity = isZeelandia
             ? (editedTotalWeights[item.id] ?? item.totalWeightKg) || 0
             : item.quantity;
-          const unitPrice = isZeelandia
-            ? (editedPrices[item.id] ?? item.price) || 0
+          const unitPrice = isZeelandia 
+            ? Math.floor((editedPrices[item.id] ?? item.price) || 0)
             : item.price;
           const lineTotal = Math.round(quantity * unitPrice * 100) / 100; // Round to 2 decimal places
 
@@ -616,7 +616,7 @@ export function InvoiceUploadDialog() {
             }
 
             if (cenaJed !== undefined) {
-              baseInsert.cena_jed = cenaJed; // Cena/jed = unit price
+              baseInsert.cena_jed = Math.floor(cenaJed); // Cena/jed = unit price (rounded down)
             }
           }
 
@@ -1264,17 +1264,20 @@ export function InvoiceUploadDialog() {
                                       type="number"
                                       step="0.01"
                                       value={
-                                        editedTotalWeights[item.id] ??
-                                        item.totalWeightKg ??
-                                        ""
+                                        editedTotalWeights[item.id] !==
+                                        undefined
+                                          ? editedTotalWeights[
+                                              item.id
+                                            ].toString()
+                                          : (item.totalWeightKg ?? 0).toString()
                                       }
-                                      onChange={(e) =>
+                                      onChange={(e) => {
+                                        const value = e.target.value;
                                         setEditedTotalWeights((prev) => ({
                                           ...prev,
-                                          [item.id]:
-                                            parseFloat(e.target.value) || 0,
-                                        }))
-                                      }
+                                          [item.id]: parseFloat(value) || 0,
+                                        }));
+                                      }}
                                       onBlur={() => {
                                         setEditingItemId(null);
                                         setEditingField(null);
@@ -1294,8 +1297,12 @@ export function InvoiceUploadDialog() {
                                           setEditingField(null);
                                         }
                                       }}
+                                      onFocus={(e) => {
+                                        // Select all text when focused
+                                        e.target.select();
+                                      }}
                                       autoFocus
-                                      className="h-7 text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                      className="h-7 text-sm text-right w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                     />
                                   ) : (
                                     <span
@@ -1326,18 +1333,18 @@ export function InvoiceUploadDialog() {
                                     <Input
                                       type="number"
                                       step="0.01"
-                                      value={(
-                                        editedPrices[item.id] ??
-                                        item.price ??
-                                        0
-                                      ).toFixed(2)}
-                                      onChange={(e) =>
+                                      value={
+                                        editedPrices[item.id] !== undefined
+                                          ? Math.floor(editedPrices[item.id]).toString()
+                                          : Math.floor(item.price ?? 0).toString()
+                                      }
+                                      onChange={(e) => {
+                                        const value = e.target.value;
                                         setEditedPrices((prev) => ({
                                           ...prev,
-                                          [item.id]:
-                                            parseFloat(e.target.value) || 0,
-                                        }))
-                                      }
+                                          [item.id]: Math.floor(parseFloat(value) || 0),
+                                        }));
+                                      }}
                                       onBlur={() => {
                                         setEditingItemId(null);
                                         setEditingField(null);
@@ -1357,8 +1364,12 @@ export function InvoiceUploadDialog() {
                                           setEditingField(null);
                                         }
                                       }}
+                                      onFocus={(e) => {
+                                        // Select all text when focused
+                                        e.target.select();
+                                      }}
                                       autoFocus
-                                      className="h-7 text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                      className="h-7 text-sm text-right w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                     />
                                   ) : (
                                     <span
@@ -1369,12 +1380,9 @@ export function InvoiceUploadDialog() {
                                       className="cursor-pointer hover:bg-gray-100 px-1 rounded"
                                       title="Klikněte pro úpravu"
                                     >
-                                      {(
-                                        editedPrices[item.id] ?? item.price
-                                      )?.toLocaleString("cs-CZ", {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                      })}
+                                      {Math.floor(
+                                        editedPrices[item.id] ?? item.price ?? 0
+                                      ).toLocaleString("cs-CZ")}
                                     </span>
                                   )}
                                 </td>
