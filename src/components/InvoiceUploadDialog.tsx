@@ -536,7 +536,7 @@ export function InvoiceUploadDialog() {
 
             receiver_id: selectedReceiver || null,
 
-            // qr_codes: parsedInvoice.qrCodes || null, // Temporarily disabled until column is added
+            qr_codes: parsedInvoice.qrCodes || null,
 
             updated_at: new Date().toISOString(),
           })
@@ -568,7 +568,7 @@ export function InvoiceUploadDialog() {
 
             receiver_id: selectedReceiver || null,
 
-            // qr_codes: parsedInvoice.qrCodes || null, // Temporarily disabled until column is added
+            qr_codes: parsedInvoice.qrCodes || null,
           })
 
           .select()
