@@ -170,7 +170,12 @@ export function InvoiceUploadDialog() {
         const finalTotalWeight =
           editedTotalWeights[item.id] ?? item.totalWeightKg ?? 0;
         const finalPrice = editedPrices[item.id] ?? item.price ?? 0;
-        return sum + parseFloat((Math.floor(finalTotalWeight) * Math.floor(finalPrice)).toFixed(2));
+        return (
+          sum +
+          parseFloat(
+            (Math.floor(finalTotalWeight) * Math.floor(finalPrice)).toFixed(2)
+          )
+        );
       }, 0);
     }
 
@@ -531,7 +536,7 @@ export function InvoiceUploadDialog() {
 
             receiver_id: selectedReceiver || null,
 
-            qr_codes: parsedInvoice.qrCodes || null,
+            // qr_codes: parsedInvoice.qrCodes || null, // Temporarily disabled until column is added
 
             updated_at: new Date().toISOString(),
           })
@@ -563,7 +568,7 @@ export function InvoiceUploadDialog() {
 
             receiver_id: selectedReceiver || null,
 
-            qr_codes: parsedInvoice.qrCodes || null,
+            // qr_codes: parsedInvoice.qrCodes || null, // Temporarily disabled until column is added
           })
 
           .select()
@@ -597,7 +602,9 @@ export function InvoiceUploadDialog() {
           const unitPrice = isZeelandia
             ? Math.floor((editedPrices[item.id] ?? item.price) || 0)
             : item.price;
-          const lineTotal = parseFloat((Math.floor(quantity) * Math.floor(unitPrice)).toFixed(2)); // Use Math.floor for both before multiplying and fix decimals
+          const lineTotal = parseFloat(
+            (Math.floor(quantity) * Math.floor(unitPrice)).toFixed(2)
+          ); // Use Math.floor for both before multiplying and fix decimals
 
           const baseInsert: any = {
             invoice_received_id: savedInvoice.id,
@@ -1253,7 +1260,10 @@ export function InvoiceUploadDialog() {
                             const finalPrice =
                               editedPrices[item.id] ?? item.price ?? 0;
                             const priceTotal = parseFloat(
-                              (Math.floor(finalTotalWeight) * Math.floor(finalPrice)).toFixed(2)
+                              (
+                                Math.floor(finalTotalWeight) *
+                                Math.floor(finalPrice)
+                              ).toFixed(2)
                             );
 
                             return (
