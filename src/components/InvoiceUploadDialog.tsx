@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from "react";
+
 import { useQueryClient } from "@tanstack/react-query";
+
 import { Button } from "@/components/ui/button";
+
 import {
   Dialog,
   DialogContent,
@@ -9,9 +12,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+
 import { Input } from "@/components/ui/input";
+
 import { Label } from "@/components/ui/label";
+
 import { Textarea } from "@/components/ui/textarea";
+
 import {
   Select,
   SelectContent,
@@ -19,99 +26,179 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Badge } from "@/components/ui/badge";
+
 import { Progress } from "@/components/ui/progress";
+
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Upload, FileText, CheckCircle, X } from "lucide-react";
+
+import { Upload, FileText, CheckCircle, X, Pencil } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
+
 import { useSupplierUsers, useStoreUsers } from "@/hooks/useProfiles";
+
 import { useDocumentAI } from "@/hooks/useDocumentAI";
+
 import { useInvoiceTemplates } from "@/hooks/useInvoiceTemplates";
+
 import { AddReceivedInvoiceForm } from "./AddReceivedInvoiceForm";
 
 interface ParsedInvoiceItem {
   id: string;
+
   name: string;
+
   quantity: number;
+
   unit: string;
+
   price: number;
+
   total: number;
+
   supplierCode?: string;
+
   confidence: number;
+
   matchStatus?: string;
+
   ingredientId?: number | null;
+
   ingredientName?: string | null;
+
   // Weight-based fields (for MAKRO and similar suppliers)
+
   packageWeightKg?: number;
+
   totalWeightKg?: number;
+
   pricePerKg?: number;
+
   basePrice?: number;
+
   unitsInMu?: number;
 }
 
 interface ParsedInvoice {
   id: string;
+
   supplier: string;
+
   invoiceNumber: string;
+
   date: string;
+
   totalAmount: number;
+
   subtotal?: number;
+
   paymentType?: string;
   items: ParsedInvoiceItem[];
+
   confidence: number;
+
   status: "pending" | "reviewed" | "approved" | "rejected";
+
   unmappedCount?: number;
+
   templateUsed?: string;
+
   qrCodes?: Array<{ data: string; type: string; page: number }>;
 }
 
 // MAKRO supplier ID (weight-based layout)
+
 const MAKRO_SUPPLIER_ID = "16293f61-b9e8-4016-9882-0b8fa90125e4";
+
+// Zeelandia supplier ID (Zeelandia-specific layout)
+const ZEELANDIA_SUPPLIER_ID = "52a93272-88b5-40c2-8c49-39d51250a64a";
 
 export function InvoiceUploadDialog() {
   const [isOpen, setIsOpen] = useState(false);
+
   const [uploading, setUploading] = useState(false);
+
   const [uploadProgress, setUploadProgress] = useState(0);
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
   const [parsedInvoice, setParsedInvoice] = useState<ParsedInvoice | null>(
     null
   );
+
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
+
   const [invoiceSupplier, setInvoiceSupplier] = useState<string>("");
+
   const [selectedReceiver, setSelectedReceiver] = useState<string>("");
+
   const [currentUserRole, setCurrentUserRole] = useState<string>("");
+
   const [notes, setNotes] = useState("");
+
   const [currentStep, setCurrentStep] = useState<
     "supplier" | "upload" | "manual" | "review"
   >("supplier");
 
+  const [editedDescriptions, setEditedDescriptions] = useState<{
+    [key: string]: string;
+  }>({});
+  const [editedPackageWeights, setEditedPackageWeights] = useState<{
+    [key: string]: number;
+  }>({});
+  const [editedTotalWeights, setEditedTotalWeights] = useState<{
+    [key: string]: number;
+  }>({});
+  const [editedPrices, setEditedPrices] = useState<{
+    [key: string]: number;
+  }>({});
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingField, setEditingField] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
   const { toast } = useToast();
+
   const queryClient = useQueryClient();
+
   const { data: supplierUsers } = useSupplierUsers();
+
   const { data: storeUsers } = useStoreUsers();
+
   const { processDocumentWithTemplate } = useDocumentAI();
+
   const { templates } = useInvoiceTemplates(); // Fetch all templates to check which suppliers have them
 
   // Get current user and set default receiver
+
   useEffect(() => {
     const fetchCurrentUser = async () => {
       const { supabase } = await import("@/lib/supabase");
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
       if (user) {
         const { data: profile } = await supabase
+
           .from("profiles")
+
           .select("role")
+
           .eq("id", user.id)
+
           .single();
 
         if (profile) {
           setCurrentUserRole(profile.role);
+
           // If admin, set default receiver_id
+
           if (profile.role === "admin") {
             setSelectedReceiver("e597fcc9-7ce8-407d-ad1a-fdace061e42f");
           }
@@ -124,10 +211,12 @@ export function InvoiceUploadDialog() {
 
   const handleSupplierSelect = (supplierId: string) => {
     setInvoiceSupplier(supplierId);
+
     setCurrentStep("upload");
   };
 
   // Helper function to check if supplier has an active template
+
   const hasActiveTemplate = (supplierId: string) => {
     return templates?.some(
       (template) => template.supplier_id === supplierId && template.is_active
@@ -140,15 +229,20 @@ export function InvoiceUploadDialog() {
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+
     if (file) {
       if (file.type !== "application/pdf" && !file.type.startsWith("image/")) {
         toast({
           title: "Chyba",
+
           description: "Podporované formáty: PDF, JPG, PNG",
+
           variant: "destructive",
         });
+
         return;
       }
+
       setSelectedFile(file);
     }
   };
@@ -157,83 +251,124 @@ export function InvoiceUploadDialog() {
     if (!selectedFile || !invoiceSupplier) return;
 
     setUploading(true);
+
     setUploadProgress(0);
 
     try {
       // Simulate upload progress
+
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => {
           if (prev >= 90) {
             clearInterval(progressInterval);
+
             return 90;
           }
+
           return prev + 10;
         });
       }, 200);
 
       // Use the NEW template-based processor with auto-matching
+
       const result = await processDocumentWithTemplate(
         selectedFile,
+
         invoiceSupplier
       );
 
       if (result.success && result.data) {
         clearInterval(progressInterval);
+
         setUploadProgress(100);
+
         setCurrentStep("review");
 
         // Map extracted items with ingredient matching info
+
         const items = result.data.items.map((item: any, index: number) => ({
           id: (index + 1).toString(),
+
           name: item.description || item.name,
+
           quantity: item.quantity,
+
           unit: item.unit_of_measure || item.unit,
+
           price: item.unit_price || item.price,
+
           total: item.total_price || item.total || item.line_total,
+
           supplierCode: item.product_code || item.supplierCode,
+
           confidence: item.match_confidence || item.confidence || 0,
+
           matchStatus: item.match_status,
+
           ingredientId: item.matched_ingredient_id,
+
           ingredientName: item.matched_ingredient_name,
+
           // Weight-based fields
+
           packageWeightKg: item.package_weight_kg,
+
           totalWeightKg: item.total_weight_kg,
+
           pricePerKg: item.price_per_kg,
+
           basePrice: item.base_price,
+
           unitsInMu: item.units_in_mu,
         }));
 
         // Calculate subtotal (without VAT) from line items
+
         const subtotal = items.reduce((sum: number, item: any) => {
           const itemTotal = item.total || item.quantity * item.price || 0;
+
           return sum + itemTotal;
         }, 0);
 
         // Use the extracted total from invoice (includes VAT)
+
         const extractedTotal = result.data.totalAmount || 0;
 
         // Get supplier name
+
         const supplierName =
           supplierUsers?.find((s: any) => s.id === invoiceSupplier)
             ?.full_name || invoiceSupplier;
 
         setParsedInvoice({
           id: `inv_${Date.now()}`,
+
           supplier: supplierName,
+
           invoiceNumber: result.data.invoiceNumber,
+
           date: result.data.date,
+
           totalAmount: extractedTotal, // Total with VAT
+
           subtotal: subtotal, // Total without VAT (calculated from items)
+
           paymentType: result.data.paymentType,
           items,
+
           confidence: result.data.confidence / 100 || 0,
+
           status: "pending",
+
           unmappedCount: result.data.unmapped_codes || 0,
+
           templateUsed: result.data.template_used,
+
           qrCodes: result.data.qr_codes,
         });
 
         // Auto-select the supplier in the dropdown
+
         setSelectedSupplier(invoiceSupplier);
 
         const unmappedCount = items.filter(
@@ -242,6 +377,7 @@ export function InvoiceUploadDialog() {
 
         toast({
           title: "✅ Faktura zpracována!",
+
           description:
             unmappedCount > 0
               ? `Extrahováno ${items.length} položek (${unmappedCount} nenamapováno)`
@@ -253,7 +389,9 @@ export function InvoiceUploadDialog() {
     } catch (error) {
       toast({
         title: "Chyba",
+
         description: "Nepodařilo se zpracovat fakturu",
+
         variant: "destructive",
       });
     } finally {
@@ -265,36 +403,51 @@ export function InvoiceUploadDialog() {
     if (!parsedInvoice) return;
 
     // Validate that a supplier is selected
+
     const supplierId = selectedSupplier || invoiceSupplier;
+
     if (!supplierId) {
       toast({
         title: "Chyba",
+
         description: "Vyberte prosím dodavatele před uložením faktury",
+
         variant: "destructive",
       });
+
       return;
     }
 
     try {
       // Check if invoice with this number already exists
+
       const { supabase } = await import("@/lib/supabase");
 
       console.log("🔍 Checking for duplicate invoice:", {
         invoiceNumber: parsedInvoice.invoiceNumber,
+
         invoiceNumberType: typeof parsedInvoice.invoiceNumber,
+
         supplierId: supplierId,
       });
 
       const { data: existingInvoice, error: checkError } = await supabase
+
         .from("invoices_received")
+
         .select("id, invoice_number, supplier_id")
+
         .eq("invoice_number", parsedInvoice.invoiceNumber)
+
         .eq("supplier_id", supplierId)
+
         .maybeSingle();
 
       console.log("✅ Duplicate check result:", {
         found: !!existingInvoice,
+
         existingInvoice,
+
         checkError,
       });
 
@@ -303,12 +456,16 @@ export function InvoiceUploadDialog() {
       }
 
       // Convert date from DD.MM.YYYY to YYYY-MM-DD format
+
       const convertDateToISO = (dateStr: string): string => {
         const parts = dateStr.split(".");
+
         if (parts.length === 3) {
           const [day, month, year] = parts;
+
           return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
         }
+
         return dateStr; // Return as-is if already in correct format
       };
 
@@ -328,47 +485,72 @@ export function InvoiceUploadDialog() {
         }
 
         // Delete existing items
+
         const { error: deleteItemsError } = await supabase
+
           .from("items_received")
+
           .delete()
+
           .eq("invoice_received_id", existingInvoice.id);
 
         if (deleteItemsError) throw deleteItemsError;
 
         // Update existing invoice
+
         const { data: updatedInvoice, error: updateError } = await supabase
+
           .from("invoices_received")
+
           .update({
             invoice_date: isoDate,
+
             total_amount: parsedInvoice.totalAmount,
+
             receiver_id: selectedReceiver || null,
+
             updated_at: new Date().toISOString(),
           })
+
           .eq("id", existingInvoice.id)
+
           .select()
+
           .single();
 
         if (updateError) throw updateError;
+
         savedInvoice = updatedInvoice;
       } else {
         // Create new invoice
+
         const { data: newInvoice, error: invoiceError } = await supabase
+
           .from("invoices_received")
+
           .insert({
             invoice_number: parsedInvoice.invoiceNumber,
+
             supplier_id: supplierId,
+
             invoice_date: isoDate,
+
             total_amount: parsedInvoice.totalAmount,
+
             receiver_id: selectedReceiver || null,
           })
+
           .select()
+
           .single();
 
         if (invoiceError) throw invoiceError;
+
         savedInvoice = newInvoice;
       }
 
       // Save items that have matched ingredients
+
       const matchedItems = parsedInvoice.items.filter(
         (item) => item.ingredientId
       );
@@ -377,22 +559,32 @@ export function InvoiceUploadDialog() {
         const itemsToInsert = matchedItems.map((item, index) => {
           const baseInsert: any = {
             invoice_received_id: savedInvoice.id,
+
             matched_ingredient_id: item.ingredientId!,
+
             quantity: item.quantity,
+
             unit_price: item.price,
+
             line_total: item.total || item.quantity * item.price,
+
             line_number: index + 1,
+
             unit_of_measure: item.unit,
+
             matching_confidence: item.confidence || 100,
           };
 
           // Add weight-based fields if available (for MAKRO and similar suppliers)
+
           if (item.totalWeightKg !== undefined) {
             baseInsert.total_weight_kg = item.totalWeightKg;
           }
+
           if (item.pricePerKg !== undefined) {
             baseInsert.price_per_kg = item.pricePerKg;
           }
+
           if (item.packageWeightKg !== undefined) {
             baseInsert.package_weight_kg = item.packageWeightKg;
           }
@@ -401,16 +593,21 @@ export function InvoiceUploadDialog() {
         });
 
         const { error: itemsError } = await supabase
+
           .from("items_received")
+
           .insert(itemsToInsert);
 
         if (itemsError) throw itemsError;
       }
 
       // Show success message
+
       const unmappedCount = parsedInvoice.items.length - matchedItems.length;
+
       toast({
         title: "✅ Faktura byla uložena!",
+
         description:
           unmappedCount > 0
             ? `Uloženo ${matchedItems.length} položek (${unmappedCount} nenamapovaných přeskočeno)`
@@ -418,17 +615,27 @@ export function InvoiceUploadDialog() {
       });
 
       // Invalidate received invoices query to refresh the list
+
       queryClient.invalidateQueries({ queryKey: ["receivedInvoices"] });
 
       setIsOpen(false);
+
       setParsedInvoice(null);
+
       setSelectedFile(null);
+
       setUploadProgress(0);
+
       setCurrentStep("supplier");
+
       setInvoiceSupplier("");
+
       setSelectedSupplier("");
+
       setNotes("");
+
       // Reset receiver to default if admin
+
       if (currentUserRole === "admin") {
         setSelectedReceiver("e597fcc9-7ce8-407d-ad1a-fdace061e42f");
       } else {
@@ -436,9 +643,12 @@ export function InvoiceUploadDialog() {
       }
     } catch (error) {
       console.error("Error checking/saving invoice:", error);
+
       toast({
         title: "Chyba",
+
         description: "Nepodařilo se zkontrolovat nebo uložit fakturu",
+
         variant: "destructive",
       });
     }
@@ -446,11 +656,17 @@ export function InvoiceUploadDialog() {
 
   const handleReject = () => {
     setParsedInvoice(null);
+
     setSelectedFile(null);
+
     setUploadProgress(0);
+
     setCurrentStep("supplier");
+
     setInvoiceSupplier("");
+
     // Reset receiver to default if admin
+
     if (currentUserRole === "admin") {
       setSelectedReceiver("e597fcc9-7ce8-407d-ad1a-fdace061e42f");
     } else {
@@ -460,15 +676,19 @@ export function InvoiceUploadDialog() {
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 0.9) return "text-green-600";
+
     if (confidence >= 0.7) return "text-yellow-600";
+
     return "text-red-600";
   };
 
   const getConfidenceBadge = (confidence: number) => {
     if (confidence >= 0.9)
       return <Badge className="bg-green-100 text-green-800">Vysoká</Badge>;
+
     if (confidence >= 0.7)
       return <Badge className="bg-yellow-100 text-yellow-800">Střední</Badge>;
+
     return <Badge variant="destructive">Nízká</Badge>;
   };
 
@@ -480,12 +700,14 @@ export function InvoiceUploadDialog() {
           Nahrát fakturu
         </Button>
       </DialogTrigger>
+
       <DialogContent
         className="max-w-7xl max-h-[90vh] overflow-y-auto"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>
           <DialogTitle>Nahrát a zpracovat fakturu</DialogTitle>
+
           <DialogDescription>
             Nahrajte fakturu od dodavatele pro automatické zpracování pomocí
             natrénovaných šablon s inteligentním mapováním surovin
@@ -494,18 +716,22 @@ export function InvoiceUploadDialog() {
 
         <div className="space-y-6">
           {/* Supplier Selection Step */}
+
           {currentStep === "supplier" && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">1. Výběr dodavatele</CardTitle>
+
                 <p className="text-sm text-muted-foreground">
                   Vyberte dodavatele pro použití správné šablony faktury
                 </p>
               </CardHeader>
+
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {supplierUsers?.map((supplier: any) => {
                     const hasTrained = hasActiveTemplate(supplier.id);
+
                     return (
                       <Button
                         key={supplier.id}
@@ -521,8 +747,10 @@ export function InvoiceUploadDialog() {
                           {hasTrained && (
                             <span className="text-green-600">✓</span>
                           )}
+
                           {supplier.full_name}
                         </div>
+
                         <div className="text-xs text-muted-foreground">
                           {hasTrained
                             ? "✓ Natrénovaná šablona OCR + auto-mapování"
@@ -537,19 +765,23 @@ export function InvoiceUploadDialog() {
           )}
 
           {/* File Upload Section */}
+
           {currentStep === "upload" && !parsedInvoice && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">2. Výběr souboru</CardTitle>
+
                 <p className="text-sm text-muted-foreground">
                   <span className="font-semibold">Dodavatel:</span>{" "}
                   {supplierUsers?.find((s: any) => s.id === invoiceSupplier)
                     ?.full_name || "Neznámý"}
                 </p>
               </CardHeader>
+
               <CardContent className="space-y-4">
                 <div>
                   <Label htmlFor="invoice-file">Faktura (PDF, JPG, PNG)</Label>
+
                   <Input
                     id="invoice-file"
                     type="file"
@@ -563,10 +795,13 @@ export function InvoiceUploadDialog() {
                 {selectedFile && (
                   <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-md">
                     <FileText className="h-4 w-4 text-blue-600" />
+
                     <span className="text-sm">{selectedFile.name}</span>
+
                     <span className="text-xs text-gray-500">
                       ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
                     </span>
+
                     <Button
                       variant="ghost"
                       size="sm"
@@ -581,8 +816,10 @@ export function InvoiceUploadDialog() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span>Zpracovávání faktury...</span>
+
                       <span>{uploadProgress}%</span>
                     </div>
+
                     <Progress value={uploadProgress} className="w-full" />
                   </div>
                 )}
@@ -595,6 +832,7 @@ export function InvoiceUploadDialog() {
                   >
                     ← Zpět na výběr dodavatele
                   </Button>
+
                   <Button
                     variant="outline"
                     onClick={handleManualEntry}
@@ -602,6 +840,7 @@ export function InvoiceUploadDialog() {
                   >
                     Manuální zadání
                   </Button>
+
                   <Button
                     onClick={handleUpload}
                     disabled={!selectedFile || uploading}
@@ -615,18 +854,23 @@ export function InvoiceUploadDialog() {
           )}
 
           {/* Manual Invoice Entry */}
+
           {currentStep === "manual" && <AddReceivedInvoiceForm />}
 
           {/* Parsed Invoice Review */}
+
           {currentStep === "review" && parsedInvoice && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">
                   3. Kontrola zpracovaných dat
                 </CardTitle>
+
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">Spolehlivost:</span>
+
                   {getConfidenceBadge(parsedInvoice.confidence)}
+
                   <span
                     className={`text-sm font-medium ${getConfidenceColor(parsedInvoice.confidence)}`}
                   >
@@ -634,24 +878,32 @@ export function InvoiceUploadDialog() {
                   </span>
                 </div>
               </CardHeader>
+
               <CardContent className="space-y-4">
                 {/* Invoice Header */}
+
                 <div className="p-4 bg-gray-50 rounded-md space-y-4">
                   <div className="grid grid-cols-4 gap-4">
                     <div>
                       <Label className="text-sm font-medium">Dodavatel</Label>
+
                       <p className="text-sm">{parsedInvoice.supplier}</p>
                     </div>
+
                     <div>
                       <Label className="text-sm font-medium">
                         Číslo faktury
                       </Label>
+
                       <p className="text-sm">{parsedInvoice.invoiceNumber}</p>
                     </div>
+
                     <div>
                       <Label className="text-sm font-medium">Datum</Label>
+
                       <p className="text-sm">{parsedInvoice.date}</p>
                     </div>
+
                     <div>
                       <Label className="text-sm font-medium">
                         Způsob platby
@@ -663,26 +915,32 @@ export function InvoiceUploadDialog() {
                       </p>
                     </div>
                   </div>
+
                   <div className="grid grid-cols-2 gap-4 pt-2 border-t">
                     <div>
                       <Label className="text-sm font-medium text-gray-600">
                         Mezisoučet (bez DPH)
                       </Label>
+
                       <p className="text-base">
                         {parsedInvoice.subtotal?.toLocaleString("cs-CZ", {
                           minimumFractionDigits: 2,
+
                           maximumFractionDigits: 2,
                         }) || "0,00"}{" "}
                         Kč
                       </p>
                     </div>
+
                     <div>
                       <Label className="text-sm font-medium text-green-700">
                         Celková částka (s DPH)
                       </Label>
+
                       <p className="text-lg font-bold text-green-600">
                         {parsedInvoice.totalAmount.toLocaleString("cs-CZ", {
                           minimumFractionDigits: 2,
+
                           maximumFractionDigits: 2,
                         })}{" "}
                         Kč
@@ -698,13 +956,13 @@ export function InvoiceUploadDialog() {
                       <span className="text-lg">📱</span>
                       QR kódy a čárové kódy nalezené na faktuře
                     </Label>
-                    <div className="space-y-2">
+                    <div className="space-y-4">
                       {parsedInvoice.qrCodes.map((qr, idx) => (
                         <div
                           key={idx}
-                          className="bg-white border border-purple-200 rounded-md p-3"
+                          className="bg-white border border-purple-200 rounded-md p-4"
                         >
-                          <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
                               <Badge className="bg-purple-100 text-purple-700 text-xs">
                                 Strana {qr.page}
@@ -729,7 +987,29 @@ export function InvoiceUploadDialog() {
                               📋 Kopírovat
                             </Button>
                           </div>
-                          <div className="bg-gray-50 p-2 rounded border border-gray-200">
+
+                          {/* QR Code Image */}
+                          {qr.type === "QRCODE" && (
+                            <div className="flex flex-col items-center space-y-3">
+                              <div className="bg-white p-3 rounded-lg border-2 border-gray-200">
+                                <QRCodeSVG
+                                  value={qr.data}
+                                  size={128}
+                                  level="M"
+                                  includeMargin={true}
+                                />
+                              </div>
+                              <div className="text-xs text-gray-500 text-center max-w-xs">
+                                Naskenujte QR kód pro rychlý přístup k datům
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Raw Data */}
+                          <div className="mt-3 bg-gray-50 p-2 rounded border border-gray-200">
+                            <div className="text-xs text-gray-600 mb-1">
+                              Surová data:
+                            </div>
                             <code className="text-xs break-all font-mono text-gray-700">
                               {qr.data}
                             </code>
@@ -741,8 +1021,10 @@ export function InvoiceUploadDialog() {
                 )}
 
                 {/* Supplier Selection */}
+
                 <div>
                   <Label htmlFor="supplier-select">Přiřadit k dodavateli</Label>
+
                   <Select
                     value={selectedSupplier}
                     onValueChange={setSelectedSupplier}
@@ -750,6 +1032,7 @@ export function InvoiceUploadDialog() {
                     <SelectTrigger className="mt-2">
                       <SelectValue placeholder="Vyberte dodavatele" />
                     </SelectTrigger>
+
                     <SelectContent>
                       {supplierUsers?.map((supplier: any) => (
                         <SelectItem key={supplier.id} value={supplier.id}>
@@ -761,8 +1044,10 @@ export function InvoiceUploadDialog() {
                 </div>
 
                 {/* Receiver Selection */}
+
                 <div>
                   <Label htmlFor="receiver-select">Odběratel (provoz)</Label>
+
                   <Select
                     value={selectedReceiver}
                     onValueChange={setSelectedReceiver}
@@ -770,6 +1055,7 @@ export function InvoiceUploadDialog() {
                     <SelectTrigger className="mt-2">
                       <SelectValue placeholder="Vyberte provoz" />
                     </SelectTrigger>
+
                     <SelectContent>
                       {storeUsers?.map((store: any) => (
                         <SelectItem key={store.id} value={store.id}>
@@ -781,11 +1067,13 @@ export function InvoiceUploadDialog() {
                 </div>
 
                 {/* Invoice Items */}
+
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <Label className="text-sm font-medium">
                       Položky faktury ({parsedInvoice.items.length})
                     </Label>
+
                     <div className="flex gap-2">
                       <Badge variant="default" className="text-xs bg-green-600">
                         {
@@ -794,6 +1082,7 @@ export function InvoiceUploadDialog() {
                         }{" "}
                         namapováno
                       </Badge>
+
                       {parsedInvoice.unmappedCount &&
                         parsedInvoice.unmappedCount > 0 && (
                           <Badge variant="destructive" className="text-xs">
@@ -804,6 +1093,7 @@ export function InvoiceUploadDialog() {
                   </div>
 
                   {/* Warning for unmapped items */}
+
                   {parsedInvoice.items.filter(
                     (i) => i.matchStatus === "unmapped"
                   ).length > 0 && (
@@ -816,9 +1106,312 @@ export function InvoiceUploadDialog() {
                     </Alert>
                   )}
 
-                  {/* Weight-based layout for MAKRO */}
-                  {selectedSupplier === MAKRO_SUPPLIER_ID ||
-                  invoiceSupplier === MAKRO_SUPPLIER_ID ? (
+                  {/* Edit info */}
+                  <Alert className="mt-2 bg-blue-50 border-blue-200">
+                    <AlertDescription className="text-xs text-blue-800">
+                      💡 <strong>Tip:</strong> Klikněte na název položky pro
+                      úpravu. Změny se projeví při uložení faktury.
+                    </AlertDescription>
+                  </Alert>
+
+                  {/* Zeelandia layout */}
+                  {selectedSupplier === ZEELANDIA_SUPPLIER_ID ||
+                  invoiceSupplier === ZEELANDIA_SUPPLIER_ID ? (
+                    <div className="mt-2 overflow-x-auto border rounded-md">
+                      <table className="w-full text-sm border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50 border-b-2 border-gray-300">
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Číslo položky
+                            </th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Název
+                            </th>
+                            <th className="text-center px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              MJ
+                            </th>
+                            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              <div className="flex items-center justify-end gap-1">
+                                Obsah
+                                <Pencil className="w-3 h-3 text-gray-400" />
+                              </div>
+                            </th>
+                            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              <div className="flex items-center justify-end gap-1">
+                                Fakt. mn.
+                                <Pencil className="w-3 h-3 text-gray-400" />
+                              </div>
+                            </th>
+                            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              <div className="flex items-center justify-end gap-1">
+                                Cena/jed
+                                <Pencil className="w-3 h-3 text-gray-400" />
+                              </div>
+                            </th>
+                            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Cena celkem
+                            </th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700">
+                              Namapováno
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white">
+                          {parsedInvoice.items.map((item) => {
+                            // Calculate price total using edited values if available
+                            const finalTotalWeight =
+                              editedTotalWeights[item.id] ??
+                              item.totalWeightKg ??
+                              0;
+                            const finalPrice =
+                              editedPrices[item.id] ?? item.price ?? 0;
+                            const priceTotal =
+                              Math.round(finalTotalWeight * finalPrice * 100) /
+                              100;
+
+                            return (
+                              <tr
+                                key={item.id}
+                                className={`border-b border-gray-200 hover:bg-gray-50 ${
+                                  item.matchStatus === "unmapped"
+                                    ? "bg-red-50/30"
+                                    : item.matchStatus === "exact"
+                                      ? "bg-green-50/30"
+                                      : "bg-yellow-50/30"
+                                }`}
+                              >
+                                {/* Číslo položky */}
+                                <td className="px-3 py-2 border-r border-gray-200">
+                                  <code className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-mono">
+                                    {item.supplierCode || "???"}
+                                  </code>
+                                </td>
+                                {/* Název */}
+                                <td className="px-3 py-2 text-sm text-gray-900 border-r border-gray-200">
+                                  {item.name || "-"}
+                                </td>
+                                {/* MJ */}
+                                <td className="px-3 py-2 text-center text-xs text-gray-600 border-r border-gray-200">
+                                  {item.quantity
+                                    ? `${item.quantity.toLocaleString("cs-CZ")} ${item.unit || ""}`
+                                    : "-"}
+                                </td>
+                                {/* Obsah */}
+                                <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
+                                  {editingItemId === item.id &&
+                                  editingField === "packageWeight" ? (
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={
+                                        editedPackageWeights[item.id] ??
+                                        item.packageWeightKg ??
+                                        ""
+                                      }
+                                      onChange={(e) =>
+                                        setEditedPackageWeights((prev) => ({
+                                          ...prev,
+                                          [item.id]:
+                                            parseFloat(e.target.value) || 0,
+                                        }))
+                                      }
+                                      onBlur={() => {
+                                        setEditingItemId(null);
+                                        setEditingField(null);
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          setEditingItemId(null);
+                                          setEditingField(null);
+                                        }
+                                        if (e.key === "Escape") {
+                                          setEditedPackageWeights((prev) => {
+                                            const newState = { ...prev };
+                                            delete newState[item.id];
+                                            return newState;
+                                          });
+                                          setEditingItemId(null);
+                                          setEditingField(null);
+                                        }
+                                      }}
+                                      autoFocus
+                                      className="h-7 text-sm text-right"
+                                    />
+                                  ) : (
+                                    <span
+                                      onClick={() => {
+                                        setEditingItemId(item.id);
+                                        setEditingField("packageWeight");
+                                      }}
+                                      className="cursor-pointer hover:bg-gray-100 px-1 rounded"
+                                      title="Klikněte pro úpravu"
+                                    >
+                                      {(editedPackageWeights[item.id] ??
+                                      item.packageWeightKg)
+                                        ? `${(
+                                            editedPackageWeights[item.id] ??
+                                            item.packageWeightKg
+                                          ).toLocaleString("cs-CZ", {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          })} kg`
+                                        : "-"}
+                                    </span>
+                                  )}
+                                </td>
+                                {/* Fakt. mn. */}
+                                <td className="px-3 py-2 text-right text-sm text-gray-900 border-r border-gray-200">
+                                  {editingItemId === item.id &&
+                                  editingField === "totalWeight" ? (
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={
+                                        editedTotalWeights[item.id] ??
+                                        item.totalWeightKg ??
+                                        ""
+                                      }
+                                      onChange={(e) =>
+                                        setEditedTotalWeights((prev) => ({
+                                          ...prev,
+                                          [item.id]:
+                                            parseFloat(e.target.value) || 0,
+                                        }))
+                                      }
+                                      onBlur={() => {
+                                        setEditingItemId(null);
+                                        setEditingField(null);
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          setEditingItemId(null);
+                                          setEditingField(null);
+                                        }
+                                        if (e.key === "Escape") {
+                                          setEditedTotalWeights((prev) => {
+                                            const newState = { ...prev };
+                                            delete newState[item.id];
+                                            return newState;
+                                          });
+                                          setEditingItemId(null);
+                                          setEditingField(null);
+                                        }
+                                      }}
+                                      autoFocus
+                                      className="h-7 text-sm text-right"
+                                    />
+                                  ) : (
+                                    <span
+                                      onClick={() => {
+                                        setEditingItemId(item.id);
+                                        setEditingField("totalWeight");
+                                      }}
+                                      className="cursor-pointer hover:bg-gray-100 px-1 rounded"
+                                      title="Klikněte pro úpravu"
+                                    >
+                                      {(editedTotalWeights[item.id] ??
+                                      item.totalWeightKg)
+                                        ? `${(
+                                            editedTotalWeights[item.id] ??
+                                            item.totalWeightKg
+                                          ).toLocaleString("cs-CZ", {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          })} kg`
+                                        : "-"}
+                                    </span>
+                                  )}
+                                </td>
+                                {/* Cena/jed */}
+                                <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
+                                  {editingItemId === item.id &&
+                                  editingField === "price" ? (
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={(
+                                        editedPrices[item.id] ??
+                                        item.price ??
+                                        0
+                                      ).toFixed(2)}
+                                      onChange={(e) =>
+                                        setEditedPrices((prev) => ({
+                                          ...prev,
+                                          [item.id]:
+                                            parseFloat(e.target.value) || 0,
+                                        }))
+                                      }
+                                      onBlur={() => {
+                                        setEditingItemId(null);
+                                        setEditingField(null);
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          setEditingItemId(null);
+                                          setEditingField(null);
+                                        }
+                                        if (e.key === "Escape") {
+                                          setEditedPrices((prev) => {
+                                            const newState = { ...prev };
+                                            delete newState[item.id];
+                                            return newState;
+                                          });
+                                          setEditingItemId(null);
+                                          setEditingField(null);
+                                        }
+                                      }}
+                                      autoFocus
+                                      className="h-7 text-sm text-right"
+                                    />
+                                  ) : (
+                                    <span
+                                      onClick={() => {
+                                        setEditingItemId(item.id);
+                                        setEditingField("price");
+                                      }}
+                                      className="cursor-pointer hover:bg-gray-100 px-1 rounded"
+                                      title="Klikněte pro úpravu"
+                                    >
+                                      {(
+                                        editedPrices[item.id] ?? item.price
+                                      )?.toLocaleString("cs-CZ", {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}
+                                    </span>
+                                  )}
+                                </td>
+                                {/* Cena celkem */}
+                                <td className="px-3 py-2 text-right text-sm font-medium text-gray-900 border-r border-gray-200">
+                                  {Math.round(priceTotal).toLocaleString(
+                                    "cs-CZ",
+                                    {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    }
+                                  )}
+                                </td>
+                                {/* Namapováno */}
+                                <td className="px-3 py-2 text-sm">
+                                  {item.ingredientName ? (
+                                    <div className="text-green-700 font-medium">
+                                      ✓ {item.ingredientName}
+                                    </div>
+                                  ) : (
+                                    <div className="text-red-600">
+                                      ✗ Neznámý kód
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : /* Weight-based layout for MAKRO */
+                  selectedSupplier === MAKRO_SUPPLIER_ID ||
+                    invoiceSupplier === MAKRO_SUPPLIER_ID ? (
                     <div className="mt-2 overflow-x-auto border rounded-md">
                       <table className="w-full text-sm">
                         <thead>
@@ -826,39 +1419,54 @@ export function InvoiceUploadDialog() {
                             <th className="text-left p-2 text-xs">
                               číslo zboží
                             </th>
+
                             <th className="text-right p-2 text-xs">počet MU</th>
+
                             <th className="text-left p-2 text-xs">
-                              název zboží
+                              <div className="flex items-center gap-1">
+                                název zboží
+                                <Pencil className="w-3 h-3 text-gray-400" />
+                              </div>
                             </th>
+
                             <th className="text-right p-2 text-xs">
                               hmot. bal.
                             </th>
+
                             <th className="text-right p-2 text-xs">
                               celk. hmot.
                             </th>
+
                             <th className="text-right p-2 text-xs">
                               zákl. cena
                             </th>
+
                             <th className="text-right p-2 text-xs">
                               jedn. v MU
                             </th>
+
                             <th className="text-right p-2 text-xs">
                               cena za MU
                             </th>
+
                             <th className="text-right p-2 text-xs">
                               cena celkem
                             </th>
+
                             <th className="text-right p-2 text-xs bg-orange-50">
                               Cena/kg
                             </th>
+
                             <th className="text-left p-2 text-xs bg-blue-50">
                               Namapováno
                             </th>
                           </tr>
                         </thead>
+
                         <tbody>
                           {parsedInvoice.items.map((item) => {
                             const isWeightFormat = item.name?.startsWith("*");
+
                             return (
                               <tr
                                 key={item.id}
@@ -871,19 +1479,24 @@ export function InvoiceUploadDialog() {
                                 }`}
                               >
                                 {/* číslo zboží */}
+
                                 <td className="p-2">
                                   <code className="text-xs bg-blue-100 px-1 py-0.5 rounded font-mono">
                                     {item.supplierCode || "???"}
                                   </code>
                                 </td>
+
                                 {/* počet MU */}
+
                                 <td className="p-2 text-right text-xs font-semibold">
                                   {isWeightFormat ? (
                                     <span className="text-purple-600">
                                       {item.totalWeightKg?.toLocaleString(
                                         "cs-CZ",
+
                                         {
                                           minimumFractionDigits: 3,
+
                                           maximumFractionDigits: 3,
                                         }
                                       )}{" "}
@@ -893,11 +1506,52 @@ export function InvoiceUploadDialog() {
                                     item.quantity.toLocaleString("cs-CZ")
                                   )}
                                 </td>
+
                                 {/* název zboží */}
+
                                 <td className="p-2 text-xs">
-                                  {item.name || "-"}
+                                  {editingItemId === item.id ? (
+                                    <Input
+                                      value={
+                                        editedDescriptions[item.id] ?? item.name
+                                      }
+                                      onChange={(e) =>
+                                        setEditedDescriptions((prev) => ({
+                                          ...prev,
+                                          [item.id]: e.target.value,
+                                        }))
+                                      }
+                                      onBlur={() => setEditingItemId(null)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          setEditingItemId(null);
+                                        }
+                                        if (e.key === "Escape") {
+                                          setEditedDescriptions((prev) => {
+                                            const newState = { ...prev };
+                                            delete newState[item.id];
+                                            return newState;
+                                          });
+                                          setEditingItemId(null);
+                                        }
+                                      }}
+                                      autoFocus
+                                      className="h-6 text-xs"
+                                    />
+                                  ) : (
+                                    <span
+                                      onClick={() => setEditingItemId(item.id)}
+                                      className="cursor-pointer hover:bg-gray-100 px-1 rounded"
+                                      title="Klikněte pro úpravu"
+                                    >
+                                      {editedDescriptions[item.id] ??
+                                        (item.name || "-")}
+                                    </span>
+                                  )}
                                 </td>
+
                                 {/* hmot. bal. */}
+
                                 <td className="p-2 text-right text-xs text-blue-600">
                                   {item.packageWeightKg
                                     ? `${(
@@ -907,19 +1561,25 @@ export function InvoiceUploadDialog() {
                                       })} g`
                                     : "-"}
                                 </td>
+
                                 {/* celk. hmot. */}
+
                                 <td className="p-2 text-right text-xs text-green-600 font-medium">
                                   {item.totalWeightKg
                                     ? `${item.totalWeightKg.toLocaleString(
                                         "cs-CZ",
+
                                         {
                                           minimumFractionDigits: 3,
+
                                           maximumFractionDigits: 3,
                                         }
                                       )} kg`
                                     : "-"}
                                 </td>
+
                                 {/* zákl. cena */}
+
                                 <td className="p-2 text-right text-xs">
                                   {item.basePrice ? (
                                     <span
@@ -931,26 +1591,35 @@ export function InvoiceUploadDialog() {
                                     >
                                       {item.basePrice.toLocaleString("cs-CZ", {
                                         minimumFractionDigits: 2,
+
                                         maximumFractionDigits: 2,
                                       })}
+
                                       {isWeightFormat && " /kg"}
                                     </span>
                                   ) : (
                                     "-"
                                   )}
                                 </td>
+
                                 {/* jedn. v MU */}
+
                                 <td className="p-2 text-right text-xs">
                                   {item.unitsInMu || "1"}
                                 </td>
+
                                 {/* cena za MU */}
+
                                 <td className="p-2 text-right text-xs">
                                   {item.price?.toLocaleString("cs-CZ", {
                                     minimumFractionDigits: 2,
+
                                     maximumFractionDigits: 2,
                                   })}
                                 </td>
+
                                 {/* cena celkem */}
+
                                 <td className="p-2 text-right text-xs font-semibold">
                                   {(
                                     item.total ||
@@ -958,15 +1627,19 @@ export function InvoiceUploadDialog() {
                                     0
                                   ).toLocaleString("cs-CZ", {
                                     minimumFractionDigits: 2,
+
                                     maximumFractionDigits: 2,
                                   })}
                                 </td>
+
                                 {/* Cena/kg */}
+
                                 <td className="p-2 text-right text-xs bg-orange-50">
                                   {item.pricePerKg ? (
                                     <span className="text-orange-600 font-bold">
                                       {item.pricePerKg.toLocaleString("cs-CZ", {
                                         minimumFractionDigits: 2,
+
                                         maximumFractionDigits: 2,
                                       })}{" "}
                                       Kč/kg
@@ -975,7 +1648,9 @@ export function InvoiceUploadDialog() {
                                     <span className="text-gray-400">-</span>
                                   )}
                                 </td>
+
                                 {/* Namapováno */}
+
                                 <td className="p-2 text-xs bg-blue-50">
                                   {item.ingredientName ? (
                                     <div className="text-green-700 font-medium">
@@ -995,6 +1670,7 @@ export function InvoiceUploadDialog() {
                     </div>
                   ) : (
                     /* Standard layout for other suppliers */
+
                     <div className="mt-2 space-y-2">
                       {parsedInvoice.items.map((item) => (
                         <div
@@ -1014,8 +1690,47 @@ export function InvoiceUploadDialog() {
                                   {item.supplierCode}
                                 </code>
                               )}
-                              <span className="font-medium">{item.name}</span>
+
+                              {editingItemId === item.id ? (
+                                <Input
+                                  value={
+                                    editedDescriptions[item.id] ?? item.name
+                                  }
+                                  onChange={(e) =>
+                                    setEditedDescriptions((prev) => ({
+                                      ...prev,
+                                      [item.id]: e.target.value,
+                                    }))
+                                  }
+                                  onBlur={() => setEditingItemId(null)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      setEditingItemId(null);
+                                    }
+                                    if (e.key === "Escape") {
+                                      setEditedDescriptions((prev) => {
+                                        const newState = { ...prev };
+                                        delete newState[item.id];
+                                        return newState;
+                                      });
+                                      setEditingItemId(null);
+                                    }
+                                  }}
+                                  autoFocus
+                                  className="h-8 text-sm flex-1"
+                                />
+                              ) : (
+                                <span
+                                  onClick={() => setEditingItemId(item.id)}
+                                  className="font-medium cursor-pointer hover:bg-gray-100 px-2 py-1 rounded"
+                                  title="Klikněte pro úpravu"
+                                >
+                                  {editedDescriptions[item.id] ??
+                                    (item.name || "-")}
+                                </span>
+                              )}
                             </div>
+
                             {item.ingredientName && (
                               <div className="text-sm text-green-700 font-medium mt-1">
                                 ✓ {item.ingredientName}
@@ -1023,16 +1738,19 @@ export function InvoiceUploadDialog() {
                                   ` (${Math.round((item.confidence || 0) * 100)}% shoda)`}
                               </div>
                             )}
+
                             {item.matchStatus === "unmapped" && (
                               <div className="text-sm text-red-600 mt-1">
                                 ✗ Nenamapovaný kód - vyžaduje ruční přiřazení
                               </div>
                             )}
+
                             <div className="text-sm text-gray-600 mt-1">
                               {item.quantity} {item.unit} ×{" "}
                               {(item.price || 0).toFixed(2)} Kč
                             </div>
                           </div>
+
                           <div className="text-right">
                             <div className="font-semibold">
                               {(
@@ -1050,6 +1768,7 @@ export function InvoiceUploadDialog() {
                 </div>
 
                 {/* Unmapped Items Detail */}
+
                 {parsedInvoice.items.filter((i) => i.matchStatus === "unmapped")
                   .length > 0 && (
                   <div className="p-4 bg-red-50 border border-red-200 rounded-md">
@@ -1062,9 +1781,12 @@ export function InvoiceUploadDialog() {
                       }
                       ):
                     </Label>
+
                     <div className="space-y-2">
                       {parsedInvoice.items
+
                         .filter((i) => i.matchStatus === "unmapped")
+
                         .map((item) => (
                           <div
                             key={item.id}
@@ -1074,16 +1796,19 @@ export function InvoiceUploadDialog() {
                               <code className="text-xs bg-red-800 text-white px-1.5 py-0.5 rounded">
                                 {item.supplierCode}
                               </code>
+
                               <span className="text-sm text-red-900">
-                                {item.name}
+                                {editedDescriptions[item.id] ?? item.name}
                               </span>
                             </div>
+
                             <span className="text-xs text-red-600">
                               {item.quantity} {item.unit}
                             </span>
                           </div>
                         ))}
                     </div>
+
                     <p className="text-xs text-red-700 mt-2">
                       💡 Pro uložení těchto položek přejděte do{" "}
                       <strong>
@@ -1095,8 +1820,10 @@ export function InvoiceUploadDialog() {
                 )}
 
                 {/* Notes */}
+
                 <div>
                   <Label htmlFor="notes">Poznámky</Label>
+
                   <Textarea
                     id="notes"
                     value={notes}
@@ -1107,6 +1834,7 @@ export function InvoiceUploadDialog() {
                 </div>
 
                 {/* Actions */}
+
                 <div className="flex gap-2 pt-4">
                   <Button
                     onClick={handleApprove}
@@ -1115,6 +1843,7 @@ export function InvoiceUploadDialog() {
                     <CheckCircle className="h-4 w-4 mr-2" />
                     Schválit a uložit
                   </Button>
+
                   <Button
                     onClick={handleReject}
                     variant="outline"

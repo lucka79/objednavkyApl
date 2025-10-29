@@ -242,7 +242,13 @@ export function ReceivedInvoices() {
       unitPrice: number;
       invoiceId: string;
     }) => {
-      const lineTotal = quantity * unitPrice;
+      const lineTotal = Math.round(quantity * unitPrice * 100) / 100; // Round to 2 decimal places
+
+      console.log("=== UPDATING ITEM ===");
+      console.log("Item ID:", itemId);
+      console.log("Quantity:", quantity);
+      console.log("Unit Price:", unitPrice);
+      console.log("Line Total:", lineTotal);
 
       // Update the item
       const { data: itemData, error: itemError } = await supabase
@@ -260,6 +266,8 @@ export function ReceivedInvoices() {
         console.error("Supabase error updating item:", itemError);
         throw itemError;
       }
+
+      console.log("Item updated successfully:", itemData);
 
       // Get all items for this invoice to recalculate total
       const { data: allItems, error: itemsError } = await supabase
@@ -295,9 +303,30 @@ export function ReceivedInvoices() {
       console.log("Invoice total updated successfully");
       console.log("=== END UPDATING INVOICE TOTAL ===");
 
-      return itemData;
+      return { itemData, newTotalAmount };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      // Update the selected invoice with the new data
+      if (selectedInvoice && result.itemData) {
+        const updatedItems = selectedInvoice.items?.map((item) => {
+          if (item.id === result.itemData.id) {
+            return {
+              ...item,
+              quantity: result.itemData.quantity,
+              unit_price: result.itemData.unit_price,
+              line_total: result.itemData.line_total,
+            };
+          }
+          return item;
+        });
+
+        setSelectedInvoice({
+          ...selectedInvoice,
+          items: updatedItems,
+          total_amount: result.newTotalAmount,
+        });
+      }
+
       queryClient.invalidateQueries({ queryKey: ["receivedInvoices"] });
       toast({
         title: "Úspěch",
@@ -674,7 +703,7 @@ export function ReceivedInvoices() {
       return sum + subtotal;
     }, 0);
 
-    return { count, totalAmount };
+    return { count, totalAmount: Math.round(totalAmount) };
   }, [filteredInvoices]);
 
   const handleViewInvoice = (invoice: ReceivedInvoice) => {
@@ -1062,7 +1091,10 @@ export function ReceivedInvoices() {
                       Celkem bez DPH:{" "}
                     </span>
                     <span className="font-medium">
-                      {totals.totalAmount.toFixed(2)} Kč
+                      {totals.totalAmount.toLocaleString("cs-CZ", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })} Kč
                     </span>
                   </div>
                 </div>
@@ -1131,7 +1163,10 @@ export function ReceivedInvoices() {
                               (sum, item) => sum + (item.line_total || 0),
                               0
                             );
-                            return subtotal.toFixed(2);
+                            return Math.round(subtotal).toLocaleString("cs-CZ", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            });
                           })()}{" "}
                           Kč
                         </div>
@@ -1284,7 +1319,10 @@ export function ReceivedInvoices() {
                             (sum, item) => sum + (item.line_total || 0),
                             0
                           );
-                          return subtotal.toFixed(2);
+                          return Math.round(subtotal).toLocaleString("cs-CZ", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          });
                         })()}{" "}
                         Kč
                       </p>
@@ -1408,7 +1446,7 @@ export function ReceivedInvoices() {
                                 </span>
                               </div>
                               <div className="col-span-3 text-right font-medium pr-6">
-                                {(item.line_total || 0).toFixed(2)} Kč
+                                {Math.round((item.line_total || 0) * 100) / 100} Kč
                               </div>
                               <div className="col-span-1 flex justify-end gap-1 pl-2">
                                 <Button
