@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
 # Copy application code (this layer will change most often)
-COPY python-ocr-service/main.py start.sh .
+COPY python-ocr-service/main.py start.sh run.py .
 
 # Make startup script executable
 RUN chmod +x start.sh
@@ -40,8 +40,8 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Create entrypoint script
-RUN echo '#!/bin/bash\nexec uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+# Make Python script executable
+RUN chmod +x run.py
 
 # Run the application
-ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["python3", "run.py"]
