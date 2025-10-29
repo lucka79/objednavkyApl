@@ -328,12 +328,16 @@ def extract_weight_from_description(description: str) -> Optional[float]:
     return None
 
 def extract_number(text: Optional[str]) -> float:
-    """Extract number from text"""
+    """Extract number from text, handling Czech number format"""
     if not text:
         return 0
     
-    # Remove spaces and replace Czech decimal comma with period
-    cleaned = text.replace(' ', '').replace(',', '.')
+    # Handle Czech number format: "7 579,00" -> 7579.00
+    # First, replace Czech decimal comma with period
+    cleaned = text.replace(',', '.')
+    
+    # Then remove spaces (thousands separators in Czech format)
+    cleaned = cleaned.replace(' ', '')
     
     try:
         return float(cleaned)
