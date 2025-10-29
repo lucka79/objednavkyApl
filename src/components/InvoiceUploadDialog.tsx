@@ -157,6 +157,27 @@ export function InvoiceUploadDialog() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
 
+  // Calculate subtotal using edited values for Zeelandia
+  const calculateSubtotal = () => {
+    if (!parsedInvoice) return 0;
+    
+    const isZeelandia = selectedSupplier === ZEELANDIA_SUPPLIER_ID || invoiceSupplier === ZEELANDIA_SUPPLIER_ID;
+    
+    if (isZeelandia) {
+      return parsedInvoice.items.reduce((sum, item) => {
+        const finalTotalWeight = editedTotalWeights[item.id] ?? item.totalWeightKg ?? 0;
+        const finalPrice = editedPrices[item.id] ?? item.price ?? 0;
+        return sum + (Math.floor(finalTotalWeight) * Math.floor(finalPrice));
+      }, 0);
+    }
+    
+    // For non-Zeelandia, use original calculation
+    return parsedInvoice.items.reduce((sum, item) => {
+      const itemTotal = item.total || item.quantity * item.price || 0;
+      return sum + itemTotal;
+    }, 0);
+  };
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { toast } = useToast();
@@ -566,12 +587,12 @@ export function InvoiceUploadDialog() {
 
           // Use edited values if available, otherwise fall back to original values
           const quantity = isZeelandia
-            ? (editedTotalWeights[item.id] ?? item.totalWeightKg) || 0
+            ? Math.floor((editedTotalWeights[item.id] ?? item.totalWeightKg) || 0)
             : item.quantity;
           const unitPrice = isZeelandia 
             ? Math.floor((editedPrices[item.id] ?? item.price) || 0)
             : item.price;
-          const lineTotal = Math.round(quantity * unitPrice * 100) / 100; // Round to 2 decimal places
+          const lineTotal = Math.floor(quantity) * Math.floor(unitPrice); // Use Math.floor for both before multiplying
 
           const baseInsert: any = {
             invoice_received_id: savedInvoice.id,
@@ -954,12 +975,7 @@ export function InvoiceUploadDialog() {
                       </Label>
 
                       <p className="text-base">
-                        {parsedInvoice.subtotal?.toLocaleString("cs-CZ", {
-                          minimumFractionDigits: 2,
-
-                          maximumFractionDigits: 2,
-                        }) || "0,00"}{" "}
-                        Kč
+                        {calculateSubtotal().toLocaleString("cs-CZ")} Kč
                       </p>
                     </div>
 
@@ -1232,8 +1248,7 @@ export function InvoiceUploadDialog() {
                             const finalPrice =
                               editedPrices[item.id] ?? item.price ?? 0;
                             const priceTotal =
-                              Math.round(finalTotalWeight * finalPrice * 100) /
-                              100;
+                              Math.floor(finalTotalWeight) * Math.floor(finalPrice);
 
                             return (
                               <tr
@@ -1266,16 +1281,14 @@ export function InvoiceUploadDialog() {
                                       value={
                                         editedTotalWeights[item.id] !==
                                         undefined
-                                          ? editedTotalWeights[
-                                              item.id
-                                            ].toString()
-                                          : (item.totalWeightKg ?? 0).toString()
+                                          ? Math.floor(editedTotalWeights[item.id]).toString()
+                                          : Math.floor(item.totalWeightKg ?? 0).toString()
                                       }
                                       onChange={(e) => {
                                         const value = e.target.value;
                                         setEditedTotalWeights((prev) => ({
                                           ...prev,
-                                          [item.id]: parseFloat(value) || 0,
+                                          [item.id]: Math.floor(parseFloat(value) || 0),
                                         }));
                                       }}
                                       onBlur={() => {
@@ -1315,13 +1328,10 @@ export function InvoiceUploadDialog() {
                                     >
                                       {(editedTotalWeights[item.id] ??
                                       item.totalWeightKg)
-                                        ? `${(
+                                        ? `${Math.floor(
                                             editedTotalWeights[item.id] ??
                                             item.totalWeightKg
-                                          ).toLocaleString("cs-CZ", {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                          })} kg`
+                                          ).toLocaleString("cs-CZ")} kg`
                                         : "-"}
                                     </span>
                                   )}
@@ -1335,14 +1345,20 @@ export function InvoiceUploadDialog() {
                                       step="0.01"
                                       value={
                                         editedPrices[item.id] !== undefined
-                                          ? Math.floor(editedPrices[item.id]).toString()
-                                          : Math.floor(item.price ?? 0).toString()
+                                          ? Math.floor(
+                                              editedPrices[item.id]
+                                            ).toString()
+                                          : Math.floor(
+                                              item.price ?? 0
+                                            ).toString()
                                       }
                                       onChange={(e) => {
                                         const value = e.target.value;
                                         setEditedPrices((prev) => ({
                                           ...prev,
-                                          [item.id]: Math.floor(parseFloat(value) || 0),
+                                          [item.id]: Math.floor(
+                                            parseFloat(value) || 0
+                                          ),
                                         }));
                                       }}
                                       onBlur={() => {
@@ -1388,13 +1404,7 @@ export function InvoiceUploadDialog() {
                                 </td>
                                 {/* Cena celkem */}
                                 <td className="px-3 py-2 text-right text-sm font-medium text-gray-900 border-r border-gray-200">
-                                  {Math.round(priceTotal).toLocaleString(
-                                    "cs-CZ",
-                                    {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    }
-                                  )}
+                                  {priceTotal.toLocaleString("cs-CZ")}
                                 </td>
                                 {/* Namapováno */}
                                 <td className="px-3 py-2 text-sm">
