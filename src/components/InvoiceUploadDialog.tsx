@@ -147,9 +147,7 @@ export function InvoiceUploadDialog() {
   const [editedDescriptions, setEditedDescriptions] = useState<{
     [key: string]: string;
   }>({});
-  const [editedPackageWeights, setEditedPackageWeights] = useState<{
-    [key: string]: number;
-  }>({});
+
   const [editedTotalWeights, setEditedTotalWeights] = useState<{
     [key: string]: number;
   }>({});
@@ -562,10 +560,14 @@ export function InvoiceUploadDialog() {
       if (matchedItems.length > 0) {
         const itemsToInsert = matchedItems.map((item, index) => {
           // For Zeelandia, use totalWeightKg as quantity and price as unit_price
-          const isZeelandia = selectedSupplier === ZEELANDIA_SUPPLIER_ID || invoiceSupplier === ZEELANDIA_SUPPLIER_ID;
-          
-          const quantity = isZeelandia ? (item.totalWeightKg || 0) : item.quantity;
-          const unitPrice = isZeelandia ? (item.price || 0) : item.price;
+          const isZeelandia =
+            selectedSupplier === ZEELANDIA_SUPPLIER_ID ||
+            invoiceSupplier === ZEELANDIA_SUPPLIER_ID;
+
+          const quantity = isZeelandia
+            ? item.totalWeightKg || 0
+            : item.quantity;
+          const unitPrice = isZeelandia ? item.price || 0 : item.price;
           const lineTotal = Math.round(quantity * unitPrice * 100) / 100; // Round to 2 decimal places
 
           const baseInsert: any = {
@@ -971,76 +973,120 @@ export function InvoiceUploadDialog() {
                   </div>
                 </div>
 
-                {/* QR Codes Section */}
-                {parsedInvoice.qrCodes && parsedInvoice.qrCodes.length > 0 && (
-                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-md">
-                    <Label className="text-sm font-semibold text-purple-800 mb-3 flex items-center gap-2">
-                      <span className="text-lg">📱</span>
-                      QR kódy a čárové kódy nalezené na faktuře
-                    </Label>
-                    <div className="space-y-4">
-                      {parsedInvoice.qrCodes.map((qr, idx) => (
-                        <div
-                          key={idx}
-                          className="bg-white border border-purple-200 rounded-md p-4"
-                        >
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <Badge className="bg-purple-100 text-purple-700 text-xs">
-                                Strana {qr.page}
-                              </Badge>
-                              <span className="text-xs text-gray-600">
-                                {qr.type === "QRCODE" ? "QR kód" : "Čárový kód"}
-                              </span>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 px-2 text-xs"
-                              onClick={() => {
-                                navigator.clipboard.writeText(qr.data);
-                                toast({
-                                  title: "Zkopírováno",
-                                  description:
-                                    "Data byla zkopírována do schránky",
-                                });
-                              }}
-                            >
-                              📋 Kopírovat
-                            </Button>
-                          </div>
-
-                          {/* QR Code Image */}
-                          {qr.type === "QRCODE" && (
-                            <div className="flex flex-col items-center space-y-3">
-                              <div className="bg-white p-3 rounded-lg border-2 border-gray-200">
-                                <QRCodeSVG
-                                  value={qr.data}
-                                  size={128}
-                                  level="M"
-                                  includeMargin={true}
-                                />
-                              </div>
-                              <div className="text-xs text-gray-500 text-center max-w-xs">
-                                Naskenujte QR kód pro rychlý přístup k datům
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Raw Data */}
-                          <div className="mt-3 bg-gray-50 p-2 rounded border border-gray-200">
-                            <div className="text-xs text-gray-600 mb-1">
-                              Surová data:
-                            </div>
-                            <code className="text-xs break-all font-mono text-gray-700">
-                              {qr.data}
-                            </code>
+                {/* PDF Preview and QR Codes Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* PDF Preview */}
+                  {selectedFile && (
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                      <Label className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                        <span className="text-lg">📄</span>
+                        Náhled faktury
+                      </Label>
+                      <div className="bg-white border border-blue-200 rounded-md p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-blue-600" />
+                            <span className="text-sm font-medium">
+                              {selectedFile.name}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              ({(selectedFile.size / 1024 / 1024).toFixed(2)}{" "}
+                              MB)
+                            </span>
                           </div>
                         </div>
-                      ))}
+
+                        {/* PDF Preview */}
+                        <div className="border border-gray-200 rounded-md overflow-hidden">
+                          <iframe
+                            src={URL.createObjectURL(selectedFile)}
+                            className="w-full h-96"
+                            title="PDF Preview"
+                          />
+                        </div>
+
+                        <div className="mt-3 text-xs text-gray-600">
+                          💡 Náhled slouží pro vizuální kontrolu správnosti
+                          zpracování
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+
+                  {/* QR Codes Section */}
+                  {parsedInvoice.qrCodes &&
+                    parsedInvoice.qrCodes.length > 0 && (
+                      <div className="p-4 bg-purple-50 border border-purple-200 rounded-md">
+                        <Label className="text-sm font-semibold text-purple-800 mb-3 flex items-center gap-2">
+                          <span className="text-lg">📱</span>
+                          QR kódy a čárové kódy nalezené na faktuře
+                        </Label>
+                        <div className="space-y-4">
+                          {parsedInvoice.qrCodes.map((qr, idx) => (
+                            <div
+                              key={idx}
+                              className="bg-white border border-purple-200 rounded-md p-4"
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <Badge className="bg-purple-100 text-purple-700 text-xs">
+                                    Strana {qr.page}
+                                  </Badge>
+                                  <span className="text-xs text-gray-600">
+                                    {qr.type === "QRCODE"
+                                      ? "QR kód"
+                                      : "Čárový kód"}
+                                  </span>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 px-2 text-xs"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(qr.data);
+                                    toast({
+                                      title: "Zkopírováno",
+                                      description:
+                                        "Data byla zkopírována do schránky",
+                                    });
+                                  }}
+                                >
+                                  📋 Kopírovat
+                                </Button>
+                              </div>
+
+                              {/* QR Code Image */}
+                              {qr.type === "QRCODE" && (
+                                <div className="flex flex-col items-center space-y-3">
+                                  <div className="bg-white p-3 rounded-lg border-2 border-gray-200">
+                                    <QRCodeSVG
+                                      value={qr.data}
+                                      size={128}
+                                      level="M"
+                                      includeMargin={true}
+                                    />
+                                  </div>
+                                  <div className="text-xs text-gray-500 text-center max-w-xs">
+                                    Naskenujte QR kód pro rychlý přístup k datům
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Raw Data */}
+                              <div className="mt-3 bg-gray-50 p-2 rounded border border-gray-200">
+                                <div className="text-xs text-gray-600 mb-1">
+                                  Surová data:
+                                </div>
+                                <code className="text-xs break-all font-mono text-gray-700">
+                                  {qr.data}
+                                </code>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                </div>
 
                 {/* Supplier Selection */}
 
