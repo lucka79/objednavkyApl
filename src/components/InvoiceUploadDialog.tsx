@@ -564,10 +564,13 @@ export function InvoiceUploadDialog() {
             selectedSupplier === ZEELANDIA_SUPPLIER_ID ||
             invoiceSupplier === ZEELANDIA_SUPPLIER_ID;
 
+          // Use edited values if available, otherwise fall back to original values
           const quantity = isZeelandia
-            ? item.totalWeightKg || 0
+            ? (editedTotalWeights[item.id] ?? item.totalWeightKg) || 0
             : item.quantity;
-          const unitPrice = isZeelandia ? item.price || 0 : item.price;
+          const unitPrice = isZeelandia
+            ? (editedPrices[item.id] ?? item.price) || 0
+            : item.price;
           const lineTotal = Math.round(quantity * unitPrice * 100) / 100; // Round to 2 decimal places
 
           const baseInsert: any = {
@@ -604,12 +607,16 @@ export function InvoiceUploadDialog() {
 
           // Add Zeelandia-specific fields if available
           if (isZeelandia) {
-            if (item.totalWeightKg !== undefined) {
-              baseInsert.fakt_mn = item.totalWeightKg; // Fakt. mn. = total weight
+            // Use edited values for Zeelandia fields
+            const faktMn = editedTotalWeights[item.id] ?? item.totalWeightKg;
+            const cenaJed = editedPrices[item.id] ?? item.price;
+
+            if (faktMn !== undefined) {
+              baseInsert.fakt_mn = faktMn; // Fakt. mn. = total weight
             }
 
-            if (item.price !== undefined) {
-              baseInsert.cena_jed = item.price; // Cena/jed = unit price
+            if (cenaJed !== undefined) {
+              baseInsert.cena_jed = cenaJed; // Cena/jed = unit price
             }
           }
 
@@ -1288,7 +1295,7 @@ export function InvoiceUploadDialog() {
                                         }
                                       }}
                                       autoFocus
-                                      className="h-7 text-sm text-right"
+                                      className="h-7 text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                     />
                                   ) : (
                                     <span
@@ -1351,7 +1358,7 @@ export function InvoiceUploadDialog() {
                                         }
                                       }}
                                       autoFocus
-                                      className="h-7 text-sm text-right"
+                                      className="h-7 text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                     />
                                   ) : (
                                     <span
