@@ -96,4 +96,3 @@ export function TwoLineInvoiceLayout({ items }: TwoLineInvoiceLayoutProps) {
     </div>
   );
 }
-

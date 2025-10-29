@@ -1333,9 +1333,9 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                     </Button>
                   </div>
                 )}
-              </CardHeader>
-              <CardContent>
-                {editedPatterns.line_pattern && (
+          </CardHeader>
+          <CardContent>
+            {editedPatterns.line_pattern && (
                   <Alert className="mb-4 bg-yellow-50">
                     <AlertDescription className="text-xs">
                       <strong>⚠️ Upravený vzor řádku:</strong>
@@ -1412,52 +1412,52 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                     return <StandardInvoiceLayout items={result.items} />;
                   }
                 })()}
+
+                {/* Mapping Statistics */}
+                <div className="grid grid-cols-3 gap-4 mt-6">
+                  <Card className="bg-green-50">
+                    <CardContent className="pt-4">
+                      <div className="text-2xl font-bold text-green-600">
+                        {result.items?.filter((i: any) => i.matched_ingredient_id)
+                          .length || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">✓ Namapováno</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-orange-50">
+                    <CardContent className="pt-4">
+                      <div className="text-2xl font-bold text-orange-600">
+                        {result.items?.filter(
+                          (i: any) =>
+                            !i.matched_ingredient_id && i.suggested_ingredient_name
+                        ).length || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">⚠ Navrženo</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-red-50">
+                    <CardContent className="pt-4">
+                      <div className="text-2xl font-bold text-red-600">
+                        {result.items?.filter(
+                          (i: any) =>
+                            !i.matched_ingredient_id && !i.suggested_ingredient_name
+                        ).length || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">✗ Neznámé</div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {result.unmapped_codes > 0 && (
+                  <Alert className="mt-6">
+                    <AlertDescription>
+                      💡 Přejděte na záložku "Nenamapované kódy" pro přiřazení
+                      surovin k nenamapovaným kódům pomocí product_code.
+                    </AlertDescription>
+                  </Alert>
+                )}
               </CardContent>
             </Card>
-
-            {/* Mapping Statistics */}
-            <div className="grid grid-cols-3 gap-4">
-              <Card className="bg-green-50">
-                <CardContent className="pt-4">
-                  <div className="text-2xl font-bold text-green-600">
-                    {result.items?.filter((i: any) => i.matched_ingredient_id)
-                      .length || 0}
-                  </div>
-                  <div className="text-xs text-gray-600">✓ Namapováno</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-orange-50">
-                <CardContent className="pt-4">
-                  <div className="text-2xl font-bold text-orange-600">
-                    {result.items?.filter(
-                      (i: any) =>
-                        !i.matched_ingredient_id && i.suggested_ingredient_name
-                    ).length || 0}
-                  </div>
-                  <div className="text-xs text-gray-600">⚠ Navrženo</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-red-50">
-                <CardContent className="pt-4">
-                  <div className="text-2xl font-bold text-red-600">
-                    {result.items?.filter(
-                      (i: any) =>
-                        !i.matched_ingredient_id && !i.suggested_ingredient_name
-                    ).length || 0}
-                  </div>
-                  <div className="text-xs text-gray-600">✗ Neznámé</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {result.unmapped_codes > 0 && (
-              <Alert>
-                <AlertDescription>
-                  💡 Přejděte na záložku "Nenamapované kódy" pro přiřazení
-                  surovin k nenamapovaným kódům pomocí product_code.
-                </AlertDescription>
-              </Alert>
-            )}
           </div>
         </CardContent>
       )}
