@@ -2242,7 +2242,7 @@ function generatePatternFromMappings(mappings: any) {
           case "code":
             return "(\\d{7})";
           case "description":
-            return "(.+?)";
+            return "([^\\d]+?)(?=\\s+\\d)";
           case "quantity":
             return "(\\d+)";
           case "unit":
@@ -2291,7 +2291,7 @@ function generatePatternFromMappings(mappings: any) {
       } else if (columnType === "code") {
         return "(\\d{7})";
       } else if (columnType === "description") {
-        return "(.+?)";
+        return "([^\\d]+?)(?=\\s+\\d)";
       } else if (columnType === "quantity") {
         return "(\\d+)";
       } else if (columnType === "vat_rate") {
@@ -2327,7 +2327,7 @@ function generatePatternFromMappings(mappings: any) {
   // Fallback to default pattern if no mappings
   const patternParts = [
     "(\\d{7})", // Code: 7 digits
-    "(.+?)", // Description: non-greedy until quantity
+    "([^\\d]+?)(?=\\s+\\d)", // Description: non-greedy until quantity (stops before first digit)
     "(\\d+)", // Quantity: number
     "(BAG|BKT|PCE)", // Unit: specific values
     "([\\d,\\s]+)", // Obsah: Czech number format
