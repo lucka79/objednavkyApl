@@ -278,6 +278,7 @@ function TemplateForm({
           // Example: "0000930 ON Jablko skořice gel 11kg 13 BKT 11,00 KG 143,00 KG 53,00 7 579,00 CZ 12%"
           // Groups:    1       2                          3   4   5      6   7      8   9     10       11 12
           // Description pattern: letters + optional weight (e.g. "Bolognese 5kg", "Rosette 1")
+          // Note: Cena/jed (group 9) is saved as unit_price in items_received table
           line_pattern:
             "^(\\d{7})\\s+([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*(?:\\s+\\d+[a-zA-Z]+)?)\\s+(\\d+)\\s+(BAG|BKT|PCE)\\s+([\\d,\\s]+)\\s+(KG|PCE)\\s+([\\d,\\s]+)\\s+(KG|PCE)\\s+([\\d,\\s]+)\\s+([\\d,\\s]+)\\s+([A-Z]+)\\s+(\\d+)%",
 

@@ -638,20 +638,8 @@ export function InvoiceUploadDialog() {
             baseInsert.package_weight_kg = item.packageWeightKg;
           }
 
-          // Add Zeelandia-specific fields if available
-          if (isZeelandia) {
-            // Use edited values for Zeelandia fields
-            const faktMn = editedTotalWeights[item.id] ?? item.totalWeightKg;
-            const cenaJed = editedPrices[item.id] ?? item.price;
-
-            if (faktMn !== undefined) {
-              baseInsert.fakt_mn = faktMn; // Fakt. mn. = total weight
-            }
-
-            if (cenaJed !== undefined) {
-              baseInsert.cena_jed = Math.floor(cenaJed); // Cena/jed = unit price (rounded down)
-            }
-          }
+          // Note: For Zeelandia, Fakt. mn. is saved as quantity and Cena/jed is saved as unit_price
+          // No additional fields needed since we use the standard items_received columns
 
           return baseInsert;
         });
@@ -1238,7 +1226,7 @@ export function InvoiceUploadDialog() {
                             </th>
                             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
                               <div className="flex items-center justify-end gap-1">
-                                Cena/jed (Kč/kg)
+                                Cena/jed (Kč/kg) → unit_price
                                 <Pencil className="w-3 h-3 text-gray-400" />
                               </div>
                             </th>
