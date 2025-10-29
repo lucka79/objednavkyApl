@@ -56,7 +56,6 @@ import { AddReceivedInvoiceForm } from "./AddReceivedInvoiceForm";
 import { useIngredients } from "@/hooks/useIngredients";
 import { removeDiacritics } from "@/utils/removeDiacritics";
 import { IngredientPriceFluctuation } from "./IngredientPriceFluctuation";
-import { Badge } from "./ui/badge";
 
 // Add Item Modal Component
 function AddItemModal({
@@ -1321,11 +1320,28 @@ export function ReceivedInvoices() {
                     </div>
                     <div>
                       <Label className="text-sm font-medium">Dodavatel</Label>
-                      <p className="text-lg">
-                        {selectedInvoice.supplier?.full_name ||
-                          selectedInvoice.supplier_name ||
-                          "Neznámý dodavatel"}
-                      </p>
+                      <div className="flex items-center gap-3">
+                        <p className="text-lg">
+                          {selectedInvoice.supplier?.full_name ||
+                            selectedInvoice.supplier_name ||
+                            "Neznámý dodavatel"}
+                        </p>
+                        {/* QR Code next to Dodavatel */}
+                        {selectedInvoice.qr_codes &&
+                          selectedInvoice.qr_codes.length > 0 &&
+                          selectedInvoice.qr_codes[0].type === "QRCODE" && (
+                            <div className="flex-shrink-0">
+                              <div className="bg-white p-1 rounded border border-gray-200">
+                                <QRCodeSVG
+                                  value={selectedInvoice.qr_codes[0].data}
+                                  size={40}
+                                  level="M"
+                                  includeMargin={true}
+                                />
+                              </div>
+                            </div>
+                          )}
+                      </div>
                     </div>
                     <div>
                       <Label className="text-sm font-medium">
@@ -1402,71 +1418,6 @@ export function ReceivedInvoices() {
                   </div>
                 </CardContent>
               </Card>
-
-              {/* QR Codes in Invoice Info Section */}
-              {selectedInvoice.qr_codes &&
-                selectedInvoice.qr_codes.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm font-medium">
-                        QR kódy a čárové kódy
-                      </Label>
-                      <div className="mt-2 space-y-3">
-                        {selectedInvoice.qr_codes.map((qr, idx) => (
-                          <div
-                            key={idx}
-                            className="bg-white border border-purple-200 rounded-md p-3"
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <Badge className="bg-purple-100 text-purple-700 text-xs">
-                                  Strana {qr.page}
-                                </Badge>
-                                <span className="text-xs text-gray-600">
-                                  {qr.type === "QRCODE"
-                                    ? "QR kód"
-                                    : "Čárový kód"}
-                                </span>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 px-2 text-xs"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(qr.data);
-                                  toast({
-                                    title: "Zkopírováno",
-                                    description:
-                                      "Data byla zkopírována do schránky",
-                                  });
-                                }}
-                              >
-                                📋 Kopírovat
-                              </Button>
-                            </div>
-
-                            {/* QR Code Image */}
-                            {qr.type === "QRCODE" && (
-                              <div className="flex flex-col items-center space-y-2">
-                                <div className="bg-white p-2 rounded-lg border border-gray-200">
-                                  <QRCodeSVG
-                                    value={qr.data}
-                                    size={80}
-                                    level="M"
-                                    includeMargin={true}
-                                  />
-                                </div>
-                                <div className="text-xs text-gray-500 text-center">
-                                  Naskenujte QR kód
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
 
               {/* Invoice Items */}
               <Card>
