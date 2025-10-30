@@ -35,8 +35,16 @@ import { Progress } from "@/components/ui/progress";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-import { Upload, FileText, CheckCircle, X, Pencil } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import {
+  Upload,
+  FileText,
+  CheckCircle,
+  X,
+  Pencil,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+
 import { useToast } from "@/hooks/use-toast";
 
 import { useSupplierUsers, useStoreUsers } from "@/hooks/useProfiles";
@@ -69,6 +77,8 @@ interface ParsedInvoiceItem {
   ingredientId?: number | null;
 
   ingredientName?: string | null;
+
+  ingredientUnit?: string | null;
 
   // Weight-based fields (for MAKRO and similar suppliers)
 
@@ -154,8 +164,15 @@ export function InvoiceUploadDialog() {
   const [editedPrices, setEditedPrices] = useState<{
     [key: string]: number;
   }>({});
+  const [editedPricePerKg, setEditedPricePerKg] = useState<{
+    [key: string]: number;
+  }>({});
+  const [ksUnitChecked, setKsUnitChecked] = useState<{
+    [key: string]: boolean;
+  }>({});
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
+  const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
 
   // Calculate subtotal using edited values for Zeelandia
   const calculateSubtotal = () => {
@@ -311,6 +328,23 @@ export function InvoiceUploadDialog() {
 
         setCurrentStep("review");
 
+        // Debug: Log raw extracted items to see field mapping
+        console.log(
+          "🔍 Raw extracted items from document AI:",
+          result.data.items.map((item: any, index: number) => ({
+            index,
+            raw_item: item,
+            product_code: item.product_code,
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit_of_measure || item.unit,
+            total_weight_kg: item.total_weight_kg,
+            package_weight_kg: item.package_weight_kg,
+            unit_price: item.unit_price,
+            total_price: item.total_price || item.line_total,
+          }))
+        );
+
         // Map extracted items with ingredient matching info
 
         const items = result.data.items.map((item: any, index: number) => ({
@@ -335,6 +369,8 @@ export function InvoiceUploadDialog() {
           ingredientId: item.matched_ingredient_id,
 
           ingredientName: item.matched_ingredient_name,
+
+          ingredientUnit: item.matched_ingredient_unit,
 
           // Weight-based fields
 
@@ -445,6 +481,20 @@ export function InvoiceUploadDialog() {
       return;
     }
 
+    // Debug: Check supplier detection
+    const isMakroDetected = supplierId === MAKRO_SUPPLIER_ID;
+    const isZeelandiaDetected = supplierId === ZEELANDIA_SUPPLIER_ID;
+
+    console.log("🔍 Supplier Detection in handleApprove:", {
+      supplierId,
+      MAKRO_SUPPLIER_ID,
+      ZEELANDIA_SUPPLIER_ID,
+      isMakroDetected,
+      isZeelandiaDetected,
+      selectedSupplier,
+      invoiceSupplier,
+    });
+
     try {
       // Check if invoice with this number already exists
 
@@ -482,18 +532,40 @@ export function InvoiceUploadDialog() {
         throw checkError;
       }
 
-      // Convert date from DD.MM.YYYY to YYYY-MM-DD format
+      // Convert date from various formats to YYYY-MM-DD format
 
       const convertDateToISO = (dateStr: string): string => {
-        const parts = dateStr.split(".");
+        if (!dateStr) return "";
 
-        if (parts.length === 3) {
-          const [day, month, year] = parts;
-
+        // First, try to extract date from strings like "Datum zdan. plnění: 08-10-2025"
+        const dateMatch = dateStr.match(/(\d{1,2})[.-](\d{1,2})[.-](\d{4})/);
+        if (dateMatch) {
+          const [, day, month, year] = dateMatch;
           return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
         }
 
-        return dateStr; // Return as-is if already in correct format
+        // Try DD.MM.YYYY format
+        const dotParts = dateStr.split(".");
+        if (dotParts.length === 3) {
+          const [day, month, year] = dotParts;
+          return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+        }
+
+        // Try DD-MM-YYYY format
+        const dashParts = dateStr.split("-");
+        if (dashParts.length === 3 && dashParts[2].length === 4) {
+          const [day, month, year] = dashParts;
+          return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+        }
+
+        // If already in YYYY-MM-DD format, return as-is
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+          return dateStr;
+        }
+
+        // Fallback: return original string and let database handle it
+        console.warn("Could not parse date format:", dateStr);
+        return dateStr;
       };
 
       const isoDate = convertDateToISO(parsedInvoice.date);
@@ -590,25 +662,149 @@ export function InvoiceUploadDialog() {
         (item) => item.ingredientId
       );
 
+      console.log(
+        "📦 Matched items for saving:",
+        matchedItems.map((item) => ({
+          id: item.id,
+          name: item.name,
+          supplierCode: item.supplierCode,
+          quantity: item.quantity,
+          totalWeightKg: item.totalWeightKg,
+          price: item.price,
+          ingredientId: item.ingredientId,
+        }))
+      );
+
       if (matchedItems.length > 0) {
         const itemsToInsert = matchedItems.map((item, index) => {
-          // For Zeelandia, use totalWeightKg as quantity and price as unit_price
+          // Check supplier types
           const isZeelandia =
             selectedSupplier === ZEELANDIA_SUPPLIER_ID ||
             invoiceSupplier === ZEELANDIA_SUPPLIER_ID;
+          const isMakro =
+            selectedSupplier === MAKRO_SUPPLIER_ID ||
+            invoiceSupplier === MAKRO_SUPPLIER_ID;
+
+          // Debug logging for weight-based suppliers
+          if (isMakro || isZeelandia) {
+            console.log(
+              `🔄 Processing ${isMakro ? "MAKRO" : "Zeelandia"} item:`,
+              {
+                itemId: item.id,
+                supplierCode: item.supplierCode,
+                totalWeightKg: item.totalWeightKg,
+                editedTotalWeight: editedTotalWeights[item.id],
+                finalQuantity:
+                  isZeelandia || isMakro
+                    ? parseFloat(
+                        (
+                          editedTotalWeights[item.id] ?? item.totalWeightKg
+                        )?.toString() || "0"
+                      )
+                    : item.quantity,
+                unit: isZeelandia || isMakro ? "kg" : item.unit,
+              }
+            );
+          }
 
           // Use edited values if available, otherwise fall back to original values
-          const quantity = isZeelandia
-            ? Math.floor(
-                (editedTotalWeights[item.id] ?? item.totalWeightKg) || 0
-              )
-            : item.quantity;
-          const unitPrice = isZeelandia
-            ? Math.floor((editedPrices[item.id] ?? item.price) || 0)
-            : item.price;
-          const lineTotal = parseFloat(
-            (Math.floor(quantity) * Math.floor(unitPrice)).toFixed(2)
-          ); // Use Math.floor for both before multiplying and fix decimals
+          // Handle each supplier type separately since they have different templates
+          let quantity: number;
+          let unitPrice: number;
+
+          if (isMakro) {
+            // For Makro: save exactly what is displayed in celk. hmot. and Cena/kg columns
+            const isCheckboxChecked =
+              ksUnitChecked[item.id] !== undefined
+                ? ksUnitChecked[item.id]
+                : true; // Default to checked for ks unit items
+
+            // Determine what is displayed in celk. hmot. column
+            let displayedQuantity: number;
+            if (item.ingredientUnit === "ks" && isCheckboxChecked) {
+              // Checkbox checked: display shows počet MU
+              displayedQuantity = item.quantity;
+            } else {
+              // Checkbox unchecked or not ks: display shows totalWeightKg (or fallback to počet MU)
+              const rawTotalWeight =
+                editedTotalWeights[item.id] ?? item.totalWeightKg;
+              displayedQuantity =
+                rawTotalWeight && rawTotalWeight > 0
+                  ? parseFloat(rawTotalWeight.toString())
+                  : item.quantity; // Fallback to počet MU if no weight
+            }
+
+            // Determine what is displayed in Cena/kg column
+            let displayedUnitPrice: number;
+            if (item.ingredientUnit === "ks" && isCheckboxChecked) {
+              // Checkbox checked: display shows zákl. cena
+              displayedUnitPrice = item.basePrice || item.price || 0;
+            } else {
+              // Checkbox unchecked or not ks: display shows Cena/kg
+              displayedUnitPrice =
+                editedPricePerKg[item.id] ??
+                (item.pricePerKg || item.price || 0);
+            }
+
+            quantity = displayedQuantity;
+            unitPrice = displayedUnitPrice;
+          } else if (isZeelandia) {
+            // For Zeelandia: use totalWeightKg as quantity (preserve decimals)
+            const rawTotalWeight =
+              editedTotalWeights[item.id] ?? item.totalWeightKg;
+            quantity = parseFloat(rawTotalWeight?.toString() || "0");
+            unitPrice = Math.floor((editedPrices[item.id] ?? item.price) || 0); // Zeelandia floors unit price
+          } else {
+            // For other suppliers: use regular quantity
+            quantity = item.quantity;
+            unitPrice = item.price;
+          }
+
+          // Debug: Show what will be saved to items_received
+          console.log(
+            `💾 Saving to items_received for item ${item.id} (${item.name}):`,
+            {
+              supplierType: isMakro
+                ? "MAKRO"
+                : isZeelandia
+                  ? "Zeelandia"
+                  : "Other",
+              displayedInCelkHmot: isMakro
+                ? item.ingredientUnit === "ks" &&
+                  (ksUnitChecked[item.id] !== undefined
+                    ? ksUnitChecked[item.id]
+                    : true)
+                  ? `počet MU: ${item.quantity}`
+                  : `totalWeightKg: ${editedTotalWeights[item.id] ?? item.totalWeightKg}`
+                : null,
+              displayedInCenaKg: isMakro
+                ? item.ingredientUnit === "ks" &&
+                  (ksUnitChecked[item.id] !== undefined
+                    ? ksUnitChecked[item.id]
+                    : true)
+                  ? `zákl. cena: ${item.basePrice || item.price}`
+                  : `Cena/kg: ${editedPricePerKg[item.id] ?? item.pricePerKg}`
+                : null,
+              savedQuantity: quantity,
+              savedUnitPrice: unitPrice,
+              savedUnitOfMeasure: isZeelandia
+                ? "kg"
+                : isMakro
+                  ? item.ingredientUnit === "ks" &&
+                    (ksUnitChecked[item.id] !== undefined
+                      ? ksUnitChecked[item.id]
+                      : true)
+                    ? item.unit
+                    : "kg"
+                  : item.unit,
+              checkboxChecked: isMakro
+                ? ksUnitChecked[item.id] !== undefined
+                  ? ksUnitChecked[item.id]
+                  : true
+                : null,
+            }
+          );
+          const lineTotal = parseFloat((quantity * unitPrice).toFixed(2)); // For weight-based items, preserve decimal quantity
 
           const baseInsert: any = {
             invoice_received_id: savedInvoice.id,
@@ -623,7 +819,17 @@ export function InvoiceUploadDialog() {
 
             line_number: index + 1,
 
-            unit_of_measure: isZeelandia ? "kg" : item.unit,
+            unit_of_measure: isZeelandia
+              ? "kg"
+              : isMakro
+                ? // For Makro: determine unit based on what quantity represents
+                  item.ingredientUnit === "ks" &&
+                  (ksUnitChecked[item.id] !== undefined
+                    ? ksUnitChecked[item.id]
+                    : true)
+                  ? item.unit // Checkbox checked: using počet MU, so use original unit
+                  : "kg" // Checkbox unchecked or not ks: using weight, so use kg
+                : item.unit,
 
             matching_confidence: item.confidence || 100,
           };
@@ -972,7 +1178,7 @@ export function InvoiceUploadDialog() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+                  <div className="grid grid-cols-3 gap-4 pt-2 border-t">
                     <div>
                       <Label className="text-sm font-medium text-gray-600">
                         Mezisoučet (bez DPH)
@@ -997,122 +1203,73 @@ export function InvoiceUploadDialog() {
                         Kč
                       </p>
                     </div>
+
+                    <div>
+                      {/* Raw QR Code Data */}
+                      {parsedInvoice.qrCodes &&
+                        parsedInvoice.qrCodes.length > 0 && (
+                          <div className="p-2 bg-gray-100 rounded text-xs">
+                            <div className="text-gray-600 mb-1">
+                              Surová data:
+                            </div>
+                            <code className="text-gray-800 font-mono break-all">
+                              {parsedInvoice.qrCodes[0].data}
+                            </code>
+                          </div>
+                        )}
+                    </div>
                   </div>
                 </div>
 
-                {/* PDF Preview and QR Codes Section */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* PDF Preview Section */}
+                <div className="grid grid-cols-1 gap-6">
                   {/* PDF Preview */}
                   {selectedFile && (
                     <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
-                      <Label className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                      <div
+                        className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2 cursor-pointer hover:text-blue-900"
+                        onClick={() => setIsPreviewExpanded(!isPreviewExpanded)}
+                      >
                         <span className="text-lg">📄</span>
                         Náhled faktury
-                      </Label>
-                      <div className="bg-white border border-blue-200 rounded-md p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-blue-600" />
-                            <span className="text-sm font-medium">
-                              {selectedFile.name}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              ({(selectedFile.size / 1024 / 1024).toFixed(2)}{" "}
-                              MB)
-                            </span>
+                        {isPreviewExpanded ? (
+                          <ChevronUp className="h-4 w-4 ml-auto" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 ml-auto" />
+                        )}
+                      </div>
+                      {isPreviewExpanded && (
+                        <div className="bg-white border border-blue-200 rounded-md p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-blue-600" />
+                              <span className="text-sm font-medium">
+                                {selectedFile.name}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                ({(selectedFile.size / 1024 / 1024).toFixed(2)}{" "}
+                                MB)
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* PDF Preview */}
+                          <div className="border border-gray-200 rounded-md overflow-hidden">
+                            <iframe
+                              src={URL.createObjectURL(selectedFile)}
+                              className="w-full h-96"
+                              title="PDF Preview"
+                            />
+                          </div>
+
+                          <div className="mt-3 text-xs text-gray-600">
+                            💡 Náhled slouží pro vizuální kontrolu správnosti
+                            zpracování
                           </div>
                         </div>
-
-                        {/* PDF Preview */}
-                        <div className="border border-gray-200 rounded-md overflow-hidden">
-                          <iframe
-                            src={URL.createObjectURL(selectedFile)}
-                            className="w-full h-96"
-                            title="PDF Preview"
-                          />
-                        </div>
-
-                        <div className="mt-3 text-xs text-gray-600">
-                          💡 Náhled slouží pro vizuální kontrolu správnosti
-                          zpracování
-                        </div>
-                      </div>
+                      )}
                     </div>
                   )}
-
-                  {/* QR Codes Section */}
-                  {parsedInvoice.qrCodes &&
-                    parsedInvoice.qrCodes.length > 0 && (
-                      <div className="p-4 bg-purple-50 border border-purple-200 rounded-md">
-                        <Label className="text-sm font-semibold text-purple-800 mb-3 flex items-center gap-2">
-                          <span className="text-lg">📱</span>
-                          QR kódy a čárové kódy nalezené na faktuře
-                        </Label>
-                        <div className="space-y-4">
-                          {parsedInvoice.qrCodes.map((qr, idx) => (
-                            <div
-                              key={idx}
-                              className="bg-white border border-purple-200 rounded-md p-4"
-                            >
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                  <Badge className="bg-purple-100 text-purple-700 text-xs">
-                                    Strana {qr.page}
-                                  </Badge>
-                                  <span className="text-xs text-gray-600">
-                                    {qr.type === "QRCODE"
-                                      ? "QR kód"
-                                      : "Čárový kód"}
-                                  </span>
-                                </div>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 px-2 text-xs"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(qr.data);
-                                    toast({
-                                      title: "Zkopírováno",
-                                      description:
-                                        "Data byla zkopírována do schránky",
-                                    });
-                                  }}
-                                >
-                                  📋 Kopírovat
-                                </Button>
-                              </div>
-
-                              {/* QR Code Image */}
-                              {qr.type === "QRCODE" && (
-                                <div className="flex flex-col items-center space-y-3">
-                                  <div className="bg-white p-3 rounded-lg border-2 border-gray-200">
-                                    <QRCodeSVG
-                                      value={qr.data}
-                                      size={128}
-                                      level="M"
-                                      includeMargin={true}
-                                    />
-                                  </div>
-                                  <div className="text-xs text-gray-500 text-center max-w-xs">
-                                    Naskenujte QR kód pro rychlý přístup k datům
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Raw Data */}
-                              <div className="mt-3 bg-gray-50 p-2 rounded border border-gray-200">
-                                <div className="text-xs text-gray-600 mb-1">
-                                  Surová data:
-                                </div>
-                                <code className="text-xs break-all font-mono text-gray-700">
-                                  {qr.data}
-                                </code>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                 </div>
 
                 {/* Supplier Selection */}
@@ -1441,261 +1598,484 @@ export function InvoiceUploadDialog() {
                   ) : /* Weight-based layout for MAKRO */
                   selectedSupplier === MAKRO_SUPPLIER_ID ||
                     invoiceSupplier === MAKRO_SUPPLIER_ID ? (
-                    <div className="mt-2 overflow-x-auto border rounded-md">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b bg-gray-50">
-                            <th className="text-left p-2 text-xs">
-                              číslo zboží
-                            </th>
+                    <div className="mt-2 space-y-2">
+                      {/* Mapping Legend */}
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                        <div className="text-sm font-medium text-blue-800 mb-2">
+                          📋 Mapování sloupců do items_received:
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                          <div className="space-y-1">
+                            <div className="font-medium text-gray-700">
+                              Když je checkbox zaškrtnutý:
+                            </div>
+                            <div className="text-blue-600">
+                              • počet MU → quantity
+                            </div>
+                            <div className="text-purple-600">
+                              • zákl. cena → unit_price
+                            </div>
+                            <div className="text-gray-600">
+                              • původní jednotka → unit_of_measure
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="font-medium text-gray-700">
+                              Když checkbox není zaškrtnutý:
+                            </div>
+                            <div className="text-green-600">
+                              • celk. hmot. → quantity (primární)
+                            </div>
+                            <div className="text-blue-600">
+                              • počet MU → quantity (záložní)
+                            </div>
+                            <div className="text-orange-600">
+                              • Cena/kg → unit_price
+                            </div>
+                            <div className="text-gray-600">
+                              • "kg" → unit_of_measure
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="overflow-x-auto border rounded-md">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b bg-gray-50">
+                              <th className="text-left p-2 text-xs">
+                                číslo zboží
+                              </th>
 
-                            <th className="text-right p-2 text-xs">počet MU</th>
+                              <th className="text-center p-2 text-xs">ks</th>
 
-                            <th className="text-left p-2 text-xs">
-                              <div className="flex items-center gap-1">
-                                název zboží
-                                <Pencil className="w-3 h-3 text-gray-400" />
-                              </div>
-                            </th>
+                              <th className="text-right p-2 text-xs">
+                                počet MU
+                                <div className="text-xs text-blue-600 font-medium">
+                                  → quantity (fallback)
+                                </div>
+                              </th>
 
-                            <th className="text-right p-2 text-xs">
-                              hmot. bal.
-                            </th>
+                              <th className="text-left p-2 text-xs">
+                                <div className="flex items-center gap-1">
+                                  název zboží
+                                  <Pencil className="w-3 h-3 text-gray-400" />
+                                </div>
+                              </th>
 
-                            <th className="text-right p-2 text-xs">
-                              celk. hmot.
-                            </th>
+                              <th className="text-right p-2 text-xs">
+                                hmot. bal.
+                              </th>
 
-                            <th className="text-right p-2 text-xs">
-                              zákl. cena
-                            </th>
+                              <th className="text-right p-2 text-xs">
+                                celk. hmot.
+                                <div className="text-xs text-green-600 font-medium">
+                                  → quantity (primary)
+                                </div>
+                              </th>
 
-                            <th className="text-right p-2 text-xs">
-                              jedn. v MU
-                            </th>
+                              <th className="text-right p-2 text-xs">
+                                zákl. cena
+                                <div className="text-xs text-purple-600 font-medium">
+                                  → unit_price (checkbox)
+                                </div>
+                              </th>
 
-                            <th className="text-right p-2 text-xs">
-                              cena za MU
-                            </th>
+                              <th className="text-right p-2 text-xs">
+                                jedn. v MU
+                              </th>
 
-                            <th className="text-right p-2 text-xs">
-                              cena celkem
-                            </th>
+                              <th className="text-right p-2 text-xs">
+                                cena za MU
+                              </th>
 
-                            <th className="text-right p-2 text-xs bg-orange-50">
-                              Cena/kg
-                            </th>
+                              <th className="text-right p-2 text-xs">
+                                cena celkem
+                              </th>
 
-                            <th className="text-left p-2 text-xs bg-blue-50">
-                              Namapováno
-                            </th>
-                          </tr>
-                        </thead>
+                              <th className="text-right p-2 text-xs bg-orange-50">
+                                Cena/kg
+                                <div className="text-xs text-orange-600 font-medium">
+                                  → unit_price (no checkbox)
+                                </div>
+                              </th>
 
-                        <tbody>
-                          {parsedInvoice.items.map((item) => {
-                            const isWeightFormat = item.name?.startsWith("*");
+                              <th className="text-left p-2 text-xs bg-blue-50">
+                                Namapováno
+                              </th>
+                            </tr>
+                          </thead>
 
-                            return (
-                              <tr
-                                key={item.id}
-                                className={`border-b ${
-                                  item.matchStatus === "unmapped"
-                                    ? "bg-red-50"
-                                    : item.matchStatus === "exact"
-                                      ? "bg-green-50"
-                                      : "bg-yellow-50"
-                                }`}
-                              >
-                                {/* číslo zboží */}
+                          <tbody>
+                            {parsedInvoice.items.map((item) => {
+                              const isWeightFormat = item.name?.startsWith("*");
 
-                                <td className="p-2">
-                                  <code className="text-xs bg-blue-100 px-1 py-0.5 rounded font-mono">
-                                    {item.supplierCode || "???"}
-                                  </code>
-                                </td>
+                              return (
+                                <tr
+                                  key={item.id}
+                                  className={`border-b ${
+                                    item.matchStatus === "unmapped"
+                                      ? "bg-red-50"
+                                      : item.matchStatus === "exact"
+                                        ? "bg-green-50"
+                                        : "bg-yellow-50"
+                                  }`}
+                                >
+                                  {/* číslo zboží */}
 
-                                {/* počet MU */}
+                                  <td className="p-2">
+                                    <code className="text-xs bg-blue-100 px-1 py-0.5 rounded font-mono">
+                                      {item.supplierCode || "???"}
+                                    </code>
+                                  </td>
 
-                                <td className="p-2 text-right text-xs font-semibold">
-                                  {isWeightFormat ? (
-                                    <span className="text-purple-600">
-                                      {item.totalWeightKg?.toLocaleString(
-                                        "cs-CZ",
+                                  {/* Checkbox for ks unit items */}
+                                  <td className="p-2 text-center">
+                                    {item.ingredientUnit === "ks" && (
+                                      <div className="flex items-center justify-center gap-1">
+                                        <input
+                                          type="checkbox"
+                                          checked={
+                                            ksUnitChecked[item.id] !== undefined
+                                              ? ksUnitChecked[item.id]
+                                              : true
+                                          }
+                                          onChange={(e) => {
+                                            setKsUnitChecked((prev) => ({
+                                              ...prev,
+                                              [item.id]: e.target.checked,
+                                            }));
+                                          }}
+                                          className="h-3 w-3 text-orange-600 focus:ring-orange-500 rounded"
+                                        />
+                                        <span className="text-xs text-orange-600 font-medium">
+                                          ks
+                                        </span>
+                                      </div>
+                                    )}
+                                  </td>
 
-                                        {
-                                          minimumFractionDigits: 3,
+                                  {/* počet MU */}
 
-                                          maximumFractionDigits: 3,
-                                        }
-                                      )}{" "}
-                                      kg
-                                    </span>
-                                  ) : (
-                                    item.quantity.toLocaleString("cs-CZ")
-                                  )}
-                                </td>
+                                  <td className="p-2 text-right text-xs font-semibold">
+                                    {isWeightFormat ? (
+                                      <span className="text-purple-600">
+                                        {item.totalWeightKg?.toLocaleString(
+                                          "cs-CZ",
 
-                                {/* název zboží */}
+                                          {
+                                            minimumFractionDigits: 3,
 
-                                <td className="p-2 text-xs">
-                                  {editingItemId === item.id ? (
-                                    <Input
-                                      value={
-                                        editedDescriptions[item.id] ?? item.name
-                                      }
-                                      onChange={(e) =>
-                                        setEditedDescriptions((prev) => ({
-                                          ...prev,
-                                          [item.id]: e.target.value,
-                                        }))
-                                      }
-                                      onBlur={() => setEditingItemId(null)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                          setEditingItemId(null);
-                                        }
-                                        if (e.key === "Escape") {
-                                          setEditedDescriptions((prev) => {
-                                            const newState = { ...prev };
-                                            delete newState[item.id];
-                                            return newState;
-                                          });
-                                          setEditingItemId(null);
-                                        }
-                                      }}
-                                      autoFocus
-                                      className="h-6 text-xs"
-                                    />
-                                  ) : (
-                                    <span
-                                      onClick={() => setEditingItemId(item.id)}
-                                      className="cursor-pointer hover:bg-gray-100 px-1 rounded"
-                                      title="Klikněte pro úpravu"
-                                    >
+                                            maximumFractionDigits: 3,
+                                          }
+                                        )}
+                                      </span>
+                                    ) : (
+                                      item.quantity.toLocaleString("cs-CZ")
+                                    )}
+                                  </td>
+
+                                  {/* název zboží */}
+
+                                  <td className="p-2 text-xs">
+                                    <span className="text-gray-900">
                                       {editedDescriptions[item.id] ??
                                         (item.name || "-")}
                                     </span>
-                                  )}
-                                </td>
+                                  </td>
 
-                                {/* hmot. bal. */}
+                                  {/* hmot. bal. */}
 
-                                <td className="p-2 text-right text-xs text-blue-600">
-                                  {item.packageWeightKg
-                                    ? `${(
-                                        item.packageWeightKg * 1000
-                                      ).toLocaleString("cs-CZ", {
-                                        maximumFractionDigits: 0,
-                                      })} g`
-                                    : "-"}
-                                </td>
+                                  <td className="p-2 text-right text-xs text-blue-600">
+                                    {item.packageWeightKg
+                                      ? `${(
+                                          item.packageWeightKg * 1000
+                                        ).toLocaleString("cs-CZ", {
+                                          maximumFractionDigits: 0,
+                                        })} g`
+                                      : "-"}
+                                  </td>
 
-                                {/* celk. hmot. */}
+                                  {/* celk. hmot. */}
 
-                                <td className="p-2 text-right text-xs text-green-600 font-medium">
-                                  {item.totalWeightKg
-                                    ? `${item.totalWeightKg.toLocaleString(
-                                        "cs-CZ",
+                                  <td className="p-2 text-right text-xs text-green-600 font-medium">
+                                    {(() => {
+                                      const isCheckboxChecked =
+                                        item.ingredientUnit === "ks" &&
+                                        (ksUnitChecked[item.id] !== undefined
+                                          ? ksUnitChecked[item.id]
+                                          : true);
 
-                                        {
-                                          minimumFractionDigits: 3,
-
-                                          maximumFractionDigits: 3,
-                                        }
-                                      )} kg`
-                                    : "-"}
-                                </td>
-
-                                {/* zákl. cena */}
-
-                                <td className="p-2 text-right text-xs">
-                                  {item.basePrice ? (
-                                    <span
-                                      className={
-                                        isWeightFormat
-                                          ? "text-purple-600 font-medium"
-                                          : ""
+                                      // If checkbox is checked, show počet MU value
+                                      if (isCheckboxChecked) {
+                                        return (
+                                          <span className="text-purple-600">
+                                            {item.quantity.toLocaleString(
+                                              "cs-CZ",
+                                              {
+                                                minimumFractionDigits: 3,
+                                                maximumFractionDigits: 3,
+                                              }
+                                            )}
+                                          </span>
+                                        );
                                       }
-                                    >
-                                      {item.basePrice.toLocaleString("cs-CZ", {
-                                        minimumFractionDigits: 2,
 
-                                        maximumFractionDigits: 2,
-                                      })}
+                                      // Otherwise show normal weight editing
+                                      return editingItemId === item.id &&
+                                        editingField === "totalWeight" ? (
+                                        <Input
+                                          type="number"
+                                          step="0.001"
+                                          value={
+                                            editedTotalWeights[item.id] !==
+                                            undefined
+                                              ? editedTotalWeights[
+                                                  item.id
+                                                ].toString()
+                                              : (
+                                                  item.totalWeightKg ?? 0
+                                                ).toString()
+                                          }
+                                          onChange={(e) => {
+                                            const value = e.target.value;
+                                            setEditedTotalWeights((prev) => ({
+                                              ...prev,
+                                              [item.id]: parseFloat(value) || 0,
+                                            }));
+                                          }}
+                                          onBlur={() => {
+                                            setEditingItemId(null);
+                                            setEditingField(null);
+                                          }}
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                              setEditingItemId(null);
+                                              setEditingField(null);
+                                            }
+                                            if (e.key === "Escape") {
+                                              setEditedTotalWeights((prev) => {
+                                                const newState = { ...prev };
+                                                delete newState[item.id];
+                                                return newState;
+                                              });
+                                              setEditingItemId(null);
+                                              setEditingField(null);
+                                            }
+                                          }}
+                                          onFocus={(e) => {
+                                            // Select all text when focused
+                                            e.target.select();
+                                          }}
+                                          autoFocus
+                                          className="h-6 text-xs text-right w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        />
+                                      ) : (
+                                        <span
+                                          onClick={() => {
+                                            setEditingItemId(item.id);
+                                            setEditingField("totalWeight");
+                                          }}
+                                          className="cursor-pointer hover:bg-gray-100 px-1 rounded"
+                                          title="Klikněte pro úpravu"
+                                        >
+                                          {(editedTotalWeights[item.id] ??
+                                          item.totalWeightKg)
+                                            ? `${(
+                                                editedTotalWeights[item.id] ??
+                                                item.totalWeightKg
+                                              ).toLocaleString("cs-CZ", {
+                                                minimumFractionDigits: 3,
+                                                maximumFractionDigits: 3,
+                                              })}`
+                                            : "-"}
+                                        </span>
+                                      );
+                                    })()}
+                                  </td>
 
-                                      {isWeightFormat && " /kg"}
-                                    </span>
-                                  ) : (
-                                    "-"
-                                  )}
-                                </td>
+                                  {/* zákl. cena */}
 
-                                {/* jedn. v MU */}
+                                  <td className="p-2 text-right text-xs">
+                                    {item.basePrice ? (
+                                      <span
+                                        className={
+                                          isWeightFormat
+                                            ? "text-purple-600 font-medium"
+                                            : ""
+                                        }
+                                      >
+                                        {item.basePrice.toLocaleString(
+                                          "cs-CZ",
+                                          {
+                                            minimumFractionDigits: 2,
 
-                                <td className="p-2 text-right text-xs">
-                                  {item.unitsInMu || "1"}
-                                </td>
+                                            maximumFractionDigits: 2,
+                                          }
+                                        )}
 
-                                {/* cena za MU */}
+                                        {isWeightFormat && " /kg"}
+                                      </span>
+                                    ) : (
+                                      "-"
+                                    )}
+                                  </td>
 
-                                <td className="p-2 text-right text-xs">
-                                  {item.price?.toLocaleString("cs-CZ", {
-                                    minimumFractionDigits: 2,
+                                  {/* jedn. v MU */}
 
-                                    maximumFractionDigits: 2,
-                                  })}
-                                </td>
+                                  <td className="p-2 text-right text-xs">
+                                    {item.unitsInMu || "1"}
+                                  </td>
 
-                                {/* cena celkem */}
+                                  {/* cena za MU */}
 
-                                <td className="p-2 text-right text-xs font-semibold">
-                                  {(
-                                    item.total ||
-                                    item.quantity * item.price ||
-                                    0
-                                  ).toLocaleString("cs-CZ", {
-                                    minimumFractionDigits: 2,
+                                  <td className="p-2 text-right text-xs">
+                                    {item.price?.toLocaleString("cs-CZ", {
+                                      minimumFractionDigits: 2,
 
-                                    maximumFractionDigits: 2,
-                                  })}
-                                </td>
+                                      maximumFractionDigits: 2,
+                                    })}
+                                  </td>
 
-                                {/* Cena/kg */}
+                                  {/* cena celkem */}
 
-                                <td className="p-2 text-right text-xs bg-orange-50">
-                                  {item.pricePerKg ? (
-                                    <span className="text-orange-600 font-bold">
-                                      {item.pricePerKg.toLocaleString("cs-CZ", {
-                                        minimumFractionDigits: 2,
+                                  <td className="p-2 text-right text-xs font-semibold">
+                                    {(
+                                      item.total ||
+                                      item.quantity * item.price ||
+                                      0
+                                    ).toLocaleString("cs-CZ", {
+                                      minimumFractionDigits: 2,
 
-                                        maximumFractionDigits: 2,
-                                      })}{" "}
-                                      Kč/kg
-                                    </span>
-                                  ) : (
-                                    <span className="text-gray-400">-</span>
-                                  )}
-                                </td>
+                                      maximumFractionDigits: 2,
+                                    })}
+                                  </td>
 
-                                {/* Namapováno */}
+                                  {/* Cena/kg */}
 
-                                <td className="p-2 text-xs bg-blue-50">
-                                  {item.ingredientName ? (
-                                    <div className="text-green-700 font-medium">
-                                      ✓ {item.ingredientName}
-                                    </div>
-                                  ) : (
-                                    <div className="text-red-600">
-                                      ✗ Neznámý kód
-                                    </div>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                                  <td className="p-2 text-right text-xs bg-orange-50">
+                                    {(() => {
+                                      const isCheckboxChecked =
+                                        item.ingredientUnit === "ks" &&
+                                        (ksUnitChecked[item.id] !== undefined
+                                          ? ksUnitChecked[item.id]
+                                          : true);
+
+                                      // If checkbox is checked, show zákl. cena value
+                                      if (isCheckboxChecked) {
+                                        return (
+                                          <span className="text-purple-600 font-bold">
+                                            {(
+                                              item.basePrice ||
+                                              item.price ||
+                                              0
+                                            ).toLocaleString("cs-CZ", {
+                                              minimumFractionDigits: 2,
+                                              maximumFractionDigits: 2,
+                                            })}{" "}
+                                            Kč/kg
+                                          </span>
+                                        );
+                                      }
+
+                                      // Otherwise show normal pricePerKg editing
+                                      return editingItemId === item.id &&
+                                        editingField === "pricePerKg" ? (
+                                        <Input
+                                          type="number"
+                                          step="0.01"
+                                          value={
+                                            editedPricePerKg[item.id] !==
+                                            undefined
+                                              ? editedPricePerKg[
+                                                  item.id
+                                                ].toString()
+                                              : (
+                                                  item.pricePerKg ?? 0
+                                                ).toString()
+                                          }
+                                          onChange={(e) => {
+                                            const value = e.target.value;
+                                            setEditedPricePerKg((prev) => ({
+                                              ...prev,
+                                              [item.id]: parseFloat(value) || 0,
+                                            }));
+                                          }}
+                                          onBlur={() => {
+                                            setEditingItemId(null);
+                                            setEditingField(null);
+                                          }}
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                              setEditingItemId(null);
+                                              setEditingField(null);
+                                            }
+                                            if (e.key === "Escape") {
+                                              setEditedPricePerKg((prev) => {
+                                                const newState = { ...prev };
+                                                delete newState[item.id];
+                                                return newState;
+                                              });
+                                              setEditingItemId(null);
+                                              setEditingField(null);
+                                            }
+                                          }}
+                                          onFocus={(e) => {
+                                            // Select all text when focused
+                                            e.target.select();
+                                          }}
+                                          autoFocus
+                                          className="h-6 text-xs text-right w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        />
+                                      ) : (
+                                        <span
+                                          onClick={() => {
+                                            setEditingItemId(item.id);
+                                            setEditingField("pricePerKg");
+                                          }}
+                                          className="cursor-pointer hover:bg-gray-100 px-1 rounded"
+                                          title="Klikněte pro úpravu"
+                                        >
+                                          {(editedPricePerKg[item.id] ??
+                                          item.pricePerKg) ? (
+                                            <span className="text-orange-600 font-bold">
+                                              {(
+                                                editedPricePerKg[item.id] ??
+                                                item.pricePerKg
+                                              ).toLocaleString("cs-CZ", {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                              })}{" "}
+                                              Kč/kg
+                                            </span>
+                                          ) : (
+                                            <span className="text-gray-400">
+                                              -
+                                            </span>
+                                          )}
+                                        </span>
+                                      );
+                                    })()}
+                                  </td>
+
+                                  {/* Namapováno */}
+
+                                  <td className="p-2 text-xs bg-blue-50">
+                                    {item.ingredientName ? (
+                                      <div className="text-green-700 font-medium">
+                                        ✓ {item.ingredientName}
+                                      </div>
+                                    ) : (
+                                      <div className="text-red-600">
+                                        ✗ Neznámý kód
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   ) : (
                     /* Standard layout for other suppliers */

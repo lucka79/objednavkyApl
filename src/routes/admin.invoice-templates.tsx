@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { FileText, Code2, BookOpen, Upload, RotateCcw } from "lucide-react";
+import { FileText, Code2, Upload, RotateCcw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useDocumentAI } from "@/hooks/useDocumentAI";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -40,8 +40,8 @@ function InvoiceTemplatesPage() {
         </div>
       </div>
 
-      {/* Quick Start Guide */}
-      <Card className="border-blue-200 bg-blue-50/50">
+      {/* Rychlý start */}
+      {/* <Card className="border-blue-200 bg-blue-50/50">
         <CardHeader>
           <div className="flex items-center gap-2">
             <BookOpen className="h-5 w-5 text-blue-600" />
@@ -72,7 +72,7 @@ function InvoiceTemplatesPage() {
             </span>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
 
       <Tabs defaultValue="test" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
@@ -176,7 +176,7 @@ function InvoiceTemplatesPage() {
       </Tabs>
 
       {/* Documentation Links */}
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle className="text-lg">Dokumentace</CardTitle>
         </CardHeader>
@@ -214,7 +214,7 @@ function InvoiceTemplatesPage() {
             </a>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   );
 }
@@ -468,371 +468,367 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
 
                 {/* Column Mapping Interface OR PDF Preview */}
                 {showColumnMapping &&
-                  result.items &&
-                  result.items.length > 0 ? (
-                    <Card className="bg-blue-50 border-blue-200">
-                      <CardHeader>
-                        <CardTitle className="text-sm">
-                          🎯 Mapování řádků - {result.items.length} položek
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          Označte text v OCR a přiřaďte ho ke sloupcům pro každý
-                          řádek
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3 max-h-96 overflow-y-auto">
-                          {result.items.map((item: any, rowIndex: number) => (
-                            <Card
-                              key={rowIndex}
-                              className="bg-white border border-gray-200"
-                            >
-                              <CardHeader className="pb-2">
-                                <CardTitle className="text-xs">
-                                  Řádek {rowIndex + 1}:{" "}
-                                  {item.product_code || "N/A"} -{" "}
-                                  {item.description || "N/A"}
-                                </CardTitle>
-                              </CardHeader>
-                              <CardContent className="pt-0">
-                                <div className="grid grid-cols-2 gap-1">
-                                  <div className="space-y-1">
-                                    <Button
-                                      size="sm"
-                                      variant={
-                                        columnMappings[`row_${rowIndex}_code`]
-                                          ? "default"
-                                          : "outline"
+                result.items &&
+                result.items.length > 0 ? (
+                  <Card className="bg-blue-50 border-blue-200">
+                    <CardHeader>
+                      <CardTitle className="text-sm">
+                        🎯 Mapování řádků - {result.items.length} položek
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Označte text v OCR a přiřaďte ho ke sloupcům pro každý
+                        řádek
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {result.items.map((item: any, rowIndex: number) => (
+                          <Card
+                            key={rowIndex}
+                            className="bg-white border border-gray-200"
+                          >
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-xs">
+                                Řádek {rowIndex + 1}:{" "}
+                                {item.product_code || "N/A"} -{" "}
+                                {item.description || "N/A"}
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                              <div className="grid grid-cols-2 gap-1">
+                                <div className="space-y-1">
+                                  <Button
+                                    size="sm"
+                                    variant={
+                                      columnMappings[`row_${rowIndex}_code`]
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    className="w-full justify-start text-xs h-7"
+                                    onClick={() => {
+                                      if (selectedText) {
+                                        setColumnMappings((prev: any) => ({
+                                          ...prev,
+                                          [`row_${rowIndex}_code`]:
+                                            selectedText,
+                                        }));
                                       }
-                                      className="w-full justify-start text-xs h-7"
-                                      onClick={() => {
-                                        if (selectedText) {
-                                          setColumnMappings((prev: any) => ({
-                                            ...prev,
-                                            [`row_${rowIndex}_code`]:
-                                              selectedText,
-                                          }));
-                                        }
-                                      }}
-                                      disabled={!selectedText}
-                                    >
-                                      {columnMappings[`row_${rowIndex}_code`]
-                                        ? `✓ Kód: ${columnMappings[`row_${rowIndex}_code`]}`
-                                        : "Kód"}
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant={
-                                        columnMappings[
-                                          `row_${rowIndex}_description`
-                                        ]
-                                          ? "default"
-                                          : "outline"
-                                      }
-                                      className="w-full justify-start text-xs h-7"
-                                      onClick={() => {
-                                        if (selectedText) {
-                                          setColumnMappings((prev: any) => ({
-                                            ...prev,
-                                            [`row_${rowIndex}_description`]:
-                                              selectedText,
-                                          }));
-                                        }
-                                      }}
-                                      disabled={!selectedText}
-                                    >
-                                      {columnMappings[
+                                    }}
+                                    disabled={!selectedText}
+                                  >
+                                    {columnMappings[`row_${rowIndex}_code`]
+                                      ? `✓ Kód: ${columnMappings[`row_${rowIndex}_code`]}`
+                                      : "Kód"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={
+                                      columnMappings[
                                         `row_${rowIndex}_description`
                                       ]
-                                        ? `✓ Popis: ${columnMappings[`row_${rowIndex}_description`]}`
-                                        : "Popis"}
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant={
-                                        columnMappings[
-                                          `row_${rowIndex}_quantity`
-                                        ]
-                                          ? "default"
-                                          : "outline"
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    className="w-full justify-start text-xs h-7"
+                                    onClick={() => {
+                                      if (selectedText) {
+                                        setColumnMappings((prev: any) => ({
+                                          ...prev,
+                                          [`row_${rowIndex}_description`]:
+                                            selectedText,
+                                        }));
                                       }
-                                      className="w-full justify-start text-xs h-7"
-                                      onClick={() => {
-                                        if (selectedText) {
-                                          setColumnMappings((prev: any) => ({
-                                            ...prev,
-                                            [`row_${rowIndex}_quantity`]:
-                                              selectedText,
-                                          }));
-                                        }
-                                      }}
-                                      disabled={!selectedText}
-                                    >
-                                      {columnMappings[
-                                        `row_${rowIndex}_quantity`
-                                      ]
-                                        ? `✓ Množství: ${columnMappings[`row_${rowIndex}_quantity`]}`
-                                        : "Množství"}
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant={
-                                        columnMappings[`row_${rowIndex}_unit`]
-                                          ? "default"
-                                          : "outline"
+                                    }}
+                                    disabled={!selectedText}
+                                  >
+                                    {columnMappings[
+                                      `row_${rowIndex}_description`
+                                    ]
+                                      ? `✓ Popis: ${columnMappings[`row_${rowIndex}_description`]}`
+                                      : "Popis"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={
+                                      columnMappings[`row_${rowIndex}_quantity`]
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    className="w-full justify-start text-xs h-7"
+                                    onClick={() => {
+                                      if (selectedText) {
+                                        setColumnMappings((prev: any) => ({
+                                          ...prev,
+                                          [`row_${rowIndex}_quantity`]:
+                                            selectedText,
+                                        }));
                                       }
-                                      className="w-full justify-start text-xs h-7"
-                                      onClick={() => {
-                                        if (selectedText) {
-                                          setColumnMappings((prev: any) => ({
-                                            ...prev,
-                                            [`row_${rowIndex}_unit`]:
-                                              selectedText,
-                                          }));
-                                        }
-                                      }}
-                                      disabled={!selectedText}
-                                    >
-                                      {columnMappings[`row_${rowIndex}_unit`]
-                                        ? `✓ Jednotka: ${columnMappings[`row_${rowIndex}_unit`]}`
-                                        : "Jednotka"}
-                                    </Button>
-                                  </div>
-                                  <div className="space-y-1">
-                                    <Button
-                                      size="sm"
-                                      variant={
-                                        columnMappings[`row_${rowIndex}_obsah`]
-                                          ? "default"
-                                          : "outline"
+                                    }}
+                                    disabled={!selectedText}
+                                  >
+                                    {columnMappings[`row_${rowIndex}_quantity`]
+                                      ? `✓ Množství: ${columnMappings[`row_${rowIndex}_quantity`]}`
+                                      : "Množství"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={
+                                      columnMappings[`row_${rowIndex}_unit`]
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    className="w-full justify-start text-xs h-7"
+                                    onClick={() => {
+                                      if (selectedText) {
+                                        setColumnMappings((prev: any) => ({
+                                          ...prev,
+                                          [`row_${rowIndex}_unit`]:
+                                            selectedText,
+                                        }));
                                       }
-                                      className="w-full justify-start text-xs h-7"
-                                      onClick={() => {
-                                        if (selectedText) {
-                                          setColumnMappings((prev: any) => ({
-                                            ...prev,
-                                            [`row_${rowIndex}_obsah`]:
-                                              selectedText,
-                                          }));
-                                        }
-                                      }}
-                                      disabled={!selectedText}
-                                    >
-                                      {columnMappings[`row_${rowIndex}_obsah`]
-                                        ? `✓ Obsah: ${columnMappings[`row_${rowIndex}_obsah`]}`
-                                        : "Obsah"}
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant={
-                                        columnMappings[
-                                          `row_${rowIndex}_fakt_mn`
-                                        ]
-                                          ? "default"
-                                          : "outline"
+                                    }}
+                                    disabled={!selectedText}
+                                  >
+                                    {columnMappings[`row_${rowIndex}_unit`]
+                                      ? `✓ Jednotka: ${columnMappings[`row_${rowIndex}_unit`]}`
+                                      : "Jednotka"}
+                                  </Button>
+                                </div>
+                                <div className="space-y-1">
+                                  <Button
+                                    size="sm"
+                                    variant={
+                                      columnMappings[`row_${rowIndex}_obsah`]
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    className="w-full justify-start text-xs h-7"
+                                    onClick={() => {
+                                      if (selectedText) {
+                                        setColumnMappings((prev: any) => ({
+                                          ...prev,
+                                          [`row_${rowIndex}_obsah`]:
+                                            selectedText,
+                                        }));
                                       }
-                                      className="w-full justify-start text-xs h-7"
-                                      onClick={() => {
-                                        if (selectedText) {
-                                          setColumnMappings((prev: any) => ({
-                                            ...prev,
-                                            [`row_${rowIndex}_fakt_mn`]:
-                                              selectedText,
-                                          }));
-                                        }
-                                      }}
-                                      disabled={!selectedText}
-                                    >
-                                      {columnMappings[`row_${rowIndex}_fakt_mn`]
-                                        ? `✓ Fakt.mn: ${columnMappings[`row_${rowIndex}_fakt_mn`]}`
-                                        : "Fakt.mn"}
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant={
-                                        columnMappings[
-                                          `row_${rowIndex}_unit_price`
-                                        ]
-                                          ? "default"
-                                          : "outline"
+                                    }}
+                                    disabled={!selectedText}
+                                  >
+                                    {columnMappings[`row_${rowIndex}_obsah`]
+                                      ? `✓ Obsah: ${columnMappings[`row_${rowIndex}_obsah`]}`
+                                      : "Obsah"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={
+                                      columnMappings[`row_${rowIndex}_fakt_mn`]
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    className="w-full justify-start text-xs h-7"
+                                    onClick={() => {
+                                      if (selectedText) {
+                                        setColumnMappings((prev: any) => ({
+                                          ...prev,
+                                          [`row_${rowIndex}_fakt_mn`]:
+                                            selectedText,
+                                        }));
                                       }
-                                      className="w-full justify-start text-xs h-7"
-                                      onClick={() => {
-                                        if (selectedText) {
-                                          setColumnMappings((prev: any) => ({
-                                            ...prev,
-                                            [`row_${rowIndex}_unit_price`]:
-                                              selectedText,
-                                          }));
-                                        }
-                                      }}
-                                      disabled={!selectedText}
-                                    >
-                                      {columnMappings[
+                                    }}
+                                    disabled={!selectedText}
+                                  >
+                                    {columnMappings[`row_${rowIndex}_fakt_mn`]
+                                      ? `✓ Fakt.mn: ${columnMappings[`row_${rowIndex}_fakt_mn`]}`
+                                      : "Fakt.mn"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={
+                                      columnMappings[
                                         `row_${rowIndex}_unit_price`
                                       ]
-                                        ? `✓ Cena/jed: ${columnMappings[`row_${rowIndex}_unit_price`]}`
-                                        : "Cena/jed"}
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant={
-                                        columnMappings[
-                                          `row_${rowIndex}_total_price`
-                                        ]
-                                          ? "default"
-                                          : "outline"
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    className="w-full justify-start text-xs h-7"
+                                    onClick={() => {
+                                      if (selectedText) {
+                                        setColumnMappings((prev: any) => ({
+                                          ...prev,
+                                          [`row_${rowIndex}_unit_price`]:
+                                            selectedText,
+                                        }));
                                       }
-                                      className="w-full justify-start text-xs h-7"
-                                      onClick={() => {
-                                        if (selectedText) {
-                                          setColumnMappings((prev: any) => ({
-                                            ...prev,
-                                            [`row_${rowIndex}_total_price`]:
-                                              selectedText,
-                                          }));
-                                        }
-                                      }}
-                                      disabled={!selectedText}
-                                    >
-                                      {columnMappings[
+                                    }}
+                                    disabled={!selectedText}
+                                  >
+                                    {columnMappings[
+                                      `row_${rowIndex}_unit_price`
+                                    ]
+                                      ? `✓ Cena/jed: ${columnMappings[`row_${rowIndex}_unit_price`]}`
+                                      : "Cena/jed"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={
+                                      columnMappings[
                                         `row_${rowIndex}_total_price`
                                       ]
-                                        ? `✓ Cena celkem: ${columnMappings[`row_${rowIndex}_total_price`]}`
-                                        : "Cena celkem"}
-                                    </Button>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-
-                          <div className="flex gap-1 pt-2 border-t">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs flex-1"
-                              onClick={() => {
-                                // Generate pattern from all mapped rows
-                                const pattern =
-                                  generatePatternFromMappings(columnMappings);
-                                setEditedPatterns((prev: any) => ({
-                                  ...prev,
-                                  line_pattern: pattern,
-                                }));
-                                setHasChanges(true);
-                                setShowColumnMapping(false);
-                              }}
-                              disabled={Object.keys(columnMappings).length < 3}
-                            >
-                              🔧 Generovat z{" "}
-                              {
-                                Object.keys(columnMappings).filter((key) =>
-                                  key.startsWith("row_")
-                                ).length
-                              }{" "}
-                              řádků
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs"
-                              onClick={() => {
-                                setColumnMappings({});
-                                setSelectedText("");
-                              }}
-                            >
-                              🗑️
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs"
-                              onClick={() => {
-                                setShowColumnMapping(false);
-                              }}
-                            >
-                              ❌
-                            </Button>
-                          </div>
-                        </div>
-
-                        {selectedText && (
-                          <Alert className="mt-3 bg-green-50 border-green-200">
-                            <AlertDescription className="text-xs">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <strong>✓ Označený text:</strong>{" "}
-                                  {selectedText}
-                                  <br />
-                                  Klikněte na sloupec v řádku pro přiřazení
-                                </div>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 px-2 text-xs"
-                                  onClick={() => setSelectedText("")}
-                                >
-                                  ✕
-                                </Button>
-                              </div>
-                            </AlertDescription>
-                          </Alert>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    /* PDF Preview - shown when column mapping is not active */
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-sm">Náhled faktury</CardTitle>
-                        <CardDescription className="text-xs">
-                          {pdfUrl &&
-                            "Označte text v PDF a použijte tlačítka v kartách vlevo"}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {pdfUrl ? (
-                          <div className="relative">
-                            <iframe
-                              src={pdfUrl}
-                              className="w-full h-96 border rounded"
-                              title="Invoice PDF"
-                              onLoad={(event) => {
-                                // Enable text selection in iframe
-                                const iframe = event.target as HTMLIFrameElement;
-                                try {
-                                  iframe.contentWindow?.addEventListener(
-                                    "mouseup",
-                                    () => {
-                                      const selection =
-                                        iframe.contentWindow?.getSelection();
-                                      const text = selection?.toString().trim();
-                                      if (text && text.length > 0) {
-                                        setSelectedText(text);
-                                      }
+                                        ? "default"
+                                        : "outline"
                                     }
-                                  );
-                                } catch (err) {
-                                  console.log("Cannot access iframe content (CORS)");
-                                }
-                              }}
-                            />
-                          </div>
-                        ) : filePreview && filePreview !== "PDF" ? (
-                          <img
-                            src={filePreview}
-                            alt="Invoice preview"
-                            className="w-full border rounded"
+                                    className="w-full justify-start text-xs h-7"
+                                    onClick={() => {
+                                      if (selectedText) {
+                                        setColumnMappings((prev: any) => ({
+                                          ...prev,
+                                          [`row_${rowIndex}_total_price`]:
+                                            selectedText,
+                                        }));
+                                      }
+                                    }}
+                                    disabled={!selectedText}
+                                  >
+                                    {columnMappings[
+                                      `row_${rowIndex}_total_price`
+                                    ]
+                                      ? `✓ Cena celkem: ${columnMappings[`row_${rowIndex}_total_price`]}`
+                                      : "Cena celkem"}
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+
+                        <div className="flex gap-1 pt-2 border-t">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs flex-1"
+                            onClick={() => {
+                              // Generate pattern from all mapped rows
+                              const pattern =
+                                generatePatternFromMappings(columnMappings);
+                              setEditedPatterns((prev: any) => ({
+                                ...prev,
+                                line_pattern: pattern,
+                              }));
+                              setHasChanges(true);
+                              setShowColumnMapping(false);
+                            }}
+                            disabled={Object.keys(columnMappings).length < 3}
+                          >
+                            🔧 Generovat z{" "}
+                            {
+                              Object.keys(columnMappings).filter((key) =>
+                                key.startsWith("row_")
+                              ).length
+                            }{" "}
+                            řádků
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs"
+                            onClick={() => {
+                              setColumnMappings({});
+                              setSelectedText("");
+                            }}
+                          >
+                            🗑️
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs"
+                            onClick={() => {
+                              setShowColumnMapping(false);
+                            }}
+                          >
+                            ❌
+                          </Button>
+                        </div>
+                      </div>
+
+                      {selectedText && (
+                        <Alert className="mt-3 bg-green-50 border-green-200">
+                          <AlertDescription className="text-xs">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <strong>✓ Označený text:</strong> {selectedText}
+                                <br />
+                                Klikněte na sloupec v řádku pro přiřazení
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => setSelectedText("")}
+                              >
+                                ✕
+                              </Button>
+                            </div>
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </CardContent>
+                  </Card>
+                ) : (
+                  /* PDF Preview - shown when column mapping is not active */
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">Náhled faktury</CardTitle>
+                      <CardDescription className="text-xs">
+                        {pdfUrl &&
+                          "Označte text v PDF a použijte tlačítka v kartách vlevo"}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {pdfUrl ? (
+                        <div className="relative">
+                          <iframe
+                            src={pdfUrl}
+                            className="w-full h-96 border rounded"
+                            title="Invoice PDF"
+                            onLoad={(event) => {
+                              // Enable text selection in iframe
+                              const iframe = event.target as HTMLIFrameElement;
+                              try {
+                                iframe.contentWindow?.addEventListener(
+                                  "mouseup",
+                                  () => {
+                                    const selection =
+                                      iframe.contentWindow?.getSelection();
+                                    const text = selection?.toString().trim();
+                                    if (text && text.length > 0) {
+                                      setSelectedText(text);
+                                    }
+                                  }
+                                );
+                              } catch (err) {
+                                console.log(
+                                  "Cannot access iframe content (CORS)"
+                                );
+                              }
+                            }}
                           />
-                        ) : (
-                          <div className="border rounded p-8 text-center text-muted-foreground">
-                            📄 PDF soubor: {uploadedFile?.name || "Neznámý soubor"}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )}
+                        </div>
+                      ) : filePreview && filePreview !== "PDF" ? (
+                        <img
+                          src={filePreview}
+                          alt="Invoice preview"
+                          className="w-full border rounded"
+                        />
+                      ) : (
+                        <div className="border rounded p-8 text-center text-muted-foreground">
+                          📄 PDF soubor:{" "}
+                          {uploadedFile?.name || "Neznámý soubor"}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             </div>
           )}
@@ -1141,8 +1137,8 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
               </CardContent>
             </Card>
 
-            {/* Položky and PDF Preview in 2-column layout */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {/* Položky and PDF Preview in 1-column layout */}
+            <div className="grid grid-cols-1 xl:grid-cols-1 gap-4">
               <Card>
                 <CardHeader>
                   <CardTitle className="text-sm">Položky</CardTitle>

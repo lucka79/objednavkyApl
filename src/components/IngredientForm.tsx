@@ -1310,6 +1310,26 @@ export function IngredientForm() {
                                             ? "Aktivní"
                                             : "Nastavit"}
                                         </Button>
+                                        {mainSupplierCodes.length > 1 && (
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => {
+                                              const newCodes =
+                                                formData.supplier_codes.filter(
+                                                  (_, i) => i !== originalIndex
+                                                );
+                                              handleInputChange(
+                                                "supplier_codes",
+                                                newCodes
+                                              );
+                                            }}
+                                            className="text-red-600 hover:text-red-800"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        )}
                                       </div>
                                     </div>
                                   </div>
@@ -1337,32 +1357,6 @@ export function IngredientForm() {
                                       placeholder="Název suroviny u dodavatele"
                                     />
                                   </div>
-
-                                  {/* <div className="space-y-2">
-                                    <Label>Akce</Label>
-                                    <div className="flex items-center gap-2">
-                                      {mainSupplierCodes.length > 1 && (
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => {
-                                            const newCodes =
-                                              formData.supplier_codes.filter(
-                                                (_, i) => i !== originalIndex
-                                              );
-                                            handleInputChange(
-                                              "supplier_codes",
-                                              newCodes
-                                            );
-                                          }}
-                                          className="text-red-600 hover:text-red-800"
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      )}
-                                    </div>
-                                  </div> */}
                                 </div>
                               );
                             })}

@@ -57,6 +57,9 @@ import { useIngredients } from "@/hooks/useIngredients";
 import { removeDiacritics } from "@/utils/removeDiacritics";
 import { IngredientPriceFluctuation } from "./IngredientPriceFluctuation";
 
+// MAKRO supplier ID (weight-based layout)
+const MAKRO_SUPPLIER_ID = "16293f61-b9e8-4016-9882-0b8fa90125e4";
+
 // Add Item Modal Component
 function AddItemModal({
   open,
@@ -249,12 +252,6 @@ export function ReceivedInvoices() {
     }) => {
       const lineTotal = Math.round(quantity * unitPrice * 100) / 100; // Round to 2 decimal places
 
-      console.log("=== UPDATING ITEM ===");
-      console.log("Item ID:", itemId);
-      console.log("Quantity:", quantity);
-      console.log("Unit Price:", unitPrice);
-      console.log("Line Total:", lineTotal);
-
       // Update the item
       const updateData: any = {
         quantity,
@@ -278,11 +275,8 @@ export function ReceivedInvoices() {
         .single();
 
       if (itemError) {
-        console.error("Supabase error updating item:", itemError);
         throw itemError;
       }
-
-      console.log("Item updated successfully:", itemData);
 
       // Get all items for this invoice to recalculate total
       const { data: allItems, error: itemsError } = await supabase
@@ -291,18 +285,12 @@ export function ReceivedInvoices() {
         .eq("invoice_received_id", invoiceId);
 
       if (itemsError) {
-        console.error("Supabase error fetching items:", itemsError);
         throw itemsError;
       }
 
       // Calculate new total amount
       const newTotalAmount =
         allItems?.reduce((sum, item) => sum + (item.line_total || 0), 0) || 0;
-
-      console.log("=== UPDATING INVOICE TOTAL ===");
-      console.log("Invoice ID:", invoiceId);
-      console.log("All items:", allItems);
-      console.log("New total amount:", newTotalAmount);
 
       // Update the invoice's total_amount
       const { error: invoiceError } = await supabase
@@ -311,12 +299,8 @@ export function ReceivedInvoices() {
         .eq("id", invoiceId);
 
       if (invoiceError) {
-        console.error("Supabase error updating invoice:", invoiceError);
         throw invoiceError;
       }
-
-      console.log("Invoice total updated successfully");
-      console.log("=== END UPDATING INVOICE TOTAL ===");
 
       return { itemData, newTotalAmount };
     },
@@ -351,7 +335,6 @@ export function ReceivedInvoices() {
       });
     },
     onError: (error) => {
-      console.error("Mutation error:", error);
       toast({
         title: "Chyba",
         description: `Chyba při aktualizaci: ${error.message}`,
@@ -391,7 +374,6 @@ export function ReceivedInvoices() {
         .single();
 
       if (itemError) {
-        console.error("Supabase error adding item:", itemError);
         throw itemError;
       }
 
@@ -402,7 +384,6 @@ export function ReceivedInvoices() {
         .eq("invoice_received_id", invoiceId);
 
       if (itemsError) {
-        console.error("Supabase error fetching items:", itemsError);
         throw itemsError;
       }
 
@@ -417,7 +398,6 @@ export function ReceivedInvoices() {
         .eq("id", invoiceId);
 
       if (invoiceError) {
-        console.error("Supabase error updating invoice:", invoiceError);
         throw invoiceError;
       }
 
@@ -445,7 +425,6 @@ export function ReceivedInvoices() {
       });
     },
     onError: (error) => {
-      console.error("Mutation error:", error);
       toast({
         title: "Chyba",
         description: `Chyba při přidávání položky: ${error.message}`,
@@ -470,7 +449,6 @@ export function ReceivedInvoices() {
         .eq("id", itemId);
 
       if (itemError) {
-        console.error("Supabase error deleting item:", itemError);
         throw itemError;
       }
 
@@ -481,7 +459,6 @@ export function ReceivedInvoices() {
         .eq("invoice_received_id", invoiceId);
 
       if (itemsError) {
-        console.error("Supabase error fetching items:", itemsError);
         throw itemsError;
       }
 
@@ -496,7 +473,6 @@ export function ReceivedInvoices() {
         .eq("id", invoiceId);
 
       if (invoiceError) {
-        console.error("Supabase error updating invoice:", invoiceError);
         throw invoiceError;
       }
 
@@ -523,7 +499,6 @@ export function ReceivedInvoices() {
       });
     },
     onError: (error) => {
-      console.error("Mutation error:", error);
       toast({
         title: "Chyba",
         description: `Chyba při mazání položky: ${error.message}`,
@@ -549,8 +524,6 @@ export function ReceivedInvoices() {
   const [editItemForm, setEditItemForm] = useState({
     quantity: 0,
     unit_price: 0,
-    fakt_mn: 0,
-    cena_jed: 0,
   });
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
   const [isPriceFluctuationOpen, setIsPriceFluctuationOpen] = useState(false);
@@ -563,8 +536,6 @@ export function ReceivedInvoices() {
   const fixInvoiceTotals = async () => {
     if (!invoices) return;
 
-    console.log("=== FIXING INVOICE TOTALS ===");
-
     for (const invoice of invoices) {
       if (invoice.items && invoice.items.length > 0) {
         const itemsSum = invoice.items.reduce((sum, item) => {
@@ -574,10 +545,6 @@ export function ReceivedInvoices() {
         const difference = Math.abs((invoice.total_amount || 0) - itemsSum);
 
         if (difference > 0.01) {
-          console.log(
-            `Fixing invoice ${invoice.invoice_number}: ${invoice.total_amount} → ${itemsSum}`
-          );
-
           try {
             const { error } = await supabase
               .from("invoices_received")
@@ -585,26 +552,14 @@ export function ReceivedInvoices() {
               .eq("id", invoice.id);
 
             if (error) {
-              console.error(
-                `Error updating invoice ${invoice.invoice_number}:`,
-                error
-              );
-            } else {
-              console.log(
-                `✅ Successfully updated invoice ${invoice.invoice_number}`
-              );
+              throw error;
             }
           } catch (error) {
-            console.error(
-              `Error updating invoice ${invoice.invoice_number}:`,
-              error
-            );
+            // Error handling is done silently
           }
         }
       }
     }
-
-    console.log("=== END FIXING INVOICE TOTALS ===");
 
     // Refresh the data
     queryClient.invalidateQueries({ queryKey: ["receivedInvoices"] });
@@ -612,51 +567,7 @@ export function ReceivedInvoices() {
 
   // Console log received invoices data
   useEffect(() => {
-    if (invoices) {
-      console.log("=== RECEIVED INVOICES DATA ===");
-      console.log("Total invoices:", invoices.length);
-
-      // Debug each invoice
-      invoices.forEach((invoice, index) => {
-        console.log(`=== INVOICE ${index + 1} ===`);
-        console.log("Invoice ID:", invoice.id);
-        console.log("Invoice number:", invoice.invoice_number);
-        console.log("Invoice total_amount:", invoice.total_amount);
-        console.log("Invoice items count:", invoice.items?.length || 0);
-
-        if (invoice.items && invoice.items.length > 0) {
-          // Calculate sum of line totals
-          const itemsSum = invoice.items.reduce((sum, item) => {
-            return sum + (item.line_total || 0);
-          }, 0);
-
-          console.log("Sum of line totals:", itemsSum);
-          console.log(
-            "Difference (total_amount - itemsSum):",
-            (invoice.total_amount || 0) - itemsSum
-          );
-          console.log(
-            "Match:",
-            Math.abs((invoice.total_amount || 0) - itemsSum) < 0.01
-          );
-
-          // Show first few items
-          console.log("First 3 items:");
-          invoice.items.slice(0, 3).forEach((item, itemIndex) => {
-            console.log(`  Item ${itemIndex + 1}:`, {
-              ingredient: item.ingredient?.name,
-              quantity: item.quantity,
-              unit_price: item.unit_price,
-              line_total: item.line_total,
-              calculated: (item.quantity || 0) * (item.unit_price || 0),
-            });
-          });
-        }
-        console.log(`=== END INVOICE ${index + 1} ===`);
-      });
-
-      console.log("=== END RECEIVED INVOICES DATA ===");
-    }
+    // Debug logging removed
   }, [invoices]);
   const deleteInvoiceMutation = useDeleteReceivedInvoice();
   const updateInvoiceMutation = useUpdateReceivedInvoice();
@@ -781,7 +692,6 @@ export function ReceivedInvoices() {
         description: "Faktura byla úspěšně aktualizována",
       });
     } catch (error: any) {
-      console.error("Error updating invoice:", error);
       toast({
         title: "Chyba",
         description:
@@ -797,8 +707,6 @@ export function ReceivedInvoices() {
     setEditItemForm({
       quantity: item.quantity || 0,
       unit_price: item.unit_price || 0,
-      fakt_mn: item.fakt_mn || 0,
-      cena_jed: item.cena_jed || 0,
     });
     setIsEditItemDialogOpen(true);
   };
@@ -806,19 +714,12 @@ export function ReceivedInvoices() {
   const handleUpdateItem = async () => {
     if (!editingItem) return;
 
-    console.log("=== STARTING ITEM UPDATE ===");
-    console.log("Editing item:", editingItem);
-    console.log("Selected invoice ID:", selectedInvoice?.id);
-    console.log("Form data:", editItemForm);
-
     try {
       await updateInvoiceItemMutation.mutateAsync({
         itemId: editingItem.id,
         quantity: editItemForm.quantity,
         unitPrice: editItemForm.unit_price,
         invoiceId: selectedInvoice?.id || "",
-        faktMn: editItemForm.fakt_mn,
-        cenaJed: editItemForm.cena_jed,
       });
 
       // Update the selectedInvoice state to reflect the changes
@@ -830,8 +731,6 @@ export function ReceivedInvoices() {
               quantity: editItemForm.quantity,
               unit_price: editItemForm.unit_price,
               line_total: editItemForm.quantity * editItemForm.unit_price,
-              fakt_mn: editItemForm.fakt_mn,
-              cena_jed: editItemForm.cena_jed,
             };
           }
           return item;
@@ -843,10 +742,6 @@ export function ReceivedInvoices() {
             (sum, item) => sum + (item.line_total || 0),
             0
           ) || 0;
-
-        console.log("=== UPDATING LOCAL STATE ===");
-        console.log("Updated items:", updatedItems);
-        console.log("New total amount (local):", newTotalAmount);
 
         setSelectedInvoice({
           ...selectedInvoice,
@@ -862,7 +757,6 @@ export function ReceivedInvoices() {
         description: "Položka byla úspěšně aktualizována",
       });
     } catch (error: any) {
-      console.error("Error updating item:", error);
       toast({
         title: "Chyba",
         description: "Nepodařilo se aktualizovat položku",
@@ -884,7 +778,7 @@ export function ReceivedInvoices() {
         invoiceId: selectedInvoice.id,
       });
     } catch (error: any) {
-      console.error("Error deleting item:", error);
+      // Error handled silently
     }
   };
 
@@ -1265,6 +1159,21 @@ export function ReceivedInvoices() {
 
           {selectedInvoice && (
             <div className="space-y-6">
+              {/* Debug: Log invoice detail data */}
+              {(() => {
+                console.log("=== DETAIL FAKTURY DATA ===");
+                console.log("Selected Invoice:", selectedInvoice);
+                console.log("Invoice ID:", selectedInvoice.id);
+                console.log("Invoice Number:", selectedInvoice.invoice_number);
+                console.log("Supplier:", selectedInvoice.supplier);
+                console.log("Receiver:", selectedInvoice.receiver);
+                console.log("Total Amount:", selectedInvoice.total_amount);
+                console.log("Items Count:", selectedInvoice.items?.length || 0);
+                console.log("Items:", selectedInvoice.items);
+                console.log("QR Codes:", selectedInvoice.qr_codes);
+                console.log("=== END DETAIL FAKTURY DATA ===");
+                return null;
+              })()}
               {/* Invoice Info */}
               <Card>
                 <CardHeader>
@@ -1480,7 +1389,12 @@ export function ReceivedInvoices() {
                               </div>
                               <div className="col-span-2 pr-2">
                                 <span className="text-sm font-mono text-right block">
-                                  {(item.quantity || 0).toFixed(1)}
+                                  {(item.quantity || 0).toFixed(
+                                    selectedInvoice?.supplier_id ===
+                                      MAKRO_SUPPLIER_ID
+                                      ? 3
+                                      : 1
+                                  )}
                                 </span>
                               </div>
                               <div className="col-span-2 pl-2">
@@ -1604,7 +1518,7 @@ export function ReceivedInvoices() {
               </div>
 
               {/* Zeelandia-specific fields */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="fakt_mn">Fakt. mn. (kg)</Label>
                   <Input
@@ -1638,7 +1552,7 @@ export function ReceivedInvoices() {
                     className="no-spinner text-right"
                   />
                 </div>
-              </div>
+              </div> */}
 
               <div className="p-3 bg-gray-50 rounded-lg">
                 <div className="text-sm text-gray-600">Celková cena</div>

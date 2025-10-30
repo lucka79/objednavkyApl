@@ -151,7 +151,6 @@ export function IngredientQuantityOverview() {
         .not("ingredient_id", "is", null);
 
       if (error) {
-        console.error("Error fetching inventory items:", error);
         throw error;
       }
 
@@ -186,7 +185,6 @@ export function IngredientQuantityOverview() {
         .eq("role", "supplier");
 
       if (error) {
-        console.error("Error fetching suppliers:", error);
         throw error;
       }
 
@@ -250,7 +248,6 @@ export function IngredientQuantityOverview() {
         .lte("date", endDateStr);
 
       if (error) {
-        console.error("Error fetching transfers:", error);
         throw error;
       }
 
@@ -365,7 +362,6 @@ export function IngredientQuantityOverview() {
         .lte("invoice_date", endDateStr);
 
       if (error) {
-        console.error("Error fetching received invoices:", error);
         throw error;
       }
 
@@ -484,7 +480,6 @@ export function IngredientQuantityOverview() {
             .range(from, from + batchSize - 1);
 
           if (bakersError) {
-            console.error("Error fetching bakers:", bakersError);
             throw bakersError;
           }
 
@@ -500,15 +495,8 @@ export function IngredientQuantityOverview() {
         const bakers = allBakers;
 
         if (!bakers || bakers.length === 0) {
-          console.log("No bakers found for main production facility");
           return [];
         }
-
-        console.log("=== BAKERS PRODUCTION PLANS COUNT ===");
-        console.log("User ID:", selectedUserId);
-        console.log("Date range:", startDateStr, "to", endDateStr);
-        console.log("Total production plans found:", bakers.length);
-        console.log("=== END BAKERS PRODUCTION PLANS COUNT ===");
 
         // Get product IDs from baker_items
         const productIds = new Set<number>();
@@ -594,16 +582,8 @@ export function IngredientQuantityOverview() {
           .in("recipe_id", Array.from(recipeIds));
 
         if (recipeError) {
-          console.error("Error fetching recipe ingredients:", recipeError);
           throw recipeError;
         }
-
-        console.log("=== RECIPE INGREDIENTS COUNT ===");
-        console.log(
-          "Recipe ingredients found:",
-          recipeIngredients?.length || 0
-        );
-        console.log("=== END RECIPE INGREDIENTS COUNT ===");
 
         // Calculate consumption directly from recipe_quantity
         const consumptionMap = new Map<number, number>();
@@ -661,10 +641,6 @@ export function IngredientQuantityOverview() {
             totalQuantity,
           })
         );
-
-        console.log("=== CONSUMPTION CALCULATION RESULT ===");
-        console.log("Total ingredients with consumption:", result.length);
-        console.log("=== END CONSUMPTION CALCULATION RESULT ===");
 
         return result;
       }
@@ -937,7 +913,6 @@ export function IngredientQuantityOverview() {
         .lte("date", endDateStr);
 
       if (error) {
-        console.error("Error fetching monthly consumption:", error);
         throw error;
       }
 
@@ -1019,7 +994,6 @@ export function IngredientQuantityOverview() {
         .order("created_at", { ascending: false });
 
       if (receivedError) {
-        console.error("Error fetching received prices:", receivedError);
         throw receivedError;
       }
 
@@ -1035,7 +1009,6 @@ export function IngredientQuantityOverview() {
         `);
 
       if (ingredientsError) {
-        console.error("Error fetching ingredients:", ingredientsError);
         throw ingredientsError;
       }
 
@@ -1993,7 +1966,7 @@ export function IngredientQuantityOverview() {
                               <TableCell className="text-right">
                                 <div className="flex flex-col items-end gap-1">
                                   <span className="text-sm font-mono">
-                                    {item.currentQuantity.toFixed(1)}
+                                    {item.currentQuantity.toFixed(2)}
                                   </span>
                                   {item.package && (
                                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -2017,19 +1990,19 @@ export function IngredientQuantityOverview() {
                               </TableCell>
                               <TableCell className="text-right">
                                 <span className="text-sm font-mono text-blue-600">
-                                  {item.monthlyConsumption.toFixed(1)}
+                                  {item.monthlyConsumption.toFixed(2)}
                                 </span>
                               </TableCell>
                               <TableCell className="text-right">
                                 <span className="text-sm font-mono text-green-600">
-                                  {item.receivedInvoicesQuantity.toFixed(1)}
+                                  {item.receivedInvoicesQuantity.toFixed(2)}
                                 </span>
                               </TableCell>
                               <TableCell className="text-right">
                                 <div className="flex flex-col items-end">
                                   <span className="text-sm font-mono text-muted-foreground">
                                     {(item.transfersSent || 0) > 0
-                                      ? `-${(item.transfersSent || 0).toFixed(1)}`
+                                      ? `-${(item.transfersSent || 0).toFixed(2)}`
                                       : ""}
                                     {(item.transfersSent || 0) > 0 &&
                                     (item.transfersReceived || 0) > 0
