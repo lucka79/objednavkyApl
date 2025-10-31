@@ -126,6 +126,7 @@ export function IngredientPriceFluctuation({
           id,
           quantity,
           unit_price,
+          unit_of_measure,
           matched_ingredient_id,
           created_at,
           invoice_received_id,
@@ -309,6 +310,7 @@ export function IngredientPriceFluctuation({
           invoiceNumber,
           unitPrice: item.unit_price,
           quantity: item.quantity,
+          unitOfMeasure: item.unit_of_measure,
           invoiceDate: new Date(item.invoices_received.invoice_date),
           supplierName: item.invoices_received.supplier?.full_name || "—",
           supplierId: item.invoices_received.supplier_id,
@@ -334,6 +336,7 @@ export function IngredientPriceFluctuation({
         "Cena z faktury": item.unitPrice,
         "Základní cena": basePrice,
         quantity: item.quantity,
+        unitOfMeasure: item.unitOfMeasure,
         supplierName: item.supplierName,
         supplierId: item.supplierId,
       }));
@@ -733,7 +736,7 @@ export function IngredientPriceFluctuation({
                                 {diff.toFixed(2)} Kč ({diffPercent.toFixed(1)}%)
                               </td>
                               <td className="text-right p-2">
-                                {item.quantity} kg
+                                {item.quantity} {item.unitOfMeasure || "ks"}
                               </td>
                             </tr>
                           );

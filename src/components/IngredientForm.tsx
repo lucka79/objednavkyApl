@@ -638,7 +638,6 @@ export function IngredientForm() {
         console.log("Active supplier:", activeSupplier);
 
         dataToSave.supplier_id = activeSupplier.supplier_id;
-        dataToSave.price = activeSupplier.price;
 
         // Update package if supplier has one
         if (activeSupplier.package !== null) {
@@ -652,7 +651,6 @@ export function IngredientForm() {
 
         console.log("Updated main ingredient data:", {
           supplier_id: dataToSave.supplier_id,
-          price: dataToSave.price,
           package: dataToSave.package,
           name: dataToSave.name,
         });
@@ -850,7 +848,7 @@ export function IngredientForm() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="unit">Jednotka *</Label>
                   <Select
@@ -928,7 +926,7 @@ export function IngredientForm() {
                         )
                       }
                       placeholder="1.000"
-                      className={`[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                      className={`no-spinner ${
                         validationErrors.kiloPerUnit ? "border-red-500" : ""
                       }`}
                     />
@@ -938,6 +936,24 @@ export function IngredientForm() {
                       {validationErrors.kiloPerUnit}
                     </p>
                   )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="price">Cena (za jednotku)</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    step="0.01"
+                    value={formData.price || ""}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "price",
+                        e.target.value ? parseFloat(e.target.value) : null
+                      )
+                    }
+                    placeholder="0.00"
+                    className="border-orange-500 no-spinner"
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -995,9 +1011,8 @@ export function IngredientForm() {
 
               {/* Price Calculations */}
               {(() => {
-                const activePrice =
-                  getPriceFromActiveSupplier() || formData.price;
-                return activePrice && formData.kiloPerUnit > 0 ? (
+                const displayPrice = formData.price;
+                return displayPrice && formData.kiloPerUnit > 0 ? (
                   <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
                     <h4 className="text-sm font-medium text-green-800 mb-2">
                       Kalkulace cen
@@ -1008,7 +1023,7 @@ export function IngredientForm() {
                           Cena za kg
                         </Label>
                         <div className="text-lg font-semibold text-green-900">
-                          {(activePrice / formData.kiloPerUnit).toFixed(2)}{" "}
+                          {(displayPrice / formData.kiloPerUnit).toFixed(2)}{" "}
                           Kč/kg
                         </div>
                       </div>
@@ -1017,14 +1032,13 @@ export function IngredientForm() {
                           Cena za jednotku
                         </Label>
                         <div className="text-lg font-semibold text-green-900">
-                          {activePrice.toFixed(2)} Kč/{formData.unit}
+                          {displayPrice.toFixed(2)} Kč/{formData.unit}
                         </div>
                       </div>
                     </div>
                     <p className="text-xs text-green-600 mt-2">
-                      💡 Cena se počítá z aktivního dodavatele v sekci
-                      "Dodavatelé a ceny". Hlavní údaje ingredience se
-                      automaticky synchronizují s aktivním dodavatelem.
+                      💡 Cena suroviny se upravuje manuálně výše. Ceny u
+                      jednotlivých dodavatelů slouží pro porovnání a evidenci.
                     </p>
                   </div>
                 ) : null;
@@ -1046,9 +1060,8 @@ export function IngredientForm() {
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 Nastavte hlavního dodavatele a přidejte alternativní dodavatele
-                s různými cenami. Aktivní dodavatel se používá pro výpočet cen v
-                receptech. Hlavní údaje ingredience (cena, balení, název) se
-                automaticky synchronizují s aktivním dodavatelem. Všechny změny
+                s různými cenami pro srovnání a evidenci. Hlavní cena suroviny
+                se upravuje manuálně v sekci "Základní informace". Všechny změny
                 se uloží kliknutím na tlačítko "Uložit změny" dole.
               </p>
             </CardHeader>
@@ -1093,8 +1106,6 @@ export function IngredientForm() {
                             (code) => code.is_active
                           );
                           if (activeSupplier) {
-                            // Update price
-                            handleInputChange("price", activeSupplier.price);
                             // Update package if supplier has one
                             if (activeSupplier.package !== null) {
                               handleInputChange(
@@ -1215,7 +1226,7 @@ export function IngredientForm() {
                                           );
                                         }}
                                         placeholder="0.00"
-                                        className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
+                                        className="no-spinner"
                                       />
                                     </div>
 
@@ -1238,7 +1249,7 @@ export function IngredientForm() {
                                             newCodes
                                           );
                                         }}
-                                        className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
+                                        className="no-spinner"
                                       />
                                     </div>
 
@@ -1277,11 +1288,6 @@ export function IngredientForm() {
                                               handleInputChange(
                                                 "supplier_id",
                                                 activeSupplier.supplier_id
-                                              );
-                                              // Update price
-                                              handleInputChange(
-                                                "price",
-                                                activeSupplier.price
                                               );
                                               // Update package if supplier has one
                                               if (
@@ -1513,7 +1519,7 @@ export function IngredientForm() {
                                         );
                                       }}
                                       placeholder="0.00"
-                                      className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
+                                      className="no-spinner"
                                     />
                                   </div>
 
@@ -1537,7 +1543,7 @@ export function IngredientForm() {
                                           newCodes
                                         );
                                       }}
-                                      className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none no-spinner"
+                                      className="no-spinner"
                                     />
                                   </div>
 
@@ -1576,11 +1582,6 @@ export function IngredientForm() {
                                             handleInputChange(
                                               "supplier_id",
                                               activeSupplier.supplier_id
-                                            );
-                                            // Update price
-                                            handleInputChange(
-                                              "price",
-                                              activeSupplier.price
                                             );
                                             // Update package if supplier has one
                                             if (
@@ -1992,7 +1993,7 @@ export function IngredientForm() {
                       handleInputChange("kJ", parseFloat(e.target.value) || 0)
                     }
                     placeholder="0"
-                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="no-spinner"
                   />
                 </div>
 
@@ -2007,7 +2008,7 @@ export function IngredientForm() {
                       handleInputChange("kcal", parseFloat(e.target.value) || 0)
                     }
                     placeholder="0"
-                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="no-spinner"
                   />
                 </div>
               </div>
@@ -2024,7 +2025,7 @@ export function IngredientForm() {
                       handleInputChange("fat", parseFloat(e.target.value) || 0)
                     }
                     placeholder="0"
-                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="no-spinner"
                   />
                 </div>
 
@@ -2044,7 +2045,7 @@ export function IngredientForm() {
                       )
                     }
                     placeholder="0"
-                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="no-spinner"
                   />
                 </div>
               </div>
@@ -2064,7 +2065,7 @@ export function IngredientForm() {
                       )
                     }
                     placeholder="0"
-                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="no-spinner"
                   />
                 </div>
 
@@ -2082,7 +2083,7 @@ export function IngredientForm() {
                       )
                     }
                     placeholder="0"
-                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="no-spinner"
                   />
                 </div>
               </div>
@@ -2102,7 +2103,7 @@ export function IngredientForm() {
                       )
                     }
                     placeholder="0"
-                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="no-spinner"
                   />
                 </div>
 
@@ -2120,7 +2121,7 @@ export function IngredientForm() {
                       )
                     }
                     placeholder="0"
-                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="no-spinner"
                   />
                 </div>
               </div>
@@ -2137,7 +2138,7 @@ export function IngredientForm() {
                       handleInputChange("salt", parseFloat(e.target.value) || 0)
                     }
                     placeholder="0"
-                    className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="no-spinner"
                   />
                 </div>
               </div>
