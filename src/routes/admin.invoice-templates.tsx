@@ -1480,7 +1480,15 @@ function generateRegexPattern(text: string, mode: string): string {
       return escaped.replace(/\d+/g, "(\\d+)");
 
     case "date":
-      // Replace date pattern (DD.MM.YYYY or D.M.YYYY)
+      // Check if text contains Makro-specific "Čas dodání:" pattern
+      if (text.includes("Čas dodání:")) {
+        // Create pattern for "Čas dodání: DD.MM.YYYY"
+        return escaped.replace(
+          /\d{1,2}\.\d{1,2}\.\d{4}/g,
+          "(\\d{1,2}\\.\\d{1,2}\\.\\d{4})"
+        );
+      }
+      // Default: Replace date pattern (DD.MM.YYYY or D.M.YYYY)
       return escaped.replace(
         /\d{1,2}\.\d{1,2}\.\d{4}/g,
         "(\\d{1,2}\\.\\d{1,2}\\.\\d{4})"

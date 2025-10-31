@@ -53,6 +53,8 @@ import { useDocumentAI } from "@/hooks/useDocumentAI";
 
 import { useInvoiceTemplates } from "@/hooks/useInvoiceTemplates";
 
+import { useIngredients } from "@/hooks/useIngredients";
+
 import { AddReceivedInvoiceForm } from "./AddReceivedInvoiceForm";
 
 interface ParsedInvoiceItem {
@@ -167,12 +169,17 @@ export function InvoiceUploadDialog() {
   const [editedPricePerKg, setEditedPricePerKg] = useState<{
     [key: string]: number;
   }>({});
+  const [editedQuantities, setEditedQuantities] = useState<{
+    [key: string]: number;
+  }>({});
   const [ksUnitChecked, setKsUnitChecked] = useState<{
     [key: string]: boolean;
   }>({});
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
+  const [editedInvoiceNumber, setEditedInvoiceNumber] = useState<string>("");
+  const [isEditingInvoiceNumber, setIsEditingInvoiceNumber] = useState(false);
 
   // Calculate subtotal using edited values for Zeelandia
   const calculateSubtotal = () => {
@@ -216,6 +223,9 @@ export function InvoiceUploadDialog() {
   const { processDocumentWithTemplate } = useDocumentAI();
 
   const { templates } = useInvoiceTemplates(); // Fetch all templates to check which suppliers have them
+
+  const { data: ingredientsData } = useIngredients(); // Fetch all ingredients for manual mapping
+  const ingredients = ingredientsData?.ingredients || [];
 
   // Get current user and set default receiver
 
@@ -347,43 +357,63 @@ export function InvoiceUploadDialog() {
 
         // Map extracted items with ingredient matching info
 
-        const items = result.data.items.map((item: any, index: number) => ({
-          id: (index + 1).toString(),
+        const items = result.data.items.map((item: any, index: number) => {
+          // Calculate totalWeightKg: if jedn. v MU != 1, then totalWeightKg = unitsInMu * quantity
+          const unitsInMu = item.units_in_mu || 1;
+          const calculatedTotalWeight =
+            unitsInMu !== 1 && unitsInMu > 0
+              ? unitsInMu * item.quantity
+              : item.total_weight_kg;
 
-          name: item.description || item.name,
+          // Debug log when calculation is used
+          if (unitsInMu !== 1 && unitsInMu > 0) {
+            console.log(`📐 Calculating celk. hmot. for item ${index + 1}:`, {
+              productCode: item.product_code,
+              "počet MU": item.quantity,
+              "jedn. v MU": unitsInMu,
+              "calculated celk. hmot.": calculatedTotalWeight,
+              "original total_weight_kg": item.total_weight_kg,
+            });
+          }
 
-          quantity: item.quantity,
+          return {
+            id: (index + 1).toString(),
 
-          unit: item.unit_of_measure || item.unit,
+            name: item.description || item.name,
 
-          price: item.unit_price || item.price,
+            quantity: item.quantity,
 
-          total: item.total_price || item.total || item.line_total,
+            unit: item.unit_of_measure || item.unit,
 
-          supplierCode: item.product_code || item.supplierCode,
+            price: item.unit_price || item.price,
 
-          confidence: item.match_confidence || item.confidence || 0,
+            total: item.total_price || item.total || item.line_total,
 
-          matchStatus: item.match_status,
+            supplierCode: item.product_code || item.supplierCode,
 
-          ingredientId: item.matched_ingredient_id,
+            confidence: item.match_confidence || item.confidence || 0,
 
-          ingredientName: item.matched_ingredient_name,
+            matchStatus: item.match_status,
 
-          ingredientUnit: item.matched_ingredient_unit,
+            ingredientId: item.matched_ingredient_id,
 
-          // Weight-based fields
+            ingredientName: item.matched_ingredient_name,
 
-          packageWeightKg: item.package_weight_kg,
+            ingredientUnit: item.matched_ingredient_unit,
 
-          totalWeightKg: item.total_weight_kg,
+            // Weight-based fields
 
-          pricePerKg: item.price_per_kg,
+            packageWeightKg: item.package_weight_kg,
 
-          basePrice: item.base_price,
+            totalWeightKg: calculatedTotalWeight,
 
-          unitsInMu: item.units_in_mu,
-        }));
+            pricePerKg: item.price_per_kg,
+
+            basePrice: item.base_price,
+
+            unitsInMu: unitsInMu,
+          };
+        });
 
         // Calculate subtotal (without VAT) from line items
 
@@ -514,7 +544,10 @@ export function InvoiceUploadDialog() {
 
         .select("id, invoice_number, supplier_id")
 
-        .eq("invoice_number", parsedInvoice.invoiceNumber)
+        .eq(
+          "invoice_number",
+          editedInvoiceNumber || parsedInvoice.invoiceNumber
+        )
 
         .eq("supplier_id", supplierId)
 
@@ -574,7 +607,7 @@ export function InvoiceUploadDialog() {
 
       if (existingInvoice) {
         const confirmed = window.confirm(
-          `Faktura s číslem "${parsedInvoice.invoiceNumber}" od dodavatele "${parsedInvoice.supplier}" již existuje!\n\n` +
+          `Faktura s číslem "${editedInvoiceNumber || parsedInvoice.invoiceNumber}" od dodavatele "${parsedInvoice.supplier}" již existuje!\n\n` +
             `Existující faktura ID: ${existingInvoice.id}\n\n` +
             `Chcete přepsat existující fakturu a její položky?`
         );
@@ -632,7 +665,7 @@ export function InvoiceUploadDialog() {
           .from("invoices_received")
 
           .insert({
-            invoice_number: parsedInvoice.invoiceNumber,
+            invoice_number: editedInvoiceNumber || parsedInvoice.invoiceNumber,
 
             supplier_id: supplierId,
 
@@ -722,8 +755,13 @@ export function InvoiceUploadDialog() {
             // Determine what is displayed in celk. hmot. column
             let displayedQuantity: number;
             if (item.ingredientUnit === "ks" && isCheckboxChecked) {
-              // Checkbox checked: display shows počet MU
-              displayedQuantity = item.quantity;
+              // Checkbox checked: calculate based on jedn. v MU
+              const pocetMu = editedQuantities[item.id] ?? item.quantity;
+              const jednVMu = item.unitsInMu || 1;
+
+              // If jedn. v MU !== 1, calculate: počet MU × jedn. v MU
+              displayedQuantity =
+                jednVMu !== 1 && jednVMu > 0 ? pocetMu * jednVMu : pocetMu;
             } else {
               // Checkbox unchecked or not ks: display shows totalWeightKg (or fallback to počet MU)
               const rawTotalWeight =
@@ -731,7 +769,7 @@ export function InvoiceUploadDialog() {
               displayedQuantity =
                 rawTotalWeight && rawTotalWeight > 0
                   ? parseFloat(rawTotalWeight.toString())
-                  : item.quantity; // Fallback to počet MU if no weight
+                  : (editedQuantities[item.id] ?? item.quantity); // Fallback to počet MU (use edited value if available)
             }
 
             // Determine what is displayed in Cena/kg column
@@ -774,8 +812,19 @@ export function InvoiceUploadDialog() {
                   (ksUnitChecked[item.id] !== undefined
                     ? ksUnitChecked[item.id]
                     : true)
-                  ? `počet MU: ${item.quantity}`
-                  : `totalWeightKg: ${editedTotalWeights[item.id] ?? item.totalWeightKg}`
+                  ? (() => {
+                      const pocetMu =
+                        editedQuantities[item.id] ?? item.quantity;
+                      const jednVMu = item.unitsInMu || 1;
+                      const calculated =
+                        jednVMu !== 1 && jednVMu > 0
+                          ? pocetMu * jednVMu
+                          : pocetMu;
+                      return jednVMu !== 1 && jednVMu > 0
+                        ? `počet MU: ${pocetMu} × jedn.v MU: ${jednVMu} = ${calculated}${editedQuantities[item.id] !== undefined ? " (edited)" : ""}`
+                        : `počet MU: ${pocetMu}${editedQuantities[item.id] !== undefined ? " (edited)" : ""}`;
+                    })()
+                  : `totalWeightKg: ${editedTotalWeights[item.id] ?? item.totalWeightKg}${editedTotalWeights[item.id] !== undefined ? " (edited)" : ""}`
                 : null,
               displayedInCenaKg: isMakro
                 ? item.ingredientUnit === "ks" &&
@@ -794,7 +843,7 @@ export function InvoiceUploadDialog() {
                     (ksUnitChecked[item.id] !== undefined
                       ? ksUnitChecked[item.id]
                       : true)
-                    ? item.unit
+                    ? "ks"
                     : "kg"
                   : item.unit,
               checkboxChecked: isMakro
@@ -827,7 +876,7 @@ export function InvoiceUploadDialog() {
                   (ksUnitChecked[item.id] !== undefined
                     ? ksUnitChecked[item.id]
                     : true)
-                  ? item.unit // Checkbox checked: using počet MU, so use original unit
+                  ? "ks" // Checkbox checked: using ks unit
                   : "kg" // Checkbox unchecked or not ks: using weight, so use kg
                 : item.unit,
 
@@ -896,6 +945,9 @@ export function InvoiceUploadDialog() {
 
       setNotes("");
 
+      setEditedInvoiceNumber("");
+      setIsEditingInvoiceNumber(false);
+
       // Reset receiver to default if admin
 
       if (currentUserRole === "admin") {
@@ -926,6 +978,9 @@ export function InvoiceUploadDialog() {
     setCurrentStep("supplier");
 
     setInvoiceSupplier("");
+
+    setEditedInvoiceNumber("");
+    setIsEditingInvoiceNumber(false);
 
     // Reset receiver to default if admin
 
@@ -1157,7 +1212,48 @@ export function InvoiceUploadDialog() {
                         Číslo faktury
                       </Label>
 
-                      <p className="text-sm">{parsedInvoice.invoiceNumber}</p>
+                      {isEditingInvoiceNumber ? (
+                        <Input
+                          type="text"
+                          value={
+                            editedInvoiceNumber || parsedInvoice.invoiceNumber
+                          }
+                          onChange={(e) =>
+                            setEditedInvoiceNumber(e.target.value)
+                          }
+                          onBlur={() => setIsEditingInvoiceNumber(false)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              setIsEditingInvoiceNumber(false);
+                            }
+                            if (e.key === "Escape") {
+                              setEditedInvoiceNumber("");
+                              setIsEditingInvoiceNumber(false);
+                            }
+                          }}
+                          onFocus={(e) => e.target.select()}
+                          autoFocus
+                          className="h-8 text-sm mt-1"
+                        />
+                      ) : (
+                        <p
+                          className="text-sm cursor-pointer hover:bg-gray-100 px-2 py-1 rounded inline-block"
+                          onClick={() => {
+                            setEditedInvoiceNumber(
+                              parsedInvoice.invoiceNumber || ""
+                            );
+                            setIsEditingInvoiceNumber(true);
+                          }}
+                          title="Klikněte pro úpravu"
+                        >
+                          {editedInvoiceNumber ||
+                            parsedInvoice.invoiceNumber || (
+                              <span className="text-orange-600 italic">
+                                Nenalezeno - klikněte pro zadání
+                              </span>
+                            )}
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -1580,8 +1676,54 @@ export function InvoiceUploadDialog() {
                                 {/* Namapováno */}
                                 <td className="px-3 py-2 text-sm">
                                   {item.ingredientName ? (
-                                    <div className="text-green-700 font-medium">
-                                      ✓ {item.ingredientName}
+                                    <div className="space-y-1">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="text-green-700 font-medium">
+                                          ✓ {item.ingredientName}
+                                        </div>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-5 w-5 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                                          onClick={() => {
+                                            if (parsedInvoice) {
+                                              const updatedItems =
+                                                parsedInvoice.items.map((i) =>
+                                                  i.id === item.id
+                                                    ? {
+                                                        ...i,
+                                                        ingredientId: null,
+                                                        ingredientName: null,
+                                                        matchStatus: "unmapped",
+                                                      }
+                                                    : i
+                                                );
+                                              setParsedInvoice({
+                                                ...parsedInvoice,
+                                                items: updatedItems,
+                                                unmappedCount:
+                                                  updatedItems.filter(
+                                                    (i) =>
+                                                      i.matchStatus ===
+                                                      "unmapped"
+                                                  ).length,
+                                              });
+                                            }
+                                          }}
+                                          title="Odebrat mapování"
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                      {item.matchStatus !== "exact" &&
+                                        item.confidence < 1 && (
+                                          <Badge
+                                            variant="destructive"
+                                            className="text-xs font-bold bg-orange-600 hover:bg-orange-700"
+                                          >
+                                            ⚠️ ZKONTROLOVAT!
+                                          </Badge>
+                                        )}
                                     </div>
                                   ) : (
                                     <div className="text-red-600">
@@ -1649,7 +1791,10 @@ export function InvoiceUploadDialog() {
                               <th className="text-center p-2 text-xs">ks</th>
 
                               <th className="text-right p-2 text-xs">
-                                počet MU
+                                <div className="flex items-center justify-end gap-1">
+                                  počet MU
+                                  <Pencil className="w-3 h-3 text-gray-400" />
+                                </div>
                                 <div className="text-xs text-blue-600 font-medium">
                                   → quantity (fallback)
                                 </div>
@@ -1667,7 +1812,10 @@ export function InvoiceUploadDialog() {
                               </th>
 
                               <th className="text-right p-2 text-xs">
-                                celk. hmot.
+                                <div className="flex items-center justify-end gap-1">
+                                  celk. hmot.
+                                  <Pencil className="w-3 h-3 text-gray-400" />
+                                </div>
                                 <div className="text-xs text-green-600 font-medium">
                                   → quantity (primary)
                                 </div>
@@ -1693,7 +1841,10 @@ export function InvoiceUploadDialog() {
                               </th>
 
                               <th className="text-right p-2 text-xs bg-orange-50">
-                                Cena/kg
+                                <div className="flex items-center justify-end gap-1">
+                                  Cena/kg
+                                  <Pencil className="w-3 h-3 text-gray-400" />
+                                </div>
                                 <div className="text-xs text-orange-600 font-medium">
                                   → unit_price (no checkbox)
                                 </div>
@@ -1757,20 +1908,77 @@ export function InvoiceUploadDialog() {
                                   {/* počet MU */}
 
                                   <td className="p-2 text-right text-xs font-semibold">
-                                    {isWeightFormat ? (
-                                      <span className="text-purple-600">
-                                        {item.totalWeightKg?.toLocaleString(
-                                          "cs-CZ",
-
-                                          {
-                                            minimumFractionDigits: 3,
-
-                                            maximumFractionDigits: 3,
+                                    {editingItemId === item.id &&
+                                    editingField === "quantity" ? (
+                                      <Input
+                                        type="number"
+                                        step="1"
+                                        value={
+                                          editedQuantities[item.id] !==
+                                          undefined
+                                            ? editedQuantities[
+                                                item.id
+                                              ].toString()
+                                            : item.quantity.toString()
+                                        }
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+                                          setEditedQuantities((prev) => ({
+                                            ...prev,
+                                            [item.id]: parseFloat(value) || 0,
+                                          }));
+                                        }}
+                                        onBlur={() => {
+                                          setEditingItemId(null);
+                                          setEditingField(null);
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") {
+                                            setEditingItemId(null);
+                                            setEditingField(null);
                                           }
+                                          if (e.key === "Escape") {
+                                            setEditedQuantities((prev) => {
+                                              const newState = { ...prev };
+                                              delete newState[item.id];
+                                              return newState;
+                                            });
+                                            setEditingItemId(null);
+                                            setEditingField(null);
+                                          }
+                                        }}
+                                        onFocus={(e) => {
+                                          e.target.select();
+                                        }}
+                                        autoFocus
+                                        className="h-6 text-xs text-right w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                      />
+                                    ) : (
+                                      <span
+                                        onClick={() => {
+                                          setEditingItemId(item.id);
+                                          setEditingField("quantity");
+                                        }}
+                                        className="cursor-pointer hover:bg-gray-100 px-1 rounded"
+                                        title="Klikněte pro úpravu"
+                                      >
+                                        {isWeightFormat ? (
+                                          <span className="text-purple-600">
+                                            {item.totalWeightKg?.toLocaleString(
+                                              "cs-CZ",
+                                              {
+                                                minimumFractionDigits: 3,
+                                                maximumFractionDigits: 3,
+                                              }
+                                            )}
+                                          </span>
+                                        ) : (
+                                          (
+                                            editedQuantities[item.id] ??
+                                            item.quantity
+                                          ).toLocaleString("cs-CZ")
                                         )}
                                       </span>
-                                    ) : (
-                                      item.quantity.toLocaleString("cs-CZ")
                                     )}
                                   </td>
 
@@ -1805,16 +2013,35 @@ export function InvoiceUploadDialog() {
                                           ? ksUnitChecked[item.id]
                                           : true);
 
-                                      // If checkbox is checked, show počet MU value
+                                      // If checkbox is checked, calculate based on jedn. v MU
                                       if (isCheckboxChecked) {
+                                        const pocetMu =
+                                          editedQuantities[item.id] ??
+                                          item.quantity;
+                                        const jednVMu = item.unitsInMu || 1;
+
+                                        // If jedn. v MU !== 1, show calculated value (počet MU × jedn. v MU)
+                                        const displayValue =
+                                          jednVMu !== 1 && jednVMu > 0
+                                            ? pocetMu * jednVMu
+                                            : pocetMu;
+
                                         return (
                                           <span className="text-purple-600">
-                                            {item.quantity.toLocaleString(
+                                            {displayValue.toLocaleString(
                                               "cs-CZ",
                                               {
                                                 minimumFractionDigits: 3,
                                                 maximumFractionDigits: 3,
                                               }
+                                            )}
+                                            {jednVMu !== 1 && jednVMu > 0 && (
+                                              <span
+                                                className="text-xs text-orange-600 ml-1"
+                                                title={`${pocetMu} × ${jednVMu}`}
+                                              >
+                                                (×{jednVMu})
+                                              </span>
                                             )}
                                           </span>
                                         );
@@ -1923,7 +2150,16 @@ export function InvoiceUploadDialog() {
                                   {/* jedn. v MU */}
 
                                   <td className="p-2 text-right text-xs">
-                                    {item.unitsInMu || "1"}
+                                    {item.unitsInMu && item.unitsInMu !== 1 ? (
+                                      <span
+                                        className="text-orange-600 font-bold"
+                                        title="Použito pro výpočet celk. hmot."
+                                      >
+                                        {item.unitsInMu} ✕
+                                      </span>
+                                    ) : (
+                                      item.unitsInMu || "1"
+                                    )}
                                   </td>
 
                                   {/* cena za MU */}
@@ -2061,8 +2297,57 @@ export function InvoiceUploadDialog() {
 
                                   <td className="p-2 text-xs bg-blue-50">
                                     {item.ingredientName ? (
-                                      <div className="text-green-700 font-medium">
-                                        ✓ {item.ingredientName}
+                                      <div className="space-y-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                          <div className="text-green-700 font-medium">
+                                            ✓ {item.ingredientName}
+                                          </div>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-5 w-5 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                                            onClick={() => {
+                                              if (parsedInvoice) {
+                                                const updatedItems =
+                                                  parsedInvoice.items.map(
+                                                    (i) =>
+                                                      i.id === item.id
+                                                        ? {
+                                                            ...i,
+                                                            ingredientId: null,
+                                                            ingredientName:
+                                                              null,
+                                                            matchStatus:
+                                                              "unmapped",
+                                                          }
+                                                        : i
+                                                  );
+                                                setParsedInvoice({
+                                                  ...parsedInvoice,
+                                                  items: updatedItems,
+                                                  unmappedCount:
+                                                    updatedItems.filter(
+                                                      (i) =>
+                                                        i.matchStatus ===
+                                                        "unmapped"
+                                                    ).length,
+                                                });
+                                              }
+                                            }}
+                                            title="Odebrat mapování"
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                        {item.matchStatus !== "exact" &&
+                                          item.confidence < 1 && (
+                                            <Badge
+                                              variant="destructive"
+                                              className="text-xs font-bold bg-orange-600 hover:bg-orange-700"
+                                            >
+                                              ⚠️ ZKONTROLOVAT!
+                                            </Badge>
+                                          )}
                                       </div>
                                     ) : (
                                       <div className="text-red-600">
@@ -2141,10 +2426,53 @@ export function InvoiceUploadDialog() {
                             </div>
 
                             {item.ingredientName && (
-                              <div className="text-sm text-green-700 font-medium mt-1">
-                                ✓ {item.ingredientName}
-                                {item.matchStatus === "fuzzy_name" &&
-                                  ` (${Math.round((item.confidence || 0) * 100)}% shoda)`}
+                              <div className="space-y-1 mt-1">
+                                <div className="flex items-center gap-2">
+                                  <div className="text-sm text-green-700 font-medium">
+                                    ✓ {item.ingredientName}
+                                    {item.matchStatus === "fuzzy_name" &&
+                                      ` (${Math.round((item.confidence || 0) * 100)}% shoda)`}
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-5 w-5 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                                    onClick={() => {
+                                      if (parsedInvoice) {
+                                        const updatedItems =
+                                          parsedInvoice.items.map((i) =>
+                                            i.id === item.id
+                                              ? {
+                                                  ...i,
+                                                  ingredientId: null,
+                                                  ingredientName: null,
+                                                  matchStatus: "unmapped",
+                                                }
+                                              : i
+                                          );
+                                        setParsedInvoice({
+                                          ...parsedInvoice,
+                                          items: updatedItems,
+                                          unmappedCount: updatedItems.filter(
+                                            (i) => i.matchStatus === "unmapped"
+                                          ).length,
+                                        });
+                                      }
+                                    }}
+                                    title="Odebrat mapování"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                {item.matchStatus !== "exact" &&
+                                  item.confidence < 1 && (
+                                    <Badge
+                                      variant="destructive"
+                                      className="text-xs font-bold bg-orange-600 hover:bg-orange-700"
+                                    >
+                                      ⚠️ ZKONTROLOVAT!
+                                    </Badge>
+                                  )}
                               </div>
                             )}
 
@@ -2199,31 +2527,88 @@ export function InvoiceUploadDialog() {
                         .map((item) => (
                           <div
                             key={item.id}
-                            className="flex items-center justify-between p-2 bg-white rounded border border-red-200"
+                            className="flex items-center justify-between gap-3 p-2 bg-white rounded border border-red-200"
                           >
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-shrink-0">
                               <code className="text-xs bg-red-800 text-white px-1.5 py-0.5 rounded">
                                 {item.supplierCode}
                               </code>
 
-                              <span className="text-sm text-red-900">
+                              <span className="text-sm text-red-900 font-medium">
                                 {editedDescriptions[item.id] ?? item.name}
+                              </span>
+
+                              <span className="text-xs text-red-600">
+                                ({item.quantity} {item.unit})
                               </span>
                             </div>
 
-                            <span className="text-xs text-red-600">
-                              {item.quantity} {item.unit}
-                            </span>
+                            <div className="flex items-center gap-2 flex-1 justify-end">
+                              <Select
+                                value={item.ingredientId?.toString() || ""}
+                                onValueChange={(value) => {
+                                  if (parsedInvoice && value) {
+                                    const selectedIngredient = ingredients.find(
+                                      (ing) => ing.id.toString() === value
+                                    );
+                                    if (selectedIngredient) {
+                                      const updatedItems =
+                                        parsedInvoice.items.map((i) =>
+                                          i.id === item.id
+                                            ? {
+                                                ...i,
+                                                ingredientId:
+                                                  selectedIngredient.id,
+                                                ingredientName:
+                                                  selectedIngredient.name,
+                                                ingredientUnit:
+                                                  selectedIngredient.unit,
+                                                matchStatus: "exact" as const,
+                                              }
+                                            : i
+                                        );
+                                      setParsedInvoice({
+                                        ...parsedInvoice,
+                                        items: updatedItems,
+                                        unmappedCount: updatedItems.filter(
+                                          (i) => i.matchStatus === "unmapped"
+                                        ).length,
+                                      });
+                                    }
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="w-[250px] h-8 text-xs">
+                                  <SelectValue placeholder="Vyberte surovinu..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {ingredients
+                                    .filter((ing) => ing.active)
+                                    .sort((a, b) =>
+                                      a.name.localeCompare(b.name)
+                                    )
+                                    .map((ingredient) => (
+                                      <SelectItem
+                                        key={ingredient.id}
+                                        value={ingredient.id.toString()}
+                                      >
+                                        {ingredient.name} ({ingredient.unit})
+                                      </SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
                         ))}
                     </div>
 
                     <p className="text-xs text-red-700 mt-2">
-                      💡 Pro uložení těchto položek přejděte do{" "}
+                      💡 Vyberte správnou surovinu z rozevíracího seznamu pro
+                      namapování položky. Případně můžete přejít do{" "}
                       <strong>
                         Admin → Šablony faktur → Nenamapované kódy
                       </strong>{" "}
-                      a namapujte je na suroviny.
+                      pro trvalé uložení mapování.
                     </p>
                   </div>
                 )}
