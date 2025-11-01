@@ -254,6 +254,50 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
       vat_rate?: string;
     };
   }>({});
+  const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null);
+
+  // Extract potential item lines from OCR text
+  const extractPotentialLines = (text: string): string[] => {
+    if (!text) return [];
+    const lines = text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    // Filter lines that look like invoice items (start with digits, contain numbers and text)
+    return lines
+      .filter((line) => {
+        // Must start with digit (product code) or contain patterns like digits + text + numbers
+        const startsWithDigit = /^\d/.test(line);
+        const hasMultipleNumbers = (line.match(/\d/g) || []).length >= 3;
+        const hasLetters = /[A-Za-zá-žÁ-Ž]/.test(line);
+        const isNotTooShort = line.length > 10;
+
+        // Skip obvious non-item lines
+        const isHeader =
+          /^(Kód|Kod|Označení|Popis|Množství|MJ|Jedn\.|Celk\.|DPH|Sazba)/i.test(
+            line
+          );
+        const isSeparator = /^[-_=|]+$/.test(line);
+        const isMetadata =
+          /^(Vyrobeno|DMT|Datum|Faktura|Dodavatel|Odběratel)/i.test(line);
+
+        return (
+          startsWithDigit &&
+          hasMultipleNumbers &&
+          hasLetters &&
+          isNotTooShort &&
+          !isHeader &&
+          !isSeparator &&
+          !isMetadata
+        );
+      })
+      .slice(0, 5); // Limit to first 5 potential lines
+  };
+
+  const potentialLines = result?.raw_text
+    ? extractPotentialLines(result.raw_text)
+    : [];
 
   // Get the active template for this supplier
   const activeTemplate = templates.find((t) => t.is_active);
@@ -1562,207 +1606,375 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                         </p>
                         <ol className="list-decimal list-inside space-y-1 ml-2">
                           <li>
-                            V OCR textu níže <strong>označte myší</strong> část
-                            řádku (např. kód produktu "715")
+                            <strong>Klikněte na řádek</strong> níže pro aktivaci
+                            (změní barvu)
                           </li>
                           <li>
-                            Klikněte na odpovídající tlačítko níže (např. "Kód")
+                            V aktivním řádku <strong>označte myší</strong> část
+                            textu (např. kód "715")
                           </li>
                           <li>
-                            Opakujte pro další pole na 2-3 řádcích položek
+                            Klikněte na odpovídající tlačítko (např. "📦 Kód")
+                            pro přiřazení k poli
                           </li>
-                          <li>Systém automaticky vygeneruje regex pattern</li>
-                          <li>Klikněte "💾 Uložit změny"</li>
+                          <li>
+                            Opakujte pro další pole na{" "}
+                            <strong>2-3 řádcích</strong>
+                          </li>
+                          <li>Klikněte "✨ Vygenerovat pattern"</li>
+                          <li>Klikněte "💾 Uložit změny" nahoře</li>
                         </ol>
                       </AlertDescription>
                     </Alert>
 
-                    {/* Selected text indicator */}
-                    {selectedText && (
-                      <Alert className="bg-green-50 border-green-300">
+                    {/* Row-based labeling with extracted lines */}
+                    {potentialLines.length > 0 ? (
+                      <div className="space-y-3">
+                        <p className="text-sm font-semibold">
+                          Označte části v těchto řádcích (klikněte na řádek pro
+                          aktivaci):
+                        </p>
+                        {potentialLines.map((line, lineIdx) => (
+                          <Card
+                            key={lineIdx}
+                            className={`border-2 ${
+                              activeLineIndex === lineIdx
+                                ? "border-blue-500 bg-blue-50"
+                                : "border-gray-200 bg-white"
+                            }`}
+                          >
+                            <CardContent className="pt-3 pb-3">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Button
+                                      size="sm"
+                                      variant={
+                                        activeLineIndex === lineIdx
+                                          ? "default"
+                                          : "outline"
+                                      }
+                                      className="text-xs h-6"
+                                      onClick={() => {
+                                        setActiveLineIndex(
+                                          activeLineIndex === lineIdx
+                                            ? null
+                                            : lineIdx
+                                        );
+                                        setSelectedText("");
+                                      }}
+                                    >
+                                      {activeLineIndex === lineIdx
+                                        ? "✓ Aktivní"
+                                        : `Řádek ${lineIdx + 1}`}
+                                    </Button>
+                                    {Object.keys(labeledParts[lineIdx] || {})
+                                      .length > 0 && (
+                                      <span className="text-xs text-green-600 font-semibold">
+                                        ✓{" "}
+                                        {
+                                          Object.keys(
+                                            labeledParts[lineIdx] || {}
+                                          ).length
+                                        }{" "}
+                                        polí označeno
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Line text - selectable */}
+                                  <div
+                                    className={`p-2 rounded border ${
+                                      activeLineIndex === lineIdx
+                                        ? "bg-white border-blue-300 cursor-text"
+                                        : "bg-gray-50 border-gray-200"
+                                    } select-text`}
+                                    onMouseUp={() => {
+                                      if (activeLineIndex === lineIdx) {
+                                        const selection = window.getSelection();
+                                        const text = selection
+                                          ?.toString()
+                                          .trim();
+                                        if (text) {
+                                          setSelectedText(text);
+                                        }
+                                      }
+                                    }}
+                                  >
+                                    <pre className="text-xs whitespace-pre-wrap font-mono">
+                                      {line}
+                                    </pre>
+                                  </div>
+
+                                  {/* Labeled parts for this line */}
+                                  {labeledParts[lineIdx] &&
+                                    Object.keys(labeledParts[lineIdx]).length >
+                                      0 && (
+                                      <div className="mt-2 pt-2 border-t grid grid-cols-2 gap-2 text-xs">
+                                        {labeledParts[lineIdx].code && (
+                                          <div className="flex items-center gap-1">
+                                            <span className="font-semibold text-blue-600">
+                                              📦 Kód:
+                                            </span>
+                                            <code className="bg-blue-50 px-1 py-0.5 rounded">
+                                              {labeledParts[lineIdx].code}
+                                            </code>
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-4 w-4 p-0 text-xs"
+                                              onClick={() => {
+                                                setLabeledParts((prev) => ({
+                                                  ...prev,
+                                                  [lineIdx]: {
+                                                    ...prev[lineIdx],
+                                                    code: undefined,
+                                                  },
+                                                }));
+                                              }}
+                                            >
+                                              ✕
+                                            </Button>
+                                          </div>
+                                        )}
+                                        {labeledParts[lineIdx].description && (
+                                          <div className="col-span-2 flex items-center gap-1">
+                                            <span className="font-semibold text-green-600">
+                                              📝 Popis:
+                                            </span>
+                                            <code className="bg-green-50 px-1 py-0.5 rounded flex-1">
+                                              {
+                                                labeledParts[lineIdx]
+                                                  .description
+                                              }
+                                            </code>
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-4 w-4 p-0 text-xs"
+                                              onClick={() => {
+                                                setLabeledParts((prev) => ({
+                                                  ...prev,
+                                                  [lineIdx]: {
+                                                    ...prev[lineIdx],
+                                                    description: undefined,
+                                                  },
+                                                }));
+                                              }}
+                                            >
+                                              ✕
+                                            </Button>
+                                          </div>
+                                        )}
+                                        {labeledParts[lineIdx].quantity && (
+                                          <div className="flex items-center gap-1">
+                                            <span className="font-semibold text-yellow-600">
+                                              🔢 Množství:
+                                            </span>
+                                            <code className="bg-yellow-50 px-1 py-0.5 rounded">
+                                              {labeledParts[lineIdx].quantity}
+                                            </code>
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-4 w-4 p-0 text-xs"
+                                              onClick={() => {
+                                                setLabeledParts((prev) => ({
+                                                  ...prev,
+                                                  [lineIdx]: {
+                                                    ...prev[lineIdx],
+                                                    quantity: undefined,
+                                                  },
+                                                }));
+                                              }}
+                                            >
+                                              ✕
+                                            </Button>
+                                          </div>
+                                        )}
+                                        {labeledParts[lineIdx].unit && (
+                                          <div className="flex items-center gap-1">
+                                            <span className="font-semibold text-purple-600">
+                                              📏 Jednotka:
+                                            </span>
+                                            <code className="bg-purple-50 px-1 py-0.5 rounded">
+                                              {labeledParts[lineIdx].unit}
+                                            </code>
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-4 w-4 p-0 text-xs"
+                                              onClick={() => {
+                                                setLabeledParts((prev) => ({
+                                                  ...prev,
+                                                  [lineIdx]: {
+                                                    ...prev[lineIdx],
+                                                    unit: undefined,
+                                                  },
+                                                }));
+                                              }}
+                                            >
+                                              ✕
+                                            </Button>
+                                          </div>
+                                        )}
+                                        {labeledParts[lineIdx].unit_price && (
+                                          <div className="flex items-center gap-1">
+                                            <span className="font-semibold text-orange-600">
+                                              💰 Cena/j:
+                                            </span>
+                                            <code className="bg-orange-50 px-1 py-0.5 rounded">
+                                              {labeledParts[lineIdx].unit_price}
+                                            </code>
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-4 w-4 p-0 text-xs"
+                                              onClick={() => {
+                                                setLabeledParts((prev) => ({
+                                                  ...prev,
+                                                  [lineIdx]: {
+                                                    ...prev[lineIdx],
+                                                    unit_price: undefined,
+                                                  },
+                                                }));
+                                              }}
+                                            >
+                                              ✕
+                                            </Button>
+                                          </div>
+                                        )}
+                                        {labeledParts[lineIdx].line_total && (
+                                          <div className="flex items-center gap-1">
+                                            <span className="font-semibold text-red-600">
+                                              💵 Celkem:
+                                            </span>
+                                            <code className="bg-red-50 px-1 py-0.5 rounded">
+                                              {labeledParts[lineIdx].line_total}
+                                            </code>
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-4 w-4 p-0 text-xs"
+                                              onClick={() => {
+                                                setLabeledParts((prev) => ({
+                                                  ...prev,
+                                                  [lineIdx]: {
+                                                    ...prev[lineIdx],
+                                                    line_total: undefined,
+                                                  },
+                                                }));
+                                              }}
+                                            >
+                                              ✕
+                                            </Button>
+                                          </div>
+                                        )}
+                                        {labeledParts[lineIdx].vat_rate && (
+                                          <div className="flex items-center gap-1">
+                                            <span className="font-semibold text-indigo-600">
+                                              📊 DPH%:
+                                            </span>
+                                            <code className="bg-indigo-50 px-1 py-0.5 rounded">
+                                              {labeledParts[lineIdx].vat_rate}
+                                            </code>
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-4 w-4 p-0 text-xs"
+                                              onClick={() => {
+                                                setLabeledParts((prev) => ({
+                                                  ...prev,
+                                                  [lineIdx]: {
+                                                    ...prev[lineIdx],
+                                                    vat_rate: undefined,
+                                                  },
+                                                }));
+                                              }}
+                                            >
+                                              ✕
+                                            </Button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+
+                        {/* Labeling buttons - shown when a line is active and text is selected */}
+                        {activeLineIndex !== null && selectedText && (
+                          <Alert className="bg-green-50 border-green-300">
+                            <AlertDescription className="text-xs">
+                              <strong>
+                                ✓ Označený text pro řádek {activeLineIndex + 1}:
+                              </strong>{" "}
+                              <code className="bg-white px-2 py-1 rounded border">
+                                {selectedText.length > 50
+                                  ? selectedText.substring(0, 50) + "..."
+                                  : selectedText}
+                              </code>
+                              <div className="grid grid-cols-4 gap-2 mt-2">
+                                {[
+                                  { key: "code", label: "📦 Kód" },
+                                  { key: "description", label: "📝 Popis" },
+                                  { key: "quantity", label: "🔢 Množství" },
+                                  { key: "unit", label: "📏 Jednotka" },
+                                  { key: "unit_price", label: "💰 Cena/j" },
+                                  { key: "line_total", label: "💵 Celkem" },
+                                  { key: "vat_rate", label: "📊 DPH%" },
+                                ].map(({ key, label }) => (
+                                  <Button
+                                    key={key}
+                                    size="sm"
+                                    variant={
+                                      labeledParts[activeLineIndex]?.[
+                                        key as keyof (typeof labeledParts)[number]
+                                      ]
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    className="text-xs h-8"
+                                    onClick={() => {
+                                      setLabeledParts((prev) => ({
+                                        ...prev,
+                                        [activeLineIndex]: {
+                                          ...prev[activeLineIndex],
+                                          [key]: selectedText,
+                                        },
+                                      }));
+                                      setSelectedText("");
+                                    }}
+                                  >
+                                    {label}
+                                  </Button>
+                                ))}
+                              </div>
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                      </div>
+                    ) : (
+                      <Alert className="bg-yellow-50 border-yellow-300">
                         <AlertDescription className="text-xs">
-                          <strong>✓ Označený text:</strong>{" "}
-                          <code className="bg-white px-2 py-1 rounded border">
-                            {selectedText.length > 50
-                              ? selectedText.substring(0, 50) + "..."
-                              : selectedText}
-                          </code>
-                          <p className="mt-2 text-muted-foreground">
-                            👇 Nyní klikněte na tlačítko níže pro přiřazení k
-                            poli
-                          </p>
+                          ⚠️ Nepodařilo se automaticky najít řádky položek v OCR
+                          textu.
+                          <br />
+                          Použijte tlačítko "✏️ Použít jako vzor řádku" s
+                          označeným textem z OCR.
                         </AlertDescription>
                       </Alert>
                     )}
 
-                    {/* Labeling buttons */}
-                    <div className="grid grid-cols-4 gap-2">
-                      {[
-                        { key: "code", label: "📦 Kód", color: "blue" },
-                        {
-                          key: "description",
-                          label: "📝 Popis",
-                          color: "green",
-                        },
-                        {
-                          key: "quantity",
-                          label: "🔢 Množství",
-                          color: "yellow",
-                        },
-                        { key: "unit", label: "📏 Jednotka", color: "purple" },
-                        {
-                          key: "unit_price",
-                          label: "💰 Cena/j",
-                          color: "orange",
-                        },
-                        { key: "line_total", label: "💵 Celkem", color: "red" },
-                        { key: "vat_rate", label: "📊 DPH%", color: "indigo" },
-                      ].map(({ key, label }) => (
-                        <Button
-                          key={key}
-                          size="sm"
-                          variant={
-                            Object.values(labeledParts).some(
-                              (p) => p[key as keyof typeof p]
-                            )
-                              ? "default"
-                              : "outline"
-                          }
-                          className="text-xs h-9"
-                          onClick={() => {
-                            if (!selectedText) {
-                              alert("Nejprve označte text v OCR textu níže!");
-                              return;
-                            }
-                            // Determine which line this is for (simple incremental approach)
-                            const lineIndex = Object.keys(labeledParts).length;
-                            setLabeledParts((prev) => ({
-                              ...prev,
-                              [lineIndex]: {
-                                ...prev[lineIndex],
-                                [key]: selectedText,
-                              },
-                            }));
-                            setSelectedText("");
-                          }}
-                          disabled={!selectedText}
-                        >
-                          {label}
-                        </Button>
-                      ))}
-                    </div>
-
-                    {/* Display labeled parts */}
+                    {/* Display summary of labeled parts */}
                     {Object.keys(labeledParts).length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-sm font-semibold">
-                          Označené části ({Object.keys(labeledParts).length}{" "}
-                          řádků):
+                      <div className="pt-2 border-t">
+                        <p className="text-sm font-semibold mb-2">
+                          Celkem označeno: {Object.keys(labeledParts).length}{" "}
+                          řádků
                         </p>
-                        {Object.entries(labeledParts).map(
-                          ([lineIdx, parts]) => (
-                            <Card
-                              key={lineIdx}
-                              className="bg-white border-gray-200"
-                            >
-                              <CardContent className="pt-3 pb-3">
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1 space-y-1">
-                                    <p className="text-xs font-semibold text-gray-600">
-                                      Řádek {parseInt(lineIdx) + 1}:
-                                    </p>
-                                    <div className="grid grid-cols-2 gap-1 text-xs">
-                                      {parts.code && (
-                                        <div>
-                                          <span className="font-semibold text-blue-600">
-                                            Kód:
-                                          </span>{" "}
-                                          <code className="bg-blue-50 px-1 py-0.5 rounded">
-                                            {parts.code}
-                                          </code>
-                                        </div>
-                                      )}
-                                      {parts.description && (
-                                        <div className="col-span-2">
-                                          <span className="font-semibold text-green-600">
-                                            Popis:
-                                          </span>{" "}
-                                          <code className="bg-green-50 px-1 py-0.5 rounded">
-                                            {parts.description}
-                                          </code>
-                                        </div>
-                                      )}
-                                      {parts.quantity && (
-                                        <div>
-                                          <span className="font-semibold text-yellow-600">
-                                            Množství:
-                                          </span>{" "}
-                                          <code className="bg-yellow-50 px-1 py-0.5 rounded">
-                                            {parts.quantity}
-                                          </code>
-                                        </div>
-                                      )}
-                                      {parts.unit && (
-                                        <div>
-                                          <span className="font-semibold text-purple-600">
-                                            Jednotka:
-                                          </span>{" "}
-                                          <code className="bg-purple-50 px-1 py-0.5 rounded">
-                                            {parts.unit}
-                                          </code>
-                                        </div>
-                                      )}
-                                      {parts.unit_price && (
-                                        <div>
-                                          <span className="font-semibold text-orange-600">
-                                            Cena/j:
-                                          </span>{" "}
-                                          <code className="bg-orange-50 px-1 py-0.5 rounded">
-                                            {parts.unit_price}
-                                          </code>
-                                        </div>
-                                      )}
-                                      {parts.line_total && (
-                                        <div>
-                                          <span className="font-semibold text-red-600">
-                                            Celkem:
-                                          </span>{" "}
-                                          <code className="bg-red-50 px-1 py-0.5 rounded">
-                                            {parts.line_total}
-                                          </code>
-                                        </div>
-                                      )}
-                                      {parts.vat_rate && (
-                                        <div>
-                                          <span className="font-semibold text-indigo-600">
-                                            DPH%:
-                                          </span>{" "}
-                                          <code className="bg-indigo-50 px-1 py-0.5 rounded">
-                                            {parts.vat_rate}
-                                          </code>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-6 w-6 p-0"
-                                    onClick={() => {
-                                      setLabeledParts((prev) => {
-                                        const newParts = { ...prev };
-                                        delete newParts[parseInt(lineIdx)];
-                                        return newParts;
-                                      });
-                                    }}
-                                  >
-                                    ✕
-                                  </Button>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          )
-                        )}
 
                         {/* Generate pattern button */}
                         <div className="flex gap-2 pt-2">
