@@ -301,13 +301,17 @@ def detect_qr_codes(image: Image.Image, page_num: int) -> List[QRCodeData]:
             qr_data = obj.data.decode('utf-8', errors='ignore')
             qr_type = obj.type
             
-            qr_codes.append(QRCodeData(
-                data=qr_data,
-                type=qr_type,
-                page=page_num
-            ))
-            
-            logger.info(f"Detected {qr_type} on page {page_num}: {qr_data[:100]}")
+            # Only include QR codes, skip barcodes (CODE128, EAN13, etc.)
+            if qr_type == 'QRCODE':
+                qr_codes.append(QRCodeData(
+                    data=qr_data,
+                    type=qr_type,
+                    page=page_num
+                ))
+                
+                logger.info(f"Detected {qr_type} on page {page_num}: {qr_data[:100]}")
+            else:
+                logger.debug(f"Skipping barcode {qr_type} on page {page_num}: {qr_data[:100]}")
     
     except Exception as e:
         logger.error(f"Error detecting QR codes on page {page_num}: {e}")
