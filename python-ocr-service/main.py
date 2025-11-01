@@ -964,7 +964,7 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         quantity2 = extract_number(groups[4]) if len(groups) > 4 else 0
                         unit2 = groups[5] if len(groups) > 5 else None
                         unit_price = extract_number(groups[6]) if len(groups) > 6 else 0
-                        line_total = extract_number(groups[7]) if len(groups) > 7 else 0
+                        line_total_ocr = extract_number(groups[7]) if len(groups) > 7 else 0  # OCR extracted value (may have errors with spaces)
                         vat_percent = extract_number(groups[8]) if len(groups) > 8 else None
                         vat_rate = vat_percent  # Use vat_percent from end as the actual VAT rate
                         
@@ -994,6 +994,12 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                                 quantity = extract_number(qty_unit_match.group(1))
                                 unit_of_measure = qty_unit_match.group(2).lower()
                                 logger.info(f"Extracted quantity {quantity} and unit '{unit_of_measure}' from combined '{unit2}'")
+                        
+                        # Calculate line_total from quantity * unit_price for accuracy
+                        # OCR often has errors with spaces in Czech number format (e.g., "4 150,00" vs "4150,00")
+                        line_total = quantity * unit_price if quantity and unit_price else line_total_ocr
+                        if line_total != line_total_ocr and line_total_ocr > 0:
+                            logger.info(f"Calculated line_total: {line_total} (OCR was: {line_total_ocr}, using calculation instead)")
                         
                         logger.info(f"Extracting Backaldrin format - code: {product_code}, description: {description}, quantity: {quantity} {unit_of_measure}, unit_price: {unit_price}, total: {line_total}")
                         
