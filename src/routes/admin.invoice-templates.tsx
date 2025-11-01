@@ -1895,7 +1895,7 @@ function generateLineItemPattern(exampleLine: string): string {
           "([A-Z]+)\\s+" + // Unit (uppercase letters: KG, KS, etc)
           "([\\d.]+)\\s+" + // Unit price
           "([\\d.]+)\\s*\\n" + // Total price
-          "\\s*(.+)$"; // Description (line 2)
+          "\\s*([^\\n]+)"; // Description (line 2, single line only - stop at newline)
 
         return pattern;
       }
