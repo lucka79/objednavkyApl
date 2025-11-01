@@ -252,6 +252,8 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
       unit_price?: string;
       line_total?: string;
       vat_rate?: string;
+      vat_amount?: string;
+      total_with_vat?: string;
     };
   }>({});
   const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null);
@@ -1609,13 +1611,16 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                       // Create Leco format pattern: KÓD POPIS MNOŽSTVÍ JEDNOTKA CENA/J CELKEM DPH% DPH_ČÁSTKA CELKEM_S_DPH
                       // Pattern captures: code, description, quantity, unit, unit_price, line_total, vat_rate, vat_amount, total_with_vat
                       // Description uses non-greedy match to stop before quantity (number + space + unit)
-                      const lecoPattern = "^(\\d+)\\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\\s.,%()-]+?)\\s+(\\d[\\d,\\.]*)\\s+([A-Za-z]{1,5})\\s+([\\d\\s,\\.]+)\\s+([\\d\\s,\\.]+)\\s+(\\d+)\\s+([\\d\\s,\\.]+)\\s+([\\d\\s,\\.]+)";
+                      const lecoPattern =
+                        "^(\\d+)\\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\\s.,%()-]+?)\\s+(\\d[\\d,\\.]*)\\s+([A-Za-z]{1,5})\\s+([\\d\\s,\\.]+)\\s+([\\d\\s,\\.]+)\\s+(\\d+)\\s+([\\d\\s,\\.]+)\\s+([\\d\\s,\\.]+)";
                       setEditedPatterns((prev: any) => ({
                         ...prev,
                         line_pattern: lecoPattern,
                       }));
                       setHasChanges(true);
-                      alert("Pattern pro Leco formát vytvořen! Klikněte '💾 Uložit změny' nahoře.");
+                      alert(
+                        "Pattern pro Leco formát vytvořen! Klikněte '💾 Uložit změny' nahoře."
+                      );
                     }}
                   >
                     🎯 Vytvořit pattern pro Leco
@@ -2077,6 +2082,58 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                                             </Button>
                                           </div>
                                         )}
+                                        {labeledParts[lineIdx].vat_amount && (
+                                          <div className="flex items-center gap-1">
+                                            <span className="font-semibold text-purple-600">
+                                              📋 DPH částka:
+                                            </span>
+                                            <code className="bg-purple-50 px-1 py-0.5 rounded">
+                                              {labeledParts[lineIdx].vat_amount}
+                                            </code>
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-4 w-4 p-0 text-xs"
+                                              onClick={() => {
+                                                setLabeledParts((prev) => ({
+                                                  ...prev,
+                                                  [lineIdx]: {
+                                                    ...prev[lineIdx],
+                                                    vat_amount: undefined,
+                                                  },
+                                                }));
+                                              }}
+                                            >
+                                              ✕
+                                            </Button>
+                                          </div>
+                                        )}
+                                        {labeledParts[lineIdx].total_with_vat && (
+                                          <div className="flex items-center gap-1">
+                                            <span className="font-semibold text-orange-600">
+                                              💳 Celkem s DPH:
+                                            </span>
+                                            <code className="bg-orange-50 px-1 py-0.5 rounded">
+                                              {labeledParts[lineIdx].total_with_vat}
+                                            </code>
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-4 w-4 p-0 text-xs"
+                                              onClick={() => {
+                                                setLabeledParts((prev) => ({
+                                                  ...prev,
+                                                  [lineIdx]: {
+                                                    ...prev[lineIdx],
+                                                    total_with_vat: undefined,
+                                                  },
+                                                }));
+                                              }}
+                                            >
+                                              ✕
+                                            </Button>
+                                          </div>
+                                        )}
                                       </div>
                                     )}
                                 </div>
@@ -2107,6 +2164,8 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                                     { key: "unit_price", label: "💰 Cena/j" },
                                     { key: "line_total", label: "💵 Celkem" },
                                     { key: "vat_rate", label: "📊 DPH%" },
+                                    { key: "vat_amount", label: "📋 DPH částka" },
+                                    { key: "total_with_vat", label: "💳 Celkem s DPH" },
                                   ].map(({ key, label }) => (
                                     <Button
                                       key={key}
@@ -2505,6 +2564,8 @@ function generatePatternFromLabeled(
       unit_price?: string;
       line_total?: string;
       vat_rate?: string;
+      vat_amount?: string;
+      total_with_vat?: string;
     };
   },
   potentialLines?: string[]
@@ -2531,12 +2592,14 @@ function generatePatternFromLabeled(
   // Generate regex patterns for each field type
   const fieldPatterns: { [key: string]: string } = {
     code: "(\\d+)", // Product code: one or more digits
-    description: "([A-Za-zá-žÁ-Ž](?:[A-Za-zá-žÁ-Ž0-9\\s.,%-])+)", // Description: letters, numbers, spaces, punctuation
-    quantity: "([\\d,\\.]+)", // Quantity: digits with optional comma/dot
+    description: "([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\\s.,%()-]+?)", // Description: non-greedy, letters, numbers, spaces, punctuation
+    quantity: "(\\d[\\d,\\.]*)", // Quantity: digits with optional comma/dot (must start with digit)
     unit: "([A-Za-z]{1,5})", // Unit: 1-5 letters (kg, ks, etc.)
-    unit_price: "([\\d,\\.]+)", // Unit price: digits with optional comma/dot
-    line_total: "([\\d,\\.]+)", // Line total: digits with optional comma/dot
+    unit_price: "([\\d\\s,\\.]+)", // Unit price: digits with spaces, commas, dots
+    line_total: "([\\d\\s,\\.]+)", // Line total: digits with spaces, commas, dots
     vat_rate: "(\\d+)", // VAT rate: digits only
+    vat_amount: "([\\d\\s,\\.]+)", // VAT amount: digits with spaces, commas, dots
+    total_with_vat: "([\\d\\s,\\.]+)", // Total with VAT: digits with spaces, commas, dots
   };
 
   // Build pattern by analyzing the order of fields
@@ -2585,6 +2648,7 @@ function generatePatternFromLabeled(
       lineFields.sort((a, b) => a.position - b.position);
     } else {
       // Fallback: use field order if no line text available
+      // Standard order for Leco format (9 fields)
       const fieldOrder = [
         "code",
         "description",
@@ -2593,6 +2657,8 @@ function generatePatternFromLabeled(
         "unit_price",
         "line_total",
         "vat_rate",
+        "vat_amount",
+        "total_with_vat",
       ];
 
       fieldOrder.forEach((field, idx) => {
