@@ -1068,10 +1068,12 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             line_number=line_number,
                         )
                     
-                    # Generic interactive labeling format (5-7 groups): use position-based mapping with validation
-                    # Frontend generates patterns with fields in left-to-right order: code, description, quantity, unit, unit_price, line_total, vat_rate
-                    # We map capture groups to fields based on position, validating that field matches expected type
-                    if len(groups) >= 5 and len(groups) <= 7:
+                    # Generic interactive labeling format (5-9 groups): use position-based mapping with validation
+                    # Frontend generates patterns with fields in left-to-right order
+                    # Common formats:
+                    #   5-7 groups: code, description, quantity, unit, unit_price, line_total, vat_rate
+                    #   9 groups (Leco): code, description, quantity, unit, unit_price, line_total, vat_rate, vat_amount, total_with_vat
+                    if len(groups) >= 5 and len(groups) <= 9:
                         product_code = None
                         description = None
                         quantity = 0
@@ -1082,7 +1084,8 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         
                         # Standard field order from frontend (based on left-to-right position)
                         # But we'll be flexible - map based on position first, then validate
-                        field_order = ['code', 'description', 'quantity', 'unit', 'unit_price', 'line_total', 'vat_rate']
+                        # For 9 groups (Leco): code, description, quantity, unit, unit_price, line_total, vat_rate, vat_amount, total_with_vat
+                        field_order = ['code', 'description', 'quantity', 'unit', 'unit_price', 'line_total', 'vat_rate', 'vat_amount', 'total_with_vat']
                         
                         # First pass: map fields based on position with validation
                         for idx, group_str in enumerate(groups):
@@ -1143,6 +1146,22 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                                     if vat_num >= 10 and vat_num <= 25:
                                         vat_rate = vat_num
                                         logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> vat_rate: {vat_rate}")
+                            
+                            elif field_type == 'vat_amount':
+                                # VAT amount: number (extracted for logging, but not stored in InvoiceItem)
+                                num_val = extract_number(group_str)
+                                if num_val > 0:
+                                    logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> vat_amount: {num_val}")
+                            
+                            elif field_type == 'total_with_vat':
+                                # Total with VAT: number (extracted for logging, but line_total is already set)
+                                num_val = extract_number(group_str)
+                                if num_val > 0:
+                                    logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> total_with_vat: {num_val}")
+                                    # Use total_with_vat as line_total if line_total is smaller (sometimes line_total is before VAT)
+                                    if num_val > line_total:
+                                        line_total = num_val
+                                        logger.debug(f"Using total_with_vat as line_total: {line_total}")
                         
                         # Second pass: if description wasn't found, look for it in any remaining groups
                         # Also check if description position was assigned incorrectly (has number instead of text)

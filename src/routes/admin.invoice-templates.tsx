@@ -308,12 +308,14 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
   useEffect(() => {
     if (result?.raw_text && initialPotentialLines.length > 0) {
       // Only initialize if editableLines is empty or result changed
-      const resultKey = `${supplierId}_${result?.invoiceNumber || 'new'}`;
-      const lastInitialized = sessionStorage.getItem(`initialized_lines_${resultKey}`);
-      
+      const resultKey = `${supplierId}_${result?.invoiceNumber || "new"}`;
+      const lastInitialized = sessionStorage.getItem(
+        `initialized_lines_${resultKey}`
+      );
+
       if (!lastInitialized || editableLines.length === 0) {
         setEditableLines([...initialPotentialLines]);
-        sessionStorage.setItem(`initialized_lines_${resultKey}`, 'true');
+        sessionStorage.setItem(`initialized_lines_${resultKey}`, "true");
       }
     } else if (!result?.raw_text) {
       // Clear editableLines if no result
@@ -322,7 +324,8 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
   }, [result?.raw_text, supplierId]);
 
   // Use editableLines if available, otherwise use initialPotentialLines
-  const potentialLines = editableLines.length > 0 ? editableLines : initialPotentialLines;
+  const potentialLines =
+    editableLines.length > 0 ? editableLines : initialPotentialLines;
 
   // Get the active template for this supplier
   const activeTemplate = templates.find((t) => t.is_active);
@@ -1597,6 +1600,27 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                     ✏️ Použít jako vzor řádku
                   </Button>
                 )}
+                {result?.raw_text && !editedPatterns.line_pattern && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="bg-blue-50 border-blue-300"
+                    onClick={() => {
+                      // Create Leco format pattern: KÓD POPIS MNOŽSTVÍ JEDNOTKA CENA/J CELKEM DPH% DPH_ČÁSTKA CELKEM_S_DPH
+                      // Pattern captures: code, description, quantity, unit, unit_price, line_total, vat_rate, vat_amount, total_with_vat
+                      // Description uses non-greedy match to stop before quantity (number + space + unit)
+                      const lecoPattern = "^(\\d+)\\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\\s.,%()-]+?)\\s+(\\d[\\d,\\.]*)\\s+([A-Za-z]{1,5})\\s+([\\d\\s,\\.]+)\\s+([\\d\\s,\\.]+)\\s+(\\d+)\\s+([\\d\\s,\\.]+)\\s+([\\d\\s,\\.]+)";
+                      setEditedPatterns((prev: any) => ({
+                        ...prev,
+                        line_pattern: lecoPattern,
+                      }));
+                      setHasChanges(true);
+                      alert("Pattern pro Leco formát vytvořen! Klikněte '💾 Uložit změny' nahoře.");
+                    }}
+                  >
+                    🎯 Vytvořit pattern pro Leco
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant={showLineLabeling ? "default" : "outline"}
@@ -1657,15 +1681,18 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-semibold">
-                            Označte části v těchto řádcích (klikněte na řádek pro
-                            aktivaci):
+                            Označte části v těchto řádcích (klikněte na řádek
+                            pro aktivaci):
                           </p>
                           <Button
                             size="sm"
                             variant="outline"
                             className="text-xs h-7"
                             onClick={() => {
-                              const currentLines = editableLines.length > 0 ? editableLines : potentialLines;
+                              const currentLines =
+                                editableLines.length > 0
+                                  ? editableLines
+                                  : potentialLines;
                               setEditableLines([...currentLines, ""]);
                               setEditingLineIndex(currentLines.length);
                               setEditingLineText("");
@@ -1738,7 +1765,10 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                                         variant="ghost"
                                         className="text-xs h-6 px-2 text-red-600"
                                         onClick={() => {
-                                          const currentLines = editableLines.length > 0 ? editableLines : potentialLines;
+                                          const currentLines =
+                                            editableLines.length > 0
+                                              ? editableLines
+                                              : potentialLines;
                                           const newLines = [...currentLines];
                                           newLines.splice(lineIdx, 1);
                                           setEditableLines(newLines);
@@ -1746,21 +1776,28 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                                           setLabeledParts((prev) => {
                                             // Shift indices for lines after removed one
                                             const shifted: typeof prev = {};
-                                            Object.entries(prev).forEach(([idx, parts]) => {
-                                              const idxNum = parseInt(idx);
-                                              if (idxNum < lineIdx) {
-                                                shifted[idxNum] = parts;
-                                              } else if (idxNum > lineIdx) {
-                                                shifted[idxNum - 1] = parts;
+                                            Object.entries(prev).forEach(
+                                              ([idx, parts]) => {
+                                                const idxNum = parseInt(idx);
+                                                if (idxNum < lineIdx) {
+                                                  shifted[idxNum] = parts;
+                                                } else if (idxNum > lineIdx) {
+                                                  shifted[idxNum - 1] = parts;
+                                                }
+                                                // Skip idxNum === lineIdx (removed line)
                                               }
-                                              // Skip idxNum === lineIdx (removed line)
-                                            });
+                                            );
                                             return shifted;
                                           });
                                           if (activeLineIndex === lineIdx) {
                                             setActiveLineIndex(null);
-                                          } else if (activeLineIndex !== null && activeLineIndex > lineIdx) {
-                                            setActiveLineIndex(activeLineIndex - 1);
+                                          } else if (
+                                            activeLineIndex !== null &&
+                                            activeLineIndex > lineIdx
+                                          ) {
+                                            setActiveLineIndex(
+                                              activeLineIndex - 1
+                                            );
                                           }
                                         }}
                                         title="Odstranit řádek"
@@ -1787,14 +1824,20 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                                           variant="default"
                                           className="text-xs h-7"
                                           onClick={() => {
-                                            const currentLines = editableLines.length > 0 ? editableLines : potentialLines;
+                                            const currentLines =
+                                              editableLines.length > 0
+                                                ? editableLines
+                                                : potentialLines;
                                             const newLines = [...currentLines];
-                                            newLines[lineIdx] = editingLineText.trim();
+                                            newLines[lineIdx] =
+                                              editingLineText.trim();
                                             setEditableLines(newLines);
                                             setEditingLineIndex(null);
                                             setEditingLineText("");
                                             // Clear labeled parts for this line if it changed significantly
-                                            if (editingLineText.trim() !== line) {
+                                            if (
+                                              editingLineText.trim() !== line
+                                            ) {
                                               setLabeledParts((prev) => {
                                                 const newParts = { ...prev };
                                                 delete newParts[lineIdx];
@@ -1827,7 +1870,8 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                                       } select-text`}
                                       onMouseUp={() => {
                                         if (activeLineIndex === lineIdx) {
-                                          const selection = window.getSelection();
+                                          const selection =
+                                            window.getSelection();
                                           const text = selection
                                             ?.toString()
                                             .trim();
@@ -2097,15 +2141,18 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                                     className="text-xs h-8 w-full bg-red-50 border-red-300 text-red-700 hover:bg-red-100"
                                     onClick={() => {
                                       // Generate ignore pattern from selected text
-                                      const ignorePattern = generateRegexPattern(
-                                        selectedText,
-                                        "ignore_line"
-                                      );
+                                      const ignorePattern =
+                                        generateRegexPattern(
+                                          selectedText,
+                                          "ignore_line"
+                                        );
                                       // Get current ignore patterns
                                       const currentIgnores =
-                                        (activeTemplate?.config?.table_columns as any)
-                                          ?.ignore_patterns || [];
-                                      
+                                        (
+                                          activeTemplate?.config
+                                            ?.table_columns as any
+                                        )?.ignore_patterns || [];
+
                                       const ignorePatterns = Array.isArray(
                                         currentIgnores
                                       )
@@ -2113,18 +2160,20 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                                           ? currentIgnores
                                           : [...currentIgnores, ignorePattern]
                                         : currentIgnores
-                                        ? currentIgnores === ignorePattern
-                                          ? [currentIgnores]
-                                          : [currentIgnores, ignorePattern]
-                                        : [ignorePattern];
-                                      
+                                          ? currentIgnores === ignorePattern
+                                            ? [currentIgnores]
+                                            : [currentIgnores, ignorePattern]
+                                          : [ignorePattern];
+
                                       setEditedPatterns((prev: any) => ({
                                         ...prev,
                                         ignore_patterns: ignorePatterns,
                                       }));
                                       setHasChanges(true);
                                       setSelectedText("");
-                                      alert(`Pattern "${ignorePattern}" přidán do ignore_patterns`);
+                                      alert(
+                                        `Pattern "${ignorePattern}" přidán do ignore_patterns`
+                                      );
                                     }}
                                   >
                                     🚫 Ignorovat tuto část řádku
@@ -2162,8 +2211,10 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                             variant="default"
                             className="flex-1"
                             onClick={() => {
-                              const pattern =
-                                generatePatternFromLabeled(labeledParts, potentialLines);
+                              const pattern = generatePatternFromLabeled(
+                                labeledParts,
+                                potentialLines
+                              );
                               setEditedPatterns((prev: any) => ({
                                 ...prev,
                                 line_pattern: pattern,
@@ -2491,12 +2542,18 @@ function generatePatternFromLabeled(
   // Build pattern by analyzing the order of fields
   // Group by line to understand structure
   // IMPORTANT: Order fields by their position in the original text, not by field type
-  const lineStructures: Array<Array<{ field: string; value: string; position: number }>> = [];
+  const lineStructures: Array<
+    Array<{ field: string; value: string; position: number }>
+  > = [];
 
   Object.entries(labeledParts).forEach(([lineIdx, parts]) => {
-    const lineFields: Array<{ field: string; value: string; position: number }> = [];
+    const lineFields: Array<{
+      field: string;
+      value: string;
+      position: number;
+    }> = [];
     const potentialLine = potentialLines?.[parseInt(lineIdx)];
-    
+
     if (potentialLine) {
       // Find positions in the actual line text
       Object.entries(parts).forEach(([field, value]) => {
@@ -2504,7 +2561,7 @@ function generatePatternFromLabeled(
           // Find the position - use indexOf, but handle cases where value appears multiple times
           // For uniqueness, try to match with word boundaries if possible
           let position = potentialLine.indexOf(value);
-          
+
           // If found, use it; otherwise use a fallback ordering
           if (position >= 0) {
             lineFields.push({
@@ -2523,7 +2580,7 @@ function generatePatternFromLabeled(
           }
         }
       });
-      
+
       // Sort by position in the text (left to right)
       lineFields.sort((a, b) => a.position - b.position);
     } else {
@@ -2537,7 +2594,7 @@ function generatePatternFromLabeled(
         "line_total",
         "vat_rate",
       ];
-      
+
       fieldOrder.forEach((field, idx) => {
         if (parts[field as keyof typeof parts]) {
           lineFields.push({
@@ -2548,7 +2605,7 @@ function generatePatternFromLabeled(
         }
       });
     }
-    
+
     lineStructures.push(lineFields);
   });
 
