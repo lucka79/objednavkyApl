@@ -1072,6 +1072,7 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     # Frontend generates patterns with fields in left-to-right order
                     # Common formats:
                     #   5-7 groups: code, description, quantity, unit, unit_price, line_total, vat_rate
+                    #   7 groups (Dekos): code, description, unit_price, quantity, unit, vat_rate, line_total
                     #   9 groups (Leco): code, description, quantity, unit, unit_price, line_total, vat_rate, vat_amount, total_with_vat
                     if len(groups) >= 5 and len(groups) <= 9:
                         product_code = None
@@ -1082,10 +1083,22 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         line_total = 0
                         vat_rate = None
                         
+                        # Detect Dekos format: code contains dot (e.g., "35.0400") and has 7 groups
+                        # Dekos order: code, description, unit_price, quantity, unit, vat_rate, line_total
+                        is_dekos_format = len(groups) == 7 and groups[0] and '.' in str(groups[0])
+                        
                         # Standard field order from frontend (based on left-to-right position)
                         # But we'll be flexible - map based on position first, then validate
-                        # For 9 groups (Leco): code, description, quantity, unit, unit_price, line_total, vat_rate, vat_amount, total_with_vat
-                        field_order = ['code', 'description', 'quantity', 'unit', 'unit_price', 'line_total', 'vat_rate', 'vat_amount', 'total_with_vat']
+                        if is_dekos_format:
+                            # Dekos format: code, description, unit_price, quantity, unit, vat_rate, line_total
+                            field_order = ['code', 'description', 'unit_price', 'quantity', 'unit', 'vat_rate', 'line_total']
+                            logger.debug(f"Detected Dekos format (7 groups with code containing dot): {groups[0]}")
+                        elif len(groups) == 9:
+                            # Leco format: code, description, quantity, unit, unit_price, line_total, vat_rate, vat_amount, total_with_vat
+                            field_order = ['code', 'description', 'quantity', 'unit', 'unit_price', 'line_total', 'vat_rate', 'vat_amount', 'total_with_vat']
+                        else:
+                            # Standard format: code, description, quantity, unit, unit_price, line_total, vat_rate
+                            field_order = ['code', 'description', 'quantity', 'unit', 'unit_price', 'line_total', 'vat_rate', 'vat_amount', 'total_with_vat']
                         
                         # First pass: map fields based on position with validation
                         for idx, group_str in enumerate(groups):
@@ -1095,10 +1108,14 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             field_type = field_order[idx]
                             
                             if field_type == 'code':
-                                # Product code: all digits, 3-7 digits
+                                # Product code: all digits, 3-7 digits, or digits with dot (Dekos format: "35.0400")
                                 if group_str.isdigit() and len(group_str) >= 3 and len(group_str) <= 7:
                                     product_code = group_str
                                     logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> code: {product_code}")
+                                elif '.' in group_str and re.match(r'^\d+\.\d+$', group_str):
+                                    # Dekos format: code with dot (e.g., "35.0400")
+                                    product_code = group_str
+                                    logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> code (Dekos format): {product_code}")
                                 elif group_str.isdigit():
                                     # Fallback: accept any digit-only code
                                     product_code = group_str
@@ -1120,8 +1137,9 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                                     logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> quantity: {quantity}")
                             
                             elif field_type == 'unit':
-                                # Unit: short string (1-5 chars), only letters
-                                if len(group_str) <= 5 and group_str.isalpha():
+                                # Unit: short string (1-10 chars), letters or combination of digits and letters (e.g., "1ks", "bal", "tis")
+                                # Must contain at least one letter to distinguish from pure numbers
+                                if len(group_str) <= 10 and any(c.isalpha() or c in 'áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ' for c in group_str):
                                     unit_of_measure = group_str.lower()
                                     logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> unit: {unit_of_measure}")
                             

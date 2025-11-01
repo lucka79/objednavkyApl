@@ -1603,28 +1603,55 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                   </Button>
                 )}
                 {result?.raw_text && !editedPatterns.line_pattern && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="bg-blue-50 border-blue-300"
-                    onClick={() => {
-                      // Create Leco format pattern: KÓD POPIS MNOŽSTVÍ JEDNOTKA CENA/J CELKEM DPH% DPH_ČÁSTKA CELKEM_S_DPH
-                      // Pattern captures: code, description, quantity, unit, unit_price, line_total, vat_rate, vat_amount, total_with_vat
-                      // Description uses non-greedy match to stop before quantity (number + space + unit)
-                      const lecoPattern =
-                        "^(\\d+)\\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\\s.,%()-]+?)\\s+(\\d[\\d,\\.]*)\\s+([A-Za-z]{1,5})\\s+([\\d\\s,\\.]+)\\s+([\\d\\s,\\.]+)\\s+(\\d+)\\s+([\\d\\s,\\.]+)\\s+([\\d\\s,\\.]+)";
-                      setEditedPatterns((prev: any) => ({
-                        ...prev,
-                        line_pattern: lecoPattern,
-                      }));
-                      setHasChanges(true);
-                      alert(
-                        "Pattern pro Leco formát vytvořen! Klikněte '💾 Uložit změny' nahoře."
-                      );
-                    }}
-                  >
-                    🎯 Vytvořit pattern pro Leco
-                  </Button>
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="bg-blue-50 border-blue-300"
+                      onClick={() => {
+                        // Create Leco format pattern: KÓD POPIS MNOŽSTVÍ JEDNOTKA CENA/J CELKEM DPH% DPH_ČÁSTKA CELKEM_S_DPH
+                        // Pattern captures: code, description, quantity, unit, unit_price, line_total, vat_rate, vat_amount, total_with_vat
+                        // Description uses non-greedy match to stop before quantity (number + space + unit)
+                        const lecoPattern =
+                          "^(\\d+)\\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\\s.,%()-]+?)\\s+(\\d[\\d,\\.]*)\\s+([A-Za-z]{1,5})\\s+([\\d\\s,\\.]+)\\s+([\\d\\s,\\.]+)\\s+(\\d+)\\s+([\\d\\s,\\.]+)\\s+([\\d\\s,\\.]+)";
+                        setEditedPatterns((prev: any) => ({
+                          ...prev,
+                          line_pattern: lecoPattern,
+                        }));
+                        setHasChanges(true);
+                        alert(
+                          "Pattern pro Leco formát vytvořen! Klikněte '💾 Uložit změny' nahoře."
+                        );
+                      }}
+                    >
+                      🎯 Vytvořit pattern pro Leco
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="bg-purple-50 border-purple-300"
+                      onClick={() => {
+                        // Create Dekos format pattern: ČÍSLO POPIS CENA/MJ MNOŽSTVÍ MJ DPH CELKEM
+                        // Pattern captures: code, description, unit_price, quantity, unit, vat_rate, line_total
+                        // Format example: "35.0400 Jar PŘIMONA 5I zelený 79,0000 8,000 1ks 21 632,00"
+                        // Format example with spaces: "7.6000 Pytel HDPE 70x110cm... 1,6600 1 000,000 1ks 21 1 660,00"
+                        // Code format: number with dot (e.g., "35.0400")
+                        // Quantity and unit_price may contain spaces (e.g., "1 000,000")
+                        const dekosPattern =
+                          "^(\\d+\\.\\d+)\\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\\s.,%()-]+?)\\s+([\\d\\s,\\.]+)\\s+([\\d\\s,\\.]+)\\s+([A-Za-z0-9]{1,10})\\s+(\\d+)\\s+([\\d\\s,\\.]+)";
+                        setEditedPatterns((prev: any) => ({
+                          ...prev,
+                          line_pattern: dekosPattern,
+                        }));
+                        setHasChanges(true);
+                        alert(
+                          "Pattern pro Dekos formát vytvořen! Klikněte '💾 Uložit změny' nahoře."
+                        );
+                      }}
+                    >
+                      🎯 Vytvořit pattern pro Dekos
+                    </Button>
+                  </>
                 )}
                 <Button
                   size="sm"
