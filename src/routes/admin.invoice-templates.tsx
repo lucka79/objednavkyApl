@@ -2108,13 +2108,17 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                                             </Button>
                                           </div>
                                         )}
-                                        {labeledParts[lineIdx].total_with_vat && (
+                                        {labeledParts[lineIdx]
+                                          .total_with_vat && (
                                           <div className="flex items-center gap-1">
                                             <span className="font-semibold text-orange-600">
                                               💳 Celkem s DPH:
                                             </span>
                                             <code className="bg-orange-50 px-1 py-0.5 rounded">
-                                              {labeledParts[lineIdx].total_with_vat}
+                                              {
+                                                labeledParts[lineIdx]
+                                                  .total_with_vat
+                                              }
                                             </code>
                                             <Button
                                               size="sm"
@@ -2164,8 +2168,14 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                                     { key: "unit_price", label: "💰 Cena/j" },
                                     { key: "line_total", label: "💵 Celkem" },
                                     { key: "vat_rate", label: "📊 DPH%" },
-                                    { key: "vat_amount", label: "📋 DPH částka" },
-                                    { key: "total_with_vat", label: "💳 Celkem s DPH" },
+                                    {
+                                      key: "vat_amount",
+                                      label: "📋 DPH částka",
+                                    },
+                                    {
+                                      key: "total_with_vat",
+                                      label: "💳 Celkem s DPH",
+                                    },
                                   ].map(({ key, label }) => (
                                     <Button
                                       key={key}
@@ -2729,6 +2739,26 @@ function generateRegexPattern(text: string, mode: string): string {
           /\d{1,2}\.\d{1,2}\.\d{4}/g,
           "(\\d{1,2}\\.\\d{1,2}\\.\\d{4})"
         );
+      }
+      // Check if text contains date label (e.g., "Datum uskutečnění zdaň. plnění:")
+      // If text contains label but no date, create pattern that looks for date after label
+      if (/Datum/i.test(text)) {
+        // If date is already in the text, replace it with capture group
+        if (/\d{1,2}\.\d{1,2}\.\d{4}/.test(text)) {
+          // Replace date part with capture group, keeping the label
+          return escaped.replace(
+            /\d{1,2}\.\d{1,2}\.\d{4}/g,
+            "(\\d{1,2}\\.\\d{1,2}\\.\\d{4})"
+          );
+        } else {
+          // Text contains label but no date - create pattern that finds date after label
+          // Pattern: Label followed by optional whitespace and date
+          // Escape the text and add capture group for date at the end
+          const labelEscaped = text
+            .trim()
+            .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          return `${labelEscaped}\\s*(\\d{1,2}\\.\\d{1,2}\\.\\d{4})`;
+        }
       }
       // Default: Replace date pattern (DD.MM.YYYY or D.M.YYYY)
       return escaped.replace(
