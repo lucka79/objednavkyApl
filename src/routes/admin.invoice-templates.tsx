@@ -1804,8 +1804,10 @@ function generateRegexPattern(text: string, mode: string): string {
       );
 
     case "total_amount":
-      // Replace numbers and decimals
-      return escaped.replace(/[\d\s,\.]+/g, "([\\d\\s,\\.]+)");
+      // Replace only the number part (last sequence of digits with spaces, commas, dots)
+      // This preserves text like "Částka k úhradě" while capturing only "47 133,63"
+      // Match digits optionally separated by spaces, commas, or dots
+      return escaped.replace(/\d[\d\s,\.]*\d|\d+/g, "([\\d\\s,\\.]+)");
 
     case "payment_type":
       // Extract the payment type text after the label
