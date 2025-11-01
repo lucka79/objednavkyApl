@@ -1549,18 +1549,28 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                       🏷️ Interaktivní označování řádků položek
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Označte části textu myší a klikněte na příslušné tlačítko pro přiřazení k poli
+                      Označte části textu myší a klikněte na příslušné tlačítko
+                      pro přiřazení k poli
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {/* Instructions */}
                     <Alert className="bg-white border-blue-300">
                       <AlertDescription className="text-xs space-y-2">
-                        <p><strong>📋 Postup:</strong></p>
+                        <p>
+                          <strong>📋 Postup:</strong>
+                        </p>
                         <ol className="list-decimal list-inside space-y-1 ml-2">
-                          <li>V OCR textu níže <strong>označte myší</strong> část řádku (např. kód produktu "715")</li>
-                          <li>Klikněte na odpovídající tlačítko níže (např. "Kód")</li>
-                          <li>Opakujte pro další pole na 2-3 řádcích položek</li>
+                          <li>
+                            V OCR textu níže <strong>označte myší</strong> část
+                            řádku (např. kód produktu "715")
+                          </li>
+                          <li>
+                            Klikněte na odpovídající tlačítko níže (např. "Kód")
+                          </li>
+                          <li>
+                            Opakujte pro další pole na 2-3 řádcích položek
+                          </li>
                           <li>Systém automaticky vygeneruje regex pattern</li>
                           <li>Klikněte "💾 Uložit změny"</li>
                         </ol>
@@ -1578,7 +1588,8 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                               : selectedText}
                           </code>
                           <p className="mt-2 text-muted-foreground">
-                            👇 Nyní klikněte na tlačítko níže pro přiřazení k poli
+                            👇 Nyní klikněte na tlačítko níže pro přiřazení k
+                            poli
                           </p>
                         </AlertDescription>
                       </Alert>
@@ -1588,18 +1599,32 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                     <div className="grid grid-cols-4 gap-2">
                       {[
                         { key: "code", label: "📦 Kód", color: "blue" },
-                        { key: "description", label: "📝 Popis", color: "green" },
-                        { key: "quantity", label: "🔢 Množství", color: "yellow" },
+                        {
+                          key: "description",
+                          label: "📝 Popis",
+                          color: "green",
+                        },
+                        {
+                          key: "quantity",
+                          label: "🔢 Množství",
+                          color: "yellow",
+                        },
                         { key: "unit", label: "📏 Jednotka", color: "purple" },
-                        { key: "unit_price", label: "💰 Cena/j", color: "orange" },
+                        {
+                          key: "unit_price",
+                          label: "💰 Cena/j",
+                          color: "orange",
+                        },
                         { key: "line_total", label: "💵 Celkem", color: "red" },
                         { key: "vat_rate", label: "📊 DPH%", color: "indigo" },
-                      ].map(({ key, label, color }) => (
+                      ].map(({ key, label }) => (
                         <Button
                           key={key}
                           size="sm"
                           variant={
-                            Object.values(labeledParts).some((p) => p[key as keyof typeof p])
+                            Object.values(labeledParts).some(
+                              (p) => p[key as keyof typeof p]
+                            )
                               ? "default"
                               : "outline"
                           }
@@ -1630,78 +1655,114 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                     {/* Display labeled parts */}
                     {Object.keys(labeledParts).length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-sm font-semibold">Označené části ({Object.keys(labeledParts).length} řádků):</p>
-                        {Object.entries(labeledParts).map(([lineIdx, parts]) => (
-                          <Card key={lineIdx} className="bg-white border-gray-200">
-                            <CardContent className="pt-3 pb-3">
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1 space-y-1">
-                                  <p className="text-xs font-semibold text-gray-600">
-                                    Řádek {parseInt(lineIdx) + 1}:
-                                  </p>
-                                  <div className="grid grid-cols-2 gap-1 text-xs">
-                                    {parts.code && (
-                                      <div>
-                                        <span className="font-semibold text-blue-600">Kód:</span>{" "}
-                                        <code className="bg-blue-50 px-1 py-0.5 rounded">{parts.code}</code>
-                                      </div>
-                                    )}
-                                    {parts.description && (
-                                      <div className="col-span-2">
-                                        <span className="font-semibold text-green-600">Popis:</span>{" "}
-                                        <code className="bg-green-50 px-1 py-0.5 rounded">{parts.description}</code>
-                                      </div>
-                                    )}
-                                    {parts.quantity && (
-                                      <div>
-                                        <span className="font-semibold text-yellow-600">Množství:</span>{" "}
-                                        <code className="bg-yellow-50 px-1 py-0.5 rounded">{parts.quantity}</code>
-                                      </div>
-                                    )}
-                                    {parts.unit && (
-                                      <div>
-                                        <span className="font-semibold text-purple-600">Jednotka:</span>{" "}
-                                        <code className="bg-purple-50 px-1 py-0.5 rounded">{parts.unit}</code>
-                                      </div>
-                                    )}
-                                    {parts.unit_price && (
-                                      <div>
-                                        <span className="font-semibold text-orange-600">Cena/j:</span>{" "}
-                                        <code className="bg-orange-50 px-1 py-0.5 rounded">{parts.unit_price}</code>
-                                      </div>
-                                    )}
-                                    {parts.line_total && (
-                                      <div>
-                                        <span className="font-semibold text-red-600">Celkem:</span>{" "}
-                                        <code className="bg-red-50 px-1 py-0.5 rounded">{parts.line_total}</code>
-                                      </div>
-                                    )}
-                                    {parts.vat_rate && (
-                                      <div>
-                                        <span className="font-semibold text-indigo-600">DPH%:</span>{" "}
-                                        <code className="bg-indigo-50 px-1 py-0.5 rounded">{parts.vat_rate}</code>
-                                      </div>
-                                    )}
+                        <p className="text-sm font-semibold">
+                          Označené části ({Object.keys(labeledParts).length}{" "}
+                          řádků):
+                        </p>
+                        {Object.entries(labeledParts).map(
+                          ([lineIdx, parts]) => (
+                            <Card
+                              key={lineIdx}
+                              className="bg-white border-gray-200"
+                            >
+                              <CardContent className="pt-3 pb-3">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1 space-y-1">
+                                    <p className="text-xs font-semibold text-gray-600">
+                                      Řádek {parseInt(lineIdx) + 1}:
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-1 text-xs">
+                                      {parts.code && (
+                                        <div>
+                                          <span className="font-semibold text-blue-600">
+                                            Kód:
+                                          </span>{" "}
+                                          <code className="bg-blue-50 px-1 py-0.5 rounded">
+                                            {parts.code}
+                                          </code>
+                                        </div>
+                                      )}
+                                      {parts.description && (
+                                        <div className="col-span-2">
+                                          <span className="font-semibold text-green-600">
+                                            Popis:
+                                          </span>{" "}
+                                          <code className="bg-green-50 px-1 py-0.5 rounded">
+                                            {parts.description}
+                                          </code>
+                                        </div>
+                                      )}
+                                      {parts.quantity && (
+                                        <div>
+                                          <span className="font-semibold text-yellow-600">
+                                            Množství:
+                                          </span>{" "}
+                                          <code className="bg-yellow-50 px-1 py-0.5 rounded">
+                                            {parts.quantity}
+                                          </code>
+                                        </div>
+                                      )}
+                                      {parts.unit && (
+                                        <div>
+                                          <span className="font-semibold text-purple-600">
+                                            Jednotka:
+                                          </span>{" "}
+                                          <code className="bg-purple-50 px-1 py-0.5 rounded">
+                                            {parts.unit}
+                                          </code>
+                                        </div>
+                                      )}
+                                      {parts.unit_price && (
+                                        <div>
+                                          <span className="font-semibold text-orange-600">
+                                            Cena/j:
+                                          </span>{" "}
+                                          <code className="bg-orange-50 px-1 py-0.5 rounded">
+                                            {parts.unit_price}
+                                          </code>
+                                        </div>
+                                      )}
+                                      {parts.line_total && (
+                                        <div>
+                                          <span className="font-semibold text-red-600">
+                                            Celkem:
+                                          </span>{" "}
+                                          <code className="bg-red-50 px-1 py-0.5 rounded">
+                                            {parts.line_total}
+                                          </code>
+                                        </div>
+                                      )}
+                                      {parts.vat_rate && (
+                                        <div>
+                                          <span className="font-semibold text-indigo-600">
+                                            DPH%:
+                                          </span>{" "}
+                                          <code className="bg-indigo-50 px-1 py-0.5 rounded">
+                                            {parts.vat_rate}
+                                          </code>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 w-6 p-0"
+                                    onClick={() => {
+                                      setLabeledParts((prev) => {
+                                        const newParts = { ...prev };
+                                        delete newParts[parseInt(lineIdx)];
+                                        return newParts;
+                                      });
+                                    }}
+                                  >
+                                    ✕
+                                  </Button>
                                 </div>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 w-6 p-0"
-                                  onClick={() => {
-                                    setLabeledParts((prev) => {
-                                      const newParts = { ...prev };
-                                      delete newParts[parseInt(lineIdx)];
-                                      return newParts;
-                                    });
-                                  }}
-                                >
-                                  ✕
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                              </CardContent>
+                            </Card>
+                          )
+                        )}
 
                         {/* Generate pattern button */}
                         <div className="flex gap-2 pt-2">
@@ -1710,7 +1771,8 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                             variant="default"
                             className="flex-1"
                             onClick={() => {
-                              const pattern = generatePatternFromLabeled(labeledParts);
+                              const pattern =
+                                generatePatternFromLabeled(labeledParts);
                               setEditedPatterns((prev: any) => ({
                                 ...prev,
                                 line_pattern: pattern,
@@ -1718,7 +1780,9 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                               setHasChanges(true);
                               setShowLineLabeling(false);
                               setLabeledParts({});
-                              alert("Pattern vygenerován! Klikněte '💾 Uložit změny' nahoře.");
+                              alert(
+                                "Pattern vygenerován! Klikněte '💾 Uložit změny' nahoře."
+                              );
                             }}
                             disabled={Object.keys(labeledParts).length < 2}
                           >
@@ -2033,13 +2097,21 @@ function generatePatternFromLabeled(labeledParts: {
   // Build pattern by analyzing the order of fields
   // Group by line to understand structure
   const lineStructures: Array<Array<{ field: string; value: string }>> = [];
-  
-  Object.entries(labeledParts).forEach(([lineIdx, parts]) => {
+
+  Object.entries(labeledParts).forEach(([, parts]) => {
     const lineFields: Array<{ field: string; value: string }> = [];
     // Order fields as they typically appear
-    const fieldOrder = ['code', 'description', 'quantity', 'unit', 'unit_price', 'line_total', 'vat_rate'];
-    
-    fieldOrder.forEach(field => {
+    const fieldOrder = [
+      "code",
+      "description",
+      "quantity",
+      "unit",
+      "unit_price",
+      "line_total",
+      "vat_rate",
+    ];
+
+    fieldOrder.forEach((field) => {
       if (parts[field as keyof typeof parts]) {
         lineFields.push({
           field,
@@ -2047,7 +2119,7 @@ function generatePatternFromLabeled(labeledParts: {
         });
       }
     });
-    
+
     lineStructures.push(lineFields);
   });
 
@@ -2061,10 +2133,10 @@ function generatePatternFromLabeled(labeledParts: {
 
   firstLine.forEach((fieldInfo, index) => {
     const { field } = fieldInfo;
-    
+
     // Add pattern for this field
     patternParts.push(fieldPatterns[field] || "(.+?)");
-    
+
     // Add flexible whitespace between fields (except for last field)
     if (index < firstLine.length - 1) {
       patternParts.push("\\s+");
