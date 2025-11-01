@@ -1958,12 +1958,17 @@ function generateLineItemPattern(exampleLine: string): string {
   // Check for backaldrin format: "02543250 Kobliha 20 % 25 kg 25 kg 166,000 4 150,00 | 12%"
   // Format: CODE DESCRIPTION (with optional "%" at end of description) QTY1 UNIT1 QTY2 UNIT2 UNIT_PRICE TOTAL | VAT%
   // Note: "20 %" is part of the description, not separate VAT field
+  // Support variations:
+  // - "5 kg 5kg" (second part without space)
+  // - "12 kg 0004260834 12 kg" (batch number between)
   const backaldrinPattern =
-    /^(\d{8})\s+([A-Za-zá-žÁ-Ž]+(?:\s+[A-Za-zá-žÁ-Ž]+)*(?:\s+\d+\s*%)?)\s+([\d,]+)\s+([a-zA-Z]{1,5})\s+([\d,]+)\s+([a-zA-Z]{1,5})\s+([\d,\s]+)\s+([\d\s,]+)\s*\|\s*(\d+)%/;
+    /^(\d{8})\s+([A-Za-zá-žÁ-Ž]+(?:\s+[A-Za-zá-žÁ-Ž]+)*(?:\s+\d+\s*%)?)\s+([\d,]+)\s*([a-zA-Z]{1,5})\s+(?:\d{8,}\s+)?([\d,]+)\s*([a-zA-Z]{1,5})\s+([\d,\s]+)\s+([\d\s,]+)\s*\|\s*(\d+)%/;
 
   if (backaldrinPattern.test(exampleLine.trim())) {
     // Backaldrin format - 9 groups: code, description (with optional "20 %"), qty1, unit1, qty2, unit2, unit_price, total, vat_percent
-    return "^(\\d{8})\\s+([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*(?:\\s+\\d+\\s*%)?)\\s+([\\d,]+)\\s+([a-zA-Z]{1,5})\\s+([\\d,]+)\\s+([a-zA-Z]{1,5})\\s+([\\d,\\s]+)\\s+([\\d\\s,]+)\\s*\\|\\s*(\\d+)%";
+    // With optional space between qty and unit: "5kg" or "5 kg"
+    // With optional batch number between unit1 and qty2: "12 kg 0004260834 12 kg"
+    return "^(\\d{8})\\s+([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*(?:\\s+\\d+\\s*%)?)\\s+([\\d,]+)\\s*([a-zA-Z]{1,5})\\s+(?:\\d{8,}\\s+)?([\\d,]+)\\s*([a-zA-Z]{1,5})\\s+([\\d,\\s]+)\\s+([\\d\\s,]+)\\s*\\|\\s*(\\d+)%";
   }
 
   // Check for alternative backaldrin format: "02874010 Sahnissimo neutrál kg 8kg | 12%"

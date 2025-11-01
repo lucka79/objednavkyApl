@@ -830,6 +830,17 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
         logger.info(f"Testing against line: {line[:80]}")
         try:
             match = re.match(item_pattern, line)
+            
+            # If primary pattern doesn't match, try alternative Backaldrin patterns for edge cases
+            if not match and r'\d{8}' in item_pattern:
+                # This looks like a Backaldrin pattern - try alternative formats
+                # Format 1: "5 kg 5kg" (space optional between qty and unit)
+                # Format 2: "12 kg 0004260834 12 kg" (batch number between)
+                alternative_pattern = r'^(\d{8})\s+([A-Za-zá-žÁ-Ž]+(?:\s+[A-Za-zá-žÁ-Ž]+)*(?:\s+\d+\s*%)?)\s+([\d,]+)\s*([a-zA-Z]{1,5})\s+(?:\d{8,}\s+)?([\d,]+)\s*([a-zA-Z]{1,5})\s+([\d,\s]+)\s+([\d\s,]+)\s*\|\s*(\d+)%'
+                match = re.match(alternative_pattern, line)
+                if match:
+                    logger.info(f"✅ Alternative Backaldrin pattern matched (flexible spacing + optional batch): {line[:80]}")
+            
             if match:
                 groups = match.groups()
                 logger.info(f"✅ Pattern matched with {len(groups)} groups for line: {line[:80]}")
