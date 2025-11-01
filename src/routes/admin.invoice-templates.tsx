@@ -1799,13 +1799,14 @@ function generateLineItemPattern(exampleLine: string): string {
   }
 
   // Check for backaldrin format: "02543250 Kobliha 20 % 25 kg 25 kg 166,000 4 150,00 | 12%"
-  // Format: CODE DESCRIPTION VAT% QTY1 UNIT1 QTY2 UNIT2 UNIT_PRICE TOTAL | VAT%
+  // Format: CODE DESCRIPTION (with optional "%" at end of description) QTY1 UNIT1 QTY2 UNIT2 UNIT_PRICE TOTAL | VAT%
+  // Note: "20 %" is part of the description, not separate VAT field
   const backaldrinPattern =
-    /^(\d{8})\s+([A-Za-zá-žÁ-Ž]+(?:\s+[A-Za-zá-žÁ-Ž]+)*)\s+(\d+)\s*%\s+([\d,]+)\s+([a-zA-Z]{1,5})\s+([\d,]+)\s+([a-zA-Z]{1,5})\s+([\d,\s]+)\s+([\d\s,]+)\s*\|\s*(\d+)%/;
+    /^(\d{8})\s+([A-Za-zá-žÁ-Ž]+(?:\s+[A-Za-zá-žÁ-Ž]+)*(?:\s+\d+\s*%)?)\s+([\d,]+)\s+([a-zA-Z]{1,5})\s+([\d,]+)\s+([a-zA-Z]{1,5})\s+([\d,\s]+)\s+([\d\s,]+)\s*\|\s*(\d+)%/;
 
   if (backaldrinPattern.test(exampleLine.trim())) {
-    // Backaldrin format - 10 groups: code, description, vat_rate, qty1, unit1, qty2, unit2, unit_price, total, vat_percent
-    return "^(\\d{8})\\s+([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*)\\s+(\\d+)\\s*%\\s+([\\d,]+)\\s+([a-zA-Z]{1,5})\\s+([\\d,]+)\\s+([a-zA-Z]{1,5})\\s+([\\d,\\s]+)\\s+([\\d\\s,]+)\\s*\\|\\s*(\\d+)%";
+    // Backaldrin format - 9 groups: code, description (with optional "20 %"), qty1, unit1, qty2, unit2, unit_price, total, vat_percent
+    return "^(\\d{8})\\s+([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*(?:\\s+\\d+\\s*%)?)\\s+([\\d,]+)\\s+([a-zA-Z]{1,5})\\s+([\\d,]+)\\s+([a-zA-Z]{1,5})\\s+([\\d,\\s]+)\\s+([\\d\\s,]+)\\s*\\|\\s*(\\d+)%";
   }
 
   // Single line format fallback
@@ -1816,9 +1817,9 @@ function generateLineItemPattern(exampleLine: string): string {
     // Try to detect pattern based on content
     // Check if line starts with product code (8 digits for backaldrin)
     if (/^\d{8}\s+/.test(exampleLine)) {
-      // Backaldrin-like format: CODE DESCRIPTION ...
-      // Try flexible pattern that matches most single-line formats
-      return "^(\\d{8})\\s+([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*(?:\\s+\\d+[a-zA-Z]+)?)\\s+(\\d+)\\s*%?\\s+([\\d,]+)\\s+([a-zA-Z]{1,5})\\s+([\\d,]+)\\s+([a-zA-Z]{1,5})\\s+([\\d,\\s]+)\\s+([\\d\\s,]+)\\s*\\|?\\s*(\\d+)%?";
+      // Backaldrin-like format: CODE DESCRIPTION (with optional "20 %") QTY1 UNIT1 QTY2 UNIT2 UNIT_PRICE TOTAL | VAT%
+      // Note: "20 %" is part of description, not separate VAT field
+      return "^(\\d{8})\\s+([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*(?:\\s+\\d+\\s*%)?)\\s+([\\d,]+)\\s+([a-zA-Z]{1,5})\\s+([\\d,]+)\\s+([a-zA-Z]{1,5})\\s+([\\d,\\s]+)\\s+([\\d\\s,]+)\\s*\\|\\s*(\\d+)%";
     }
 
     // Fallback: Try to identify components
