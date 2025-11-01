@@ -451,6 +451,29 @@ def extract_line_items(
             logger.info(f"Table text preview (first 500 chars): {table_text[:500]}")
             logger.info(f"Table text preview (last 500 chars): {table_text[-500:]}")
             
+            # Check if second page is included (look for "Stranač. 2" or "Strana 2" or page 2 markers)
+            second_page_markers = [
+                'Stranač. 2',
+                'Strana 2',
+                'page 2',
+                'Dodavatel: backaldrin',
+                '01395050',  # First item from second page
+                '01250120',  # Second item from second page
+            ]
+            second_page_found = any(marker in table_text for marker in second_page_markers)
+            logger.info(f"Second page detected in table_text: {second_page_found}")
+            if second_page_found:
+                # Find position of second page items
+                for marker in second_page_markers:
+                    pos = table_text.find(marker)
+                    if pos >= 0:
+                        logger.info(f"Found second page marker '{marker}' at position {pos} in table_text")
+                        # Log context around marker
+                        context_start = max(0, pos - 100)
+                        context_end = min(len(table_text), pos + 200)
+                        logger.info(f"Context around marker: {table_text[context_start:context_end]}")
+                        break
+            
             # Extract items from table text
             items = extract_items_from_text(table_text, table_columns)
         else:
@@ -646,12 +669,23 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
     lines = text.strip().split('\n')
     logger.info(f"Processing {len(lines)} lines for items")
     
+    # Log if we see second page markers in the text
+    text_lower = text.lower()
+    second_page_in_text = any(marker in text_lower for marker in ['stranač. 2', 'strana 2', 'dodavatel: backaldrin', '01395050', '01250120'])
+    logger.info(f"Second page markers found in text: {second_page_in_text}")
+    if second_page_in_text:
+        # Find lines containing second page markers
+        for idx, line in enumerate(lines):
+            if any(marker in line.lower() for marker in ['01395050', '01250120', 'vídeňské chlebové koření', 'bas tmavý']):
+                logger.info(f"Found second page item at line {idx + 1}: {line[:100]}")
+    
     # Get ignore patterns from config
     ignore_patterns = table_columns.get('ignore_patterns', [])
     if isinstance(ignore_patterns, str):
         # Support single pattern as string
         ignore_patterns = [ignore_patterns]
     
+    items_before_extraction = len(items)
     for line_no, line in enumerate(lines, 1):
         line = line.strip()
         
@@ -697,14 +731,32 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
             logger.debug(f"Skipping non-product line: {line[:50]}")
             continue
         
+        # Log lines from second page for debugging
+        if '01395050' in line or '01250120' in line or 'Vídeňské chlebové koření' in line or 'BAS tmavý' in line:
+            logger.info(f"⚠️ Processing line from second page (line {line_no}): {line[:100]}")
+        
         # Try to extract item from line
         item = extract_item_from_line(line, table_columns, line_no)
         
         if item and item.product_code:
             items.append(item)
             logger.debug(f"Extracted item: {item.product_code} - {item.description}")
+        elif '01395050' in line or '01250120' in line:
+            # Log if second page items don't match
+            logger.warning(f"❌ Line from second page did not match pattern (line {line_no}): {line[:100]}")
+            logger.warning(f"   Pattern used: {table_columns.get('line_pattern', 'None')}")
+        elif line_no % 50 == 0:  # Log every 50th line to see progress
+            logger.debug(f"Line {line_no} did not match pattern: {line[:80]}")
     
-    logger.info(f"Extracted {len(items)} valid items")
+    logger.info(f"Extracted {len(items)} valid items (started with {items_before_extraction}, processed {len(lines)} lines)")
+    
+    # Check if second page items are missing
+    extracted_codes = {item.product_code for item in items}
+    second_page_codes = {'01395050', '01250120'}
+    missing_second_page = second_page_codes - extracted_codes
+    if missing_second_page:
+        logger.warning(f"Missing second page items with codes: {missing_second_page}")
+    
     return items
 
 def apply_code_corrections(product_code: str, corrections: Dict) -> str:
