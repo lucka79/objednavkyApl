@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           actual_quantity: number | null
           completed_quantity: number | null
+          cost: number | null
           created_at: string
           id: number
           is_completed: boolean
@@ -30,6 +31,7 @@ export type Database = {
         Insert: {
           actual_quantity?: number | null
           completed_quantity?: number | null
+          cost?: number | null
           created_at?: string
           id?: number
           is_completed?: boolean
@@ -42,6 +44,7 @@ export type Database = {
         Update: {
           actual_quantity?: number | null
           completed_quantity?: number | null
+          cost?: number | null
           created_at?: string
           id?: number
           is_completed?: boolean
@@ -77,7 +80,6 @@ export type Database = {
           recipe_id: number
           status: string
           updated_at: string | null
-          user_id: string
         }
         Insert: {
           created_at?: string
@@ -87,7 +89,6 @@ export type Database = {
           recipe_id: number
           status?: string
           updated_at?: string | null
-          user_id: string
         }
         Update: {
           created_at?: string
@@ -97,7 +98,6 @@ export type Database = {
           recipe_id?: number
           status?: string
           updated_at?: string | null
-          user_id?: string
         }
         Relationships: [
           {
@@ -105,13 +105,6 @@ export type Database = {
             columns: ["recipe_id"]
             isOneToOne: false
             referencedRelation: "recipes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "baker_productions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -625,6 +618,7 @@ export type Database = {
           price: number | null
           product_id: number | null
           quantity: number | null
+          updated_at: string
         }
         Insert: {
           created_at?: string
@@ -634,6 +628,7 @@ export type Database = {
           price?: number | null
           product_id?: number | null
           quantity?: number | null
+          updated_at?: string
         }
         Update: {
           created_at?: string
@@ -643,6 +638,7 @@ export type Database = {
           price?: number | null
           product_id?: number | null
           quantity?: number | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -664,6 +660,103 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_template_tests: {
+        Row: {
+          confidence_score: number | null
+          error_message: string | null
+          extracted_data: Json | null
+          id: string
+          success: boolean | null
+          template_id: string
+          test_file_path: string
+          tested_at: string | null
+          tested_by: string | null
+        }
+        Insert: {
+          confidence_score?: number | null
+          error_message?: string | null
+          extracted_data?: Json | null
+          id?: string
+          success?: boolean | null
+          template_id: string
+          test_file_path: string
+          tested_at?: string | null
+          tested_by?: string | null
+        }
+        Update: {
+          confidence_score?: number | null
+          error_message?: string | null
+          extracted_data?: Json | null
+          id?: string
+          success?: boolean | null
+          template_id?: string
+          test_file_path?: string
+          tested_at?: string | null
+          tested_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_template_tests_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_templates: {
+        Row: {
+          config: Json
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          last_used_at: string | null
+          success_rate: number | null
+          supplier_id: string
+          template_name: string
+          updated_at: string | null
+          usage_count: number | null
+          version: string | null
+        }
+        Insert: {
+          config: Json
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_used_at?: string | null
+          success_rate?: number | null
+          supplier_id: string
+          template_name: string
+          updated_at?: string | null
+          usage_count?: number | null
+          version?: string | null
+        }
+        Update: {
+          config?: Json
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_used_at?: string | null
+          success_rate?: number | null
+          supplier_id?: string
+          template_name?: string
+          updated_at?: string | null
+          usage_count?: number | null
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_templates_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -711,19 +804,15 @@ export type Database = {
       }
       invoices_received: {
         Row: {
-          confidence_score: number | null
           created_at: string | null
           created_by: string | null
           id: string
           invoice_date: string | null
           invoice_number: string
           net_amount: number | null
-          original_image_url: string | null
-          payment_terms: string | null
-          processed_document_url: string | null
-          processing_errors: string[] | null
+          notes: string | null
+          payment_type: string | null
           qr_codes: Json | null
-          raw_document_ai_response: Json | null
           receiver_id: string | null
           supplier_address: string | null
           supplier_id: string | null
@@ -734,19 +823,15 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          confidence_score?: number | null
           created_at?: string | null
           created_by?: string | null
           id?: string
           invoice_date?: string | null
           invoice_number: string
           net_amount?: number | null
-          original_image_url?: string | null
-          payment_terms?: string | null
-          processed_document_url?: string | null
-          processing_errors?: string[] | null
+          notes?: string | null
+          payment_type?: string | null
           qr_codes?: Json | null
-          raw_document_ai_response?: Json | null
           receiver_id?: string | null
           supplier_address?: string | null
           supplier_id?: string | null
@@ -757,19 +842,15 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          confidence_score?: number | null
           created_at?: string | null
           created_by?: string | null
           id?: string
           invoice_date?: string | null
           invoice_number?: string
           net_amount?: number | null
-          original_image_url?: string | null
-          payment_terms?: string | null
-          processed_document_url?: string | null
-          processing_errors?: string[] | null
+          notes?: string | null
+          payment_type?: string | null
           qr_codes?: Json | null
-          raw_document_ai_response?: Json | null
           receiver_id?: string | null
           supplier_address?: string | null
           supplier_id?: string | null
@@ -805,10 +886,7 @@ export type Database = {
       }
       items_received: {
         Row: {
-          bounding_box: Json | null
-          cena_jed: number | null
           created_at: string | null
-          fakt_mn: number | null
           id: string
           invoice_received_id: string | null
           line_number: number | null
@@ -819,7 +897,6 @@ export type Database = {
           package_weight_kg: number | null
           price_per_kg: number | null
           quantity: number | null
-          raw_line_data: Json | null
           tax_amount: number | null
           tax_rate: number | null
           total_weight_kg: number | null
@@ -828,10 +905,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          bounding_box?: Json | null
-          cena_jed?: number | null
           created_at?: string | null
-          fakt_mn?: number | null
           id?: string
           invoice_received_id?: string | null
           line_number?: number | null
@@ -842,7 +916,6 @@ export type Database = {
           package_weight_kg?: number | null
           price_per_kg?: number | null
           quantity?: number | null
-          raw_line_data?: Json | null
           tax_amount?: number | null
           tax_rate?: number | null
           total_weight_kg?: number | null
@@ -851,10 +924,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          bounding_box?: Json | null
-          cena_jed?: number | null
           created_at?: string | null
-          fakt_mn?: number | null
           id?: string
           invoice_received_id?: string | null
           line_number?: number | null
@@ -865,7 +935,6 @@ export type Database = {
           package_weight_kg?: number | null
           price_per_kg?: number | null
           quantity?: number | null
-          raw_line_data?: Json | null
           tax_amount?: number | null
           tax_rate?: number | null
           total_weight_kg?: number | null
@@ -1922,34 +1991,107 @@ export type Database = {
           },
         ]
       }
+      unmapped_product_codes: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          first_seen_at: string | null
+          id: string
+          last_seen_at: string | null
+          last_seen_price: number | null
+          last_seen_quantity: number | null
+          mapped_at: string | null
+          mapped_by: string | null
+          mapped_to_ingredient_id: number | null
+          occurrence_count: number | null
+          product_code: string
+          status: string | null
+          suggested_ingredient_id: number | null
+          suggestion_confidence: number | null
+          supplier_id: string
+          unit_of_measure: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          first_seen_at?: string | null
+          id?: string
+          last_seen_at?: string | null
+          last_seen_price?: number | null
+          last_seen_quantity?: number | null
+          mapped_at?: string | null
+          mapped_by?: string | null
+          mapped_to_ingredient_id?: number | null
+          occurrence_count?: number | null
+          product_code: string
+          status?: string | null
+          suggested_ingredient_id?: number | null
+          suggestion_confidence?: number | null
+          supplier_id: string
+          unit_of_measure?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          first_seen_at?: string | null
+          id?: string
+          last_seen_at?: string | null
+          last_seen_price?: number | null
+          last_seen_quantity?: number | null
+          mapped_at?: string | null
+          mapped_by?: string | null
+          mapped_to_ingredient_id?: number | null
+          occurrence_count?: number | null
+          product_code?: string
+          status?: string | null
+          suggested_ingredient_id?: number | null
+          suggestion_confidence?: number | null
+          supplier_id?: string
+          unit_of_measure?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unmapped_product_codes_mapped_to_ingredient_id_fkey"
+            columns: ["mapped_to_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unmapped_product_codes_suggested_ingredient_id_fkey"
+            columns: ["suggested_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unmapped_product_codes_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       cleanup_existing_duplicate_receipts: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           cleaned_receipt_items: number
           cleaned_receipts: number
         }[]
       }
-      cleanup_expired_device_triggers: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      cleanup_old_order_changes: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      create_device_printer_settings_table: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      deactivate_device: {
-        Args: { device_id: string }
-        Returns: undefined
-      }
+      cleanup_expired_device_triggers: { Args: never; Returns: undefined }
+      cleanup_old_order_changes: { Args: never; Returns: undefined }
+      create_device_printer_settings_table: { Args: never; Returns: undefined }
+      deactivate_device: { Args: { device_id: string }; Returns: undefined }
       get_ingredient_quantity: {
         Args: { p_ingredient_id: number }
         Returns: number
@@ -1964,34 +2106,10 @@ export type Database = {
           total_invoices: number
         }[]
       }
-      gtrgm_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_options: {
-        Args: { "": unknown }
-        Returns: undefined
-      }
-      gtrgm_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      initialize_ingredient_quantities: {
-        Args: Record<PropertyKey, never> | { p_user_id?: string }
-        Returns: undefined
-      }
-      log_network_status: {
-        Args: { status_data: Json }
-        Returns: undefined
-      }
+      initialize_ingredient_quantities:
+        | { Args: never; Returns: undefined }
+        | { Args: { p_user_id?: string }; Returns: undefined }
+      log_network_status: { Args: { status_data: Json }; Returns: undefined }
       manual_sync_baker_productions: {
         Args: { target_date?: string }
         Returns: {
@@ -2008,22 +2126,9 @@ export type Database = {
           ingredient_name: string
         }[]
       }
-      register_device: {
-        Args: { device_data: Json }
-        Returns: undefined
-      }
-      set_limit: {
-        Args: { "": number }
-        Returns: number
-      }
-      show_limit: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      show_trgm: {
-        Args: { "": string }
-        Returns: string[]
-      }
+      register_device: { Args: { device_data: Json }; Returns: undefined }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       sync_baker_productions_for_date: {
         Args: { target_date: string }
         Returns: {

@@ -68,7 +68,7 @@ Po uložení šablony klikněte na **"Test šablony"** a nahrajte ukázkovou fak
 
 ```json
 {
-  "display_layout": "two-line",
+  "display_layout": "pesek",
   "ocr_settings": {
     "dpi": 300,
     "language": "ces",

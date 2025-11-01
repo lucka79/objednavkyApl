@@ -1,5 +1,5 @@
 export { MakroInvoiceLayout } from "./MakroInvoiceLayout";
-export { TwoLineInvoiceLayout } from "./TwoLineInvoiceLayout";
+export { PesekLineInvoiceLayout } from "./PesekLineInvoiceLayout";
 export { ZeelandiaInvoiceLayout } from "./ZeelandiaInvoiceLayout";
-export { StandardInvoiceLayout } from "./StandardInvoiceLayout";
+// export { StandardInvoiceLayout } from "./StandardInvoiceLayout";
 

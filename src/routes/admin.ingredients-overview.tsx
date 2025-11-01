@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useAuthStore } from "@/lib/supabase";
 import { IngredientQuantityOverview } from "@/components/IngredientQuantityOverview";
 import { InvoiceUploadDialog } from "@/components/InvoiceUploadDialog";
-import { DocumentAIDebug } from "@/components/DocumentAIDebug";
+import { IngredientPriceList } from "@/components/IngredientPriceList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IngredientComparison } from "@/components/IngredientComparison";
 import { ReceivedInvoices } from "@/components/ReceivedInvoices";
@@ -41,7 +41,7 @@ function AdminIngredientsOverview() {
           {/* <TabsTrigger value="consumption">Spotřeba</TabsTrigger> */}
           <TabsTrigger value="production">Produkce</TabsTrigger>
           <TabsTrigger value="invoices">Faktury</TabsTrigger>
-          <TabsTrigger value="debug">Debug Parser</TabsTrigger>
+          <TabsTrigger value="price-list">Ceník dodavatelů</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-6">
@@ -64,8 +64,8 @@ function AdminIngredientsOverview() {
           <ReceivedInvoices />
         </TabsContent>
 
-        <TabsContent value="debug" className="mt-6">
-          <DocumentAIDebug />
+        <TabsContent value="price-list" className="mt-6">
+          <IngredientPriceList />
         </TabsContent>
       </Tabs>
     </div>

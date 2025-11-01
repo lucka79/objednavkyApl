@@ -57,6 +57,8 @@ import { useIngredients } from "@/hooks/useIngredients";
 
 import { AddReceivedInvoiceForm } from "./AddReceivedInvoiceForm";
 
+import { PesekLineInvoiceLayout } from "@/components/invoice-layouts";
+
 interface ParsedInvoiceItem {
   id: string;
 
@@ -108,7 +110,7 @@ interface ParsedInvoice {
 
   subtotal?: number;
 
-  payment_terms?: string;
+  payment_type?: string;
   items: ParsedInvoiceItem[];
 
   confidence: number;
@@ -128,6 +130,9 @@ const MAKRO_SUPPLIER_ID = "16293f61-b9e8-4016-9882-0b8fa90125e4";
 
 // Zeelandia supplier ID (Zeelandia-specific layout)
 const ZEELANDIA_SUPPLIER_ID = "52a93272-88b5-40c2-8c49-39d51250a64a";
+
+// Pešek supplier ID (table layout without colors)
+const PESEK_SUPPLIER_ID = "908cc15c-1055-4e22-9a09-c61fef1e0b9c";
 
 export function InvoiceUploadDialog() {
   const [isOpen, setIsOpen] = useState(false);
@@ -156,7 +161,7 @@ export function InvoiceUploadDialog() {
     "supplier" | "upload" | "manual" | "review"
   >("supplier");
 
-  const [editedDescriptions, setEditedDescriptions] = useState<{
+  const [editedDescriptions] = useState<{
     [key: string]: string;
   }>({});
 
@@ -433,6 +438,13 @@ export function InvoiceUploadDialog() {
           supplierUsers?.find((s: any) => s.id === invoiceSupplier)
             ?.full_name || invoiceSupplier;
 
+        // Debug: Check payment_type in result
+        console.log("Payment type check:", {
+          payment_type: result.data.payment_type,
+          paymentType: result.data.paymentType,
+          allKeys: Object.keys(result.data),
+        });
+
         setParsedInvoice({
           id: `inv_${Date.now()}`,
 
@@ -446,7 +458,8 @@ export function InvoiceUploadDialog() {
 
           subtotal: subtotal, // Total without VAT (calculated from items)
 
-          payment_terms: result.data.payment_terms,
+          payment_type:
+            result.data.payment_type || result.data.paymentType || "",
           items,
 
           confidence: result.data.confidence / 100 || 0,
@@ -641,7 +654,7 @@ export function InvoiceUploadDialog() {
 
             receiver_id: selectedReceiver || null,
 
-            payment_terms: parsedInvoice.payment_terms || null,
+            payment_type: parsedInvoice.payment_type || null,
 
             qr_codes: parsedInvoice.qrCodes || null,
 
@@ -675,7 +688,7 @@ export function InvoiceUploadDialog() {
 
             receiver_id: selectedReceiver || null,
 
-            payment_terms: parsedInvoice.payment_terms || null,
+            payment_type: parsedInvoice.payment_type || null,
 
             qr_codes: parsedInvoice.qrCodes || null,
           })
@@ -1267,7 +1280,7 @@ export function InvoiceUploadDialog() {
                         Způsob platby
                       </Label>
                       <p className="text-sm">
-                        {parsedInvoice.payment_terms || (
+                        {parsedInvoice.payment_type || (
                           <span className="text-gray-400">Nenalezeno</span>
                         )}
                       </p>
@@ -2362,144 +2375,16 @@ export function InvoiceUploadDialog() {
                         </table>
                       </div>
                     </div>
+                  ) : /* pesek layout for Pešek supplier */
+                  selectedSupplier === PESEK_SUPPLIER_ID ||
+                    invoiceSupplier === PESEK_SUPPLIER_ID ? (
+                    <div className="mt-2">
+                      <PesekLineInvoiceLayout items={parsedInvoice.items} />
+                    </div>
                   ) : (
-                    /* Standard layout for other suppliers */
-
-                    <div className="mt-2 space-y-2">
-                      {parsedInvoice.items.map((item) => (
-                        <div
-                          key={item.id}
-                          className={`flex items-center justify-between p-3 border rounded-md ${
-                            item.matchStatus === "unmapped"
-                              ? "border-red-300 bg-red-50"
-                              : item.matchStatus === "exact"
-                                ? "border-green-300 bg-green-50"
-                                : "border-yellow-300 bg-yellow-50"
-                          }`}
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              {item.supplierCode && (
-                                <code className="text-xs bg-gray-800 text-white px-1.5 py-0.5 rounded">
-                                  {item.supplierCode}
-                                </code>
-                              )}
-
-                              {editingItemId === item.id ? (
-                                <Input
-                                  value={
-                                    editedDescriptions[item.id] ?? item.name
-                                  }
-                                  onChange={(e) =>
-                                    setEditedDescriptions((prev) => ({
-                                      ...prev,
-                                      [item.id]: e.target.value,
-                                    }))
-                                  }
-                                  onBlur={() => setEditingItemId(null)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                      setEditingItemId(null);
-                                    }
-                                    if (e.key === "Escape") {
-                                      setEditedDescriptions((prev) => {
-                                        const newState = { ...prev };
-                                        delete newState[item.id];
-                                        return newState;
-                                      });
-                                      setEditingItemId(null);
-                                    }
-                                  }}
-                                  autoFocus
-                                  className="h-8 text-sm flex-1"
-                                />
-                              ) : (
-                                <span
-                                  onClick={() => setEditingItemId(item.id)}
-                                  className="font-medium cursor-pointer hover:bg-gray-100 px-2 py-1 rounded"
-                                  title="Klikněte pro úpravu"
-                                >
-                                  {editedDescriptions[item.id] ??
-                                    (item.name || "-")}
-                                </span>
-                              )}
-                            </div>
-
-                            {item.ingredientName && (
-                              <div className="space-y-1 mt-1">
-                                <div className="flex items-center gap-2">
-                                  <div className="text-sm text-green-700 font-medium">
-                                    ✓ {item.ingredientName}
-                                    {item.matchStatus === "fuzzy_name" &&
-                                      ` (${Math.round((item.confidence || 0) * 100)}% shoda)`}
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-5 w-5 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
-                                    onClick={() => {
-                                      if (parsedInvoice) {
-                                        const updatedItems =
-                                          parsedInvoice.items.map((i) =>
-                                            i.id === item.id
-                                              ? {
-                                                  ...i,
-                                                  ingredientId: null,
-                                                  ingredientName: null,
-                                                  matchStatus: "unmapped",
-                                                }
-                                              : i
-                                          );
-                                        setParsedInvoice({
-                                          ...parsedInvoice,
-                                          items: updatedItems,
-                                          unmappedCount: updatedItems.filter(
-                                            (i) => i.matchStatus === "unmapped"
-                                          ).length,
-                                        });
-                                      }
-                                    }}
-                                    title="Odebrat mapování"
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                                {item.matchStatus !== "exact" &&
-                                  item.confidence < 1 && (
-                                    <Badge
-                                      variant="destructive"
-                                      className="text-xs font-bold bg-orange-600 hover:bg-orange-700"
-                                    >
-                                      ⚠️ ZKONTROLOVAT!
-                                    </Badge>
-                                  )}
-                              </div>
-                            )}
-
-                            {item.matchStatus === "unmapped" && (
-                              <div className="text-sm text-red-600 mt-1">
-                                ✗ Nenamapovaný kód - vyžaduje ruční přiřazení
-                              </div>
-                            )}
-
-                            <div className="text-sm text-gray-600 mt-1">
-                              {item.quantity} {item.unit} ×{" "}
-                              {(item.price || 0).toFixed(2)} Kč
-                            </div>
-                          </div>
-
-                          <div className="text-right">
-                            <div className="font-semibold">
-                              {(
-                                item.total ||
-                                item.quantity * item.price ||
-                                0
-                              ).toFixed(2)}{" "}
-                              Kč
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                    /* Standard table layout for other suppliers */
+                    <div className="mt-2">
+                      <PesekLineInvoiceLayout items={parsedInvoice.items} />
                     </div>
                   )}
                 </div>

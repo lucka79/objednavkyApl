@@ -44,7 +44,7 @@ export interface TemplateConfig {
     language?: string;
     psm?: number;
   };
-  display_layout?: "standard" | "makro" | "two-line" | "zeelandia";
+  display_layout?: "standard" | "makro" | "pesek" | "zeelandia";
 }
 
 interface Region {

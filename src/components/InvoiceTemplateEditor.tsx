@@ -255,7 +255,7 @@ function TemplateForm({
           invoice_number: "Číslo dokladu\\s+(\\d+)",
           date: "Datum uskutečnění plnění:\\s*(\\d{1,2}\\.\\d{1,2}\\.\\d{4})",
           total_amount: "Celková částka[^:]*:\\s*([\\d\\s,]+)",
-          payment_terms: "Způsob platby:\\s*([a-zA-Zá-žÁ-Ž]+)",
+          payment_type: "Způsob platby:\\s*([a-zA-Zá-žÁ-Ž]+)",
           table_start: "Označení dodávky",
         },
         table_columns: {
@@ -428,7 +428,7 @@ function TemplateForm({
         <Select
           value={formData.display_layout}
           onValueChange={(
-            value: "standard" | "makro" | "two-line" | "zeelandia"
+            value: "standard" | "makro" | "pesek" | "zeelandia"
           ) => {
             console.log(
               "Display layout dropdown changed from",
@@ -451,7 +451,7 @@ function TemplateForm({
             <SelectItem value="standard">
               Standard (základní tabulka)
             </SelectItem>
-            <SelectItem value="two-line">Two-line (Pešek-Rambousek)</SelectItem>
+            <SelectItem value="pesek">pesek (Pešek-Rambousek)</SelectItem>
             <SelectItem value="makro">MAKRO (rozšířená)</SelectItem>
             <SelectItem value="zeelandia">Zeelandia</SelectItem>
           </SelectContent>

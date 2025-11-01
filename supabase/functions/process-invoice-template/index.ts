@@ -37,6 +37,13 @@ serve(async (req) => {
     }
 
     console.log(`Using template: ${template.template_name} (v${template.version})`);
+    console.log(`Template patterns:`, {
+      invoice_number: template.config?.patterns?.invoice_number ? 'present' : 'missing',
+      date: template.config?.patterns?.date ? 'present' : 'missing',
+      supplier: template.config?.patterns?.supplier ? 'present' : 'missing',
+      total_amount: template.config?.patterns?.total_amount ? 'present' : 'missing',
+      payment_type: template.config?.patterns?.payment_type ? `present: "${template.config.patterns.payment_type}"` : 'missing',
+    });
 
     // Download file from storage
     const { data: fileData, error: downloadError } = await supabase.storage
@@ -86,6 +93,28 @@ serve(async (req) => {
 
     const ocrResult = await ocrResponse.json();
     console.log(`OCR extracted ${ocrResult.items?.length || 0} items`);
+    console.log(`OCR result keys:`, Object.keys(ocrResult));
+    console.log(`Payment type from OCR:`, {
+      'payment_type': ocrResult.payment_type,
+      'type': typeof ocrResult.payment_type,
+      'isNull': ocrResult.payment_type === null,
+      'isUndefined': ocrResult.payment_type === undefined,
+      'isEmpty': ocrResult.payment_type === '',
+      'value': JSON.stringify(ocrResult.payment_type)
+    });
+    
+    // Log full OCR result structure for debugging
+    if (!ocrResult.payment_type || ocrResult.payment_type === '') {
+      console.warn(`⚠️ Payment type not found in OCR result. Available fields:`, Object.keys(ocrResult));
+      console.warn(`⚠️ Full OCR result sample:`, {
+        invoice_number: ocrResult.invoice_number,
+        date: ocrResult.date,
+        supplier: ocrResult.supplier,
+        total_amount: ocrResult.total_amount,
+        payment_type: ocrResult.payment_type,
+        items_count: ocrResult.items?.length || 0,
+      });
+    }
 
     // Match product codes with ingredients
     const matchedItems = await matchIngredientsWithCodes(
@@ -103,6 +132,23 @@ serve(async (req) => {
       items: matchedItems,
     });
 
+    // Handle payment_type - check both snake_case and camelCase
+    // Python service may return None which becomes null in JSON, or empty string
+    let paymentType = '';
+    
+    if (ocrResult.payment_type !== null && ocrResult.payment_type !== undefined && ocrResult.payment_type !== '') {
+      paymentType = String(ocrResult.payment_type).trim();
+    } else if (ocrResult.paymentType !== null && ocrResult.paymentType !== undefined && ocrResult.paymentType !== '') {
+      paymentType = String(ocrResult.paymentType).trim();
+    }
+    
+    console.log(`Final payment_type processing:`, {
+      'input_payment_type': ocrResult.payment_type,
+      'input_paymentType': ocrResult.paymentType,
+      'final_payment_type': paymentType,
+      'isEmpty': paymentType === '',
+    });
+
     const result = {
       success: true,
       data: {
@@ -110,7 +156,7 @@ serve(async (req) => {
         invoiceNumber: ocrResult.invoice_number || '',
         date: ocrResult.date || new Date().toISOString().split('T')[0],
         totalAmount: ocrResult.total_amount || 0,
-        paymentType: ocrResult.payment_type || '',
+        payment_type: paymentType,
         items: matchedItems,
         confidence: ocrResult.confidence || 0,
         template_used: template.template_name,

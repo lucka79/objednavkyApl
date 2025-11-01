@@ -17,9 +17,8 @@ import { Button } from "@/components/ui/button";
 import { useInvoiceTemplates } from "@/hooks/useInvoiceTemplates";
 import {
   MakroInvoiceLayout,
-  TwoLineInvoiceLayout,
+  PesekLineInvoiceLayout,
   ZeelandiaInvoiceLayout,
-  StandardInvoiceLayout,
 } from "@/components/invoice-layouts";
 
 export const Route = createFileRoute("/admin/invoice-templates")({
@@ -284,6 +283,11 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
     const uploadResult = await processDocumentWithTemplate(file, supplierId);
 
     if (uploadResult.success) {
+      console.log("InvoiceTestUpload - Received data:", {
+        payment_type: uploadResult.data.payment_type,
+        paymentType: uploadResult.data.paymentType,
+        allKeys: Object.keys(uploadResult.data),
+      });
       setResult(uploadResult.data);
     } else {
       setError(uploadResult.error || "Unknown error");
@@ -315,6 +319,11 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
     );
 
     if (uploadResult.success) {
+      console.log("InvoiceTestUpload - Reprocess data:", {
+        payment_type: uploadResult.data.payment_type,
+        paymentType: uploadResult.data.paymentType,
+        allKeys: Object.keys(uploadResult.data),
+      });
       setResult(uploadResult.data);
     } else {
       setError(uploadResult.error || "Unknown error");
@@ -1056,7 +1065,7 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
               </CardHeader>
               <CardContent>
                 <p className="text-lg font-semibold">
-                  {result.paymentType || (
+                  {result.payment_type || result.paymentType || (
                     <span className="text-orange-600">Nenalezeno</span>
                   )}
                 </p>
@@ -1400,12 +1409,12 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
 
                 if (layout === "makro") {
                   return <MakroInvoiceLayout items={result.items} />;
-                } else if (layout === "two-line") {
-                  return <TwoLineInvoiceLayout items={result.items} />;
+                } else if (layout === "pesek") {
+                  return <PesekLineInvoiceLayout items={result.items} />;
                 } else if (layout === "zeelandia") {
                   return <ZeelandiaInvoiceLayout items={result.items} />;
                 } else {
-                  return <StandardInvoiceLayout items={result.items} />;
+                  return <PesekLineInvoiceLayout items={result.items} />;
                 }
               })()}
 
