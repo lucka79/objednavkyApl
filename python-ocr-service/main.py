@@ -766,6 +766,12 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
             logger.debug(f"Skipping batch/date line: {line[:50]}")
             continue
         
+        # Skip production/expiration info lines (Goodmills format)
+        # Example: "Vyrobeno: 21/10/2025, DMT: 22/07/2026"
+        if re.match(r'^Vyrobeno:', line, re.IGNORECASE) or re.match(r'^DMT:', line, re.IGNORECASE):
+            logger.debug(f"Skipping production info line: {line[:50]}")
+            continue
+        
         # Skip section headers (lines with only uppercase letters and spaces)
         if re.match(r'^[A-ZĚŠČŘŽÝÁÍÉÚŮĎŤŇĹ\s]+$', line) and len(line) < 50:
             logger.debug(f"Skipping header line: {line}")
