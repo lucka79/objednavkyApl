@@ -430,10 +430,11 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
     # Check if it's a multi-line pattern (contains \n in pattern)
     if item_pattern and '\\n' in item_pattern:
         logger.info(f"Using multi-line pattern extraction")
+        logger.info(f"Multi-line pattern: {item_pattern[:100]}...")
         
-        # Use regex with MULTILINE and DOTALL flags
+        # Use regex with MULTILINE and DOTALL flags for better multi-line matching
         try:
-            matches = re.finditer(item_pattern, text, re.MULTILINE)
+            matches = re.finditer(item_pattern, text, re.MULTILINE | re.DOTALL)
             
             for match_no, match in enumerate(matches, 1):
                 matched_text = match.group(0) if match.groups() else ""
@@ -453,40 +454,139 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
                 if should_ignore:
                     continue
                 
+                # Handle different multi-line formats based on number of groups
                 if len(groups) >= 5:
-                    # Multi-line format: description, code, quantity, unit, price, total
-                    quantity_raw = groups[2] if len(groups) > 2 else "0"
-                    unit_raw = groups[3].strip() if len(groups) > 3 else None
+                    # Format 1: Multi-line format: description, code, quantity, unit, price, total
+                    # Example: "sůl jemná 25kg" / "0201 50kg 6,80 12 % 340,00"
+                    if len(groups) == 6:
+                        quantity_raw = groups[2] if len(groups) > 2 else "0"
+                        unit_raw = groups[3].strip() if len(groups) > 3 else None
+                        
+                        # Fix OCR issue: "101t" is actually "10 lt" (l looks like 1)
+                        quantity = extract_number(quantity_raw)
+                        unit = unit_raw
+                        
+                        if unit == 't' and quantity_raw and len(quantity_raw) > 1:
+                            # Last digit of quantity is actually "l" in unit
+                            # "101" → quantity: 10, unit: lt
+                            try:
+                                quantity_str = str(int(quantity))
+                                if len(quantity_str) >= 2:
+                                    quantity = float(quantity_str[:-1])  # Remove last digit
+                                    unit = 'lt'  # Change t to lt
+                                    logger.info(f"Fixed OCR: {quantity_raw}t → {quantity} lt")
+                            except:
+                                pass  # Keep original if conversion fails
+                        
+                        item = InvoiceItem(
+                            description=groups[0].strip() if groups[0] else None,
+                            product_code=groups[1].strip() if len(groups) > 1 else None,
+                            quantity=quantity,
+                            unit_of_measure=unit,
+                            unit_price=extract_number(groups[4]) if len(groups) > 4 else 0,
+                            line_total=extract_number(groups[5]) if len(groups) > 5 else 0,
+                            line_number=match_no,
+                        )
+                        
+                        if item.product_code:
+                            items.append(item)
+                            logger.debug(f"Extracted multi-line item (6 groups): {item.product_code} - {item.description}")
                     
-                    # Fix OCR issue: "101t" is actually "10 lt" (l looks like 1)
-                    quantity = extract_number(quantity_raw)
-                    unit = unit_raw
+                    # Format 2: Backaldrin multi-line: code+description on line 1, data on line 2
+                    # Example: "02543250 Kobliha 20 %" / "25 kg 25 kg 166,000 4 150,00 | 12%"
+                    elif len(groups) == 9:
+                        # Backaldrin multi-line format - same as single-line Backaldrin
+                        product_code = groups[0] if len(groups) > 0 else None
+                        description = groups[1].strip() if len(groups) > 1 else None
+                        quantity1 = extract_number(groups[2]) if len(groups) > 2 else 0
+                        unit1 = groups[3] if len(groups) > 3 else None
+                        quantity2 = extract_number(groups[4]) if len(groups) > 4 else 0
+                        unit2 = groups[5] if len(groups) > 5 else None
+                        unit_price = extract_number(groups[6]) if len(groups) > 6 else 0
+                        line_total = extract_number(groups[7]) if len(groups) > 7 else 0
+                        vat_percent = extract_number(groups[8]) if len(groups) > 8 else None
+                        vat_rate = vat_percent
+                        
+                        # Use quantity2 and unit2 as primary quantity
+                        quantity = quantity2 if quantity2 > 0 else quantity1
+                        unit_of_measure = unit2 if unit2 else unit1
+                        
+                        item = InvoiceItem(
+                            product_code=product_code,
+                            description=description,
+                            quantity=quantity,
+                            unit_of_measure=unit_of_measure,
+                            unit_price=unit_price,
+                            line_total=line_total,
+                            vat_rate=vat_rate or vat_percent,
+                            line_number=match_no,
+                        )
+                        
+                        if item.product_code:
+                            items.append(item)
+                            logger.debug(f"Extracted multi-line Backaldrin item (9 groups): {item.product_code} - {item.description}")
                     
-                    if unit == 't' and quantity_raw and len(quantity_raw) > 1:
-                        # Last digit of quantity is actually "l" in unit
-                        # "101" → quantity: 10, unit: lt
-                        try:
-                            quantity_str = str(int(quantity))
-                            if len(quantity_str) >= 2:
-                                quantity = float(quantity_str[:-1])  # Remove last digit
-                                unit = 'lt'  # Change t to lt
-                                logger.info(f"Fixed OCR: {quantity_raw}t → {quantity} lt")
-                        except:
-                            pass  # Keep original if conversion fails
-                    
-                    item = InvoiceItem(
-                        description=groups[0].strip() if groups[0] else None,
-                        product_code=groups[1].strip() if groups[1] else None,
-                        quantity=quantity,
-                        unit_of_measure=unit,
-                        unit_price=extract_number(groups[4]) if len(groups) > 4 else 0,
-                        line_total=extract_number(groups[5]) if len(groups) > 5 else 0,
-                        line_number=match_no,
-                    )
-                    
-                    if item.product_code:
-                        items.append(item)
-                        logger.debug(f"Extracted item: {item.product_code} - {item.description}")
+                    else:
+                        # Generic multi-line format - try to extract what we can
+                        logger.info(f"Generic multi-line format with {len(groups)} groups, attempting extraction")
+                        # Try to identify fields by position and content
+                        product_code = None
+                        description = None
+                        quantity = 0
+                        unit_of_measure = None
+                        unit_price = 0
+                        line_total = 0
+                        
+                        # First group is usually description or code+description
+                        if groups[0]:
+                            first_group = groups[0].strip()
+                            # Check if it starts with a code (digits)
+                            code_match = re.match(r'^(\d+)\s+(.+)', first_group)
+                            if code_match:
+                                product_code = code_match.group(1)
+                                description = code_match.group(2).strip()
+                            else:
+                                description = first_group
+                        
+                        # Second group might be code (if first was description)
+                        if not product_code and len(groups) > 1 and groups[1]:
+                            code_match = re.match(r'^(\d+)', groups[1].strip())
+                            if code_match:
+                                product_code = code_match.group(1)
+                        
+                        # Try to extract quantity and other numeric fields
+                        for i, group in enumerate(groups):
+                            if i < 2:  # Skip first two (description/code)
+                                continue
+                            group_str = str(group).strip() if group else ""
+                            # Try to extract numbers
+                            numbers = re.findall(r'[\d,]+', group_str)
+                            if numbers:
+                                num_val = extract_number(numbers[0])
+                                if quantity == 0:
+                                    quantity = num_val
+                                elif unit_price == 0:
+                                    unit_price = num_val
+                                elif line_total == 0:
+                                    line_total = num_val
+                            
+                            # Try to extract unit
+                            unit_match = re.search(r'([a-zA-Z]{1,5})\b', group_str)
+                            if unit_match and not unit_of_measure:
+                                unit_of_measure = unit_match.group(1)
+                        
+                        if product_code:
+                            item = InvoiceItem(
+                                product_code=product_code,
+                                description=description,
+                                quantity=quantity,
+                                unit_of_measure=unit_of_measure,
+                                unit_price=unit_price,
+                                line_total=line_total,
+                                line_number=match_no,
+                            )
+                            items.append(item)
+                            logger.debug(f"Extracted generic multi-line item: {item.product_code} - {item.description}")
             
             logger.info(f"Extracted {len(items)} items using multi-line pattern")
             return items
@@ -691,6 +791,52 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     first_group = groups[0] if len(groups) > 0 else ""
                     is_backaldrin = first_group and len(str(first_group)) == 8 and str(first_group).isdigit()
                     
+                    # Alternative Backaldrin format with 6 groups: "02874010 Sahnissimo neutrál kg 8kg | 12%"
+                    if len(groups) == 6 and is_backaldrin:
+                        # Alternative Backaldrin format - 6 groups: code, description, unit1, qty2 (from combined "8kg"), unit2 (from combined), vat_percent
+                        logger.info(f"Detected Alternative Backaldrin format with 6 groups - line: {line[:80]}")
+                        logger.info(f"All groups: {groups}")
+                        product_code = groups[0] if len(groups) > 0 else None
+                        description = groups[1].strip() if len(groups) > 1 else None
+                        unit1 = groups[2] if len(groups) > 2 else None  # Standalone unit (e.g., "kg")
+                        qty2_combined = groups[3] if len(groups) > 3 else None  # Combined quantity+unit (e.g., "8")
+                        unit2_combined = groups[4] if len(groups) > 4 else None  # Combined unit from "8kg" (e.g., "kg")
+                        vat_percent = extract_number(groups[5]) if len(groups) > 5 else None
+                        vat_rate = vat_percent
+                        
+                        # Extract quantity from qty2_combined (should be just the number)
+                        quantity = extract_number(qty2_combined) if qty2_combined else 0
+                        # Use unit2_combined as the unit (from combined "8kg")
+                        unit_of_measure = unit2_combined.lower() if unit2_combined else (unit1.lower() if unit1 else None)
+                        
+                        # Remove trailing unit from description if present (e.g., "Sahnissimo neutrál kg" → "Sahnissimo neutrál")
+                        if description and unit1:
+                            # Check if description ends with the unit1
+                            unit_pattern = re.compile(r'\s+' + re.escape(unit1) + r'$', re.IGNORECASE)
+                            if unit_pattern.search(description):
+                                description = unit_pattern.sub('', description).strip()
+                                logger.info(f"Removed trailing unit '{unit1}' from description, new description: '{description}'")
+                        
+                        logger.info(f"Extracting Alternative Backaldrin format - code: {product_code}, description: {description}, quantity: {quantity} {unit_of_measure}, vat_rate: {vat_rate}")
+                        
+                        # Apply code corrections if configured
+                        corrected_code = apply_code_corrections(product_code, code_corrections) if product_code else None
+                        
+                        # Apply description corrections if configured
+                        description_corrections = table_columns.get('description_corrections', {})
+                        corrected_description = apply_description_corrections(description, description_corrections) if description else None
+                        
+                        return InvoiceItem(
+                            product_code=corrected_code,
+                            description=corrected_description,
+                            quantity=quantity,
+                            unit_of_measure=unit_of_measure,
+                            unit_price=0,  # Not available in this format
+                            line_total=0,  # Not available in this format
+                            vat_rate=vat_rate or vat_percent,
+                            line_number=line_number,
+                        )
+                    
                     if len(groups) == 9 and is_backaldrin:
                         # Backaldrin format - 9 groups: code, description (with optional "20 %"), qty1, unit1, qty2, unit2, unit_price, total, vat_percent
                         # Note: "20 %" in description like "Kobliha 20 %" is part of product name, not separate VAT field
@@ -711,6 +857,29 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         # Use quantity2 and unit2 as primary quantity (appears to be the actual quantity)
                         quantity = quantity2 if quantity2 > 0 else quantity1
                         unit_of_measure = unit2 if unit2 else unit1
+                        
+                        # Special handling for format like "02874010 Sahnissimo neutrál kg 8kg | 12%"
+                        # In this case, UNIT1 might be captured in description, and QTY2+UNIT2 are combined
+                        # Check if description ends with a unit word (kg, ks, etc.)
+                        if description:
+                            # Remove trailing unit from description if it was mistakenly captured
+                            # Common units: kg, ks, lt, ml, g, l, kr
+                            unit_pattern = r'\s+(kg|ks|lt|ml|g|l|kr|pcs|pc)$'
+                            unit_match = re.search(unit_pattern, description, re.IGNORECASE)
+                            if unit_match and not unit_of_measure:
+                                # Description ends with unit, remove it and use as unit_of_measure
+                                unit_of_measure = unit_match.group(1).lower()
+                                description = re.sub(unit_pattern, '', description, flags=re.IGNORECASE).strip()
+                                logger.info(f"Removed trailing unit '{unit_of_measure}' from description, new description: '{description}'")
+                        
+                        # If quantity is still 0 but we have unit2, check if unit2 contains quantity (e.g., "8kg")
+                        if quantity == 0 and unit2:
+                            # Try to extract quantity from unit2 if it contains digits
+                            qty_unit_match = re.match(r'^(\d+)(kg|ks|lt|ml|g|l|kr|pcs|pc)$', unit2, re.IGNORECASE)
+                            if qty_unit_match:
+                                quantity = extract_number(qty_unit_match.group(1))
+                                unit_of_measure = qty_unit_match.group(2).lower()
+                                logger.info(f"Extracted quantity {quantity} and unit '{unit_of_measure}' from combined '{unit2}'")
                         
                         logger.info(f"Extracting Backaldrin format - code: {product_code}, description: {description}, quantity: {quantity} {unit_of_measure}, unit_price: {unit_price}, total: {line_total}")
                         
@@ -844,106 +1013,10 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     )
         except Exception as e:
             logger.error(f"Error matching line pattern: {e}")
+            return None
     
-    # Method 2: Smart whitespace splitting (default - fallback when no pattern matches)
-    logger.info(f"⚠️ No pattern match or pattern not configured, using whitespace splitting for line: {line[:80]}")
-    # Split by multiple spaces (assumes columns are separated by 2+ spaces)
-    parts = re.split(r'\s{2,}', line)
-    
-    if len(parts) < 2:
-        # Try single space split for tightly packed data
-        parts = line.split()
-    
-    if len(parts) < 2:
-        logger.warning(f"No meaningful parts found in line: {line[:80]}")
-        return None
-    
-    logger.info(f"Whitespace split found {len(parts)} parts: {parts[:10]}")  # Log first 10 parts
-    
-    # Try to identify product code (usually first numeric field or alphanumeric)
-    product_code = None
-    description = None
-    quantity = 0
-    unit_price = 0
-    line_total = 0
-    unit = None
-    
-    # Look for product code (numeric or alphanumeric at start)
-    if re.match(r'^[\d\w-]+$', parts[0]):
-        product_code = parts[0]
-        remaining_parts = parts[1:]
-        logger.info(f"Found product_code from whitespace split: {product_code}")
-    else:
-        remaining_parts = parts
-        logger.info(f"No product_code found in first part: {parts[0]}")
-    
-    # Extract numbers from remaining parts
-    numbers = []
-    text_parts = []
-    
-    for part in remaining_parts:
-        # Check if it's a number
-        cleaned = part.replace(',', '.').replace(' ', '')
-        try:
-            num = float(cleaned)
-            numbers.append(num)
-            logger.debug(f"Part '{part}' identified as number: {num}")
-        except:
-            # It's text
-            if part.strip() and not re.match(r'^[.,\s]+$', part):
-                text_parts.append(part)
-                logger.debug(f"Part '{part}' identified as text")
-    
-    # Description is the text parts
-    if text_parts:
-        description = ' '.join(text_parts)
-        logger.info(f"Extracted description from whitespace split: '{description}'")
-    else:
-        logger.warning(f"No text parts found for description in line: {line[:80]}")
-    
-    # Assign numbers to fields (typically: quantity, unit_price, line_total)
-    if len(numbers) >= 1:
-        quantity = numbers[0]
-    if len(numbers) >= 2:
-        unit_price = numbers[1]
-    if len(numbers) >= 3:
-        line_total = numbers[2]
-    elif len(numbers) == 2:
-        # Calculate line total if not present
-        line_total = quantity * unit_price
-    
-    # Only return if we have at least a product code or meaningful data
-    if not product_code and not description:
-        return None
-    
-    # Fix OCR issue: "t" unit is actually "lt" (l looks like 1)
-    if unit == 't' and quantity > 10:
-        # Last digit of quantity is actually "l" in unit
-        quantity_str = str(int(quantity))
-        if len(quantity_str) >= 2:
-            quantity = float(quantity_str[:-1])  # Remove last digit
-            unit = 'lt'  # Change t to lt
-            logger.info(f"Fixed OCR: {quantity_str}t → {quantity} lt")
-    
-    # Validate that we have meaningful data
-    if product_code and (quantity > 0 or unit_price > 0):
-        # Apply code corrections if configured
-        corrected_code = apply_code_corrections(product_code, code_corrections)
-        
-        # Apply description corrections if configured
-        description_corrections = table_columns.get('description_corrections', {})
-        corrected_description = apply_description_corrections(description, description_corrections) if description else None
-        
-        return InvoiceItem(
-            product_code=corrected_code,
-            description=corrected_description,
-            quantity=quantity,
-            unit_of_measure=unit,
-            unit_price=unit_price,
-            line_total=line_total,
-            line_number=line_number,
-        )
-    
+    # No pattern configured or pattern did not match - return None
+    logger.warning(f"❌ No pattern configured or pattern did not match for line: {line[:80]}")
     return None
 
 def calculate_confidence(extracted_data: Dict) -> float:

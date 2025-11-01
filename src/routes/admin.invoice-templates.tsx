@@ -1870,22 +1870,88 @@ function generateLineItemPattern(exampleLine: string): string {
 
   // Check if it's a multi-line pattern (contains newline)
   if (exampleLine.includes("\n")) {
-    // Multi-line format: description on line 1, data on line 2
-    const lines = exampleLine.split("\n").map((l) => l.trim());
+    // Multi-line format: allow combining multiple lines for pattern
+    const lines = exampleLine
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
 
     if (lines.length >= 2) {
-      // Line 1: Description (anything)
-      // Line 2: Code Quantity+Unit Price VAT% Total
-      const pattern =
-        "^([^\\n]+?)\\s*\\n" + // Description (line 1)
-        "\\s*(\\d+)\\s+" + // Product code (flexible length)
-        "([\\d,]+)\\s*" + // Quantity (digits only)
-        "([a-zA-Z]{1,5})\\s+" + // Unit (letters only: kg, ks, lt, ml, kr, etc)
-        "([\\d,\\s]+)\\s+" + // Unit price (allow spaces in numbers)
-        "\\d+\\s*%?\\s*\\d*\\s+" + // VAT % (optional % and optional number after)
-        "([\\d,\\.\\s]+)"; // Total price (allow spaces and dots)
+      // Try to detect format based on lines
+      // Check if first line looks like description (contains letters, not just numbers)
+      const firstLine = lines[0];
+      const secondLine = lines[1];
 
-      return pattern;
+      // Pattern 1: Description on line 1, Code + data on line 2
+      // Example: "sůl jemná 25kg" / "0201 50kg 6,80 12 % 340,00"
+      if (/^[A-Za-zá-žÁ-Ž]/.test(firstLine) && /^\d+/.test(secondLine)) {
+        const pattern =
+          "^([^\\n]+?)\\s*\\n" + // Description (line 1)
+          "\\s*(\\d+)\\s+" + // Product code (flexible length)
+          "([\\d,]+)\\s*" + // Quantity (digits only)
+          "([a-zA-Z]{1,5})\\s+" + // Unit (letters only: kg, ks, lt, ml, kr, etc)
+          "([\\d,\\s]+)\\s+" + // Unit price (allow spaces in numbers)
+          "\\d+\\s*%?\\s*\\d*\\s+" + // VAT % (optional % and optional number after)
+          "([\\d,\\.\\s]+)"; // Total price (allow spaces and dots)
+
+        return pattern;
+      }
+
+      // Pattern 2: Code + description on line 1, quantity/data on line 2
+      // Example: "02543250 Kobliha 20 %" / "25 kg 25 kg 166,000 4 150,00 | 12%"
+      if (/^\d{8}/.test(firstLine) && /\d+/.test(secondLine)) {
+        const pattern =
+          "^(\\d{8})\\s+([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*(?:\\s+\\d+\\s*%)?)\\s*\\n" + // Code + description (line 1)
+          "\\s*([\\d,]+)\\s+([a-zA-Z]{1,5})\\s+" + // QTY1 + UNIT1 (line 2)
+          "([\\d,]+)\\s+([a-zA-Z]{1,5})\\s+" + // QTY2 + UNIT2
+          "([\\d,\\s]+)\\s+" + // Unit price
+          "([\\d\\s,]+)\\s*\\|\\s*(\\d+)%"; // Total + VAT%
+
+        return pattern;
+      }
+
+      // Pattern 3: Generic multi-line - capture all lines and combine
+      // Try to intelligently combine multiple lines
+      const patternLines: string[] = [];
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        if (i === 0) {
+          // First line: might be description or code+description
+          if (/^\d{8}/.test(line)) {
+            // Starts with 8-digit code - Backaldrin format
+            patternLines.push(
+              "^(\\d{8})\\s+([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*(?:\\s+\\d+\\s*%)?)"
+            );
+          } else if (/^\d+/.test(line)) {
+            // Starts with shorter code
+            patternLines.push(
+              "^(\\d+)\\s+([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*)"
+            );
+          } else {
+            // Description only
+            patternLines.push("^([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*)");
+          }
+        } else {
+          // Subsequent lines: data
+          patternLines.push("\\s*\\n"); // Newline separator
+
+          // Try to detect what's on this line
+          if (/\d+/.test(line)) {
+            // Contains numbers - likely quantity/price data
+            patternLines.push("\\s*([\\d,\\s]+(?:[a-zA-Z]{1,5})?\\s*)+"); // Flexible: numbers, units, spaces
+          } else {
+            // Text - might be additional description
+            patternLines.push("\\s*([A-Za-zá-žÁ-Ž\\s]+)");
+          }
+        }
+      }
+
+      // If we have a specific pattern, return it; otherwise use generic
+      if (patternLines.length > 0) {
+        return patternLines.join("");
+      }
     }
   }
 
@@ -1898,6 +1964,16 @@ function generateLineItemPattern(exampleLine: string): string {
   if (backaldrinPattern.test(exampleLine.trim())) {
     // Backaldrin format - 9 groups: code, description (with optional "20 %"), qty1, unit1, qty2, unit2, unit_price, total, vat_percent
     return "^(\\d{8})\\s+([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*(?:\\s+\\d+\\s*%)?)\\s+([\\d,]+)\\s+([a-zA-Z]{1,5})\\s+([\\d,]+)\\s+([a-zA-Z]{1,5})\\s+([\\d,\\s]+)\\s+([\\d\\s,]+)\\s*\\|\\s*(\\d+)%";
+  }
+
+  // Check for alternative backaldrin format: "02874010 Sahnissimo neutrál kg 8kg | 12%"
+  // Format: CODE DESCRIPTION UNIT1 QTYUNIT2 | VAT% (where QTYUNIT2 is combined like "8kg")
+  const backaldrinAltPattern =
+    /^(\d{8})\s+([A-Za-zá-žÁ-Ž]+(?:\s+[A-Za-zá-žÁ-Ž]+)*(?:\s+\d+\s*%)?)\s+([a-zA-Z]{1,5})\s+(\d+)([a-zA-Z]{1,5})\s*\|\s*(\d+)%/;
+
+  if (backaldrinAltPattern.test(exampleLine.trim())) {
+    // Alternative Backaldrin format - 6 groups: code, description, unit1, qty2 (from combined), unit2 (from combined), vat_percent
+    return "^(\\d{8})\\s+([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*(?:\\s+\\d+\\s*%)?)\\s+([a-zA-Z]{1,5})\\s+(\\d+)([a-zA-Z]{1,5})\\s*\\|\\s*(\\d+)%";
   }
 
   // Single line format fallback
