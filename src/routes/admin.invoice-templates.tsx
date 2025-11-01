@@ -288,6 +288,24 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
         paymentType: uploadResult.data.paymentType,
         allKeys: Object.keys(uploadResult.data),
       });
+      console.log("InvoiceTestUpload - Extracted items:", {
+        itemsCount: uploadResult.data.items?.length || 0,
+        items: uploadResult.data.items,
+        firstItem: uploadResult.data.items?.[0],
+        allItemsDetails: uploadResult.data.items?.map(
+          (item: any, idx: number) => ({
+            index: idx,
+            product_code: item.product_code,
+            description: item.description,
+            quantity: item.quantity,
+            unit_of_measure: item.unit_of_measure,
+            unit_price: item.unit_price,
+            line_total: item.line_total,
+            vat_rate: item.vat_rate,
+            line_number: item.line_number,
+          })
+        ),
+      });
       setResult(uploadResult.data);
     } else {
       setError(uploadResult.error || "Unknown error");
@@ -323,6 +341,24 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
         payment_type: uploadResult.data.payment_type,
         paymentType: uploadResult.data.paymentType,
         allKeys: Object.keys(uploadResult.data),
+      });
+      console.log("InvoiceTestUpload - Reprocess extracted items:", {
+        itemsCount: uploadResult.data.items?.length || 0,
+        items: uploadResult.data.items,
+        firstItem: uploadResult.data.items?.[0],
+        allItemsDetails: uploadResult.data.items?.map(
+          (item: any, idx: number) => ({
+            index: idx,
+            product_code: item.product_code,
+            description: item.description,
+            quantity: item.quantity,
+            unit_of_measure: item.unit_of_measure,
+            unit_price: item.unit_price,
+            line_total: item.line_total,
+            vat_rate: item.vat_rate,
+            line_number: item.line_number,
+          })
+        ),
       });
       setResult(uploadResult.data);
     } else {
@@ -1495,6 +1531,40 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
               )}
             </CardHeader>
             <CardContent>
+              {/* Debug: Log items when component renders */}
+              {(() => {
+                console.log("Extrahované položky - CardContent render:", {
+                  hasResult: !!result,
+                  hasItems: !!result?.items,
+                  itemsCount: result?.items?.length || 0,
+                  items: result?.items,
+                  resultKeys: result ? Object.keys(result) : [],
+                });
+
+                // Log each item individually for debugging
+                if (result?.items && result.items.length > 0) {
+                  console.log("Extrahované položky - Detailed item breakdown:");
+                  result.items.forEach((item: any, idx: number) => {
+                    console.log(`Item ${idx + 1}:`, {
+                      product_code: item.product_code,
+                      description: item.description,
+                      description_length: item.description?.length || 0,
+                      description_type: typeof item.description,
+                      quantity: item.quantity,
+                      unit_of_measure: item.unit_of_measure,
+                      unit_price: item.unit_price,
+                      line_total: item.line_total,
+                      vat_rate: item.vat_rate,
+                      line_number: item.line_number,
+                      allKeys: Object.keys(item),
+                      rawItem: item,
+                    });
+                  });
+                }
+
+                return null;
+              })()}
+
               {/* Alert when no items are extracted - need to create line_pattern */}
               {result.items && result.items.length === 0 && (
                 <Alert className="mb-4 bg-red-50 border-red-200">
@@ -1615,6 +1685,27 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
               {(() => {
                 const layout =
                   activeTemplate?.config?.display_layout || "standard";
+
+                console.log("Extrahované položky - Rendering table:", {
+                  layout,
+                  itemsCount: result.items?.length || 0,
+                  items: result.items,
+                  activeTemplate: activeTemplate?.template_name,
+                  display_layout: activeTemplate?.config?.display_layout,
+                  itemsDetails: result.items?.map((item: any, idx: number) => ({
+                    index: idx,
+                    product_code: item.product_code,
+                    description: item.description,
+                    quantity: item.quantity,
+                    unit_of_measure: item.unit_of_measure,
+                    unit_price: item.unit_price,
+                    line_total: item.line_total,
+                    vat_rate: item.vat_rate,
+                    line_number: item.line_number,
+                    matched_ingredient_id: item.matched_ingredient_id,
+                    suggested_ingredient_name: item.suggested_ingredient_name,
+                  })),
+                });
 
                 if (layout === "makro") {
                   return <MakroInvoiceLayout items={result.items} />;

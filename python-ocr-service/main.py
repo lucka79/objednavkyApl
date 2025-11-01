@@ -627,11 +627,15 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
     # Method 1: Use regex patterns if configured
     item_pattern = table_columns.get('line_pattern')
     if item_pattern:
+        logger.info(f"Using line_pattern: {item_pattern}")
+        logger.info(f"Testing against line: {line[:80]}")
         try:
             match = re.match(item_pattern, line)
             if match:
                 groups = match.groups()
-                logger.debug(f"Pattern matched with {len(groups)} groups: {groups}")
+                logger.info(f"✅ Pattern matched with {len(groups)} groups for line: {line[:80]}")
+                logger.info(f"Groups (all {len(groups)}): {groups}")
+                logger.info(f"Group breakdown: code={groups[0] if len(groups) > 0 else None}, description={groups[1] if len(groups) > 1 else None}, ...")
                 
                 # Handle different pattern formats:
                 # Format 1 (6 groups): code, description, quantity, unit, price, total
@@ -680,9 +684,9 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         vat_rate=vat_rate,
                         line_number=line_number,
                     )
-                elif len(groups) >= 10:
+                elif len(groups) >= 9:
                     # Check if it's backaldrin format (starts with 8-digit code)
-                    # Backaldrin format: CODE DESCRIPTION VAT% QTY1 UNIT1 QTY2 UNIT2 UNIT_PRICE TOTAL | VAT%
+                    # Backaldrin format: CODE DESCRIPTION (with optional "20 %") QTY1 UNIT1 QTY2 UNIT2 UNIT_PRICE TOTAL | VAT%
                     # Check if first group is 8-digit code
                     first_group = groups[0] if len(groups) > 0 else ""
                     is_backaldrin = first_group and len(str(first_group)) == 8 and str(first_group).isdigit()
@@ -690,8 +694,11 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     if len(groups) == 9 and is_backaldrin:
                         # Backaldrin format - 9 groups: code, description (with optional "20 %"), qty1, unit1, qty2, unit2, unit_price, total, vat_percent
                         # Note: "20 %" in description like "Kobliha 20 %" is part of product name, not separate VAT field
+                        logger.info(f"Detected Backaldrin format with 9 groups - line: {line[:80]}")
+                        logger.info(f"All groups: {groups}")
                         product_code = groups[0] if len(groups) > 0 else None
                         description = groups[1].strip() if len(groups) > 1 else None  # Includes "20 %" if present
+                        logger.info(f"Extracted - code: {product_code}, description: {description}, group[1] raw: '{groups[1] if len(groups) > 1 else None}'")
                         quantity1 = extract_number(groups[2]) if len(groups) > 2 else 0
                         unit1 = groups[3] if len(groups) > 3 else None
                         quantity2 = extract_number(groups[4]) if len(groups) > 4 else 0
@@ -838,7 +845,8 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
         except Exception as e:
             logger.error(f"Error matching line pattern: {e}")
     
-    # Method 2: Smart whitespace splitting (default)
+    # Method 2: Smart whitespace splitting (default - fallback when no pattern matches)
+    logger.info(f"⚠️ No pattern match or pattern not configured, using whitespace splitting for line: {line[:80]}")
     # Split by multiple spaces (assumes columns are separated by 2+ spaces)
     parts = re.split(r'\s{2,}', line)
     
@@ -847,7 +855,10 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
         parts = line.split()
     
     if len(parts) < 2:
+        logger.warning(f"No meaningful parts found in line: {line[:80]}")
         return None
+    
+    logger.info(f"Whitespace split found {len(parts)} parts: {parts[:10]}")  # Log first 10 parts
     
     # Try to identify product code (usually first numeric field or alphanumeric)
     product_code = None
@@ -861,8 +872,10 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
     if re.match(r'^[\d\w-]+$', parts[0]):
         product_code = parts[0]
         remaining_parts = parts[1:]
+        logger.info(f"Found product_code from whitespace split: {product_code}")
     else:
         remaining_parts = parts
+        logger.info(f"No product_code found in first part: {parts[0]}")
     
     # Extract numbers from remaining parts
     numbers = []
@@ -874,14 +887,19 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
         try:
             num = float(cleaned)
             numbers.append(num)
+            logger.debug(f"Part '{part}' identified as number: {num}")
         except:
             # It's text
             if part.strip() and not re.match(r'^[.,\s]+$', part):
                 text_parts.append(part)
+                logger.debug(f"Part '{part}' identified as text")
     
     # Description is the text parts
     if text_parts:
         description = ' '.join(text_parts)
+        logger.info(f"Extracted description from whitespace split: '{description}'")
+    else:
+        logger.warning(f"No text parts found for description in line: {line[:80]}")
     
     # Assign numbers to fields (typically: quantity, unit_price, line_total)
     if len(numbers) >= 1:
