@@ -896,6 +896,7 @@ export type Database = {
           matching_confidence: number | null
           package_weight_kg: number | null
           price_per_kg: number | null
+          product_code: string | null
           quantity: number | null
           tax_amount: number | null
           tax_rate: number | null
@@ -915,6 +916,7 @@ export type Database = {
           matching_confidence?: number | null
           package_weight_kg?: number | null
           price_per_kg?: number | null
+          product_code?: string | null
           quantity?: number | null
           tax_amount?: number | null
           tax_rate?: number | null
@@ -934,6 +936,7 @@ export type Database = {
           matching_confidence?: number | null
           package_weight_kg?: number | null
           price_per_kg?: number | null
+          product_code?: string | null
           quantity?: number | null
           tax_amount?: number | null
           tax_rate?: number | null

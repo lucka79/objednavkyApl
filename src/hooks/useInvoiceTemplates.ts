@@ -44,7 +44,7 @@ export interface TemplateConfig {
     language?: string;
     psm?: number;
   };
-  display_layout?: "standard" | "makro" | "pesek" | "zeelandia";
+  display_layout?: string; // Can be "standard" | "makro" | "pesek" | "zeelandia" or any custom layout name
 }
 
 interface Region {

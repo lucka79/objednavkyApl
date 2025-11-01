@@ -630,6 +630,49 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         line_number=line_number,
                     )
                 elif len(groups) >= 10:
+                    # Check if it's backaldrin format (starts with 8-digit code)
+                    # Backaldrin format: CODE DESCRIPTION VAT% QTY1 UNIT1 QTY2 UNIT2 UNIT_PRICE TOTAL | VAT%
+                    # Check if first group is 8-digit code
+                    first_group = groups[0] if len(groups) > 0 else ""
+                    is_backaldrin = first_group and len(str(first_group)) == 8 and str(first_group).isdigit()
+                    
+                    if len(groups) == 10 and is_backaldrin:
+                        # Backaldrin format - 10 groups: code, description, vat_rate, qty1, unit1, qty2, unit2, unit_price, total, vat_percent
+                        product_code = groups[0] if len(groups) > 0 else None
+                        description = groups[1].strip() if len(groups) > 1 else None
+                        vat_rate = extract_number(groups[2]) if len(groups) > 2 else None
+                        quantity1 = extract_number(groups[3]) if len(groups) > 3 else 0
+                        unit1 = groups[4] if len(groups) > 4 else None
+                        quantity2 = extract_number(groups[5]) if len(groups) > 5 else 0
+                        unit2 = groups[6] if len(groups) > 6 else None
+                        unit_price = extract_number(groups[7]) if len(groups) > 7 else 0
+                        line_total = extract_number(groups[8]) if len(groups) > 8 else 0
+                        vat_percent = extract_number(groups[9]) if len(groups) > 9 else None
+                        
+                        # Use quantity2 and unit2 as primary quantity (appears to be the actual quantity)
+                        quantity = quantity2 if quantity2 > 0 else quantity1
+                        unit_of_measure = unit2 if unit2 else unit1
+                        
+                        logger.info(f"Extracting Backaldrin format - code: {product_code}, description: {description}, quantity: {quantity} {unit_of_measure}, unit_price: {unit_price}, total: {line_total}")
+                        
+                        # Apply code corrections if configured
+                        corrected_code = apply_code_corrections(product_code, code_corrections) if product_code else None
+                        
+                        # Apply description corrections if configured
+                        description_corrections = table_columns.get('description_corrections', {})
+                        corrected_description = apply_description_corrections(description, description_corrections) if description else None
+                        
+                        return InvoiceItem(
+                            product_code=corrected_code,
+                            description=corrected_description,
+                            quantity=quantity,
+                            unit_of_measure=unit_of_measure,
+                            unit_price=unit_price,
+                            line_total=line_total,
+                            vat_rate=vat_rate or vat_percent,
+                            line_number=line_number,
+                        )
+                    
                     # MAKRO format: 10 captures (full format with VAT)
                     # code, quantity, description, base_price, units_in_mu, price_per_mu, total, vat_rate, vat_amount, total_with_vat
                     

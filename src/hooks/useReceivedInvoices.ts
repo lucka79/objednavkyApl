@@ -32,6 +32,8 @@ export interface ReceivedItem {
   unit_price: number | null;
   line_total: number | null;
   unit_of_measure: string | null;
+  line_number: number | null; // OCR order
+  product_code: string | null; // Product code from ingredient_supplier_codes
   created_at: string | null;
   updated_at: string | null;
   // Zeelandia-specific fields
@@ -67,7 +69,8 @@ export const useReceivedInvoices = () => {
                 unit,
                 ingredient_supplier_codes(
                   supplier_id,
-                  supplier_ingredient_name
+                  supplier_ingredient_name,
+                  product_code
                 )
               )
             )

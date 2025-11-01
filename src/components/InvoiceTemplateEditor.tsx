@@ -105,6 +105,7 @@ export function InvoiceTemplateEditor({
                 key={editingTemplate?.id || "new"}
                 supplierId={supplierId}
                 template={editingTemplate}
+                existingTemplates={templates}
                 onSave={(template) => {
                   if (editingTemplate) {
                     updateTemplate({
@@ -229,6 +230,7 @@ export function InvoiceTemplateEditor({
 interface TemplateFormProps {
   supplierId: string;
   template: InvoiceTemplate | null;
+  existingTemplates: InvoiceTemplate[];
   onSave: (template: any) => void;
   onCancel: () => void;
 }
@@ -236,14 +238,34 @@ interface TemplateFormProps {
 function TemplateForm({
   supplierId,
   template,
+  existingTemplates,
   onSave,
   onCancel,
 }: TemplateFormProps) {
+  // Get default display_layout: use existing template's layout if available, otherwise "standard"
+  const getDefaultDisplayLayout = () => {
+    if (template) {
+      // Editing existing template - use its layout
+      return template.config?.display_layout || "standard";
+    }
+    // Creating new template - check if supplier has existing templates
+    if (existingTemplates && existingTemplates.length > 0) {
+      // Use display_layout from the first existing template for this supplier
+      const existingLayout = existingTemplates[0]?.config?.display_layout;
+      return existingLayout || "standard";
+    }
+    // No existing templates - use default
+    return "standard";
+  };
+
+  // Get default display_layout before creating state
+  const defaultDisplayLayout = getDefaultDisplayLayout();
+
   const [formData, setFormData] = useState({
     template_name: template?.template_name || "",
     version: template?.version || "1.0",
     is_active: template?.is_active ?? true,
-    display_layout: template?.config?.display_layout || "standard",
+    display_layout: defaultDisplayLayout,
     config: JSON.stringify(
       template?.config || {
         ocr_settings: {
@@ -340,7 +362,27 @@ function TemplateForm({
         display_layout: template.config?.display_layout || "standard",
         config: JSON.stringify(template.config, null, 2),
       });
+    } else {
+      // New template - reset to defaults based on existing templates
+      const defaultLayout = getDefaultDisplayLayout();
+      setFormData((prev) => ({
+        ...prev,
+        template_name: "",
+        version: "1.0",
+        is_active: true,
+        display_layout: defaultLayout,
+        // Keep config but update display_layout in the JSON
+        config: JSON.stringify(
+          {
+            ...(prev.config ? JSON.parse(prev.config) : {}),
+            display_layout: defaultLayout,
+          },
+          null,
+          2
+        ),
+      }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template]);
 
   const handleConfigChange = (value: string) => {
@@ -421,62 +463,138 @@ function TemplateForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="display_layout">Typ zobrazení položek</Label>
+        <Label htmlFor="display_layout">
+          Typ zobrazení položek (Layout název)
+        </Label>
         <div className="text-xs text-blue-600 mb-1">
-          Current value: {formData.display_layout}
+          Aktuální hodnota:{" "}
+          <code className="bg-gray-100 px-1 rounded">
+            {formData.display_layout}
+          </code>
         </div>
-        <Select
-          value={formData.display_layout}
-          onValueChange={(
-            value: "standard" | "makro" | "pesek" | "zeelandia"
-          ) => {
-            console.log(
-              "Display layout dropdown changed from",
-              formData.display_layout,
-              "to:",
-              value
-            );
-            setFormData((prev) => {
-              console.log("Previous state:", prev);
-              const newState = { ...prev, display_layout: value };
-              console.log("New state:", newState);
-              return newState;
-            });
-          }}
-        >
-          <SelectTrigger id="display_layout">
-            <SelectValue placeholder="Vyberte typ zobrazení" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="standard">
-              Standard (základní tabulka)
-            </SelectItem>
-            <SelectItem value="pesek">pesek (Pešek-Rambousek)</SelectItem>
-            <SelectItem value="makro">MAKRO (rozšířená)</SelectItem>
-            <SelectItem value="zeelandia">Zeelandia</SelectItem>
-          </SelectContent>
-        </Select>
-        <p className="text-sm text-muted-foreground">
-          Určuje, jak se zobrazí extrahované položky v testovacím náhledu
-        </p>
+
+        <div className="space-y-2">
+          <Select
+            value={
+              ["standard", "makro", "pesek", "zeelandia"].includes(
+                formData.display_layout
+              )
+                ? formData.display_layout
+                : "custom"
+            }
+            onValueChange={(value) => {
+              if (value !== "custom") {
+                setFormData((prev) => ({ ...prev, display_layout: value }));
+              } else {
+                // When switching to custom, keep current value if it's already custom
+                if (
+                  !["standard", "makro", "pesek", "zeelandia"].includes(
+                    formData.display_layout
+                  )
+                ) {
+                  // Already custom, keep it
+                } else {
+                  // Switching to custom, set to empty string so user can type
+                  setFormData((prev) => ({ ...prev, display_layout: "" }));
+                }
+              }
+            }}
+          >
+            <SelectTrigger id="display_layout">
+              <SelectValue placeholder="Vyberte nebo zadejte vlastní" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="standard">
+                Standard (základní tabulka)
+              </SelectItem>
+              <SelectItem value="pesek">pesek (Pešek-Rambousek)</SelectItem>
+              <SelectItem value="makro">MAKRO (rozšířená)</SelectItem>
+              <SelectItem value="zeelandia">Zeelandia</SelectItem>
+              <SelectItem value="custom">
+                ✏️ Vlastní název (pro specifického dodavatele)
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          {!["standard", "makro", "pesek", "zeelandia"].includes(
+            formData.display_layout
+          ) && (
+            <Input
+              placeholder="Zadejte vlastní název layoutu (např. 'supplier-name-custom')"
+              value={formData.display_layout}
+              onChange={(e) =>
+                setFormData({ ...formData, display_layout: e.target.value })
+              }
+              className="mt-2"
+            />
+          )}
+        </div>
+
+        <Alert className="bg-blue-50 border-blue-200 mt-2">
+          <AlertDescription className="text-xs">
+            <strong>💡 Důležité:</strong>
+            <ul className="list-disc list-inside mt-1 space-y-1">
+              <li>
+                <strong>Předdefinované layouty</strong> (standard, makro, pesek,
+                zeelandia) mají specifické komponenty pro zobrazení
+              </li>
+              <li>
+                <strong>Vlastní layout</strong> můžete použít pro dodavatele se
+                specifickým designem faktury
+              </li>
+              <li>
+                <strong>Patterns</strong> níže upravte podle skutečného designu
+                faktury vašeho dodavatele
+              </li>
+              <li>
+                Při prvním vytvoření šablony použijte záložku{" "}
+                <strong>"Test Upload"</strong> pro testování patterns na
+                skutečné faktuře
+              </li>
+            </ul>
+          </AlertDescription>
+        </Alert>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="config">Konfigurace (JSON)</Label>
+        <Label htmlFor="config">
+          Konfigurace (JSON) - Patterns a nastavení
+        </Label>
 
         <Alert className="bg-blue-50 border-blue-200">
           <AlertDescription className="text-xs">
-            <strong>💡 Důležité:</strong> Systém mapuje položky pomocí{" "}
-            <code className="bg-white px-1 py-0.5 rounded">product_code</code> z
-            faktur:
-            <br />
-            <code className="text-xs">
-              product_code (faktura) → ingredient_supplier_codes → ingredients
-              (suroviny)
-            </code>
-            <br />
-            Nastavte regex vzory tak, aby správně extrahovaly product_code z
-            faktur.
+            <strong>💡 Jak upravit patterns podle designu faktury:</strong>
+            <ol className="list-decimal list-inside mt-2 space-y-1">
+              <li>
+                Přejděte na záložku <strong>"Test Upload"</strong> a nahrajte
+                skutečnou fakturu
+              </li>
+              <li>
+                V OCR textu označte text myší a použijte tlačítka{" "}
+                <strong>"✏️ Použít označený text"</strong> u každého pole (číslo
+                faktury, datum, atd.)
+              </li>
+              <li>
+                Pro položky tabulky použijte{" "}
+                <strong>"✏️ Použít jako vzor řádku"</strong> nebo{" "}
+                <strong>"🎯 Mapovat sloupce"</strong>
+              </li>
+              <li>
+                Systém automaticky vygeneruje regex patterns, které můžete pak
+                zkopírovat sem
+              </li>
+              <li>
+                <strong>Product codes:</strong> Systém mapuje pomocí{" "}
+                <code className="bg-white px-1 py-0.5 rounded">
+                  product_code
+                </code>{" "}
+                z faktur →{" "}
+                <code className="bg-white px-1 py-0.5 rounded">
+                  ingredient_supplier_codes
+                </code>{" "}
+                → suroviny
+              </li>
+            </ol>
           </AlertDescription>
         </Alert>
 

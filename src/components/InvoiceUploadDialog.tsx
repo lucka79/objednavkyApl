@@ -722,6 +722,28 @@ export function InvoiceUploadDialog() {
       );
 
       if (matchedItems.length > 0) {
+        // Fetch product codes for all matched ingredients
+        const { data: supplierCodes, error: codesError } = await supabase
+          .from("ingredient_supplier_codes")
+          .select("ingredient_id, supplier_id, product_code")
+          .in(
+            "ingredient_id",
+            matchedItems.map((item) => item.ingredientId!).filter(Boolean)
+          )
+          .eq("supplier_id", supplierId);
+
+        if (codesError) {
+          console.warn("Error fetching product codes:", codesError);
+        }
+
+        // Create a map of ingredient_id -> product_code for quick lookup
+        const productCodeMap = new Map<number, string>();
+        if (supplierCodes) {
+          supplierCodes.forEach((code: any) => {
+            productCodeMap.set(code.ingredient_id, code.product_code);
+          });
+        }
+
         const itemsToInsert = matchedItems.map((item, index) => {
           // Check supplier types
           const isZeelandia =
@@ -908,6 +930,13 @@ export function InvoiceUploadDialog() {
 
           if (item.packageWeightKg !== undefined) {
             baseInsert.package_weight_kg = item.packageWeightKg;
+          }
+
+          // Add product_code from ingredient_supplier_codes
+          const productCode =
+            productCodeMap.get(item.ingredientId!) || item.supplierCode || null;
+          if (productCode) {
+            baseInsert.product_code = productCode;
           }
 
           // Note: For Zeelandia, Fakt. mn. is saved as quantity and Cena/jed is saved as unit_price

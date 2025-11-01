@@ -1309,7 +1309,7 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                   surovina
                 </CardDescription>
               </div>
-              {selectedText && result.items && result.items.length > 0 && (
+              {selectedText && (
                 <div className="flex gap-2">
                   <Button
                     size="sm"
@@ -1327,28 +1327,74 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                   >
                     ✏️ Použít jako vzor řádku
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      // Show column mapping interface
-                      setShowColumnMapping(true);
-                    }}
-                  >
-                    🎯 Mapovat sloupce
-                  </Button>
+                  {result.items && result.items.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        // Show column mapping interface
+                        setShowColumnMapping(true);
+                      }}
+                    >
+                      🎯 Mapovat sloupce
+                    </Button>
+                  )}
                 </div>
               )}
             </CardHeader>
             <CardContent>
-              {editedPatterns.line_pattern && (
-                <Alert className="mb-4 bg-yellow-50">
+              {/* Alert when no items are extracted - need to create line_pattern */}
+              {result.items && result.items.length === 0 && (
+                <Alert className="mb-4 bg-red-50 border-red-200">
                   <AlertDescription className="text-xs">
-                    <strong>⚠️ Upravený vzor řádku:</strong>
-                    <br />
-                    <code className="text-xs bg-white px-2 py-1 rounded mt-1 inline-block break-all">
-                      {editedPatterns.line_pattern}
-                    </code>
+                    <strong>⚠️ Nebyly extrahovány žádné položky!</strong>
+                    <p className="mt-2 font-semibold">
+                      Pravděpodobně chybí nebo je nesprávný{" "}
+                      <code className="bg-white px-1 py-0.5 rounded">
+                        line_pattern
+                      </code>{" "}
+                      v konfiguraci šablony.
+                    </p>
+                    <ol className="list-decimal list-inside mt-2 space-y-1">
+                      <li>
+                        V sekci <strong>"Raw OCR Text"</strong> níže najděte a{" "}
+                        <strong>označte myší jeden celý řádek položky</strong>
+                        <br />
+                        <code className="text-xs bg-white px-1 py-0.5 mt-1 block">
+                          Příklad: "02543250 Kobliha 20 % 25 kg 25 kg 166,000 4
+                          150,00 | 12%"
+                        </code>
+                      </li>
+                      <li>
+                        Po označení textu se objeví tlačítko{" "}
+                        <strong>"✏️ Použít jako vzor řádku"</strong> vpravo
+                        nahoře
+                      </li>
+                      <li>
+                        Klikněte na něj - systém automaticky vytvoří regex
+                        pattern pro extrakci položek
+                      </li>
+                      <li>
+                        Zobrazí se upravený pattern, klikněte na{" "}
+                        <strong>"💾 Uložit změny"</strong> nahoře
+                      </li>
+                      <li>
+                        Znovu nahrajte fakturu pro test extrakce s novým
+                        patternem
+                      </li>
+                    </ol>
+                  </AlertDescription>
+                </Alert>
+              )}
+              {editedPatterns.line_pattern && (
+                <Alert className="mb-4 bg-green-50 border-green-200">
+                  <AlertDescription className="text-xs">
+                    <strong>✅ Nový vzor řádku vytvořen:</strong>
+                    <div className="mt-2 p-2 bg-white rounded border border-green-200">
+                      <code className="text-xs break-all font-mono">
+                        {editedPatterns.line_pattern}
+                      </code>
+                    </div>
                     <p className="mt-2 text-muted-foreground">
                       {editedPatterns.line_pattern.includes("\\n") ? (
                         <>
@@ -1357,9 +1403,20 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                           Extrakt: Název (řádek 1) → Kód, Počet MU, Cena (řádek
                           2)
                         </>
+                      ) : editedPatterns.line_pattern.includes("\\d{8}") ? (
+                        <>
+                          ✓ Backaldrin formát detekován (8-místný kód)
+                          <br />
+                          Formát: KÓD → Název → DPH% → Množství → Jednotka →
+                          Cena → Celkem
+                        </>
                       ) : (
-                        "Jednoř. vzor: číslo zboží, počet MU, název zboží, zákl. cena, jedn. v MU, cena za MU, cena celkem"
+                        "✓ Jednořádkový vzor: kód produktu, název, množství, jednotka, cena, celkem"
                       )}
+                    </p>
+                    <p className="mt-2 font-semibold text-green-700">
+                      💾 Nezapomeňte kliknout na "Uložit změny" nahoře pro
+                      uložení patternu do šablony!
                     </p>
                   </AlertDescription>
                 </Alert>
@@ -1563,11 +1620,29 @@ function generateLineItemPattern(exampleLine: string): string {
     }
   }
 
+  // Check for backaldrin format: "02543250 Kobliha 20 % 25 kg 25 kg 166,000 4 150,00 | 12%"
+  // Format: CODE DESCRIPTION VAT% QTY1 UNIT1 QTY2 UNIT2 UNIT_PRICE TOTAL | VAT%
+  const backaldrinPattern =
+    /^(\d{8})\s+([A-Za-zá-žÁ-Ž]+(?:\s+[A-Za-zá-žÁ-Ž]+)*)\s+(\d+)\s*%\s+([\d,]+)\s+([a-zA-Z]{1,5})\s+([\d,]+)\s+([a-zA-Z]{1,5})\s+([\d,\s]+)\s+([\d\s,]+)\s*\|\s*(\d+)%/;
+
+  if (backaldrinPattern.test(exampleLine.trim())) {
+    // Backaldrin format - 10 groups: code, description, vat_rate, qty1, unit1, qty2, unit2, unit_price, total, vat_percent
+    return "^(\\d{8})\\s+([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*)\\s+(\\d+)\\s*%\\s+([\\d,]+)\\s+([a-zA-Z]{1,5})\\s+([\\d,]+)\\s+([a-zA-Z]{1,5})\\s+([\\d,\\s]+)\\s+([\\d\\s,]+)\\s*\\|\\s*(\\d+)%";
+  }
+
   // Single line format fallback
   // Split by multiple spaces or tabs
   const parts = exampleLine.split(/\s{2,}|\t/);
 
   if (parts.length < 2) {
+    // Try to detect pattern based on content
+    // Check if line starts with product code (8 digits for backaldrin)
+    if (/^\d{8}\s+/.test(exampleLine)) {
+      // Backaldrin-like format: CODE DESCRIPTION ...
+      // Try flexible pattern that matches most single-line formats
+      return "^(\\d{8})\\s+([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*(?:\\s+\\d+[a-zA-Z]+)?)\\s+(\\d+)\\s*%?\\s+([\\d,]+)\\s+([a-zA-Z]{1,5})\\s+([\\d,]+)\\s+([a-zA-Z]{1,5})\\s+([\\d,\\s]+)\\s+([\\d\\s,]+)\\s*\\|?\\s*(\\d+)%?";
+    }
+
     // Fallback: Try to identify components
     // Typical format: [description] [code] [quantity][unit] [price] [total]
     const pattern =

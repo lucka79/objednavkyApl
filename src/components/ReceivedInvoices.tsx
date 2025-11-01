@@ -39,6 +39,7 @@ import {
   X,
   Plus,
   TrendingUp,
+  Printer,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeSVG } from "qrcode.react";
@@ -59,6 +60,8 @@ import { IngredientPriceFluctuation } from "./IngredientPriceFluctuation";
 
 // MAKRO supplier ID (weight-based layout)
 const MAKRO_SUPPLIER_ID = "16293f61-b9e8-4016-9882-0b8fa90125e4";
+// Pešek supplier ID (table layout without colors)
+const PESEK_SUPPLIER_ID = "908cc15c-1055-4e22-9a09-c61fef1e0b9c";
 
 // Add Item Modal Component
 function AddItemModal({
@@ -782,6 +785,231 @@ export function ReceivedInvoices() {
     }
   };
 
+  const handlePrintInvoice = () => {
+    if (!selectedInvoice || !storeUsers) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    const sortedItems = [...(selectedInvoice.items || [])].sort((a, b) => {
+      const aLineNumber = a.line_number ?? 999999;
+      const bLineNumber = b.line_number ?? 999999;
+      return aLineNumber - bLineNumber;
+    });
+
+    const subtotal = sortedItems.reduce(
+      (sum, item) => sum + (item.line_total || 0),
+      0
+    );
+
+    const invoiceDate = selectedInvoice.invoice_date
+      ? new Date(selectedInvoice.invoice_date).toLocaleDateString("cs-CZ")
+      : "Neznámé datum";
+
+    const printContent = `
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Faktura ${selectedInvoice.invoice_number}</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 2cm;
+      }
+      body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+      .header {
+        margin-bottom: 30px;
+      }
+      .header h1 {
+        font-size: 24px;
+        margin-bottom: 20px;
+      }
+      .info-section {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        margin-bottom: 30px;
+      }
+      .info-box h3 {
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #000;
+        padding-bottom: 5px;
+      }
+      .info-box p {
+        margin: 5px 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+      }
+      th {
+        background-color: #f5f5f5;
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+        font-weight: bold;
+      }
+      td {
+        border: 1px solid #ddd;
+        padding: 8px;
+      }
+      .text-right {
+        text-align: right;
+      }
+      .text-center {
+        text-align: center;
+      }
+      .total-row {
+        font-weight: bold;
+        background-color: #f9f9f9;
+      }
+      .footer {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 2px solid #000;
+      }
+      .footer-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+      .footer-total {
+        font-size: 16px;
+        font-weight: bold;
+      }
+      @media print {
+        body {
+          margin: 0;
+        }
+        .no-print {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>FAKTURA - DAŇOVÝ DOKLAD</h1>
+    </div>
+
+    <div class="info-section">
+      <div class="info-box">
+        <h3>Dodavatel</h3>
+        <p>${selectedInvoice.supplier?.full_name || selectedInvoice.supplier_name || "Neznámý dodavatel"}</p>
+      </div>
+      <div class="info-box">
+        <h3>Příjemce</h3>
+        <p>${storeUsers.find((u) => u.id === selectedInvoice.receiver_id)?.full_name || "Není nastaven"}</p>
+      </div>
+    </div>
+
+    <div class="info-section">
+      <div class="info-box">
+        <p><strong>Číslo faktury:</strong> ${selectedInvoice.invoice_number}</p>
+        <p><strong>Datum vystavení:</strong> ${invoiceDate}</p>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 5%">#</th>
+          <th style="width: 10%">Kód</th>
+          <th style="width: 30%">Surovina</th>
+          <th style="width: 15%" class="text-right">Množství</th>
+          <th style="width: 15%" class="text-right">Jednotková cena</th>
+          <th style="width: 15%" class="text-right">Celková cena</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sortedItems
+          .map((item, index) => {
+            const ingredient = item.ingredient;
+            const supplierCode = (
+              ingredient as any
+            )?.ingredient_supplier_codes?.find(
+              (code: any) => code.supplier_id === selectedInvoice.supplier_id
+            );
+            const supplierIngredientName =
+              supplierCode?.supplier_ingredient_name ||
+              ingredient?.name ||
+              "Neznámá surovina";
+            const productCode = supplierCode?.product_code || "";
+
+            const quantity = (item.quantity || 0).toFixed(
+              selectedInvoice?.supplier_id === MAKRO_SUPPLIER_ID ? 3 : 1
+            );
+            const unit = item.unit_of_measure || item.ingredient?.unit || "";
+            const unitPrice = (item.unit_price || 0).toLocaleString("cs-CZ", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            });
+            const lineTotal = (item.line_total || 0).toLocaleString("cs-CZ", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            });
+
+            return `
+                <tr>
+                  <td>${index + 1}</td>
+                  <td><code style="background: #f5f5f5; padding: 2px 4px; border-radius: 3px; font-family: monospace;">${productCode}</code></td>
+                  <td>${supplierIngredientName}</td>
+                  <td class="text-right">${quantity} ${unit}</td>
+                  <td class="text-right">${unitPrice} Kč</td>
+                  <td class="text-right">${lineTotal} Kč</td>
+                </tr>
+              `;
+          })
+          .join("")}
+        <tr class="total-row">
+          <td colspan="5" class="text-right"><strong>Celkem:</strong></td>
+          <td class="text-right">${subtotal.toLocaleString("cs-CZ", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })} Kč</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="footer">
+      <div class="footer-row">
+        <div><strong>Celková částka bez DPH:</strong></div>
+        <div>${subtotal.toLocaleString("cs-CZ", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })} Kč</div>
+      </div>
+      <div class="footer-row footer-total">
+        <div><strong>Celková částka:</strong></div>
+        <div>${(selectedInvoice.total_amount || 0).toLocaleString("cs-CZ", {
+          minimumFractionDigits:
+            selectedInvoice.supplier_id === PESEK_SUPPLIER_ID ? 2 : 0,
+          maximumFractionDigits:
+            selectedInvoice.supplier_id === PESEK_SUPPLIER_ID ? 2 : 0,
+        })} Kč</div>
+      </div>
+    </div>
+  </body>
+</html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+
+    // Wait for content to load, then print
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -1183,15 +1411,26 @@ export function ReceivedInvoices() {
                     </CardTitle>
                     <div className="flex gap-2">
                       {!isEditing ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleEditToggle}
-                          className="flex items-center gap-2"
-                        >
-                          <Edit className="h-4 w-4" />
-                          Upravit
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handlePrintInvoice}
+                            className="flex items-center gap-2"
+                          >
+                            <Printer className="h-4 w-4" />
+                            Tisk
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleEditToggle}
+                            className="flex items-center gap-2"
+                          >
+                            <Edit className="h-4 w-4" />
+                            Upravit
+                          </Button>
+                        </>
                       ) : (
                         <>
                           <Button
@@ -1257,7 +1496,7 @@ export function ReceivedInvoices() {
                             (sum, item) => sum + (item.line_total || 0),
                             0
                           );
-                          return Math.round(subtotal).toLocaleString("cs-CZ", {
+                          return subtotal.toLocaleString("cs-CZ", {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           });
@@ -1268,7 +1507,16 @@ export function ReceivedInvoices() {
                     <div>
                       <div className="flex items-center gap-3">
                         <p className="text-lg font-semibold text-green-600">
-                          {(selectedInvoice.total_amount || 0).toFixed(2)} Kč
+                          {(() => {
+                            const total = selectedInvoice.total_amount || 0;
+                            const isPesek =
+                              selectedInvoice.supplier_id === PESEK_SUPPLIER_ID;
+                            return total.toLocaleString("cs-CZ", {
+                              minimumFractionDigits: isPesek ? 2 : 0,
+                              maximumFractionDigits: isPesek ? 2 : 0,
+                            });
+                          })()}{" "}
+                          Kč
                         </p>
                         {/* QR Code next to Celková částka */}
                         {selectedInvoice.qr_codes &&
@@ -1346,9 +1594,10 @@ export function ReceivedInvoices() {
                     <div className="border rounded-md">
                       <div className="px-3 py-2 bg-gray-50 border-b text-xs text-muted-foreground font-medium">
                         <div className="grid grid-cols-12 gap-4">
-                          <span className="col-span-4">Surovina</span>
+                          <span className="col-span-1">Kód</span>
+                          <span className="col-span-3">Surovina</span>
                           <span className="col-span-2 text-right">
-                            Množství
+                            Množství (jednotka)
                           </span>
                           <span className="col-span-2 text-right">
                             Jednotková cena
@@ -1360,74 +1609,149 @@ export function ReceivedInvoices() {
                         </div>
                       </div>
                       <div className="divide-y">
-                        {selectedInvoice.items?.map((item) => (
-                          <div
-                            key={item.id}
-                            className="px-3 py-2 hover:bg-gray-50"
-                          >
-                            <div className="grid grid-cols-12 gap-4 items-center">
-                              <div className="col-span-4 font-medium">
-                                {(() => {
-                                  const ingredient = item.ingredient;
-                                  if (!ingredient) return "Neznámá surovina";
+                        {selectedInvoice.items
+                          ?.slice()
+                          .sort((a, b) => {
+                            // Sort by line_number to maintain OCR order
+                            const aLineNumber = a.line_number ?? 999999;
+                            const bLineNumber = b.line_number ?? 999999;
+                            return aLineNumber - bLineNumber;
+                          })
+                          .map((item) => (
+                            <div
+                              key={item.id}
+                              className="px-3 py-2 hover:bg-gray-50"
+                            >
+                              <div className="grid grid-cols-12 gap-4 items-center">
+                                <div className="col-span-1">
+                                  <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded font-mono text-gray-700">
+                                    {(() => {
+                                      const ingredient = item.ingredient;
+                                      if (!ingredient) return "-";
 
-                                  // Get supplier's ingredient name if available
-                                  const supplierCode = (
-                                    ingredient as any
-                                  ).ingredient_supplier_codes?.find(
-                                    (code: any) =>
-                                      code.supplier_id ===
-                                      selectedInvoice.supplier_id
-                                  );
-                                  const supplierIngredientName =
-                                    supplierCode?.supplier_ingredient_name;
+                                      const supplierCode = (
+                                        ingredient as any
+                                      ).ingredient_supplier_codes?.find(
+                                        (code: any) =>
+                                          code.supplier_id ===
+                                          selectedInvoice.supplier_id
+                                      );
 
-                                  return (
-                                    supplierIngredientName || ingredient.name
-                                  );
-                                })()}
-                              </div>
-                              <div className="col-span-2 pr-2">
-                                <span className="text-sm font-mono text-right block">
-                                  {(item.quantity || 0).toFixed(
-                                    selectedInvoice?.supplier_id ===
-                                      MAKRO_SUPPLIER_ID
-                                      ? 3
-                                      : 1
-                                  )}
-                                </span>
-                              </div>
-                              <div className="col-span-2 pl-2">
-                                <span className="text-sm font-mono text-right block">
-                                  {(item.unit_price || 0).toFixed(2)} Kč
-                                </span>
-                              </div>
-                              <div className="col-span-3 text-right font-medium pr-6">
-                                {Math.round((item.line_total || 0) * 100) / 100}{" "}
-                                Kč
-                              </div>
-                              <div className="col-span-1 flex justify-end gap-1 pl-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleEditItem(item)}
-                                  className="text-blue-600 hover:text-blue-700"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteItem(item.id)}
-                                  className="text-red-600 hover:text-red-700"
-                                  disabled={deleteInvoiceItemMutation.isPending}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                      return supplierCode?.product_code || "-";
+                                    })()}
+                                  </code>
+                                </div>
+                                <div className="col-span-3 font-medium">
+                                  {(() => {
+                                    const ingredient = item.ingredient;
+                                    if (!ingredient) return "Neznámá surovina";
+
+                                    // Get supplier's ingredient name if available
+                                    const supplierCode = (
+                                      ingredient as any
+                                    ).ingredient_supplier_codes?.find(
+                                      (code: any) =>
+                                        code.supplier_id ===
+                                        selectedInvoice.supplier_id
+                                    );
+                                    const supplierIngredientName =
+                                      supplierCode?.supplier_ingredient_name;
+
+                                    return (
+                                      supplierIngredientName || ingredient.name
+                                    );
+                                  })()}
+                                </div>
+                                <div className="col-span-2 pr-2">
+                                  <span className="text-sm Consolas font-semibold text-right block">
+                                    {(item.quantity || 0).toFixed(
+                                      selectedInvoice?.supplier_id ===
+                                        MAKRO_SUPPLIER_ID
+                                        ? 3
+                                        : 1
+                                    )}{" "}
+                                    <span className="text-gray-500">
+                                      {item.unit_of_measure ||
+                                        item.ingredient?.unit ||
+                                        ""}
+                                    </span>
+                                  </span>
+                                </div>
+                                <div className="col-span-2 pl-2">
+                                  <span className="text-sm Consolas font-semibold text-blue-900 text-right block">
+                                    {(item.unit_price || 0).toLocaleString(
+                                      "cs-CZ",
+                                      {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      }
+                                    )}{" "}
+                                    Kč
+                                  </span>
+                                </div>
+                                <div className="col-span-3 text-right font-medium pr-6">
+                                  {(item.line_total || 0).toLocaleString(
+                                    "cs-CZ",
+                                    {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    }
+                                  )}{" "}
+                                  Kč
+                                </div>
+                                <div className="col-span-1 flex justify-end gap-1 pl-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleEditItem(item)}
+                                    className="text-blue-600 hover:text-blue-700"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDeleteItem(item.id)}
+                                    className="text-red-600 hover:text-red-700"
+                                    disabled={
+                                      deleteInvoiceItemMutation.isPending
+                                    }
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </div>
                             </div>
+                          ))}
+                      </div>
+                      {/* Sum row */}
+                      <div className="px-3 py-2 bg-gray-50 border-t-2 border-gray-300 font-semibold">
+                        <div className="grid grid-cols-12 gap-4 items-center">
+                          <div className="col-span-1"></div>
+                          <div className="col-span-3">
+                            <span className="text-sm font-medium text-gray-700">
+                              Celkem
+                            </span>
                           </div>
-                        ))}
+                          <div className="col-span-2"></div>
+                          <div className="col-span-2"></div>
+                          <div className="col-span-3 text-right font-semibold text-green-700 pr-6">
+                            {(() => {
+                              const total = (
+                                selectedInvoice.items || []
+                              ).reduce(
+                                (sum, item) => sum + (item.line_total || 0),
+                                0
+                              );
+                              return total.toLocaleString("cs-CZ", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              });
+                            })()}{" "}
+                            Kč
+                          </div>
+                          <div className="col-span-1"></div>
+                        </div>
                       </div>
                     </div>
                   </div>
