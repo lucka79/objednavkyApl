@@ -1884,6 +1884,22 @@ function generateLineItemPattern(exampleLine: string): string {
       const firstLine = lines[0];
       const secondLine = lines[1];
 
+      // Pattern 0: Goodmills format - Data on line 1, Description on line 2
+      // Example: "512001 12% 7160.00 KG 8.9000 63724.00" / "Pš.m.hl.světlá T530 volná"
+      // Format: CODE VAT% QUANTITY UNIT UNIT_PRICE TOTAL \n DESCRIPTION
+      if (/^\d+\s+\d+%/.test(firstLine) && /^[A-Za-zá-žÁ-Ž]/.test(secondLine)) {
+        const pattern =
+          "^(\\d+)\\s+" + // Product code (line 1)
+          "(\\d+)%\\s+" + // VAT percentage
+          "([\\d.]+)\\s+" + // Quantity (with dots)
+          "([A-Z]+)\\s+" + // Unit (uppercase letters: KG, KS, etc)
+          "([\\d.]+)\\s+" + // Unit price
+          "([\\d.]+)\\s*\\n" + // Total price
+          "\\s*(.+)$"; // Description (line 2)
+
+        return pattern;
+      }
+
       // Pattern 1: Description on line 1, Code + data on line 2
       // Example: "sůl jemná 25kg" / "0201 50kg 6,80 12 % 340,00"
       if (/^[A-Za-zá-žÁ-Ž]/.test(firstLine) && /^\d+/.test(secondLine)) {

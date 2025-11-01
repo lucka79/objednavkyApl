@@ -614,6 +614,33 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
                             items.append(item)
                             logger.debug(f"Extracted multi-line Backaldrin item (9 groups): {item.product_code} - {item.description}")
                     
+                    # Format 3: Goodmills format - data on line 1, description on line 2
+                    # Example: "512001 12% 7160.00 KG 8.9000 63724.00" / "Pš.m.hl.světlá T530 volná"
+                    # Groups: code, vat_rate, quantity, unit, unit_price, line_total, description
+                    elif len(groups) == 7:
+                        product_code = groups[0].strip() if len(groups) > 0 else None
+                        vat_rate = extract_number(groups[1]) if len(groups) > 1 else None
+                        quantity = extract_number(groups[2]) if len(groups) > 2 else 0
+                        unit_of_measure = groups[3].strip().lower() if len(groups) > 3 else None
+                        unit_price = extract_number(groups[4]) if len(groups) > 4 else 0
+                        line_total = extract_number(groups[5]) if len(groups) > 5 else 0
+                        description = groups[6].strip() if len(groups) > 6 else None
+                        
+                        item = InvoiceItem(
+                            product_code=product_code,
+                            description=description,
+                            quantity=quantity,
+                            unit_of_measure=unit_of_measure,
+                            unit_price=unit_price,
+                            line_total=line_total,
+                            vat_rate=vat_rate,
+                            line_number=match_no,
+                        )
+                        
+                        if item.product_code:
+                            items.append(item)
+                            logger.debug(f"Extracted multi-line Goodmills item (7 groups): {item.product_code} - {item.description}")
+                    
                     else:
                         # Generic multi-line format - try to extract what we can
                         logger.info(f"Generic multi-line format with {len(groups)} groups, attempting extraction")
