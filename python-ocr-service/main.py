@@ -1229,6 +1229,13 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         
                         # If we found product_code or at least some fields, use this format
                         if product_code or description or quantity > 0:
+                            # For Leco format (9 groups), calculate line_total = quantity * unit_price
+                            # This is more accurate than OCR extraction, especially with Czech number formatting
+                            if len(groups) == 9 and quantity > 0 and unit_price > 0:
+                                calculated_line_total = quantity * unit_price
+                                logger.info(f"Leco format detected (9 groups) - calculating line_total: {quantity} * {unit_price} = {calculated_line_total} (was: {line_total})")
+                                line_total = calculated_line_total
+                            
                             logger.info(f"Extracting interactive labeling format ({len(groups)} groups) - code: {product_code}, description: {description}, quantity: {quantity} {unit_of_measure}, unit_price: {unit_price}, total: {line_total}, vat_rate: {vat_rate}")
                             
                             # Apply code corrections if configured
