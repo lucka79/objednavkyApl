@@ -421,6 +421,12 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
     items = []
     item_pattern = table_columns.get('line_pattern')
     
+    # Get ignore patterns from config
+    ignore_patterns = table_columns.get('ignore_patterns', [])
+    if isinstance(ignore_patterns, str):
+        # Support single pattern as string
+        ignore_patterns = [ignore_patterns]
+    
     # Check if it's a multi-line pattern (contains \n in pattern)
     if item_pattern and '\\n' in item_pattern:
         logger.info(f"Using multi-line pattern extraction")
@@ -430,7 +436,23 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
             matches = re.finditer(item_pattern, text, re.MULTILINE)
             
             for match_no, match in enumerate(matches, 1):
+                matched_text = match.group(0) if match.groups() else ""
                 groups = match.groups()
+                
+                # Check if matched text should be ignored
+                should_ignore = False
+                for ignore_pattern in ignore_patterns:
+                    try:
+                        if re.match(ignore_pattern, matched_text, re.IGNORECASE):
+                            logger.debug(f"Skipping multi-line match (matches ignore pattern '{ignore_pattern}'): {matched_text[:50]}")
+                            should_ignore = True
+                            break
+                    except Exception as e:
+                        logger.warning(f"Invalid ignore pattern '{ignore_pattern}': {e}")
+                
+                if should_ignore:
+                    continue
+                
                 if len(groups) >= 5:
                     # Multi-line format: description, code, quantity, unit, price, total
                     quantity_raw = groups[2] if len(groups) > 2 else "0"
@@ -477,16 +499,45 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
     lines = text.strip().split('\n')
     logger.info(f"Processing {len(lines)} lines for items")
     
+    # Get ignore patterns from config
+    ignore_patterns = table_columns.get('ignore_patterns', [])
+    if isinstance(ignore_patterns, str):
+        # Support single pattern as string
+        ignore_patterns = [ignore_patterns]
+    
     for line_no, line in enumerate(lines, 1):
         line = line.strip()
         
         if not line or len(line) < 5:
             continue
         
+        # Check if line matches any ignore pattern
+        should_ignore = False
+        for ignore_pattern in ignore_patterns:
+            try:
+                # Use both match (start of line) and search (anywhere) for flexibility
+                if re.match(ignore_pattern, line, re.IGNORECASE) or re.search(ignore_pattern, line, re.IGNORECASE):
+                    logger.debug(f"Skipping line (matches ignore pattern '{ignore_pattern}'): {line[:50]}")
+                    should_ignore = True
+                    break
+            except Exception as e:
+                logger.warning(f"Invalid ignore pattern '{ignore_pattern}': {e}")
+        
+        if should_ignore:
+            continue
+        
         # Skip metadata/info lines that don't start with a product code
         # Examples: "BC GTIN...", "OVOCE A ZELENINA", section headers, etc.
-        if re.match(r'^[A-Z]{2,}\s+(GTIN|Šarže)', line, re.IGNORECASE):
-            logger.debug(f"Skipping metadata line: {line[:50]}")
+        # Also skip "Šarže Počet Jednotka" header rows
+        if re.match(r'^[A-Z]{2,}\s+(GTIN|Šarže)', line, re.IGNORECASE) or \
+           re.match(r'^Šarže\s+Počet\s+Jednotka', line, re.IGNORECASE):
+            logger.debug(f"Skipping metadata/header line: {line[:50]}")
+            continue
+        
+        # Skip batch/date lines: 8-digit batch number followed by date (DD.MM.YYYY) and quantity
+        # Example: "02498362 10.07.2026 25 kg" - these appear after product lines in backaldrin format
+        if re.match(r'^\d{8}\s+\d{1,2}\.\d{1,2}\.\d{4}\s+\d+', line):
+            logger.debug(f"Skipping batch/date line: {line[:50]}")
             continue
         
         # Skip section headers (lines with only uppercase letters and spaces)

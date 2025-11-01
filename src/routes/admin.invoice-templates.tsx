@@ -863,9 +863,13 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                     onClick={async () => {
                       if (!activeTemplate) return;
 
-                      // Separate line_pattern and table_end from other patterns
-                      const { line_pattern, table_end, ...otherPatterns } =
-                        editedPatterns;
+                      // Separate line_pattern, table_end, and ignore_patterns from other patterns
+                      const {
+                        line_pattern,
+                        table_end,
+                        ignore_patterns,
+                        ...otherPatterns
+                      } = editedPatterns;
 
                       // Build updated patterns, removing table_end if it's null
                       const updatedPatterns = {
@@ -880,15 +884,27 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                         updatedPatterns.table_end = table_end;
                       }
 
+                      // Build updated table_columns
+                      const updatedTableColumns = {
+                        ...activeTemplate.config.table_columns,
+                      };
+
+                      // Add line_pattern if it exists
+                      if (line_pattern) {
+                        updatedTableColumns.line_pattern = line_pattern;
+                      }
+
+                      // Add ignore_patterns if they exist
+                      if (ignore_patterns) {
+                        (updatedTableColumns as any).ignore_patterns =
+                          ignore_patterns;
+                      }
+
                       const updatedConfig = {
                         ...activeTemplate.config,
                         patterns: updatedPatterns,
-                        // Add line_pattern to table_columns if it exists
-                        ...(line_pattern && {
-                          table_columns: {
-                            ...activeTemplate.config.table_columns,
-                            line_pattern: line_pattern,
-                          },
+                        ...(Object.keys(updatedTableColumns).length > 0 && {
+                          table_columns: updatedTableColumns,
                         }),
                       };
 
@@ -1168,22 +1184,70 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                       </p>
                     )}
 
-                    {/* Always show table_end if it exists */}
-                    {activeTemplate?.config?.patterns?.table_end && (
-                      <div className="p-2 bg-blue-50 border border-blue-200 rounded">
-                        <p className="text-xs font-semibold">
-                          ⚙️ table_end aktivní:
-                        </p>
-                        <code className="text-xs bg-white px-2 py-1 rounded block mt-1">
-                          {activeTemplate.config.patterns.table_end}
-                        </code>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Extrakce zastaví při nalezení tohoto textu
-                        </p>
-                        <p className="text-xs text-orange-600 mt-1 font-semibold">
-                          💡 Pro multi-page: Označte text AFTER všech položek
-                          (např. "Celková částka" nebo "Zaokrouhlení")
-                        </p>
+                    {/* Always show table_end if it exists (or was just deactivated) */}
+                    {(activeTemplate?.config?.patterns?.table_end ||
+                      editedPatterns.table_end === null) && (
+                      <div
+                        className={`p-2 rounded border ${
+                          editedPatterns.table_end === null
+                            ? "bg-gray-50 border-gray-300"
+                            : "bg-blue-50 border-blue-200"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            {editedPatterns.table_end === null ? (
+                              <>
+                                <p className="text-xs font-semibold text-gray-600">
+                                  🗑️ table_end deaktivován (čeká na uložení):
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  table_end bude odstraněn z konfigurace.
+                                  Extrakce poběží až do konce dokumentu.
+                                </p>
+                                <p className="text-xs text-blue-600 mt-1 font-semibold">
+                                  💡 Ideální pro multi-page faktury, kde se
+                                  položky opakují na více stránkách
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-xs font-semibold">
+                                  ⚙️ table_end aktivní:
+                                </p>
+                                <code className="text-xs bg-white px-2 py-1 rounded block mt-1">
+                                  {activeTemplate?.config?.patterns?.table_end}
+                                </code>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Extrakce zastaví při nalezení tohoto textu
+                                </p>
+                                <p className="text-xs text-orange-600 mt-1 font-semibold">
+                                  💡 Pro multi-page: Označte text AFTER všech
+                                  položek (např. "Celková částka" nebo
+                                  "Zaokrouhlení")
+                                </p>
+                              </>
+                            )}
+                          </div>
+                          {editedPatterns.table_end !== null &&
+                            activeTemplate?.config?.patterns?.table_end && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs shrink-0"
+                                onClick={() => {
+                                  setEditedPatterns((prev: any) => ({
+                                    ...prev,
+                                    table_end: null, // Deactivate table_end
+                                  }));
+                                  setHasChanges(true);
+                                }}
+                                title="Deaktivovat table_end (pro multi-page faktury)"
+                              >
+                                🗑️ Deaktivovat
+                              </Button>
+                            )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1279,10 +1343,79 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                       >
                         ✏️ Nastavit jako konec tabulky
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full text-xs"
+                        onClick={() => {
+                          const pattern = generateRegexPattern(
+                            selectedText,
+                            "ignore_line"
+                          );
+                          // Get current ignore patterns
+                          const currentIgnores =
+                            (activeTemplate?.config?.table_columns as any)
+                              ?.ignore_patterns || [];
+
+                          // Check if pattern already exists
+                          const ignorePatterns = Array.isArray(currentIgnores)
+                            ? currentIgnores.includes(pattern)
+                              ? currentIgnores
+                              : [...currentIgnores, pattern]
+                            : currentIgnores
+                              ? currentIgnores === pattern
+                                ? [currentIgnores]
+                                : [currentIgnores, pattern]
+                              : [pattern];
+
+                          setEditedPatterns((prev: any) => ({
+                            ...prev,
+                            ignore_patterns: ignorePatterns,
+                          }));
+                          setHasChanges(true);
+                          setSelectedText("");
+                        }}
+                      >
+                        🚫 Ignorovat tento řádek
+                      </Button>
+                      {/* Quick add for common patterns */}
+                      {selectedText.toLowerCase().includes("šarže") &&
+                        selectedText.toLowerCase().includes("počet") &&
+                        selectedText.toLowerCase().includes("jednotka") && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full text-xs bg-orange-50 border-orange-200"
+                            onClick={() => {
+                              const pattern = "^Šarže\\s+Počet\\s+Jednotka$";
+                              const currentIgnores =
+                                (activeTemplate?.config?.table_columns as any)
+                                  ?.ignore_patterns || [];
+
+                              const ignorePatterns = Array.isArray(
+                                currentIgnores
+                              )
+                                ? currentIgnores.includes(pattern)
+                                  ? currentIgnores
+                                  : [...currentIgnores, pattern]
+                                : [pattern];
+
+                              setEditedPatterns((prev: any) => ({
+                                ...prev,
+                                ignore_patterns: ignorePatterns,
+                              }));
+                              setHasChanges(true);
+                              setSelectedText("");
+                            }}
+                          >
+                            🚫 Ignorovat: "Šarže Počet Jednotka" (hlavička)
+                          </Button>
+                        )}
                     </div>
                   )}
                   {(editedPatterns.table_start ||
-                    editedPatterns.table_end !== undefined) && (
+                    editedPatterns.table_end !== undefined ||
+                    editedPatterns.ignore_patterns) && (
                     <div className="text-xs text-green-600 mt-2 space-y-1">
                       {editedPatterns.table_start && (
                         <p>✓ Začátek: {editedPatterns.table_start}</p>
@@ -1292,6 +1425,25 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                       )}
                       {editedPatterns.table_end && (
                         <p>✓ Konec: {editedPatterns.table_end}</p>
+                      )}
+                      {editedPatterns.ignore_patterns && (
+                        <div>
+                          <p className="font-semibold">
+                            ✓ Ignorované řádky (
+                            {editedPatterns.ignore_patterns.length}):
+                          </p>
+                          <ul className="list-disc list-inside ml-2 mt-1 space-y-1">
+                            {editedPatterns.ignore_patterns.map(
+                              (pattern: string, idx: number) => (
+                                <li key={idx}>
+                                  <code className="text-xs bg-white px-1 py-0.5 rounded">
+                                    {pattern}
+                                  </code>
+                                </li>
+                              )
+                            )}
+                          </ul>
+                        </div>
                       )}
                     </div>
                   )}
@@ -1587,6 +1739,32 @@ function generateRegexPattern(text: string, mode: string): string {
     case "table_end":
       // Make whitespace flexible
       return escaped.replace(/\s+/g, "\\s+");
+
+    case "ignore_line":
+      // For ignore patterns, create a pattern that matches the exact line (with flexible whitespace)
+      // Anchor to start and end of line
+      let pattern = "^" + escaped.replace(/\s+/g, "\\s+") + "$";
+
+      // Special handling for common patterns:
+      // 1. "Šarže Počet Jednotka" - header row pattern
+      if (
+        text.trim().toLowerCase().includes("šarže") &&
+        text.trim().toLowerCase().includes("počet") &&
+        text.trim().toLowerCase().includes("jednotka")
+      ) {
+        // Make it flexible to match variations
+        pattern = "^Šarže\\s+Počet\\s+Jednotka$";
+      }
+
+      // 2. Batch/date pattern: "02498362 10.07.2026 25 kg" (batch number + date + quantity)
+      // Match: 8-digit batch number, date (DD.MM.YYYY), quantity + unit
+      if (/^\d{8}\s+\d{1,2}\.\d{1,2}\.\d{4}\s+\d+/.test(text.trim())) {
+        // Flexible pattern for batch lines
+        pattern =
+          "^\\d{8}\\s+\\d{1,2}\\.\\d{1,2}\\.\\d{4}\\s+[\\d,\\.\\s]+[a-zA-Z]+$";
+      }
+
+      return pattern;
 
     default:
       return escaped;
