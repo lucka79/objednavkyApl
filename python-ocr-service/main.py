@@ -259,6 +259,20 @@ def fix_ocr_errors(text: str) -> str:
     # Pattern: "215" followed by space and currency or end of line
     text = re.sub(r'215(?=\s+[A-Z]{2,3}\s|$)', '21%', text)
     
+    # Fix 8: Remove table border characters (|) used in old-school invoice designs
+    # These are visual separators that interfere with data extraction
+    # Remove at start/end of lines and between columns
+    lines = text.split('\n')
+    cleaned_lines = []
+    for line in lines:
+        # Remove leading and trailing pipes
+        line = re.sub(r'^\s*\|+\s*', '', line)
+        line = re.sub(r'\s*\|+\s*$', '', line)
+        # Replace pipes between columns with single space
+        line = re.sub(r'\s*\|\s*', ' ', line)
+        cleaned_lines.append(line)
+    text = '\n'.join(cleaned_lines)
+    
     logger.info("Applied OCR error corrections")
     return text
 
