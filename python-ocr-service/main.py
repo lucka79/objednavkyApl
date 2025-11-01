@@ -1068,9 +1068,9 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             line_number=line_number,
                         )
                     
-                    # Generic interactive labeling format (5-7 groups): intelligently identify fields
-                    # Frontend generates patterns with fields in left-to-right order based on user labeling
-                    # We need to identify field types by content, not just position, since order may vary
+                    # Generic interactive labeling format (5-7 groups): use position-based mapping with validation
+                    # Frontend generates patterns with fields in left-to-right order: code, description, quantity, unit, unit_price, line_total, vat_rate
+                    # We map capture groups to fields based on position, validating that field matches expected type
                     if len(groups) >= 5 and len(groups) <= 7:
                         product_code = None
                         description = None
@@ -1080,96 +1080,133 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         line_total = 0
                         vat_rate = None
                         
-                        # First pass: identify obvious fields by content characteristics
-                        # This handles cases where fields are in non-standard order
+                        # Standard field order from frontend (based on left-to-right position)
+                        # But we'll be flexible - map based on position first, then validate
+                        field_order = ['code', 'description', 'quantity', 'unit', 'unit_price', 'line_total', 'vat_rate']
+                        
+                        # First pass: map fields based on position with validation
                         for idx, group_str in enumerate(groups):
-                            if not group_str:
+                            if not group_str or idx >= len(field_order):
                                 continue
                             group_str = str(group_str).strip()
+                            field_type = field_order[idx]
                             
-                            # Product code: all digits, 3-7 digits, typically appears first
-                            if not product_code and group_str.isdigit() and len(group_str) >= 3 and len(group_str) <= 7:
-                                product_code = group_str
-                                logger.debug(f"Group {idx+1}: {group_str} -> code (by content): {product_code}")
-                                continue
+                            if field_type == 'code':
+                                # Product code: all digits, 3-7 digits
+                                if group_str.isdigit() and len(group_str) >= 3 and len(group_str) <= 7:
+                                    product_code = group_str
+                                    logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> code: {product_code}")
+                                elif group_str.isdigit():
+                                    # Fallback: accept any digit-only code
+                                    product_code = group_str
+                                    logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> code (fallback): {product_code}")
                             
-                            # VAT rate: small number (10-25), typically "12" or "21"
-                            if not vat_rate and group_str.isdigit():
-                                vat_num = extract_number(group_str)
-                                if vat_num >= 10 and vat_num <= 25:
-                                    vat_rate = vat_num
-                                    logger.debug(f"Group {idx+1}: {group_str} -> vat_rate (by content): {vat_rate}")
-                                    continue
+                            elif field_type == 'description':
+                                # Description: contains letters (even if mixed with numbers like "14g")
+                                # Must have at least one letter
+                                if any(c.isalpha() or c in 'áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ' for c in group_str):
+                                    description = group_str
+                                    logger.debug(f"Group {idx+1} (position {idx}): {group_str[:30]}... -> description: {description[:30] if description else ''}...")
+                                # If description position doesn't match, we'll try to find it later
                             
-                            # Unit: short string (1-5 chars), only letters
-                            if not unit_of_measure and len(group_str) <= 5 and group_str.isalpha():
-                                unit_of_measure = group_str.lower()
-                                logger.debug(f"Group {idx+1}: {group_str} -> unit (by content): {unit_of_measure}")
-                                continue
-                            
-                            # Description: contains letters (Czech chars), typically longer
-                            if not description and any(c.isalpha() or c in 'áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ' for c in group_str) and len(group_str) > 3:
-                                description = group_str
-                                logger.debug(f"Group {idx+1}: {group_str[:30]}... -> description (by content)")
-                                continue
-                            
-                            # Numbers: could be quantity, unit_price, or line_total
-                            # We'll identify them in second pass based on value ranges
-                            num_val = extract_number(group_str)
-                            if num_val > 0:
-                                # Store for second pass
-                                pass  # Will process in second pass
-                        
-                        # Second pass: identify numeric fields by position and value ranges
-                        # Use position hints: quantity typically comes before unit_price, which comes before line_total
-                        # But also check value ranges: quantity is usually smaller, line_total is usually largest
-                        numeric_fields = []
-                        for idx, group_str in enumerate(groups):
-                            if not group_str:
-                                continue
-                            num_val = extract_number(str(group_str).strip())
-                            if num_val > 0:
-                                numeric_fields.append((idx, str(group_str).strip(), num_val))
-                        
-                        # Assign numeric fields based on position and value
-                        # Strategy: quantity typically comes early and is smaller, line_total comes late and is largest
-                        # Sort by position first to respect order, then by value as secondary hint
-                        numeric_fields.sort(key=lambda x: (x[0], x[2]))  # Sort by position, then value
-                        
-                        # Assign based on position (early = quantity, later = unit_price/line_total) and value
-                        unassigned_nums = []
-                        for idx, group_str, num_val in numeric_fields:
-                            # Try to assign based on position first
-                            # Early groups (0-2) are more likely to be quantity
-                            # Late groups (4+) are more likely to be line_total
-                            if quantity == 0 and idx <= 2 and num_val >= 0.1 and num_val <= 10000:
-                                quantity = num_val
-                                logger.debug(f"Group {idx+1}: {group_str} -> quantity (by position): {quantity}")
-                            elif line_total == 0 and idx >= 4 and num_val >= 1:
-                                line_total = num_val
-                                logger.debug(f"Group {idx+1}: {group_str} -> line_total (by position): {line_total}")
-                            else:
-                                # Store for second pass
-                                unassigned_nums.append((idx, group_str, num_val))
-                        
-                        # Second pass: assign remaining numeric fields by value
-                        if unassigned_nums:
-                            # Sort by value
-                            unassigned_nums.sort(key=lambda x: x[2])
-                            
-                            for idx, group_str, num_val in unassigned_nums:
-                                # Quantity: smallest unassigned number
-                                if quantity == 0 and num_val >= 0.1 and num_val <= 10000:
+                            elif field_type == 'quantity':
+                                # Quantity: number, typically 0.1 - 10000
+                                num_val = extract_number(group_str)
+                                if num_val > 0 and num_val <= 10000:
                                     quantity = num_val
-                                    logger.debug(f"Group {idx+1}: {group_str} -> quantity (by value): {quantity}")
-                                # Unit price: medium unassigned number
-                                elif unit_price == 0 and num_val >= 1 and num_val <= 10000:
+                                    logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> quantity: {quantity}")
+                            
+                            elif field_type == 'unit':
+                                # Unit: short string (1-5 chars), only letters
+                                if len(group_str) <= 5 and group_str.isalpha():
+                                    unit_of_measure = group_str.lower()
+                                    logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> unit: {unit_of_measure}")
+                            
+                            elif field_type == 'unit_price':
+                                # Unit price: number, typically 1-10000
+                                num_val = extract_number(group_str)
+                                if num_val > 0:
                                     unit_price = num_val
-                                    logger.debug(f"Group {idx+1}: {group_str} -> unit_price (by value): {unit_price}")
-                                # Line total: largest unassigned number
-                                elif line_total == 0 or num_val > line_total:
+                                    logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> unit_price: {unit_price}")
+                            
+                            elif field_type == 'line_total':
+                                # Line total: number, typically larger
+                                num_val = extract_number(group_str)
+                                if num_val > 0:
                                     line_total = num_val
-                                    logger.debug(f"Group {idx+1}: {group_str} -> line_total (by value): {line_total}")
+                                    logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> line_total: {line_total}")
+                            
+                            elif field_type == 'vat_rate':
+                                # VAT rate: small number (10-25), typically "12" or "21"
+                                if group_str.isdigit():
+                                    vat_num = extract_number(group_str)
+                                    if vat_num >= 10 and vat_num <= 25:
+                                        vat_rate = vat_num
+                                        logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> vat_rate: {vat_rate}")
+                        
+                        # Second pass: if description wasn't found, look for it in any remaining groups
+                        # Also check if description position was assigned incorrectly (has number instead of text)
+                        if not description:
+                            for idx, group_str in enumerate(groups):
+                                if not group_str:
+                                    continue
+                                group_str = str(group_str).strip()
+                                
+                                # Skip already assigned fields (code, quantity, unit_price, line_total)
+                                if idx == 0 and group_str == product_code:
+                                    continue  # Skip code
+                                num_val = extract_number(group_str)
+                                if idx == 2 and num_val == quantity and quantity > 0:
+                                    continue  # Skip quantity
+                                if idx == 4 and num_val == unit_price and unit_price > 0:
+                                    continue  # Skip unit_price
+                                if idx == 5 and num_val == line_total and line_total > 0:
+                                    continue  # Skip line_total
+                                
+                                # Look for description: contains letters (must have at least one letter)
+                                if any(c.isalpha() or c in 'áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ' for c in group_str):
+                                    description = group_str
+                                    logger.debug(f"Group {idx+1} (fallback): {group_str[:30]}... -> description: {description[:30] if description else ''}...")
+                                    break
+                        
+                        # Third pass: if quantity is still 0, check if description position has a number
+                        # If description position (idx=1) has a number instead of text, use it as quantity
+                        if quantity == 0 and len(groups) > 1:
+                            desc_pos_value = str(groups[1]).strip() if groups[1] else ""
+                            if desc_pos_value and not any(c.isalpha() or c in 'áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ' for c in desc_pos_value):
+                                # Description position has a number, use it as quantity
+                                num_val = extract_number(desc_pos_value)
+                                if num_val > 0 and num_val <= 10000 and num_val != unit_price and num_val != line_total:
+                                    quantity = num_val
+                                    logger.debug(f"Group 2 (description position, repurposed): {desc_pos_value} -> quantity: {quantity}")
+                        
+                        # Fourth pass: if quantity is still 0, look for any unassigned numeric group
+                        if quantity == 0:
+                            for idx, group_str in enumerate(groups):
+                                if not group_str:
+                                    continue
+                                group_str = str(group_str).strip()
+                                
+                                # Skip if already assigned or is code/vat_rate
+                                if idx == 0 and group_str == product_code:
+                                    continue
+                                if idx == 1 and not description:  # Skip description position if not yet assigned
+                                    num_val = extract_number(group_str)
+                                    if num_val > 0 and num_val != unit_price and num_val != line_total:
+                                        quantity = num_val
+                                        logger.debug(f"Group {idx+1} (fallback quantity from description pos): {group_str} -> quantity: {quantity}")
+                                        break
+                                if group_str.isdigit() and extract_number(group_str) >= 10 and extract_number(group_str) <= 25:
+                                    continue  # Probably VAT rate
+                                
+                                # Check if this looks like quantity (smaller number, early position)
+                                num_val = extract_number(group_str)
+                                if num_val > 0 and num_val <= 10000 and num_val != unit_price and num_val != line_total:
+                                    # If it's in an early position (0-3) or smaller than unit_price, it's likely quantity
+                                    if idx <= 3 or (unit_price > 0 and num_val < unit_price):
+                                        quantity = num_val
+                                        logger.debug(f"Group {idx+1} (fallback): {group_str} -> quantity: {quantity}")
+                                        break
                         
                         # If we found product_code or at least some fields, use this format
                         if product_code or description or quantity > 0:
