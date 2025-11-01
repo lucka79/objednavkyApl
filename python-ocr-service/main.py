@@ -128,6 +128,17 @@ async def process_invoice(request: ProcessInvoiceRequest):
         # Remove repeated page headers (e.g., "DAŇOVÝ DOKLAD Číslo dokladu XXX Strana: N")
         raw_text_display = re.sub(r'DAŇOVÝ DOKLAD.*?Strana:\s*\d+\n', '', raw_text_display, flags=re.IGNORECASE)
         
+        # Remove "continuation" messages that appear between pages
+        # Example: "Tento doklad má pokračování na stránce č. 2"
+        continuation_patterns = [
+            r'Tento\s+doklad\s+má\s+pokračování\s+na\s+stránce\s+č\.\s*\d+',
+            r'pokračování\s+na\s+stránce\s+č\.\s*\d+',
+            r'continuation\s+on\s+page\s+\d+',
+        ]
+        for pattern in continuation_patterns:
+            raw_text_display = re.sub(pattern, '', raw_text_display, flags=re.IGNORECASE)
+            logger.debug(f"Removed continuation pattern: {pattern}")
+        
         # Find and keep ONLY the first table header, remove all subsequent ones
         table_header_pattern = r'Označení\s+dodávky\s+Množství\s+Cena/MJ\s+DPH\s+Sleva\s+Celkem'
         matches = list(re.finditer(table_header_pattern, raw_text_display))
@@ -138,6 +149,16 @@ async def process_invoice(request: ProcessInvoiceRequest):
             
             # Replace all matches except the first with empty string
             for match in reversed(matches[1:]):  # Reverse to maintain positions
+                start, end = match.span()
+                raw_text_display = raw_text_display[:start] + raw_text_display[end:]
+        
+        # Also remove "Předmět zdanitelného plnění Množství / j. v CZK bez bez DPH DPH" headers that appear on subsequent pages
+        # This is the Backaldrin table header format
+        backaldrin_header_pattern = r'Předmět\s+zdanitelného\s+plnění\s+Množství\s*/\s*j\.\s+v\s+CZK\s+bez\s+bez\s+DPH\s+DPH'
+        backaldrin_matches = list(re.finditer(backaldrin_header_pattern, raw_text_display, re.IGNORECASE))
+        if len(backaldrin_matches) > 1:
+            logger.info(f"Found {len(backaldrin_matches)} Backaldrin table headers, keeping first and removing {len(backaldrin_matches) - 1} duplicates")
+            for match in reversed(backaldrin_matches[1:]):
                 start, end = match.span()
                 raw_text_display = raw_text_display[:start] + raw_text_display[end:]
         
@@ -384,13 +405,39 @@ def extract_line_items(
             start_pos = start_match.end()
             
             # For table_end, search for the LAST occurrence (not first) to handle multi-page tables
+            # But ignore "continuation" markers that appear between pages
             if table_end_pattern:
                 # Find all matches
                 end_matches = list(re.finditer(table_end_pattern, raw_text, re.IGNORECASE | re.MULTILINE))
-                if end_matches:
-                    # Use the last match (for multi-page tables)
-                    end_pos = end_matches[-1].start()
-                    logger.info(f"Found {len(end_matches)} table end markers, using the last one")
+                
+                # Filter out matches that are continuation messages
+                # These should not stop extraction - they indicate more pages follow
+                continuation_phrases = [
+                    'pokračování',
+                    'continuation',
+                    'pokračuje',
+                    'stránce',
+                    'page',
+                    'Tento doklad má',
+                ]
+                
+                valid_end_matches = []
+                for match in end_matches:
+                    match_text = raw_text[match.start():match.end()].lower()
+                    is_continuation = any(phrase.lower() in match_text for phrase in continuation_phrases)
+                    if not is_continuation:
+                        valid_end_matches.append(match)
+                    else:
+                        logger.debug(f"Skipping continuation marker as table_end: {match_text[:50]}")
+                
+                if valid_end_matches:
+                    # Use the last valid match (for multi-page tables)
+                    end_pos = valid_end_matches[-1].start()
+                    logger.info(f"Found {len(end_matches)} table end markers ({len(valid_end_matches)} valid, {len(end_matches) - len(valid_end_matches)} continuation), using the last valid one")
+                elif end_matches:
+                    # All matches were continuations, use end of text
+                    end_pos = len(raw_text)
+                    logger.info(f"All {len(end_matches)} table end markers were continuation messages, using end of text")
                 else:
                     end_pos = len(raw_text)
                     logger.info("No table end marker found, using end of text")
