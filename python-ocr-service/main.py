@@ -1068,6 +1068,86 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             line_number=line_number,
                         )
                     
+                    # Generic interactive labeling format (5-7 groups): intelligently identify field types
+                    # This handles patterns created from interactive labeling where users label parts of text
+                    # Fields may appear in any order, so we need to identify them by content, not position
+                    if len(groups) >= 5 and len(groups) <= 7:
+                        product_code = None
+                        description = None
+                        quantity = 0
+                        unit_of_measure = None
+                        unit_price = 0
+                        line_total = 0
+                        vat_rate = None
+                        
+                        # Identify fields by content characteristics
+                        for group_str in groups:
+                            if not group_str:
+                                continue
+                            group_str = str(group_str).strip()
+                            
+                            # Product code: all digits, typically 3-7 digits, appears early in line
+                            if not product_code and group_str.isdigit() and len(group_str) >= 3 and len(group_str) <= 7:
+                                product_code = group_str
+                                logger.debug(f"Identified as code: {product_code}")
+                            
+                            # VAT rate: small number (10-25), typically appears as "12" or "21"
+                            elif not vat_rate and group_str.isdigit():
+                                vat_num = extract_number(group_str)
+                                if vat_num >= 10 and vat_num <= 25:
+                                    vat_rate = vat_num
+                                    logger.debug(f"Identified as VAT rate: {vat_rate}")
+                            
+                            # Unit: short string (1-5 chars), only letters (kg, ks, g, ml, etc.)
+                            elif not unit_of_measure and len(group_str) <= 5 and group_str.isalpha():
+                                unit_of_measure = group_str.lower()
+                                logger.debug(f"Identified as unit: {unit_of_measure}")
+                            
+                            # Description: contains letters (Czech chars), typically longer, not just numbers
+                            elif not description and any(c.isalpha() or c in 'áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ' for c in group_str) and len(group_str) > 5:
+                                description = group_str
+                                logger.debug(f"Identified as description: {description[:30]}...")
+                            
+                            # Numbers: could be quantity, unit_price, or line_total
+                            # Try to identify by value ranges and context
+                            else:
+                                num_val = extract_number(group_str)
+                                if num_val > 0:
+                                    # Quantity: typically smaller numbers (0.1 - 10000), may have decimals
+                                    if quantity == 0 and num_val >= 0.1 and num_val <= 10000:
+                                        quantity = num_val
+                                        logger.debug(f"Identified as quantity: {quantity}")
+                                    # Unit price: typically in range 1-10000, smaller than line_total
+                                    elif unit_price == 0 and num_val >= 1 and num_val <= 10000:
+                                        unit_price = num_val
+                                        logger.debug(f"Identified as unit price: {unit_price}")
+                                    # Line total: typically the largest number or last number
+                                    elif line_total == 0 or num_val > line_total:
+                                        line_total = num_val
+                                        logger.debug(f"Identified as line total: {line_total}")
+                        
+                        # If we found product_code, use this format
+                        if product_code:
+                            logger.info(f"Extracting interactive labeling format ({len(groups)} groups) - code: {product_code}, description: {description}, quantity: {quantity} {unit_of_measure}, unit_price: {unit_price}, total: {line_total}, vat_rate: {vat_rate}")
+                            
+                            # Apply code corrections if configured
+                            corrected_code = apply_code_corrections(product_code, code_corrections) if product_code else None
+                            
+                            # Apply description corrections if configured
+                            description_corrections = table_columns.get('description_corrections', {})
+                            corrected_description = apply_description_corrections(description, description_corrections) if description else None
+                            
+                            return InvoiceItem(
+                                product_code=corrected_code,
+                                description=corrected_description,
+                                quantity=quantity,
+                                unit_of_measure=unit_of_measure,
+                                unit_price=unit_price,
+                                line_total=line_total,
+                                vat_rate=vat_rate,
+                                line_number=line_number,
+                            )
+                    
                     # MAKRO format: 10 captures (full format with VAT)
                     # code, quantity, description, base_price, units_in_mu, price_per_mu, total, vat_rate, vat_amount, total_with_vat
                     

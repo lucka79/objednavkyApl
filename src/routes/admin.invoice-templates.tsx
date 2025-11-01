@@ -255,6 +255,8 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
     };
   }>({});
   const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null);
+  const [editingLineIndex, setEditingLineIndex] = useState<number | null>(null);
+  const [editingLineText, setEditingLineText] = useState<string>("");
 
   // Extract potential item lines from OCR text
   const extractPotentialLines = (text: string): string[] => {
@@ -295,9 +297,32 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
       .slice(0, 5); // Limit to first 5 potential lines
   };
 
-  const potentialLines = result?.raw_text
+  const initialPotentialLines = result?.raw_text
     ? extractPotentialLines(result.raw_text)
     : [];
+
+  // Editable lines - can be modified by user
+  const [editableLines, setEditableLines] = useState<string[]>([]);
+
+  // Initialize editableLines when result changes
+  useEffect(() => {
+    if (result?.raw_text && initialPotentialLines.length > 0) {
+      // Only initialize if editableLines is empty or result changed
+      const resultKey = `${supplierId}_${result?.invoiceNumber || 'new'}`;
+      const lastInitialized = sessionStorage.getItem(`initialized_lines_${resultKey}`);
+      
+      if (!lastInitialized || editableLines.length === 0) {
+        setEditableLines([...initialPotentialLines]);
+        sessionStorage.setItem(`initialized_lines_${resultKey}`, 'true');
+      }
+    } else if (!result?.raw_text) {
+      // Clear editableLines if no result
+      setEditableLines([]);
+    }
+  }, [result?.raw_text, supplierId]);
+
+  // Use editableLines if available, otherwise use initialPotentialLines
+  const potentialLines = editableLines.length > 0 ? editableLines : initialPotentialLines;
 
   // Get the active template for this supplier
   const activeTemplate = templates.find((t) => t.is_active);
@@ -1630,10 +1655,25 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                     {/* Row-based labeling with extracted lines */}
                     {potentialLines.length > 0 ? (
                       <div className="space-y-3">
-                        <p className="text-sm font-semibold">
-                          Označte části v těchto řádcích (klikněte na řádek pro
-                          aktivaci):
-                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold">
+                            Označte části v těchto řádcích (klikněte na řádek pro
+                            aktivaci):
+                          </p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7"
+                            onClick={() => {
+                              const currentLines = editableLines.length > 0 ? editableLines : potentialLines;
+                              setEditableLines([...currentLines, ""]);
+                              setEditingLineIndex(currentLines.length);
+                              setEditingLineText("");
+                            }}
+                          >
+                            ➕ Přidat řádek
+                          </Button>
+                        </div>
                         {potentialLines.map((line, lineIdx) => (
                           <Card
                             key={lineIdx}
@@ -1680,31 +1720,128 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                                         polí označeno
                                       </span>
                                     )}
+                                    <div className="flex gap-1 ml-auto">
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="text-xs h-6 px-2"
+                                        onClick={() => {
+                                          setEditingLineIndex(lineIdx);
+                                          setEditingLineText(line);
+                                        }}
+                                        title="Editovat řádek"
+                                      >
+                                        ✏️
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="text-xs h-6 px-2 text-red-600"
+                                        onClick={() => {
+                                          const currentLines = editableLines.length > 0 ? editableLines : potentialLines;
+                                          const newLines = [...currentLines];
+                                          newLines.splice(lineIdx, 1);
+                                          setEditableLines(newLines);
+                                          // Remove labeled parts for this line
+                                          setLabeledParts((prev) => {
+                                            // Shift indices for lines after removed one
+                                            const shifted: typeof prev = {};
+                                            Object.entries(prev).forEach(([idx, parts]) => {
+                                              const idxNum = parseInt(idx);
+                                              if (idxNum < lineIdx) {
+                                                shifted[idxNum] = parts;
+                                              } else if (idxNum > lineIdx) {
+                                                shifted[idxNum - 1] = parts;
+                                              }
+                                              // Skip idxNum === lineIdx (removed line)
+                                            });
+                                            return shifted;
+                                          });
+                                          if (activeLineIndex === lineIdx) {
+                                            setActiveLineIndex(null);
+                                          } else if (activeLineIndex !== null && activeLineIndex > lineIdx) {
+                                            setActiveLineIndex(activeLineIndex - 1);
+                                          }
+                                        }}
+                                        title="Odstranit řádek"
+                                      >
+                                        ✕
+                                      </Button>
+                                    </div>
                                   </div>
 
-                                  {/* Line text - selectable */}
-                                  <div
-                                    className={`p-2 rounded border ${
-                                      activeLineIndex === lineIdx
-                                        ? "bg-white border-blue-300 cursor-text"
-                                        : "bg-gray-50 border-gray-200"
-                                    } select-text`}
-                                    onMouseUp={() => {
-                                      if (activeLineIndex === lineIdx) {
-                                        const selection = window.getSelection();
-                                        const text = selection
-                                          ?.toString()
-                                          .trim();
-                                        if (text) {
-                                          setSelectedText(text);
+                                  {/* Line text - editable or selectable */}
+                                  {editingLineIndex === lineIdx ? (
+                                    <div className="space-y-2">
+                                      <textarea
+                                        value={editingLineText}
+                                        onChange={(e) =>
+                                          setEditingLineText(e.target.value)
                                         }
-                                      }
-                                    }}
-                                  >
-                                    <pre className="text-xs whitespace-pre-wrap font-mono">
-                                      {line}
-                                    </pre>
-                                  </div>
+                                        className="w-full p-2 text-xs font-mono border rounded bg-white"
+                                        rows={2}
+                                      />
+                                      <div className="flex gap-2">
+                                        <Button
+                                          size="sm"
+                                          variant="default"
+                                          className="text-xs h-7"
+                                          onClick={() => {
+                                            const currentLines = editableLines.length > 0 ? editableLines : potentialLines;
+                                            const newLines = [...currentLines];
+                                            newLines[lineIdx] = editingLineText.trim();
+                                            setEditableLines(newLines);
+                                            setEditingLineIndex(null);
+                                            setEditingLineText("");
+                                            // Clear labeled parts for this line if it changed significantly
+                                            if (editingLineText.trim() !== line) {
+                                              setLabeledParts((prev) => {
+                                                const newParts = { ...prev };
+                                                delete newParts[lineIdx];
+                                                return newParts;
+                                              });
+                                            }
+                                          }}
+                                        >
+                                          💾 Uložit
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="text-xs h-7"
+                                          onClick={() => {
+                                            setEditingLineIndex(null);
+                                            setEditingLineText("");
+                                          }}
+                                        >
+                                          ✕ Zrušit
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div
+                                      className={`p-2 rounded border ${
+                                        activeLineIndex === lineIdx
+                                          ? "bg-white border-blue-300 cursor-text"
+                                          : "bg-gray-50 border-gray-200"
+                                      } select-text`}
+                                      onMouseUp={() => {
+                                        if (activeLineIndex === lineIdx) {
+                                          const selection = window.getSelection();
+                                          const text = selection
+                                            ?.toString()
+                                            .trim();
+                                          if (text) {
+                                            setSelectedText(text);
+                                          }
+                                        }
+                                      }}
+                                    >
+                                      <pre className="text-xs whitespace-pre-wrap font-mono">
+                                        {line}
+                                      </pre>
+                                    </div>
+                                  )}
 
                                   {/* Labeled parts for this line */}
                                   {labeledParts[lineIdx] &&
@@ -1916,41 +2053,83 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                                   ? selectedText.substring(0, 50) + "..."
                                   : selectedText}
                               </code>
-                              <div className="grid grid-cols-4 gap-2 mt-2">
-                                {[
-                                  { key: "code", label: "📦 Kód" },
-                                  { key: "description", label: "📝 Popis" },
-                                  { key: "quantity", label: "🔢 Množství" },
-                                  { key: "unit", label: "📏 Jednotka" },
-                                  { key: "unit_price", label: "💰 Cena/j" },
-                                  { key: "line_total", label: "💵 Celkem" },
-                                  { key: "vat_rate", label: "📊 DPH%" },
-                                ].map(({ key, label }) => (
+                              <div className="space-y-2">
+                                <div className="grid grid-cols-4 gap-2">
+                                  {[
+                                    { key: "code", label: "📦 Kód" },
+                                    { key: "description", label: "📝 Popis" },
+                                    { key: "quantity", label: "🔢 Množství" },
+                                    { key: "unit", label: "📏 Jednotka" },
+                                    { key: "unit_price", label: "💰 Cena/j" },
+                                    { key: "line_total", label: "💵 Celkem" },
+                                    { key: "vat_rate", label: "📊 DPH%" },
+                                  ].map(({ key, label }) => (
+                                    <Button
+                                      key={key}
+                                      size="sm"
+                                      variant={
+                                        labeledParts[activeLineIndex]?.[
+                                          key as keyof (typeof labeledParts)[number]
+                                        ]
+                                          ? "default"
+                                          : "outline"
+                                      }
+                                      className="text-xs h-8"
+                                      onClick={() => {
+                                        setLabeledParts((prev) => ({
+                                          ...prev,
+                                          [activeLineIndex]: {
+                                            ...prev[activeLineIndex],
+                                            [key]: selectedText,
+                                          },
+                                        }));
+                                        setSelectedText("");
+                                      }}
+                                    >
+                                      {label}
+                                    </Button>
+                                  ))}
+                                </div>
+                                <div className="pt-2 border-t">
                                   <Button
-                                    key={key}
                                     size="sm"
-                                    variant={
-                                      labeledParts[activeLineIndex]?.[
-                                        key as keyof (typeof labeledParts)[number]
-                                      ]
-                                        ? "default"
-                                        : "outline"
-                                    }
-                                    className="text-xs h-8"
+                                    variant="outline"
+                                    className="text-xs h-8 w-full bg-red-50 border-red-300 text-red-700 hover:bg-red-100"
                                     onClick={() => {
-                                      setLabeledParts((prev) => ({
+                                      // Generate ignore pattern from selected text
+                                      const ignorePattern = generateRegexPattern(
+                                        selectedText,
+                                        "ignore_line"
+                                      );
+                                      // Get current ignore patterns
+                                      const currentIgnores =
+                                        (activeTemplate?.config?.table_columns as any)
+                                          ?.ignore_patterns || [];
+                                      
+                                      const ignorePatterns = Array.isArray(
+                                        currentIgnores
+                                      )
+                                        ? currentIgnores.includes(ignorePattern)
+                                          ? currentIgnores
+                                          : [...currentIgnores, ignorePattern]
+                                        : currentIgnores
+                                        ? currentIgnores === ignorePattern
+                                          ? [currentIgnores]
+                                          : [currentIgnores, ignorePattern]
+                                        : [ignorePattern];
+                                      
+                                      setEditedPatterns((prev: any) => ({
                                         ...prev,
-                                        [activeLineIndex]: {
-                                          ...prev[activeLineIndex],
-                                          [key]: selectedText,
-                                        },
+                                        ignore_patterns: ignorePatterns,
                                       }));
+                                      setHasChanges(true);
                                       setSelectedText("");
+                                      alert(`Pattern "${ignorePattern}" přidán do ignore_patterns`);
                                     }}
                                   >
-                                    {label}
+                                    🚫 Ignorovat tuto část řádku
                                   </Button>
-                                ))}
+                                </div>
                               </div>
                             </AlertDescription>
                           </Alert>
@@ -1984,7 +2163,7 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                             className="flex-1"
                             onClick={() => {
                               const pattern =
-                                generatePatternFromLabeled(labeledParts);
+                                generatePatternFromLabeled(labeledParts, potentialLines);
                               setEditedPatterns((prev: any) => ({
                                 ...prev,
                                 line_pattern: pattern,
@@ -2265,17 +2444,20 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
 }
 
 // Helper function to generate pattern from interactively labeled parts
-function generatePatternFromLabeled(labeledParts: {
-  [lineIndex: number]: {
-    code?: string;
-    description?: string;
-    quantity?: string;
-    unit?: string;
-    unit_price?: string;
-    line_total?: string;
-    vat_rate?: string;
-  };
-}): string {
+function generatePatternFromLabeled(
+  labeledParts: {
+    [lineIndex: number]: {
+      code?: string;
+      description?: string;
+      quantity?: string;
+      unit?: string;
+      unit_price?: string;
+      line_total?: string;
+      vat_rate?: string;
+    };
+  },
+  potentialLines?: string[]
+): string {
   // Extract all labeled parts across all lines
   const allParts: Array<{
     field: string;
@@ -2308,30 +2490,65 @@ function generatePatternFromLabeled(labeledParts: {
 
   // Build pattern by analyzing the order of fields
   // Group by line to understand structure
-  const lineStructures: Array<Array<{ field: string; value: string }>> = [];
+  // IMPORTANT: Order fields by their position in the original text, not by field type
+  const lineStructures: Array<Array<{ field: string; value: string; position: number }>> = [];
 
-  Object.entries(labeledParts).forEach(([, parts]) => {
-    const lineFields: Array<{ field: string; value: string }> = [];
-    // Order fields as they typically appear
-    const fieldOrder = [
-      "code",
-      "description",
-      "quantity",
-      "unit",
-      "unit_price",
-      "line_total",
-      "vat_rate",
-    ];
-
-    fieldOrder.forEach((field) => {
-      if (parts[field as keyof typeof parts]) {
-        lineFields.push({
-          field,
-          value: parts[field as keyof typeof parts]!,
-        });
-      }
-    });
-
+  Object.entries(labeledParts).forEach(([lineIdx, parts]) => {
+    const lineFields: Array<{ field: string; value: string; position: number }> = [];
+    const potentialLine = potentialLines?.[parseInt(lineIdx)];
+    
+    if (potentialLine) {
+      // Find positions in the actual line text
+      Object.entries(parts).forEach(([field, value]) => {
+        if (value) {
+          // Find the position - use indexOf, but handle cases where value appears multiple times
+          // For uniqueness, try to match with word boundaries if possible
+          let position = potentialLine.indexOf(value);
+          
+          // If found, use it; otherwise use a fallback ordering
+          if (position >= 0) {
+            lineFields.push({
+              field,
+              value,
+              position,
+            });
+          } else {
+            // Value not found in line - use fallback order (high position number)
+            // This shouldn't happen if labeling worked correctly
+            lineFields.push({
+              field,
+              value,
+              position: 9999 + lineFields.length, // Place at end
+            });
+          }
+        }
+      });
+      
+      // Sort by position in the text (left to right)
+      lineFields.sort((a, b) => a.position - b.position);
+    } else {
+      // Fallback: use field order if no line text available
+      const fieldOrder = [
+        "code",
+        "description",
+        "quantity",
+        "unit",
+        "unit_price",
+        "line_total",
+        "vat_rate",
+      ];
+      
+      fieldOrder.forEach((field, idx) => {
+        if (parts[field as keyof typeof parts]) {
+          lineFields.push({
+            field,
+            value: parts[field as keyof typeof parts]!,
+            position: idx * 100, // Fake positions for sorting
+          });
+        }
+      });
+    }
+    
     lineStructures.push(lineFields);
   });
 
