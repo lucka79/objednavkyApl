@@ -211,6 +211,11 @@ def fix_ocr_errors(text: str) -> str:
     # Fix 2: Lowercase "l" followed by digit should be "1" (e.g., "1l2kg" → "12kg", "l1kg" → "11kg")
     text = re.sub(r'l(\d)', r'1\1', text)
     
+    # Fix 2.5: "2lkg" should be "21kg" (l between digit and unit kg/g is likely "1")
+    # Pattern: digit + "l" + (kg|g) - fixes cases like "2lkg" → "21kg", "1lkg" → "11kg"
+    # This fixes OCR error where "1" is read as "l" before weight units
+    text = re.sub(r'(\d)l(kg|g)(?=\s|$|,|\d)', r'\11\2', text)
+    
     # Fix 3: VAT percentage - "12 5" should be "12 %"
     # Only in table rows (NOT after ":" to avoid fixing amounts like "95 223,00")
     # Match when: 1-2 digits + optional space + "5" + space + digits + comma/space (table format)
