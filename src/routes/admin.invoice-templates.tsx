@@ -1637,19 +1637,23 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                         // Format example with spaces: "7.6000 Pytel HDPE 70x110cm... 1,6600 1 000,000 1ks 21 1 660,00"
                         // Code format: number with dot (e.g., "35.0400")
                         // Description: must contain letters, stops before unit_price (number with comma/dot)
-                        // Use simpler pattern without lookahead - greedy match should capture description correctly
-                        // Description pattern: starts with letter, greedy match until unit_price (digit + comma/dot + digit)
+                        // Use non-greedy match to stop description before unit_price
+                        // Description pattern: starts with letter, non-greedy match stops at space + digit + comma/dot
                         // Unit_price pattern: digits with comma/dot (e.g., "79,0000" or "1,6600")
-                        // This simpler pattern avoids Python regex issues with negative lookahead
+                        // Non-greedy match ensures description stops before unit_price
                         const dekosPattern =
-                          "^(\\d+\\.\\d+)\\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\\s.,%()-]+)\\s+(\\d+[,\\.]\\d+)\\s+([\\d\\s,\\.]+)\\s+([A-Za-z0-9]{1,10})\\s+(\\d+)\\s+([\\d\\s,\\.]+)";
+                          "^(\\d+\\.\\d+)\\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\\s.,%()-]+?)\\s+(\\d+[,\\.]\\d+)\\s+([\\d\\s,\\.]+)\\s+([A-Za-z0-9]{1,10})\\s+(\\d+)\\s+([\\d\\s,\\.]+)";
                         setEditedPatterns((prev: any) => ({
                           ...prev,
                           line_pattern: dekosPattern,
                         }));
                         setHasChanges(true);
                         alert(
-                          "Pattern pro Dekos formát vytvořen! Klikněte '💾 Uložit změny' nahoře."
+                          "Pattern pro Dekos formát vytvořen! Klikněte '💾 Uložit změny' nahoře.\n\n" +
+                          "⚠️ Pokud extrakce nefunguje správně, použijte interaktivní labeling:\n" +
+                          "1. Klikněte na tlačítko '🏷️ Označit části řádků'\n" +
+                          "2. Označte části řádku (code, description, unit_price, quantity, unit, vat_rate, line_total)\n" +
+                          "3. Klikněte '✨ Vygenerovat pattern'"
                         );
                       }}
                     >
