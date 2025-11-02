@@ -317,13 +317,13 @@ def detect_qr_codes(image: Image.Image, page_num: int) -> List[QRCodeData]:
             
             # Only include QR codes, skip barcodes (CODE128, EAN13, etc.)
             if qr_type == 'QRCODE':
-                qr_codes.append(QRCodeData(
-                    data=qr_data,
-                    type=qr_type,
-                    page=page_num
-                ))
-                
-                logger.info(f"Detected {qr_type} on page {page_num}: {qr_data[:100]}")
+            qr_codes.append(QRCodeData(
+                data=qr_data,
+                type=qr_type,
+                page=page_num
+            ))
+            
+            logger.info(f"Detected {qr_type} on page {page_num}: {qr_data[:100]}")
             else:
                 logger.debug(f"Skipping barcode {qr_type} on page {page_num}: {qr_data[:100]}")
     
@@ -547,37 +547,37 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
                     # Format 1: Multi-line format: description, code, quantity, unit, price, total
                     # Example: "sůl jemná 25kg" / "0201 50kg 6,80 12 % 340,00"
                     if len(groups) == 6:
-                        quantity_raw = groups[2] if len(groups) > 2 else "0"
-                        unit_raw = groups[3].strip() if len(groups) > 3 else None
-                        
-                        # Fix OCR issue: "101t" is actually "10 lt" (l looks like 1)
-                        quantity = extract_number(quantity_raw)
-                        unit = unit_raw
-                        
-                        if unit == 't' and quantity_raw and len(quantity_raw) > 1:
-                            # Last digit of quantity is actually "l" in unit
-                            # "101" → quantity: 10, unit: lt
-                            try:
-                                quantity_str = str(int(quantity))
-                                if len(quantity_str) >= 2:
-                                    quantity = float(quantity_str[:-1])  # Remove last digit
-                                    unit = 'lt'  # Change t to lt
-                                    logger.info(f"Fixed OCR: {quantity_raw}t → {quantity} lt")
-                            except:
-                                pass  # Keep original if conversion fails
-                        
-                        item = InvoiceItem(
-                            description=groups[0].strip() if groups[0] else None,
+                    quantity_raw = groups[2] if len(groups) > 2 else "0"
+                    unit_raw = groups[3].strip() if len(groups) > 3 else None
+                    
+                    # Fix OCR issue: "101t" is actually "10 lt" (l looks like 1)
+                    quantity = extract_number(quantity_raw)
+                    unit = unit_raw
+                    
+                    if unit == 't' and quantity_raw and len(quantity_raw) > 1:
+                        # Last digit of quantity is actually "l" in unit
+                        # "101" → quantity: 10, unit: lt
+                        try:
+                            quantity_str = str(int(quantity))
+                            if len(quantity_str) >= 2:
+                                quantity = float(quantity_str[:-1])  # Remove last digit
+                                unit = 'lt'  # Change t to lt
+                                logger.info(f"Fixed OCR: {quantity_raw}t → {quantity} lt")
+                        except:
+                            pass  # Keep original if conversion fails
+                    
+                    item = InvoiceItem(
+                        description=groups[0].strip() if groups[0] else None,
                             product_code=groups[1].strip() if len(groups) > 1 else None,
-                            quantity=quantity,
-                            unit_of_measure=unit,
-                            unit_price=extract_number(groups[4]) if len(groups) > 4 else 0,
-                            line_total=extract_number(groups[5]) if len(groups) > 5 else 0,
-                            line_number=match_no,
-                        )
-                        
-                        if item.product_code:
-                            items.append(item)
+                        quantity=quantity,
+                        unit_of_measure=unit,
+                        unit_price=extract_number(groups[4]) if len(groups) > 4 else 0,
+                        line_total=extract_number(groups[5]) if len(groups) > 5 else 0,
+                        line_number=match_no,
+                    )
+                    
+                    if item.product_code:
+                        items.append(item)
                             logger.debug(f"Extracted multi-line item (6 groups): {item.product_code} - {item.description}")
                     
                     # Format 2: Backaldrin multi-line: code+description on line 1, data on line 2
@@ -1132,6 +1132,11 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                                 if not is_number_format and any(c.isalpha() or c in 'áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ' for c in group_str):
                                     description = group_str
                                     logger.debug(f"Group {idx+1} (position {idx}): {group_str[:30]}... -> description: {description[:30] if description else ''}...")
+                                elif is_dekos_format and is_number_format and idx == 1:
+                                    # For Dekos format, if position 1 (description) contains a number with comma/dot,
+                                    # it's likely that the regex pattern didn't capture description correctly
+                                    # Description might be in a different group or pattern needs fixing
+                                    logger.warning(f"Group {idx+1} (position {idx}, Dekos description): '{group_str}' looks like unit_price, not description. Pattern may be incorrect.")
                                 # If description position doesn't match, we'll try to find it later
                             
                             elif field_type == 'quantity':
@@ -1202,6 +1207,12 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                                 num_val = extract_number(group_str)
                                 if is_dekos_format:
                                     # Dekos format: unit_price at idx 2, quantity at idx 3, line_total at idx 6
+                                    # But if regex pattern is wrong, unit_price might be at idx 1 (description position)
+                                    # Check if position 1 contains a number with comma/dot - if so, skip it (it's unit_price)
+                                    is_number_format = re.match(r'^\d+[,\\.]\d+$', group_str.strip())
+                                    if idx == 1 and is_number_format:
+                                        logger.warning(f"Group {idx+1} (position {idx}, Dekos description): '{group_str}' is unit_price, not description. Skipping.")
+                                        continue  # Skip unit_price at description position
                                     if idx == 2 and num_val == unit_price and unit_price > 0:
                                         continue  # Skip unit_price
                                     if idx == 3 and num_val == quantity and quantity > 0:
@@ -1405,7 +1416,7 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     )
         except Exception as e:
             logger.error(f"Error matching line pattern: {e}")
-            return None
+        return None
     
     # No pattern configured or pattern did not match - return None
     logger.warning(f"❌ No pattern configured or pattern did not match for line: {line[:80]}")

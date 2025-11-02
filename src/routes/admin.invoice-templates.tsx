@@ -1639,11 +1639,11 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                         // Description: must contain letters, stops before unit_price (number with comma/dot)
                         // Description pattern: starts with letter, contains letters/numbers, stops before unit_price
                         // Unit_price pattern: digits with comma/dot (e.g., "79,0000" or "1,6600")
-                        // Use positive lookahead to ensure description stops before unit_price pattern
-                        // Description must contain at least one letter and end before space + digit + comma/dot + digit
+                        // Use negative lookahead to ensure description stops before unit_price pattern
+                        // Description continues until it finds " space + digit + comma/dot + digit" (unit_price)
                         // This ensures description captures full text like "Jar PŘIMONA 5I zelený" but stops at "79,0000"
                         const dekosPattern =
-                          "^(\\d+\\.\\d+)\\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\\s.,%()-]+?)(?=\\s+\\d+[,\\.]\\d+)\\s+(\\d+[,\\.]\\d+)\\s+([\\d\\s,\\.]+)\\s+([A-Za-z0-9]{1,10})\\s+(\\d+)\\s+([\\d\\s,\\.]+)";
+                          "^(\\d+\\.\\d+)\\s+([A-Za-zá-žÁ-Ž](?:(?!\\s+\\d+[,\\.]\\d+)[A-Za-zá-žÁ-Ž0-9\\s.,%()-])+)\\s+(\\d+[,\\.]\\d+)\\s+([\\d\\s,\\.]+)\\s+([A-Za-z0-9]{1,10})\\s+(\\d+)\\s+([\\d\\s,\\.]+)";
                         setEditedPatterns((prev: any) => ({
                           ...prev,
                           line_pattern: dekosPattern,
