@@ -1194,25 +1194,30 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             elif field_type == 'unit_price':
                                 # Unit price: number, typically 1-10000
                                 # For Dekos format: unit_price has exactly 4 decimal places (e.g., "79,0000")
-                                num_val = extract_number(group_str)
+                                # Unit_price may contain spaces or additional numbers (e.g., "1,6600 1")
+                                # Extract only the part before space or before any additional number
+                                unit_price_str = group_str.strip()
+                                # Remove any trailing numbers after space (e.g., "1,6600 1" → "1,6600")
+                                unit_price_str = re.sub(r'\s+\d+$', '', unit_price_str).strip()
+                                num_val = extract_number(unit_price_str)
                                 if num_val > 0:
                                     if is_dekos_format:
                                         # Check decimal places for Dekos format
-                                        decimal_match = re.search(r'[,\\.](\d+)$', group_str.strip())
+                                        decimal_match = re.search(r'[,\\.](\d+)$', unit_price_str)
                                         decimal_places = len(decimal_match.group(1)) if decimal_match else 0
                                         if decimal_places == 4:
                                             unit_price = num_val
-                                            logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> unit_price: {unit_price} (4 decimals - Dekos format)")
+                                            logger.debug(f"Group {idx+1} (position {idx}): '{group_str}' -> cleaned: '{unit_price_str}' -> unit_price: {unit_price} (4 decimals - Dekos format)")
                                         elif decimal_places == 0:
                                             # Integer unit_price is also valid (fallback)
                                             unit_price = num_val
-                                            logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> unit_price: {unit_price} (integer - Dekos format)")
+                                            logger.debug(f"Group {idx+1} (position {idx}): '{group_str}' -> cleaned: '{unit_price_str}' -> unit_price: {unit_price} (integer - Dekos format)")
                                         else:
-                                            logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> skipping unit_price (has {decimal_places} decimals, expected 4 for Dekos)")
+                                            logger.debug(f"Group {idx+1} (position {idx}): '{group_str}' -> cleaned: '{unit_price_str}' -> skipping unit_price (has {decimal_places} decimals, expected 4 for Dekos)")
                                             continue
                                     else:
                                         unit_price = num_val
-                                        logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> unit_price: {unit_price}")
+                                        logger.debug(f"Group {idx+1} (position {idx}): '{group_str}' -> unit_price: {unit_price}")
                             
                             elif field_type == 'line_total':
                                 # Line total: number, typically larger
@@ -1517,23 +1522,34 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         # Dekos format: code, description, unit_price, quantity, unit, vat_rate, line_total
                         if len(groups) >= 3:
                             # Check decimal places for unit_price (should have 4 decimals)
+                            # Unit_price may contain spaces or additional numbers (e.g., "1,6600 1")
+                            # Extract only the part before space or before any additional number
                             unit_price_str = groups[2].strip() if len(groups) > 2 else ""
+                            # Remove any trailing numbers after space (e.g., "1,6600 1" → "1,6600")
+                            unit_price_str = re.sub(r'\s+\d+$', '', unit_price_str).strip()
                             decimal_match = re.search(r'[,\\.](\d+)$', unit_price_str)
                             decimal_places = len(decimal_match.group(1)) if decimal_match else 0
                             if decimal_places == 4:
                                 unit_price = extract_number(unit_price_str)
+                                logger.debug(f"Group 3 (unit_price): '{groups[2]}' -> cleaned: '{unit_price_str}' -> unit_price: {unit_price} (4 decimals)")
+                            else:
+                                logger.warning(f"Group 3 (unit_price): '{groups[2]}' -> cleaned: '{unit_price_str}' has {decimal_places} decimals, expected 4 for Dekos")
                         
                         if len(groups) >= 4:
                             # Check decimal places for quantity (should have 3 decimals)
+                            # Quantity may contain spaces between thousands (e.g., "1 000,000")
                             quantity_str = groups[3].strip() if len(groups) > 3 else ""
+                            # For Czech format, spaces are thousands separators, so extract_number will handle them correctly
                             decimal_match = re.search(r'[,\\.](\d+)$', quantity_str)
                             decimal_places = len(decimal_match.group(1)) if decimal_match else 0
                             quantity_val = extract_number(quantity_str)
                             if quantity_val > 0 and (decimal_places == 3 or decimal_places == 0):
                                 quantity = quantity_val
+                                logger.debug(f"Group 4 (quantity): '{quantity_str}' -> quantity: {quantity} ({decimal_places} decimals)")
                             elif quantity_val == 0:
                                 # If groups[3] is 0, try to find quantity elsewhere
                                 # Look for a number that could be quantity (has 3 decimals or integer, not 2 decimals)
+                                # Quantity may have spaces between thousands (e.g., "1 000,000")
                                 logger.debug(f"Group 4 (quantity position) is 0, looking for quantity elsewhere")
                                 for check_idx in range(len(groups)):
                                     if check_idx == 3:
@@ -1541,6 +1557,7 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                                     check_group = groups[check_idx].strip() if check_idx < len(groups) else ""
                                     if not check_group:
                                         continue
+                                    # For Czech format, spaces are thousands separators
                                     check_decimal_match = re.search(r'[,\\.](\d+)$', check_group)
                                     check_decimal_places = len(check_decimal_match.group(1)) if check_decimal_match else 0
                                     check_val = extract_number(check_group)
@@ -1549,7 +1566,7 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                                         # Check if it's not unit_price (unit_price has 4 decimals)
                                         if check_decimal_places != 4:
                                             quantity = check_val
-                                            logger.debug(f"Group {check_idx+1} (fallback for quantity): {check_group} -> quantity: {quantity} ({check_decimal_places} decimals)")
+                                            logger.debug(f"Group {check_idx+1} (fallback for quantity): '{check_group}' -> quantity: {quantity} ({check_decimal_places} decimals)")
                                             break
                         
                         if len(groups) >= 5:
