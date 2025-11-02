@@ -1124,7 +1124,10 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             elif field_type == 'description':
                                 # Description: contains letters (even if mixed with numbers like "14g")
                                 # Must have at least one letter
-                                if any(c.isalpha() or c in 'áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ' for c in group_str):
+                                # Must NOT be a pure number with comma/dot (e.g., "79,0000" or "79.0000")
+                                # Check if it's a number format: starts with digit, contains comma/dot, ends with digits
+                                is_number_format = re.match(r'^\d+[,\\.]\d+$', group_str.strip())
+                                if not is_number_format and any(c.isalpha() or c in 'áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ' for c in group_str):
                                     description = group_str
                                     logger.debug(f"Group {idx+1} (position {idx}): {group_str[:30]}... -> description: {description[:30] if description else ''}...")
                                 # If description position doesn't match, we'll try to find it later
@@ -1190,18 +1193,32 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                                 group_str = str(group_str).strip()
                                 
                                 # Skip already assigned fields (code, quantity, unit_price, line_total)
+                                # For Dekos format: code (0), description (1), unit_price (2), quantity (3), unit (4), vat_rate (5), line_total (6)
+                                # For standard format: code (0), description (1), quantity (2), unit (3), unit_price (4), line_total (5), vat_rate (6)
                                 if idx == 0 and group_str == product_code:
                                     continue  # Skip code
                                 num_val = extract_number(group_str)
-                                if idx == 2 and num_val == quantity and quantity > 0:
-                                    continue  # Skip quantity
-                                if idx == 4 and num_val == unit_price and unit_price > 0:
-                                    continue  # Skip unit_price
-                                if idx == 5 and num_val == line_total and line_total > 0:
-                                    continue  # Skip line_total
+                                if is_dekos_format:
+                                    # Dekos format: unit_price at idx 2, quantity at idx 3, line_total at idx 6
+                                    if idx == 2 and num_val == unit_price and unit_price > 0:
+                                        continue  # Skip unit_price
+                                    if idx == 3 and num_val == quantity and quantity > 0:
+                                        continue  # Skip quantity
+                                    if idx == 6 and num_val == line_total and line_total > 0:
+                                        continue  # Skip line_total
+                                else:
+                                    # Standard format: quantity at idx 2, unit_price at idx 4, line_total at idx 5
+                                    if idx == 2 and num_val == quantity and quantity > 0:
+                                        continue  # Skip quantity
+                                    if idx == 4 and num_val == unit_price and unit_price > 0:
+                                        continue  # Skip unit_price
+                                    if idx == 5 and num_val == line_total and line_total > 0:
+                                        continue  # Skip line_total
                                 
                                 # Look for description: contains letters (must have at least one letter)
-                                if any(c.isalpha() or c in 'áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ' for c in group_str):
+                                # Must NOT be a pure number with comma/dot (e.g., "79,0000" or "79.0000")
+                                is_number_format = re.match(r'^\d+[,\\.]\d+$', group_str.strip())
+                                if not is_number_format and any(c.isalpha() or c in 'áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ' for c in group_str):
                                     description = group_str
                                     logger.debug(f"Group {idx+1} (fallback): {group_str[:30]}... -> description: {description[:30] if description else ''}...")
                                     break

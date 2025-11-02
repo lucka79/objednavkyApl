@@ -1636,9 +1636,11 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                         // Format example: "35.0400 Jar PŘIMONA 5I zelený 79,0000 8,000 1ks 21 632,00"
                         // Format example with spaces: "7.6000 Pytel HDPE 70x110cm... 1,6600 1 000,000 1ks 21 1 660,00"
                         // Code format: number with dot (e.g., "35.0400")
-                        // Quantity and unit_price may contain spaces (e.g., "1 000,000")
+                        // Description: must contain letters, stops before unit_price (number with comma/dot)
+                        // Description pattern: non-greedy, must end with letter or space, then followed by number with comma/dot
+                        // Pattern: description stops before space + digit + (comma or dot) + digit (unit_price)
                         const dekosPattern =
-                          "^(\\d+\\.\\d+)\\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\\s.,%()-]+?)\\s+([\\d\\s,\\.]+)\\s+([\\d\\s,\\.]+)\\s+([A-Za-z0-9]{1,10})\\s+(\\d+)\\s+([\\d\\s,\\.]+)";
+                          "^(\\d+\\.\\d+)\\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\\s.,%()-]*?[A-Za-zá-žÁ-Ž0-9])\\s+(\\d+[,\\.]\\d+)\\s+([\\d\\s,\\.]+)\\s+([A-Za-z0-9]{1,10})\\s+(\\d+)\\s+([\\d\\s,\\.]+)";
                         setEditedPatterns((prev: any) => ({
                           ...prev,
                           line_pattern: dekosPattern,
