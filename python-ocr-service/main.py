@@ -1324,6 +1324,37 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                                     logger.debug(f"Group {idx+1} (fallback): {group_str[:30]}... -> description: {description[:30] if description else ''}...")
                                     break
                         
+                        # Special case for Dekos format: if quantity was split between groups[2] and groups[3]
+                        # Check if groups[2] (unit_price position) contains "1,6600 1" and groups[3] (quantity position) contains "000,000"
+                        # This happens when pattern splits "1 000,000" into "1" (end of groups[2]) and "000,000" (groups[3])
+                        if is_dekos_format and quantity == 0 and len(groups) >= 4:
+                            unit_price_group = groups[2].strip() if len(groups) > 2 else ""
+                            quantity_group = groups[3].strip() if len(groups) > 3 else ""
+                            
+                            # Check if groups[2] ends with space+number and groups[3] is "000,000"
+                            if re.match(r'^000,000$', quantity_group):
+                                trailing_match = re.search(r'\s+(\d+)$', unit_price_group)
+                                if trailing_match:
+                                    trailing_num = trailing_match.group(1)
+                                    # Combine trailing_num + groups[3] to get full quantity: "1 000,000"
+                                    combined_quantity_str = f"{trailing_num} {quantity_group}"
+                                    quantity_val = extract_number(combined_quantity_str)
+                                    decimal_match = re.search(r'[,\\.](\d+)$', combined_quantity_str)
+                                    decimal_places = len(decimal_match.group(1)) if decimal_match else 0
+                                    if quantity_val > 0 and (decimal_places == 3 or decimal_places == 0):
+                                        quantity = quantity_val
+                                        logger.info(f"Detected split quantity in Dekos format: groups[2]='{unit_price_group}' contains '{trailing_num}', groups[3]='{quantity_group}' -> combined: '{combined_quantity_str}' -> quantity: {quantity}")
+                                        
+                                        # Also update unit_price if it wasn't extracted yet
+                                        if unit_price == 0:
+                                            # Remove the trailing number part from unit_price_str
+                                            cleaned_unit_price_str = re.sub(r'\s+\d+$', '', unit_price_group).strip()
+                                            decimal_match = re.search(r'[,\\.](\d+)$', cleaned_unit_price_str)
+                                            decimal_places = len(decimal_match.group(1)) if decimal_match else 0
+                                            if decimal_places == 4:
+                                                unit_price = extract_number(cleaned_unit_price_str)
+                                                logger.info(f"Updated unit_price from split quantity: '{unit_price_group}' -> cleaned: '{cleaned_unit_price_str}' -> unit_price: {unit_price}")
+                        
                         # Third pass: if quantity is still 0, check if description position has a number
                         # If description position (idx=1) has a number instead of text, use it as quantity
                         if quantity == 0 and len(groups) > 1:
@@ -1544,8 +1575,29 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             # Unit_price may contain spaces or additional numbers (e.g., "1,6600 1")
                             # Extract only the part before space or before any additional number
                             unit_price_str = groups[2].strip() if len(groups) > 2 else ""
+                            
+                            # Special case: if unit_price_str contains "1,6600 1", it means quantity "1 000,000" is split
+                            # Pattern captured "1,6600 1" where "1" is the start of "1 000,000"
+                            # Check if groups[2] ends with a space and number, and groups[3] starts with "000,000"
+                            quantity_prefix = None
+                            if len(groups) >= 4:
+                                quantity_str_check = groups[3].strip() if len(groups) > 3 else ""
+                                # If groups[2] ends with space+number and groups[3] is "000,000", combine them
+                                if re.match(r'^000,000$', quantity_str_check):
+                                    # groups[2] probably contains "1,6600 1" where "1" is the start of "1 000,000"
+                                    # Extract the trailing number after space in groups[2]
+                                    trailing_match = re.search(r'\s+(\d+)$', unit_price_str)
+                                    if trailing_match:
+                                        trailing_num = trailing_match.group(1)
+                                        # Combine trailing_num + groups[3] to get full quantity: "1 000,000"
+                                        quantity_prefix = trailing_num
+                                        logger.debug(f"Detected split quantity: groups[2]='{groups[2]}' contains '{trailing_num}', groups[3]='{quantity_str_check}' -> quantity='{trailing_num} {quantity_str_check}'")
+                            
                             # Remove any trailing numbers after space (e.g., "1,6600 1" → "1,6600")
-                            unit_price_str = re.sub(r'\s+\d+$', '', unit_price_str).strip()
+                            if quantity_prefix:
+                                # Remove the trailing number part (it belongs to quantity)
+                                unit_price_str = re.sub(r'\s+\d+$', '', unit_price_str).strip()
+                            
                             decimal_match = re.search(r'[,\\.](\d+)$', unit_price_str)
                             decimal_places = len(decimal_match.group(1)) if decimal_match else 0
                             if decimal_places == 4:
@@ -1558,13 +1610,19 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             # Check decimal places for quantity (should have 3 decimals)
                             # Quantity may contain spaces between thousands (e.g., "1 000,000")
                             quantity_str = groups[3].strip() if len(groups) > 3 else ""
+                            
+                            # If quantity_prefix was found, combine it with groups[3] to get full quantity
+                            if quantity_prefix:
+                                quantity_str = f"{quantity_prefix} {quantity_str}"
+                                logger.debug(f"Combining quantity: '{quantity_prefix}' + '{groups[3]}' -> '{quantity_str}'")
+                            
                             # For Czech format, spaces are thousands separators, so extract_number will handle them correctly
                             decimal_match = re.search(r'[,\\.](\d+)$', quantity_str)
                             decimal_places = len(decimal_match.group(1)) if decimal_match else 0
                             quantity_val = extract_number(quantity_str)
                             if quantity_val > 0 and (decimal_places == 3 or decimal_places == 0):
                                 quantity = quantity_val
-                                logger.debug(f"Group 4 (quantity): '{quantity_str}' -> quantity: {quantity} ({decimal_places} decimals)")
+                                logger.debug(f"Group 4 (quantity): '{groups[3]}' -> full: '{quantity_str}' -> quantity: {quantity} ({decimal_places} decimals)")
                             elif quantity_val == 0:
                                 # If groups[3] is 0, try to find quantity elsewhere
                                 # Look for a number that could be quantity (has 3 decimals or integer, not 2 decimals)
