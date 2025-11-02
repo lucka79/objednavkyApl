@@ -88,10 +88,19 @@ serve(async (req) => {
 
     if (!ocrResponse.ok) {
       const errorText = await ocrResponse.text();
+      console.error(`OCR service returned error ${ocrResponse.status}:`, errorText);
       throw new Error(`OCR service error: ${ocrResponse.status} - ${errorText}`);
     }
 
-    const ocrResult = await ocrResponse.json();
+    let ocrResult;
+    try {
+      const responseText = await ocrResponse.text();
+      console.log(`OCR response length: ${responseText.length} characters`);
+      ocrResult = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("Failed to parse OCR response:", parseError);
+      throw new Error(`Failed to parse OCR service response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+    }
     console.log(`OCR extracted ${ocrResult.items?.length || 0} items`);
     console.log(`OCR result keys:`, Object.keys(ocrResult));
     console.log(`Payment type from OCR:`, {
