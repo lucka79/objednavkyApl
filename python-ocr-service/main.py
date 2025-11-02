@@ -1467,6 +1467,72 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         price_per_kg=price_per_kg,
                     )
                 elif len(groups) >= 7:
+                    # Check if this is Dekos format (code contains dot, e.g., "35.0400")
+                    # Dekos format should use interactive labeling, not MAKRO format
+                    first_group = groups[0] if len(groups) > 0 else ""
+                    is_dekos_format = first_group and '.' in str(first_group)
+                    
+                    if is_dekos_format:
+                        # This is Dekos format - should have been handled by interactive labeling above
+                        # If we reach here, interactive labeling didn't extract fields correctly
+                        # Force use of interactive labeling logic by re-processing with Dekos field order
+                        logger.warning(f"Dekos format detected (code: {first_group}) but interactive labeling didn't extract fields correctly. Retrying with Dekos format detection.")
+                        
+                        # Re-process using Dekos format logic
+                        product_code = first_group
+                        description = groups[1].strip() if len(groups) > 1 else None
+                        unit_price = 0
+                        quantity = 0
+                        unit_of_measure = None
+                        vat_rate = None
+                        line_total = 0
+                        
+                        # Dekos format: code, description, unit_price, quantity, unit, vat_rate, line_total
+                        if len(groups) >= 3:
+                            # Check decimal places for unit_price (should have 4 decimals)
+                            unit_price_str = groups[2].strip() if len(groups) > 2 else ""
+                            decimal_match = re.search(r'[,\\.](\d+)$', unit_price_str)
+                            decimal_places = len(decimal_match.group(1)) if decimal_match else 0
+                            if decimal_places == 4:
+                                unit_price = extract_number(unit_price_str)
+                        
+                        if len(groups) >= 4:
+                            # Check decimal places for quantity (should have 3 decimals)
+                            quantity_str = groups[3].strip() if len(groups) > 3 else ""
+                            decimal_match = re.search(r'[,\\.](\d+)$', quantity_str)
+                            decimal_places = len(decimal_match.group(1)) if decimal_match else 0
+                            if decimal_places == 3 or decimal_places == 0:
+                                quantity = extract_number(quantity_str)
+                        
+                        if len(groups) >= 5:
+                            unit_of_measure = groups[4].strip() if len(groups) > 4 else None
+                        
+                        if len(groups) >= 6:
+                            vat_rate = extract_number(groups[5]) if len(groups) > 5 else None
+                        
+                        if len(groups) >= 7:
+                            line_total = extract_number(groups[6]) if len(groups) > 6 else 0
+                        
+                        # Apply code corrections
+                        corrected_code = apply_code_corrections(product_code, code_corrections) if product_code else None
+                        
+                        # Apply description corrections
+                        description_corrections = table_columns.get('description_corrections', {})
+                        corrected_description = apply_description_corrections(description, description_corrections) if description else None
+                        
+                        logger.info(f"Extracting Dekos format (fallback) - code: {corrected_code}, description: {corrected_description}, quantity: {quantity} {unit_of_measure}, unit_price: {unit_price}, total: {line_total}, vat_rate: {vat_rate}")
+                        
+                        return InvoiceItem(
+                            product_code=corrected_code,
+                            description=corrected_description,
+                            quantity=quantity,
+                            unit_of_measure=unit_of_measure,
+                            unit_price=unit_price,
+                            line_total=line_total,
+                            vat_rate=vat_rate,
+                            line_number=line_number,
+                        )
+                    
                     # MAKRO format: 7 captures (without VAT columns)
                     # code, quantity, description, base_price, units_in_mu, price_per_mu, total
                     
