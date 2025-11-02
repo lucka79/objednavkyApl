@@ -317,12 +317,12 @@ def detect_qr_codes(image: Image.Image, page_num: int) -> List[QRCodeData]:
             
             # Only include QR codes, skip barcodes (CODE128, EAN13, etc.)
             if qr_type == 'QRCODE':
-                qr_codes.append(QRCodeData(
-                    data=qr_data,
-                    type=qr_type,
-                    page=page_num
-                ))
-                logger.info(f"Detected {qr_type} on page {page_num}: {qr_data[:100]}")
+            qr_codes.append(QRCodeData(
+                data=qr_data,
+                type=qr_type,
+                page=page_num
+            ))
+            logger.info(f"Detected {qr_type} on page {page_num}: {qr_data[:100]}")
             else:
                 logger.debug(f"Skipping barcode {qr_type} on page {page_num}: {qr_data[:100]}")
     
@@ -546,37 +546,37 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
                     # Format 1: Multi-line format: description, code, quantity, unit, price, total
                     # Example: "sůl jemná 25kg" / "0201 50kg 6,80 12 % 340,00"
                     if len(groups) == 6:
-                    quantity_raw = groups[2] if len(groups) > 2 else "0"
-                    unit_raw = groups[3].strip() if len(groups) > 3 else None
-                    
-                    # Fix OCR issue: "101t" is actually "10 lt" (l looks like 1)
-                    quantity = extract_number(quantity_raw)
-                    unit = unit_raw
-                    
-                    if unit == 't' and quantity_raw and len(quantity_raw) > 1:
-                        # Last digit of quantity is actually "l" in unit
-                        # "101" → quantity: 10, unit: lt
-                        try:
-                            quantity_str = str(int(quantity))
-                            if len(quantity_str) >= 2:
-                                quantity = float(quantity_str[:-1])  # Remove last digit
-                                unit = 'lt'  # Change t to lt
-                                logger.info(f"Fixed OCR: {quantity_raw}t → {quantity} lt")
-                        except:
-                            pass  # Keep original if conversion fails
-                    
-                    item = InvoiceItem(
-                        description=groups[0].strip() if groups[0] else None,
+                        quantity_raw = groups[2] if len(groups) > 2 else "0"
+                        unit_raw = groups[3].strip() if len(groups) > 3 else None
+                        
+                        # Fix OCR issue: "101t" is actually "10 lt" (l looks like 1)
+                        quantity = extract_number(quantity_raw)
+                        unit = unit_raw
+                        
+                        if unit == 't' and quantity_raw and len(quantity_raw) > 1:
+                            # Last digit of quantity is actually "l" in unit
+                            # "101" → quantity: 10, unit: lt
+                            try:
+                                quantity_str = str(int(quantity))
+                                if len(quantity_str) >= 2:
+                                    quantity = float(quantity_str[:-1])  # Remove last digit
+                                    unit = 'lt'  # Change t to lt
+                                    logger.info(f"Fixed OCR: {quantity_raw}t → {quantity} lt")
+                            except:
+                                pass  # Keep original if conversion fails
+                        
+                        item = InvoiceItem(
+                            description=groups[0].strip() if groups[0] else None,
                             product_code=groups[1].strip() if len(groups) > 1 else None,
-                        quantity=quantity,
-                        unit_of_measure=unit,
-                        unit_price=extract_number(groups[4]) if len(groups) > 4 else 0,
-                        line_total=extract_number(groups[5]) if len(groups) > 5 else 0,
-                        line_number=match_no,
-                    )
-                    
-                    if item.product_code:
-                        items.append(item)
+                            quantity=quantity,
+                            unit_of_measure=unit,
+                            unit_price=extract_number(groups[4]) if len(groups) > 4 else 0,
+                            line_total=extract_number(groups[5]) if len(groups) > 5 else 0,
+                            line_number=match_no,
+                        )
+                        
+                        if item.product_code:
+                            items.append(item)
                             logger.debug(f"Extracted multi-line item (6 groups): {item.product_code} - {item.description}")
                     
                     # Format 2: Backaldrin multi-line: code+description on line 1, data on line 2
@@ -896,14 +896,20 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                 # Format 2: "12 kg 0004260834 12 kg" (batch number between)
                 alternative_pattern = r'^(\d{8})\s+([A-Za-zá-žÁ-Ž]+(?:\s+[A-Za-zá-žÁ-Ž]+)*(?:\s+\d+\s*%)?)\s+([\d,]+)\s*([a-zA-Z]{1,5})\s+(?:\d{8,}\s+)?([\d,]+)\s*([a-zA-Z]{1,5})\s+([\d,\s]+)\s+([\d\s,]+)\s*\|\s*(\d+)%'
                 match = re.match(alternative_pattern, line)
-                if match:
+            if match:
                     logger.info(f"✅ Alternative Backaldrin pattern matched (flexible spacing + optional batch): {line[:80]}")
             
             if match:
+                try:
                 groups = match.groups()
-                logger.info(f"✅ Pattern matched with {len(groups)} groups for line: {line[:80]}")
-                logger.info(f"Groups (all {len(groups)}): {groups}")
-                logger.info(f"Group breakdown: code={groups[0] if len(groups) > 0 else None}, description={groups[1] if len(groups) > 1 else None}, ...")
+                    logger.info(f"✅ Pattern matched with {len(groups)} groups for line: {line[:80]}")
+                    logger.info(f"Groups (all {len(groups)}): {groups}")
+                    logger.info(f"Group breakdown: code={groups[0] if len(groups) > 0 else None}, description={groups[1] if len(groups) > 1 else None}, ...")
+                except Exception as e:
+                    logger.error(f"Error getting groups from match: {e}")
+                    logger.error(f"Pattern: {item_pattern}")
+                    logger.error(f"Line: {line[:100]}")
+                    return None
                 
                 # Handle different pattern formats:
                 # Format 1 (6 groups): code, description, quantity, unit, price, total
