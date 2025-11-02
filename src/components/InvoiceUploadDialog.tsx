@@ -183,6 +183,9 @@ export function InvoiceUploadDialog() {
   const [editedQuantities, setEditedQuantities] = useState<{
     [key: string]: number;
   }>({});
+  const [editedUnitPrices, setEditedUnitPrices] = useState<{
+    [key: string]: number;
+  }>({});
   const [ksUnitChecked, setKsUnitChecked] = useState<{
     [key: string]: boolean;
   }>({});
@@ -192,7 +195,7 @@ export function InvoiceUploadDialog() {
   const [editedInvoiceNumber, setEditedInvoiceNumber] = useState<string>("");
   const [isEditingInvoiceNumber, setIsEditingInvoiceNumber] = useState(false);
 
-  // Calculate subtotal using edited values for Zeelandia
+  // Calculate subtotal using edited values for Zeelandia and Dekos
   const calculateSubtotal = () => {
     if (!parsedInvoice) return 0;
 
@@ -214,7 +217,28 @@ export function InvoiceUploadDialog() {
       }, 0);
     }
 
-    // For non-Zeelandia, use original calculation
+    // Check if Dekos supplier (by template display_layout or supplier ID)
+    const supplierId = selectedSupplier || invoiceSupplier;
+    const dekosTemplate = templates?.find(
+      (t: any) =>
+        t.supplier_id === supplierId &&
+        t.is_active &&
+        t.config?.display_layout === "dekos"
+    );
+    const isDekos =
+      selectedSupplier === DEKOS_SUPPLIER_ID ||
+      invoiceSupplier === DEKOS_SUPPLIER_ID ||
+      !!dekosTemplate;
+
+    if (isDekos) {
+      return parsedInvoice.items.reduce((sum, item) => {
+        const finalUnitPrice = editedUnitPrices[item.id] ?? item.price ?? 0;
+        const itemTotal = item.quantity * finalUnitPrice;
+        return sum + itemTotal;
+      }, 0);
+    }
+
+    // For other suppliers, use original calculation
     return parsedInvoice.items.reduce((sum, item) => {
       const itemTotal = item.total || item.quantity * item.price || 0;
       return sum + itemTotal;
@@ -904,13 +928,16 @@ export function InvoiceUploadDialog() {
           } else if (isDekos) {
             // For Dekos: calculate total quantity in pieces and price per piece
             const unitMultiplier = getUnitMultiplier(item.unit || "");
+            
+            // Use edited unit price if available, otherwise use original
+            const finalJednCena = editedUnitPrices[item.id] ?? item.price;
 
             // Celk. ks = Množství × unit multiplier
             const totalQuantity = item.quantity * unitMultiplier;
 
             // Cena/kus = Jedn. cena ÷ unit multiplier
             const pricePerItem =
-              unitMultiplier > 0 ? item.price / unitMultiplier : 0;
+              unitMultiplier > 0 ? finalJednCena / unitMultiplier : 0;
 
             quantity = totalQuantity;
             unitPrice = pricePerItem;
@@ -924,6 +951,8 @@ export function InvoiceUploadDialog() {
               unitMultiplier: unitMultiplier,
               calculatedTotalQuantity: totalQuantity,
               originalUnitPrice: item.price,
+              editedUnitPrice: editedUnitPrices[item.id],
+              finalJednCena: finalJednCena,
               calculatedPricePerItem: pricePerItem,
             });
           } else {
@@ -2538,6 +2567,12 @@ export function InvoiceUploadDialog() {
                       <DekosInvoiceLayout
                         items={parsedInvoice.items}
                         onUnmap={handleUnmapItem}
+                        editedUnitPrices={editedUnitPrices}
+                        setEditedUnitPrices={setEditedUnitPrices}
+                        editingItemId={editingItemId}
+                        setEditingItemId={setEditingItemId}
+                        editingField={editingField}
+                        setEditingField={setEditingField}
                       />
                     </div>
                   ) : (
