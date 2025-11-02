@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { X, AlertTriangle } from "lucide-react";
 
 interface DekosInvoiceLayoutProps {
   items: any[];
@@ -94,16 +95,23 @@ export function DekosInvoiceLayout({ items, onUnmap }: DekosInvoiceLayoutProps) 
             const ingredientName =
               item.matched_ingredient_name || item.ingredientName;
             const suggestedName = item.suggested_ingredient_name;
+            
+            // Get confidence (could be 0-1 or 0-100 range)
+            const confidence = item.confidence || item.matching_confidence || item.match_confidence || 100;
+            const confidencePercent = confidence <= 1 ? confidence * 100 : confidence;
+            const isLowConfidence = confidencePercent < 100;
 
             return (
               <tr
                 key={idx}
                 className={`border-b border-gray-200 hover:bg-blue-50/30 ${
-                  ingredientId
-                    ? ""
-                    : suggestedName
-                      ? "bg-orange-50/30"
-                      : "bg-red-50/30"
+                  isLowConfidence
+                    ? "bg-yellow-50/50 border-l-4 border-l-yellow-500"
+                    : ingredientId
+                      ? ""
+                      : suggestedName
+                        ? "bg-orange-50/30"
+                        : "bg-red-50/30"
                 }`}
               >
                 <td className="px-3 py-2 border-r border-gray-200">
@@ -148,21 +156,32 @@ export function DekosInvoiceLayout({ items, onUnmap }: DekosInvoiceLayoutProps) 
                 </td>
                 <td className="px-3 py-2 text-sm">
                   {ingredientId ? (
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1 text-green-700">
-                        <span className="text-sm">✓</span>
-                        {ingredientName}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1 text-green-700">
+                          <span className="text-sm">✓</span>
+                          {ingredientName}
+                        </div>
+                        {onUnmap && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                            onClick={() => onUnmap(item.id)}
+                            title="Odebrat mapování"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
                       </div>
-                      {onUnmap && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-5 w-5 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
-                          onClick={() => onUnmap(item.id)}
-                          title="Odebrat mapování"
+                      {isLowConfidence && (
+                        <Badge 
+                          variant="outline" 
+                          className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300 flex items-center gap-1 w-fit"
                         >
-                          <X className="h-3 w-3" />
-                        </Button>
+                          <AlertTriangle className="h-3 w-3" />
+                          Zkontrolovat ({confidencePercent.toFixed(0)}%)
+                        </Badge>
                       )}
                     </div>
                   ) : suggestedName ? (
