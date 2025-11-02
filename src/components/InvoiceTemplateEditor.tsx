@@ -276,7 +276,8 @@ function TemplateForm({
         patterns: {
           invoice_number: "Číslo dokladu\\s+(\\d+)",
           date: "Datum uskutečnění plnění:\\s*(\\d{1,2}\\.\\d{1,2}\\.\\d{4})",
-          total_amount: "Celková částka[^:]*:\\s*([\\d\\s,]+)",
+          total_amount:
+            "Celková částka\\s*(?:\\([^)]+\\))?\\s*:\\s*([\\d\\s,]+)",
           payment_type: "Způsob platby:\\s*([a-zA-Zá-žÁ-Ž]+)",
           table_start: "Označení dodávky",
         },

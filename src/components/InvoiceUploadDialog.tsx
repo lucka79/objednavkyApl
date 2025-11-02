@@ -2430,7 +2430,7 @@ export function InvoiceUploadDialog() {
                   selectedSupplier === PESEK_SUPPLIER_ID ||
                     invoiceSupplier === PESEK_SUPPLIER_ID ? (
                     <div className="mt-2">
-                      <PesekLineInvoiceLayout 
+                      <PesekLineInvoiceLayout
                         items={parsedInvoice.items}
                         onUnmap={handleUnmapItem}
                       />
@@ -2438,7 +2438,7 @@ export function InvoiceUploadDialog() {
                   ) : (
                     /* Standard table layout for other suppliers (including Dekos) */
                     <div className="mt-2">
-                      <PesekLineInvoiceLayout 
+                      <PesekLineInvoiceLayout
                         items={parsedInvoice.items}
                         onUnmap={handleUnmapItem}
                       />

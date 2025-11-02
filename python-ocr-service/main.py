@@ -174,7 +174,18 @@ async def process_invoice(request: ProcessInvoiceRequest):
         invoice_number = extract_pattern(raw_text_display, patterns.get('invoice_number'))
         date = extract_pattern(raw_text_display, patterns.get('date'))
         supplier = extract_pattern(raw_text_display, patterns.get('supplier'))
-        total_amount = extract_number(extract_pattern(raw_text_display, patterns.get('total_amount')))
+        
+        # Extract total amount with detailed logging
+        total_amount_pattern = patterns.get('total_amount')
+        logger.info(f"🔍 Extracting total_amount with pattern: {total_amount_pattern}")
+        total_amount_str = extract_pattern(raw_text_display, total_amount_pattern)
+        if total_amount_str:
+            total_amount = extract_number(total_amount_str)
+            logger.info(f"💰 Total amount extracted: '{total_amount_str}' -> {total_amount}")
+        else:
+            total_amount = 0
+            logger.warning(f"⚠️ Total amount not found with pattern: {total_amount_pattern}")
+        
         payment_type = extract_pattern(raw_text_display, patterns.get('payment_type'))
         
         # Extract line items (use cleaned text for seamless multi-page extraction)
@@ -339,7 +350,32 @@ def extract_pattern(text: str, pattern: Optional[str]) -> Optional[str]:
     try:
         match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
         if match:
-            return match.group(1) if match.groups() else match.group(0)
+            extracted = match.group(1) if match.groups() else match.group(0)
+            logger.info(f"✅ Pattern matched: '{pattern[:50]}...' -> '{extracted}'")
+            return extracted
+        else:
+            # Log first 200 chars of text to help debug
+            logger.warning(f"❌ Pattern did NOT match: '{pattern[:80]}'")
+            
+            # For total_amount pattern, search for "Celková částka" to help debug
+            if 'Celková částka' in pattern or 'celková částka' in pattern.lower():
+                search_terms = ['Celková částka', 'celková částka', 'CELKOVÁ ČÁSTKA']
+                for term in search_terms:
+                    if term in text:
+                        # Find the line containing this term
+                        lines = text.split('\n')
+                        for i, line in enumerate(lines):
+                            if term in line:
+                                logger.warning(f"   Found '{term}' in text at line {i}: {line.strip()}")
+                                # Show surrounding lines for context
+                                if i > 0:
+                                    logger.warning(f"   Previous line: {lines[i-1].strip()}")
+                                if i < len(lines) - 1:
+                                    logger.warning(f"   Next line: {lines[i+1].strip()}")
+                                break
+                        break
+            else:
+                logger.warning(f"   Searched in text (first 200 chars): {text[:200]}")
     except Exception as e:
         logger.error(f"Error extracting pattern '{pattern}': {e}")
     
@@ -904,6 +940,19 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
             logger.info(f"   Original: {original_pattern}")
             logger.info(f"   Extended: {item_pattern}")
         
+        # Automatically extend pattern to support + in descriptions (e.g., "20+8x33cm")
+        # Add + to description character classes if missing
+        description_pattern_extended = False
+        if '[A-Za-zá-žÁ-Ž0-9\\s.,%()-]' in item_pattern and '+' not in item_pattern:
+            item_pattern = item_pattern.replace('[A-Za-zá-žÁ-Ž0-9\\s.,%()-]', '[A-Za-zá-žÁ-Ž0-9\\s.,%()+-]')
+            description_pattern_extended = True
+            pattern_was_extended = True
+        
+        # Log the extensions
+        if description_pattern_extended:
+            logger.info(f"🔧 Extended pattern to support + in descriptions")
+            logger.info(f"   Final pattern: {item_pattern}")
+        
         logger.info(f"Using line_pattern: {item_pattern}")
         logger.info(f"Testing against line: {line[:100]}")
         try:
@@ -932,7 +981,9 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                 # Dekos format: code (with optional dash), description, unit_price, quantity, unit, vat_rate, line_total
                 # Example: "8.5340-1 Utěrka Z-Z / 200 útržků, šedá 15,9700 20,000 bal 21 319,40"
                 # Example: "35.0400 Jar PŘIMONA 5I zelený 79,0000 8,000 1ks 21 632,00"
-                dekos_pattern = r'^(\d+\.\d+(?:-\d+)?)\s+([A-Za-zá-žÁ-Ž/][\wá-žÁ-Ž\s.,%()/-]+?)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([A-Za-z0-9]{1,10})\s+(\d+)\s+([\d\s,\.]+)'
+                # Example: "1.2021 Sáček papírový 20+8x33cm hnědý 580,0000 1,000 tis 21 580,00"
+                # Note: Description can contain +, -, /, etc. (e.g., "20+8x33cm", "12-200z")
+                dekos_pattern = r'^(\d+\.\d+(?:-\d+)?)\s+([A-Za-zá-žÁ-Ž/][\wá-žÁ-Ž\s.,%()/+-]+?)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([A-Za-z0-9]{1,10})\s+(\d+)\s+([\d\s,\.]+)'
                 match = re.match(dekos_pattern, line)
                 if match:
                     logger.info(f"✅ Dekos fallback pattern matched for code with dash: {line[:80]}")
