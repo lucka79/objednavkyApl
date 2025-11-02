@@ -896,12 +896,12 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                 # Format 2: "12 kg 0004260834 12 kg" (batch number between)
                 alternative_pattern = r'^(\d{8})\s+([A-Za-zá-žÁ-Ž]+(?:\s+[A-Za-zá-žÁ-Ž]+)*(?:\s+\d+\s*%)?)\s+([\d,]+)\s*([a-zA-Z]{1,5})\s+(?:\d{8,}\s+)?([\d,]+)\s*([a-zA-Z]{1,5})\s+([\d,\s]+)\s+([\d\s,]+)\s*\|\s*(\d+)%'
                 match = re.match(alternative_pattern, line)
-            if match:
+                if match:
                     logger.info(f"✅ Alternative Backaldrin pattern matched (flexible spacing + optional batch): {line[:80]}")
             
             if match:
                 try:
-                groups = match.groups()
+                    groups = match.groups()
                     logger.info(f"✅ Pattern matched with {len(groups)} groups for line: {line[:80]}")
                     logger.info(f"Groups (all {len(groups)}): {groups}")
                     logger.info(f"Group breakdown: code={groups[0] if len(groups) > 0 else None}, description={groups[1] if len(groups) > 1 else None}, ...")
