@@ -1147,17 +1147,42 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                                     logger.debug(f"Group {idx+1} (position {idx}): {group_str[:30]}... -> description: {description[:30] if description else ''}...")
                                 elif is_dekos_format and is_number_format and idx == 1:
                                     # For Dekos format, if position 1 (description) contains a number with comma/dot,
-                                    # it's likely that the regex pattern didn't capture description correctly
-                                    # Description might be in a different group or pattern needs fixing
-                                    logger.warning(f"Group {idx+1} (position {idx}, Dekos description): '{group_str}' looks like unit_price, not description. Pattern may be incorrect.")
+                                    # check if it has 4 decimal places (unit_price pattern)
+                                    # If so, treat this as unit_price and assign it, then we'll find description in fallback
+                                    decimal_match = re.search(r'[,\\.](\d+)$', group_str.strip())
+                                    decimal_places = len(decimal_match.group(1)) if decimal_match else 0
+                                    if decimal_places == 4:
+                                        logger.warning(f"Group {idx+1} (position {idx}, Dekos description): '{group_str}' has 4 decimals (unit_price pattern), not description. Pattern may be incorrect. Assigning as unit_price.")
+                                        num_val = extract_number(group_str)
+                                        if num_val > 0 and not unit_price:
+                                            unit_price = num_val
+                                            logger.debug(f"Group {idx+1} (position {idx}, reassigned from description to unit_price): {group_str} -> unit_price: {unit_price} (4 decimals)")
+                                    else:
+                                        logger.warning(f"Group {idx+1} (position {idx}, Dekos description): '{group_str}' is a number but doesn't match unit_price (4 decimals) or quantity (3 decimals) pattern. Pattern may be incorrect.")
                                 # If description position doesn't match, we'll try to find it later
                             
                             elif field_type == 'quantity':
                                 # Quantity: number, typically 0.1 - 10000
+                                # For Dekos format: quantity has exactly 3 decimal places (e.g., "8,000")
                                 num_val = extract_number(group_str)
                                 if num_val > 0 and num_val <= 10000:
-                                    quantity = num_val
-                                    logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> quantity: {quantity}")
+                                    if is_dekos_format:
+                                        # Check decimal places for Dekos format
+                                        decimal_match = re.search(r'[,\\.](\d+)$', group_str.strip())
+                                        decimal_places = len(decimal_match.group(1)) if decimal_match else 0
+                                        if decimal_places == 3:
+                                            quantity = num_val
+                                            logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> quantity: {quantity} (3 decimals - Dekos format)")
+                                        elif decimal_places == 0:
+                                            # Integer quantity is also valid
+                                            quantity = num_val
+                                            logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> quantity: {quantity} (integer - Dekos format)")
+                                        else:
+                                            logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> skipping quantity (has {decimal_places} decimals, expected 3 for Dekos)")
+                                            continue
+                                    else:
+                                        quantity = num_val
+                                        logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> quantity: {quantity}")
                             
                             elif field_type == 'unit':
                                 # Unit: short string (1-10 chars), letters or combination of digits and letters (e.g., "1ks", "bal", "tis")
@@ -1168,10 +1193,26 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             
                             elif field_type == 'unit_price':
                                 # Unit price: number, typically 1-10000
+                                # For Dekos format: unit_price has exactly 4 decimal places (e.g., "79,0000")
                                 num_val = extract_number(group_str)
                                 if num_val > 0:
-                                    unit_price = num_val
-                                    logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> unit_price: {unit_price}")
+                                    if is_dekos_format:
+                                        # Check decimal places for Dekos format
+                                        decimal_match = re.search(r'[,\\.](\d+)$', group_str.strip())
+                                        decimal_places = len(decimal_match.group(1)) if decimal_match else 0
+                                        if decimal_places == 4:
+                                            unit_price = num_val
+                                            logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> unit_price: {unit_price} (4 decimals - Dekos format)")
+                                        elif decimal_places == 0:
+                                            # Integer unit_price is also valid (fallback)
+                                            unit_price = num_val
+                                            logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> unit_price: {unit_price} (integer - Dekos format)")
+                                        else:
+                                            logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> skipping unit_price (has {decimal_places} decimals, expected 4 for Dekos)")
+                                            continue
+                                    else:
+                                        unit_price = num_val
+                                        logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> unit_price: {unit_price}")
                             
                             elif field_type == 'line_total':
                                 # Line total: number, typically larger
@@ -1282,11 +1323,53 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                                 # Check if this looks like quantity (smaller number, early position)
                                 num_val = extract_number(group_str)
                                 if num_val > 0 and num_val <= 10000 and num_val != unit_price and num_val != line_total:
-                                    # If it's in an early position (0-3) or smaller than unit_price, it's likely quantity
-                                    if idx <= 3 or (unit_price > 0 and num_val < unit_price):
-                                        quantity = num_val
-                                        logger.debug(f"Group {idx+1} (fallback): {group_str} -> quantity: {quantity}")
-                                        break
+                                    # For Dekos format, check decimal places
+                                    if is_dekos_format:
+                                        decimal_match = re.search(r'[,\\.](\d+)$', group_str.strip())
+                                        decimal_places = len(decimal_match.group(1)) if decimal_match else 0
+                                        # Quantity should have 3 decimals for Dekos, or be integer
+                                        if decimal_places == 3 or decimal_places == 0:
+                                            # If it's in an early position (0-3) or smaller than unit_price, it's likely quantity
+                                            if idx <= 3 or (unit_price > 0 and num_val < unit_price):
+                                                quantity = num_val
+                                                logger.debug(f"Group {idx+1} (fallback, Dekos): {group_str} -> quantity: {quantity} ({decimal_places} decimals)")
+                                                break
+                                    else:
+                                        # Standard format: if it's in an early position (0-3) or smaller than unit_price, it's likely quantity
+                                        if idx <= 3 or (unit_price > 0 and num_val < unit_price):
+                                            quantity = num_val
+                                            logger.debug(f"Group {idx+1} (fallback): {group_str} -> quantity: {quantity}")
+                                            break
+                        
+                        # Fifth pass: if unit_price is still 0, look for any unassigned numeric group with 4 decimals (Dekos format)
+                        if unit_price == 0 and is_dekos_format:
+                            for idx, group_str in enumerate(groups):
+                                if not group_str:
+                                    continue
+                                group_str = str(group_str).strip()
+                                
+                                # Skip if already assigned or is code/quantity/vat_rate/line_total
+                                if idx == 0 and group_str == product_code:
+                                    continue
+                                if group_str.isdigit() and extract_number(group_str) >= 10 and extract_number(group_str) <= 25:
+                                    continue  # Probably VAT rate
+                                
+                                # Check if this looks like unit_price (4 decimals for Dekos)
+                                num_val = extract_number(group_str)
+                                if idx == 3 and num_val == quantity and quantity > 0:
+                                    continue  # Skip quantity
+                                if idx == 6 and num_val == line_total and line_total > 0:
+                                    continue  # Skip line_total
+                                if num_val > 0 and num_val != quantity and num_val != line_total:
+                                    decimal_match = re.search(r'[,\\.](\d+)$', group_str.strip())
+                                    decimal_places = len(decimal_match.group(1)) if decimal_match else 0
+                                    # Unit_price should have 4 decimals for Dekos, or be integer
+                                    if decimal_places == 4 or decimal_places == 0:
+                                        # If it's in position 2 (expected unit_price position) or larger than quantity, it's likely unit_price
+                                        if idx == 2 or (quantity > 0 and num_val > quantity):
+                                            unit_price = num_val
+                                            logger.debug(f"Group {idx+1} (fallback unit_price, Dekos): {group_str} -> unit_price: {unit_price} ({decimal_places} decimals)")
+                                            break
                         
                         # If we found product_code or at least some fields, use this format
                         if product_code or description or quantity > 0:
