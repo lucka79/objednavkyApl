@@ -1163,26 +1163,39 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             
                             elif field_type == 'quantity':
                                 # Quantity: number, typically 0.1 - 10000
-                                # For Dekos format: quantity has exactly 3 decimal places (e.g., "8,000")
-                                num_val = extract_number(group_str)
+                                # For Dekos format: quantity has exactly 3 decimal places (e.g., "8,000" or "1 000,000" with spaces between thousands)
+                                # Quantity may contain spaces between thousands in Czech format (e.g., "1 000,000")
+                                quantity_str = group_str.strip()
+                                # For Czech format, spaces are thousands separators, so extract_number will handle them correctly
+                                decimal_match = re.search(r'[,\\.](\d+)$', quantity_str)
+                                decimal_places = len(decimal_match.group(1)) if decimal_match else 0
+                                num_val = extract_number(quantity_str)
                                 if num_val > 0 and num_val <= 10000:
                                     if is_dekos_format:
                                         # Check decimal places for Dekos format
-                                        decimal_match = re.search(r'[,\\.](\d+)$', group_str.strip())
-                                        decimal_places = len(decimal_match.group(1)) if decimal_match else 0
+                                        # Quantity should have 3 decimals (e.g., "8,000" or "1 000,000")
+                                        # Should NOT have 4 decimals (that's unit_price) or 2 decimals (that's line_total)
                                         if decimal_places == 3:
                                             quantity = num_val
-                                            logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> quantity: {quantity} (3 decimals - Dekos format)")
+                                            logger.debug(f"Group {idx+1} (position {idx}): '{quantity_str}' -> quantity: {quantity} (3 decimals - Dekos format)")
                                         elif decimal_places == 0:
                                             # Integer quantity is also valid
                                             quantity = num_val
-                                            logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> quantity: {quantity} (integer - Dekos format)")
+                                            logger.debug(f"Group {idx+1} (position {idx}): '{quantity_str}' -> quantity: {quantity} (integer - Dekos format)")
+                                        elif decimal_places == 4:
+                                            # This might be unit_price, not quantity
+                                            logger.debug(f"Group {idx+1} (position {idx}): '{quantity_str}' -> skipping quantity (has 4 decimals, likely unit_price)")
+                                            continue
+                                        elif decimal_places == 2:
+                                            # This might be line_total, not quantity
+                                            logger.debug(f"Group {idx+1} (position {idx}): '{quantity_str}' -> skipping quantity (has 2 decimals, likely line_total)")
+                                            continue
                                         else:
-                                            logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> skipping quantity (has {decimal_places} decimals, expected 3 for Dekos)")
+                                            logger.debug(f"Group {idx+1} (position {idx}): '{quantity_str}' -> skipping quantity (has {decimal_places} decimals, expected 3 for Dekos)")
                                             continue
                                     else:
                                         quantity = num_val
-                                        logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> quantity: {quantity}")
+                                        logger.debug(f"Group {idx+1} (position {idx}): '{quantity_str}' -> quantity: {quantity}")
                             
                             elif field_type == 'unit':
                                 # Unit: short string (1-10 chars), letters or combination of digits and letters (e.g., "1ks", "bal", "tis")
@@ -1349,28 +1362,34 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                                         decimal_match = re.search(r'[,\\.](\d+)$', group_str.strip())
                                         decimal_places = len(decimal_match.group(1)) if decimal_match else 0
                                         
-                                        # Check if this could be quantity (has 3 decimals or integer)
-                                        # OR if it's NOT line_total (line_total has 2 decimals)
-                                        # Special case: if groups[3] was 0 but this value is reasonable, use it as quantity
+                                        # Quantity should have 3 decimals (e.g., "8,000" or "1 000,000") or be integer
+                                        # Should NOT have 4 decimals (that's unit_price) or 2 decimals (that's line_total)
                                         if decimal_places == 3 or decimal_places == 0:
                                             # If it's in position 3 (expected quantity position) or if it's reasonable for quantity
                                             # Also check: if groups[3] was 0, and this value is reasonable, it might be quantity
                                             if idx == 3 or (idx <= 3 and (unit_price == 0 or num_val < unit_price)) or (num_val >= 10 and num_val < line_total if line_total > 0 else True):
                                                 quantity = num_val
-                                                logger.debug(f"Group {idx+1} (fallback, Dekos): {group_str} -> quantity: {quantity} ({decimal_places} decimals, position {idx})")
+                                                logger.debug(f"Group {idx+1} (fallback, Dekos): '{group_str}' -> quantity: {quantity} ({decimal_places} decimals, position {idx})")
                                                 break
+                                        # Explicitly skip if it has 4 decimals (unit_price) or 2 decimals (line_total)
+                                        elif decimal_places == 4:
+                                            logger.debug(f"Group {idx+1} (fallback, Dekos): '{group_str}' -> skipping quantity (has 4 decimals, likely unit_price)")
+                                            continue
+                                        elif decimal_places == 2:
+                                            logger.debug(f"Group {idx+1} (fallback, Dekos): '{group_str}' -> skipping quantity (has 2 decimals, likely line_total)")
+                                            continue
                                         # Special case: if groups[3] was 0, and we have a number that could be quantity, use it
-                                        # But make sure it's not line_total (line_total has 2 decimals)
-                                        elif decimal_places != 2 and num_val > 0 and (idx == 3 or num_val < line_total if line_total > 0 else True):
+                                        # But make sure it's not line_total (line_total has 2 decimals) or unit_price (unit_price has 4 decimals)
+                                        elif decimal_places != 2 and decimal_places != 4 and num_val > 0 and (idx == 3 or num_val < line_total if line_total > 0 else True):
                                             # This might be quantity if groups[3] was 0
                                             quantity = num_val
-                                            logger.debug(f"Group {idx+1} (fallback, Dekos, special case): {group_str} -> quantity: {quantity} ({decimal_places} decimals, position {idx})")
+                                            logger.debug(f"Group {idx+1} (fallback, Dekos, special case): '{group_str}' -> quantity: {quantity} ({decimal_places} decimals, position {idx})")
                                             break
                                     else:
                                         # Standard format: if it's in an early position (0-3) or smaller than unit_price, it's likely quantity
                                         if idx <= 3 or (unit_price > 0 and num_val < unit_price):
                                             quantity = num_val
-                                            logger.debug(f"Group {idx+1} (fallback): {group_str} -> quantity: {quantity}")
+                                            logger.debug(f"Group {idx+1} (fallback): '{group_str}' -> quantity: {quantity}")
                                             break
                         
                         # Fifth pass: if unit_price is still 0, look for any unassigned numeric group with 4 decimals (Dekos format)
