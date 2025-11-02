@@ -777,13 +777,26 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
             continue
         
         # Skip lines that don't start with a digit (product codes should be numeric)
+        # Also support codes with dash after dot (e.g., "8.5340-1", "7.6550-2")
         if not re.match(r'^\d', line):
             logger.debug(f"Skipping non-product line: {line[:50]}")
+            continue
+        
+        # Check if line starts with a product code (digits with optional dot and dash)
+        # This helps ensure we process lines even after description continuation lines
+        # Examples: "8.5340-1", "7.6550-2", "35.2010-1", "35.0400"
+        code_match = re.match(r'^(\d+\.?\d*-?\d*)', line)
+        if not code_match:
+            logger.debug(f"Skipping line without valid product code format: {line[:50]}")
             continue
         
         # Log lines from second page for debugging
         if '01395050' in line or '01250120' in line or 'Vídeňské chlebové koření' in line or 'BAS tmavý' in line:
             logger.info(f"⚠️ Processing line from second page (line {line_no}): {line[:100]}")
+        
+        # Log lines with codes containing dash for debugging (e.g., "8.5340-1", "7.6550-2")
+        if re.match(r'^\d+\.\d+-\d+', line):
+            logger.info(f"🔍 Processing line with dash code (line {line_no}): {line[:100]}")
         
         # Try to extract item from line
         item = extract_item_from_line(line, table_columns, line_no)
@@ -791,6 +804,10 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
         if item and item.product_code:
             items.append(item)
             logger.debug(f"Extracted item: {item.product_code} - {item.description}")
+        elif re.match(r'^\d+\.\d+-\d+', line):
+            # Log if lines with dash codes don't match pattern
+            logger.warning(f"❌ Line with dash code did not match pattern (line {line_no}): {line[:100]}")
+            logger.warning(f"   Pattern used: {table_columns.get('line_pattern', 'None')}")
         elif '01395050' in line or '01250120' in line:
             # Log if second page items don't match
             logger.warning(f"❌ Line from second page did not match pattern (line {line_no}): {line[:100]}")
@@ -1124,11 +1141,12 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             
                             if field_type == 'code':
                                 # Product code: all digits, 3-7 digits, or digits with dot (Dekos format: "35.0400")
+                                # Also support codes with dash (e.g., "8.5340-1", "7.6550-2", "35.2010-1")
                                 if group_str.isdigit() and len(group_str) >= 3 and len(group_str) <= 7:
                                     product_code = group_str
                                     logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> code: {product_code}")
-                                elif '.' in group_str and re.match(r'^\d+\.\d+$', group_str):
-                                    # Dekos format: code with dot (e.g., "35.0400")
+                                elif '.' in group_str and (re.match(r'^\d+\.\d+$', group_str) or re.match(r'^\d+\.\d+-\d+$', group_str)):
+                                    # Dekos format: code with dot (e.g., "35.0400") or with dot and dash (e.g., "8.5340-1")
                                     product_code = group_str
                                     logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> code (Dekos format): {product_code}")
                                 elif group_str.isdigit():
@@ -1549,10 +1567,11 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         price_per_kg=price_per_kg,
                     )
                 elif len(groups) >= 7:
-                    # Check if this is Dekos format (code contains dot, e.g., "35.0400")
+                    # Check if this is Dekos format (code contains dot, e.g., "35.0400" or "8.5340-1")
                     # Dekos format should use interactive labeling, not MAKRO format
                     first_group = groups[0] if len(groups) > 0 else ""
-                    is_dekos_format = first_group and '.' in str(first_group)
+                    # Support codes with dot only (e.g., "35.0400") or with dot and dash (e.g., "8.5340-1")
+                    is_dekos_format = first_group and '.' in str(first_group) and re.match(r'^\d+\.\d+(-?\d*)?$', str(first_group))
                     
                     if is_dekos_format:
                         # This is Dekos format - should have been handled by interactive labeling above
