@@ -906,6 +906,37 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
             
             match = re.match(item_pattern, line)
             
+            # If primary pattern doesn't match and line starts with code containing dash (e.g., "8.5340-1")
+            # Try alternative pattern that supports dash in code (for Dekos format)
+            if not match and re.match(r'^\d+\.\d+-\d+', line):
+                # Original pattern expects: ^(\d+\.\d+)\s+...
+                # We need to extend it to support: ^(\d+\.\d+-\d+)\s+...
+                # Replace first group pattern to support optional dash part
+                # Try both: exact replacement and with optional dash group
+                alternative_pattern = item_pattern.replace(r'^(\d+\.\d+)', r'^(\d+\.\d+-\d+)')
+                try:
+                    match = re.match(alternative_pattern, line)
+                    if match:
+                        logger.info(f"✅ Alternative Dekos pattern with dash code matched: {line[:80]}")
+                        logger.debug(f"Original pattern: {item_pattern}")
+                        logger.debug(f"Alternative pattern: {alternative_pattern}")
+                except re.error as e:
+                    logger.warning(f"Alternative pattern with dash failed: {e}")
+            
+            # Also try pattern with optional dash for any line (in case primary pattern didn't match)
+            # This allows pattern to work for both codes with and without dash
+            if not match and r'^(\d+\.\d+)' in item_pattern:
+                # Create pattern with optional dash: ^(\d+\.\d+(?:-\d+)?)
+                # This will match both "35.0400" and "8.5340-1"
+                alternative_pattern = item_pattern.replace(r'^(\d+\.\d+)', r'^(\d+\.\d+(?:-\d+)?)')
+                try:
+                    match = re.match(alternative_pattern, line)
+                    if match:
+                        logger.info(f"✅ Pattern with optional dash matched: {line[:80]}")
+                        logger.debug(f"Alternative pattern with optional dash: {alternative_pattern}")
+                except re.error as e:
+                    logger.debug(f"Pattern with optional dash failed (this is OK): {e}")
+            
             # If primary pattern doesn't match, try alternative Backaldrin patterns for edge cases
             if not match and r'\d{8}' in item_pattern:
                 # This looks like a Backaldrin pattern - try alternative formats
