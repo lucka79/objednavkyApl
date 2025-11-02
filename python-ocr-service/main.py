@@ -284,6 +284,11 @@ def fix_ocr_errors(text: str) -> str:
         cleaned_lines.append(line)
     text = '\n'.join(cleaned_lines)
     
+    # Fix 9: Remove extraneous dashes before dates (Dekos format)
+    # Pattern: "Datum splatnosti: — 03.10.2025" → "Datum splatnosti: 03.10.2025"
+    # Remove em-dash (—), en-dash (–), and regular dash (-) when followed by a date
+    text = re.sub(r':\s*[—–-]+\s*(\d{1,2}\.\d{1,2}\.\d{4})', r': \1', text)
+    
     logger.info("Applied OCR error corrections")
     return text
 
