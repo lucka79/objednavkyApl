@@ -879,6 +879,14 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
         logger.info(f"Using line_pattern: {item_pattern}")
         logger.info(f"Testing against line: {line[:80]}")
         try:
+            # Validate pattern before using it
+            try:
+                re.compile(item_pattern)
+            except re.error as pattern_error:
+                logger.error(f"Invalid regex pattern: {pattern_error}")
+                logger.error(f"Pattern: {item_pattern}")
+                return None
+            
             match = re.match(item_pattern, line)
             
             # If primary pattern doesn't match, try alternative Backaldrin patterns for edge cases
