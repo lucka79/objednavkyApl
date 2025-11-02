@@ -207,7 +207,6 @@ async def process_invoice(request: ProcessInvoiceRequest):
             # Try to manually test the pattern
             if total_amount_pattern:
                 try:
-                    import re
                     test_match = re.search(total_amount_pattern, raw_text_display, re.IGNORECASE | re.MULTILINE)
                     if test_match:
                         logger.warning(f"   ⚠️ BUT re.search() DID find match: '{test_match.group(1) if test_match.groups() else test_match.group(0)}'")
@@ -486,7 +485,6 @@ def extract_number(text: Optional[str]) -> float:
     
     # Handle Czech number format: "7 579,00" -> 7579.00
     # First, remove any currency codes (CZK, EUR, etc.)
-    import re
     cleaned = re.sub(r'[A-Z]{2,}$', '', text.strip())
     
     # Then replace Czech decimal comma with period
