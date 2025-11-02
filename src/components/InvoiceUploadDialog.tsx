@@ -772,6 +772,35 @@ export function InvoiceUploadDialog() {
           });
         }
 
+        // Helper function to get unit multiplier for Dekos supplier
+        const getUnitMultiplier = (unitOfMeasure: string): number => {
+          if (!unitOfMeasure) return 1;
+
+          const unit = unitOfMeasure.toLowerCase().trim();
+
+          // Thousands (tisíce)
+          if (unit === "tis" || unit === "tisíce") return 1000;
+
+          // Hundreds (stovky)
+          if (unit === "100" || unit === "sto") return 100;
+
+          // Dozens (tucty)
+          if (unit === "12" || unit === "tuc") return 12;
+
+          // Pieces (kusy)
+          if (unit === "1ks" || unit === "ks" || unit === "kus" || unit === "kusy") return 1;
+
+          // Packages (balení)
+          if (unit === "bal" || unit === "balení") return 1;
+
+          // Try to parse as number (e.g., "50", "100")
+          const numericUnit = parseInt(unit);
+          if (!isNaN(numericUnit)) return numericUnit;
+
+          // Default to 1 for unknown units
+          return 1;
+        };
+
         const itemsToInsert = matchedItems.map((item, index) => {
           // Check supplier types
           const isZeelandia =
@@ -780,6 +809,17 @@ export function InvoiceUploadDialog() {
           const isMakro =
             selectedSupplier === MAKRO_SUPPLIER_ID ||
             invoiceSupplier === MAKRO_SUPPLIER_ID;
+          // Check if Dekos supplier (by template display_layout or supplier ID)
+          const dekosTemplate = templates?.find(
+            (t: any) =>
+              t.supplier_id === supplierId &&
+              t.is_active &&
+              t.config?.display_layout === "dekos"
+          );
+          const isDekos =
+            selectedSupplier === DEKOS_SUPPLIER_ID ||
+            invoiceSupplier === DEKOS_SUPPLIER_ID ||
+            !!dekosTemplate;
 
           // Debug logging for weight-based suppliers
           if (isMakro || isZeelandia) {
@@ -855,6 +895,33 @@ export function InvoiceUploadDialog() {
               editedTotalWeights[item.id] ?? item.totalWeightKg;
             quantity = parseFloat(rawTotalWeight?.toString() || "0");
             unitPrice = Math.floor((editedPrices[item.id] ?? item.price) || 0); // Zeelandia floors unit price
+          } else if (isDekos) {
+            // For Dekos: calculate total quantity in pieces and price per piece
+            const unitMultiplier = getUnitMultiplier(item.unit || "");
+            
+            // Celk. ks = Množství × unit multiplier
+            const totalQuantity = item.quantity * unitMultiplier;
+            
+            // Cena/kus = Jedn. cena ÷ unit multiplier
+            const pricePerItem = unitMultiplier > 0 ? item.price / unitMultiplier : 0;
+            
+            quantity = totalQuantity;
+            unitPrice = pricePerItem;
+            
+            // Debug logging for Dekos items
+            console.log(
+              `🔄 Processing Dekos item:`,
+              {
+                itemId: item.id,
+                supplierCode: item.supplierCode,
+                originalQuantity: item.quantity,
+                originalUnit: item.unit,
+                unitMultiplier: unitMultiplier,
+                calculatedTotalQuantity: totalQuantity,
+                originalUnitPrice: item.price,
+                calculatedPricePerItem: pricePerItem,
+              }
+            );
           } else {
             // For other suppliers: use regular quantity
             quantity = item.quantity;
@@ -869,7 +936,9 @@ export function InvoiceUploadDialog() {
                 ? "MAKRO"
                 : isZeelandia
                   ? "Zeelandia"
-                  : "Other",
+                  : isDekos
+                    ? "Dekos"
+                    : "Other",
               displayedInCelkHmot: isMakro
                 ? item.ingredientUnit === "ks" &&
                   (ksUnitChecked[item.id] !== undefined
@@ -908,7 +977,9 @@ export function InvoiceUploadDialog() {
                       : true)
                     ? "ks"
                     : "kg"
-                  : item.unit,
+                  : isDekos
+                    ? "ks" // Dekos always uses "ks" for total quantity
+                    : item.unit,
               checkboxChecked: isMakro
                 ? ksUnitChecked[item.id] !== undefined
                   ? ksUnitChecked[item.id]
@@ -941,7 +1012,9 @@ export function InvoiceUploadDialog() {
                     : true)
                   ? "ks" // Checkbox checked: using ks unit
                   : "kg" // Checkbox unchecked or not ks: using weight, so use kg
-                : item.unit,
+                : isDekos
+                  ? "ks" // Dekos always saves total quantity in pieces
+                  : item.unit,
 
             matching_confidence: item.confidence || 100,
           };
@@ -2443,20 +2516,20 @@ export function InvoiceUploadDialog() {
                     </div>
                   ) : /* Dekos layout for Dekos supplier - check by template display_layout or supplier ID */
                   (() => {
-                    const supplierId = selectedSupplier || invoiceSupplier;
-                    // Check if supplier has a template with display_layout: "dekos"
-                    const dekosTemplate = templates?.find(
-                      (t: any) =>
-                        t.supplier_id === supplierId &&
-                        t.is_active &&
-                        t.config?.display_layout === "dekos"
-                    );
-                    return (
-                      selectedSupplier === DEKOS_SUPPLIER_ID ||
-                      invoiceSupplier === DEKOS_SUPPLIER_ID ||
-                      dekosTemplate
-                    );
-                  })() ? (
+                      const supplierId = selectedSupplier || invoiceSupplier;
+                      // Check if supplier has a template with display_layout: "dekos"
+                      const dekosTemplate = templates?.find(
+                        (t: any) =>
+                          t.supplier_id === supplierId &&
+                          t.is_active &&
+                          t.config?.display_layout === "dekos"
+                      );
+                      return (
+                        selectedSupplier === DEKOS_SUPPLIER_ID ||
+                        invoiceSupplier === DEKOS_SUPPLIER_ID ||
+                        dekosTemplate
+                      );
+                    })() ? (
                     <div className="mt-2">
                       <DekosInvoiceLayout
                         items={parsedInvoice.items}
