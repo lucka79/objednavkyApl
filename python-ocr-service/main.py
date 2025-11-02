@@ -1101,11 +1101,13 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             field_order = ['code', 'description', 'quantity', 'unit', 'unit_price', 'line_total', 'vat_rate', 'vat_amount', 'total_with_vat']
                         
                         # First pass: map fields based on position with validation
+                        logger.debug(f"Mapping {len(groups)} groups for Dekos format: {groups}")
                         for idx, group_str in enumerate(groups):
                             if not group_str or idx >= len(field_order):
                                 continue
                             group_str = str(group_str).strip()
                             field_type = field_order[idx]
+                            logger.debug(f"Group {idx+1}: '{group_str}' -> field_type: {field_type}")
                             
                             if field_type == 'code':
                                 # Product code: all digits, 3-7 digits, or digits with dot (Dekos format: "35.0400")

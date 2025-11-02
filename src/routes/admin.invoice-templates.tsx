@@ -1637,10 +1637,14 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                         // Format example with spaces: "7.6000 Pytel HDPE 70x110cm... 1,6600 1 000,000 1ks 21 1 660,00"
                         // Code format: number with dot (e.g., "35.0400")
                         // Description: must contain letters, stops before unit_price (number with comma/dot)
-                        // Description pattern: non-greedy, must end with letter or space, then followed by number with comma/dot
-                        // Pattern: description stops before space + digit + (comma or dot) + digit (unit_price)
+                        // Description pattern: starts with letter, contains letters/numbers, stops before unit_price
+                        // Unit_price pattern: digits with comma/dot (e.g., "79,0000" or "1,6600")
+                        // Use greedy match for description (it's the longest text between code and unit_price)
+                        // Description must contain at least one letter
+                        // Unit_price: digit + comma/dot + digits (no spaces inside number in this format)
+                        // Greedy match ensures description captures all text until unit_price
                         const dekosPattern =
-                          "^(\\d+\\.\\d+)\\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\\s.,%()-]*?[A-Za-zá-žÁ-Ž0-9])\\s+(\\d+[,\\.]\\d+)\\s+([\\d\\s,\\.]+)\\s+([A-Za-z0-9]{1,10})\\s+(\\d+)\\s+([\\d\\s,\\.]+)";
+                          "^(\\d+\\.\\d+)\\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\\s.,%()-]+)\\s+(\\d+[,\\.]\\d+)\\s+([\\d\\s,\\.]+)\\s+([A-Za-z0-9]{1,10})\\s+(\\d+)\\s+([\\d\\s,\\.]+)";
                         setEditedPatterns((prev: any) => ({
                           ...prev,
                           line_pattern: dekosPattern,
