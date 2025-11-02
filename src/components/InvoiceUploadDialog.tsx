@@ -2441,9 +2441,22 @@ export function InvoiceUploadDialog() {
                         onUnmap={handleUnmapItem}
                       />
                     </div>
-                  ) : /* Dekos layout for Dekos supplier */
-                  selectedSupplier === DEKOS_SUPPLIER_ID ||
-                    invoiceSupplier === DEKOS_SUPPLIER_ID ? (
+                  ) : /* Dekos layout for Dekos supplier - check by template display_layout or supplier ID */
+                  (() => {
+                    const supplierId = selectedSupplier || invoiceSupplier;
+                    // Check if supplier has a template with display_layout: "dekos"
+                    const dekosTemplate = templates?.find(
+                      (t: any) =>
+                        t.supplier_id === supplierId &&
+                        t.is_active &&
+                        t.config?.display_layout === "dekos"
+                    );
+                    return (
+                      selectedSupplier === DEKOS_SUPPLIER_ID ||
+                      invoiceSupplier === DEKOS_SUPPLIER_ID ||
+                      dekosTemplate
+                    );
+                  })() ? (
                     <div className="mt-2">
                       <DekosInvoiceLayout
                         items={parsedInvoice.items}
