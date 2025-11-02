@@ -73,18 +73,38 @@ serve(async (req) => {
     const pythonServiceUrl = Deno.env.get("PYTHON_OCR_SERVICE_URL") || "http://localhost:8000";
     
     console.log(`Calling OCR service: ${pythonServiceUrl}`);
-    
-    const ocrResponse = await fetch(`${pythonServiceUrl}/process-invoice`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        file_base64: base64File,
-        file_name: fileName,
-        template_config: template.config,
-      }),
+    console.log(`Template config for OCR:`, {
+      has_line_pattern: !!template.config?.table_columns?.line_pattern,
+      line_pattern_length: template.config?.table_columns?.line_pattern?.length || 0,
+      line_pattern_sample: template.config?.table_columns?.line_pattern?.substring(0, 100) || 'none',
     });
+    
+    // Add timeout handling for fetch request (30 seconds)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    
+    let ocrResponse;
+    try {
+      ocrResponse = await fetch(`${pythonServiceUrl}/process-invoice`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          file_base64: base64File,
+          file_name: fileName,
+          template_config: template.config,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        throw new Error(`OCR service timeout after 30 seconds. Service may be overloaded or unresponsive.`);
+      }
+      throw new Error(`Failed to call OCR service: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`);
+    }
 
     if (!ocrResponse.ok) {
       const errorText = await ocrResponse.text();
