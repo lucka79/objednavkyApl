@@ -199,8 +199,12 @@ async def process_invoice(request: ProcessInvoiceRequest):
         
         total_amount_str = extract_pattern(raw_text_display, total_amount_pattern)
         if total_amount_str:
+            # Clean up extracted value - remove newlines and extra whitespace
+            total_amount_str = total_amount_str.strip().replace('\n', ' ').replace('\r', ' ')
+            # Remove any trailing non-digit characters that might have been captured
+            total_amount_str = re.sub(r'[^\d\s,\.]+$', '', total_amount_str).strip()
             total_amount = extract_number(total_amount_str)
-            logger.info(f"💰 Total amount extracted: '{total_amount_str}' -> {total_amount}")
+            logger.info(f"💰 Total amount extracted: '{total_amount_str}' (cleaned) -> {total_amount}")
         else:
             total_amount = 0
             logger.warning(f"⚠️ Total amount not found with pattern: {total_amount_pattern}")
