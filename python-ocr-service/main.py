@@ -895,13 +895,17 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
     if item_pattern:
         # Automatically extend pattern to support codes with optional dash (e.g., "8.5340-1")
         # Convert ^(\d+\.\d+) to ^(\d+\.\d+(?:-\d+)?) to support both "35.0400" and "8.5340-1"
+        original_pattern = item_pattern
+        pattern_was_extended = False
         if '^(\\d+\\.\\d+)' in item_pattern and '(?:-\\d+)?' not in item_pattern:
-            original_pattern = item_pattern
             item_pattern = item_pattern.replace('^(\\d+\\.\\d+)', '^(\\d+\\.\\d+(?:-\\d+)?)')
-            logger.info(f"Extended pattern to support dash codes: {original_pattern} -> {item_pattern}")
+            pattern_was_extended = True
+            logger.info(f"🔧 Extended pattern to support dash codes")
+            logger.info(f"   Original: {original_pattern}")
+            logger.info(f"   Extended: {item_pattern}")
         
         logger.info(f"Using line_pattern: {item_pattern}")
-        logger.info(f"Testing against line: {line[:80]}")
+        logger.info(f"Testing against line: {line[:100]}")
         try:
             # Validate pattern before using it
             try:
@@ -912,6 +916,15 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                 return None
             
             match = re.match(item_pattern, line)
+            
+            if match:
+                logger.info(f"✅ Pattern matched! Groups: {len(match.groups())}")
+                if pattern_was_extended:
+                    logger.info(f"   (Match succeeded with extended pattern)")
+            else:
+                logger.warning(f"❌ Pattern did NOT match")
+                if pattern_was_extended:
+                    logger.warning(f"   (Even extended pattern failed to match)")
             
             # If primary pattern doesn't match, try alternative Backaldrin patterns for edge cases
             if not match and r'\d{8}' in item_pattern:
