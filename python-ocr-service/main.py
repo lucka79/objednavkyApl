@@ -1216,10 +1216,26 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             
                             elif field_type == 'line_total':
                                 # Line total: number, typically larger
+                                # For Dekos format: line_total has exactly 2 decimal places (e.g., "632,00" or "1 660,00")
                                 num_val = extract_number(group_str)
                                 if num_val > 0:
-                                    line_total = num_val
-                                    logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> line_total: {line_total}")
+                                    if is_dekos_format:
+                                        # Check decimal places for Dekos format
+                                        decimal_match = re.search(r'[,\\.](\d+)$', group_str.strip())
+                                        decimal_places = len(decimal_match.group(1)) if decimal_match else 0
+                                        if decimal_places == 2:
+                                            line_total = num_val
+                                            logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> line_total: {line_total} (2 decimals - Dekos format)")
+                                        elif decimal_places == 0:
+                                            # Integer line_total is also valid (fallback)
+                                            line_total = num_val
+                                            logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> line_total: {line_total} (integer - Dekos format)")
+                                        else:
+                                            logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> skipping line_total (has {decimal_places} decimals, expected 2 for Dekos)")
+                                            continue
+                                    else:
+                                        line_total = num_val
+                                        logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> line_total: {line_total}")
                             
                             elif field_type == 'vat_rate':
                                 # VAT rate: small number (10-25), typically "12" or "21"
@@ -1327,13 +1343,24 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                                     if is_dekos_format:
                                         decimal_match = re.search(r'[,\\.](\d+)$', group_str.strip())
                                         decimal_places = len(decimal_match.group(1)) if decimal_match else 0
-                                        # Quantity should have 3 decimals for Dekos, or be integer
+                                        
+                                        # Check if this could be quantity (has 3 decimals or integer)
+                                        # OR if it's NOT line_total (line_total has 2 decimals)
+                                        # Special case: if groups[3] was 0 but this value is reasonable, use it as quantity
                                         if decimal_places == 3 or decimal_places == 0:
-                                            # If it's in an early position (0-3) or smaller than unit_price, it's likely quantity
-                                            if idx <= 3 or (unit_price > 0 and num_val < unit_price):
+                                            # If it's in position 3 (expected quantity position) or if it's reasonable for quantity
+                                            # Also check: if groups[3] was 0, and this value is reasonable, it might be quantity
+                                            if idx == 3 or (idx <= 3 and (unit_price == 0 or num_val < unit_price)) or (num_val >= 10 and num_val < line_total if line_total > 0 else True):
                                                 quantity = num_val
-                                                logger.debug(f"Group {idx+1} (fallback, Dekos): {group_str} -> quantity: {quantity} ({decimal_places} decimals)")
+                                                logger.debug(f"Group {idx+1} (fallback, Dekos): {group_str} -> quantity: {quantity} ({decimal_places} decimals, position {idx})")
                                                 break
+                                        # Special case: if groups[3] was 0, and we have a number that could be quantity, use it
+                                        # But make sure it's not line_total (line_total has 2 decimals)
+                                        elif decimal_places != 2 and num_val > 0 and (idx == 3 or num_val < line_total if line_total > 0 else True):
+                                            # This might be quantity if groups[3] was 0
+                                            quantity = num_val
+                                            logger.debug(f"Group {idx+1} (fallback, Dekos, special case): {group_str} -> quantity: {quantity} ({decimal_places} decimals, position {idx})")
+                                            break
                                     else:
                                         # Standard format: if it's in an early position (0-3) or smaller than unit_price, it's likely quantity
                                         if idx <= 3 or (unit_price > 0 and num_val < unit_price):
@@ -1501,8 +1528,29 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             quantity_str = groups[3].strip() if len(groups) > 3 else ""
                             decimal_match = re.search(r'[,\\.](\d+)$', quantity_str)
                             decimal_places = len(decimal_match.group(1)) if decimal_match else 0
-                            if decimal_places == 3 or decimal_places == 0:
-                                quantity = extract_number(quantity_str)
+                            quantity_val = extract_number(quantity_str)
+                            if quantity_val > 0 and (decimal_places == 3 or decimal_places == 0):
+                                quantity = quantity_val
+                            elif quantity_val == 0:
+                                # If groups[3] is 0, try to find quantity elsewhere
+                                # Look for a number that could be quantity (has 3 decimals or integer, not 2 decimals)
+                                logger.debug(f"Group 4 (quantity position) is 0, looking for quantity elsewhere")
+                                for check_idx in range(len(groups)):
+                                    if check_idx == 3:
+                                        continue  # Skip position 3 (quantity position, already checked)
+                                    check_group = groups[check_idx].strip() if check_idx < len(groups) else ""
+                                    if not check_group:
+                                        continue
+                                    check_decimal_match = re.search(r'[,\\.](\d+)$', check_group)
+                                    check_decimal_places = len(check_decimal_match.group(1)) if check_decimal_match else 0
+                                    check_val = extract_number(check_group)
+                                    # Quantity should have 3 decimals or be integer, but NOT 2 decimals (that's line_total)
+                                    if check_val > 0 and check_val <= 10000 and check_decimal_places != 2 and (check_decimal_places == 3 or check_decimal_places == 0):
+                                        # Check if it's not unit_price (unit_price has 4 decimals)
+                                        if check_decimal_places != 4:
+                                            quantity = check_val
+                                            logger.debug(f"Group {check_idx+1} (fallback for quantity): {check_group} -> quantity: {quantity} ({check_decimal_places} decimals)")
+                                            break
                         
                         if len(groups) >= 5:
                             unit_of_measure = groups[4].strip() if len(groups) > 4 else None
@@ -1511,7 +1559,20 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             vat_rate = extract_number(groups[5]) if len(groups) > 5 else None
                         
                         if len(groups) >= 7:
-                            line_total = extract_number(groups[6]) if len(groups) > 6 else 0
+                            # Check decimal places for line_total (should have 2 decimals)
+                            line_total_str = groups[6].strip() if len(groups) > 6 else ""
+                            decimal_match = re.search(r'[,\\.](\d+)$', line_total_str)
+                            decimal_places = len(decimal_match.group(1)) if decimal_match else 0
+                            if decimal_places == 2:
+                                line_total = extract_number(line_total_str)
+                                logger.debug(f"Group 7 (line_total): {line_total_str} -> line_total: {line_total} (2 decimals - Dekos format)")
+                            elif decimal_places == 0:
+                                # Integer line_total is also valid (fallback)
+                                line_total = extract_number(line_total_str)
+                                logger.debug(f"Group 7 (line_total): {line_total_str} -> line_total: {line_total} (integer - Dekos format)")
+                            else:
+                                logger.warning(f"Group 7 (line_total): {line_total_str} has {decimal_places} decimals, expected 2 for Dekos format")
+                                line_total = extract_number(line_total_str)  # Use anyway as fallback
                         
                         # Apply code corrections
                         corrected_code = apply_code_corrections(product_code, code_corrections) if product_code else None
