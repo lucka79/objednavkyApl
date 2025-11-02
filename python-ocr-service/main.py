@@ -893,6 +893,13 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
     # Method 1: Use regex patterns if configured
     item_pattern = table_columns.get('line_pattern')
     if item_pattern:
+        # Automatically extend pattern to support codes with optional dash (e.g., "8.5340-1")
+        # Convert ^(\d+\.\d+) to ^(\d+\.\d+(?:-\d+)?) to support both "35.0400" and "8.5340-1"
+        if '^(\\d+\\.\\d+)' in item_pattern and '(?:-\\d+)?' not in item_pattern:
+            original_pattern = item_pattern
+            item_pattern = item_pattern.replace('^(\\d+\\.\\d+)', '^(\\d+\\.\\d+(?:-\\d+)?)')
+            logger.info(f"Extended pattern to support dash codes: {original_pattern} -> {item_pattern}")
+        
         logger.info(f"Using line_pattern: {item_pattern}")
         logger.info(f"Testing against line: {line[:80]}")
         try:
@@ -905,44 +912,6 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                 return None
             
             match = re.match(item_pattern, line)
-            
-            # If primary pattern doesn't match and line starts with code containing dash (e.g., "8.5340-1")
-            # Try alternative pattern that supports dash in code (for Dekos format)
-            if not match and re.match(r'^\d+\.\d+-\d+', line):
-                # Original pattern expects: ^(\d+\.\d+)\s+...
-                # We need to extend it to support: ^(\d+\.\d+-\d+)\s+...
-                # Pattern is a string with escaped backslashes, so we need to match the escaped version
-                logger.debug(f"Attempting to create alternative pattern for dash code from: {item_pattern}")
-                
-                # Try replacing with escaped backslashes (as they appear in the pattern string)
-                alternative_pattern = item_pattern.replace('^(\\d+\\.\\d+)', '^(\\d+\\.\\d+-\\d+)')
-                logger.debug(f"Alternative pattern (exact dash): {alternative_pattern}")
-                
-                try:
-                    match = re.match(alternative_pattern, line)
-                    if match:
-                        logger.info(f"✅ Alternative Dekos pattern with dash code matched: {line[:80]}")
-                        logger.debug(f"Original pattern: {item_pattern}")
-                        logger.debug(f"Alternative pattern: {alternative_pattern}")
-                except re.error as e:
-                    logger.warning(f"Alternative pattern with dash failed: {e}")
-            
-            # Also try pattern with optional dash for any line (in case primary pattern didn't match)
-            # This allows pattern to work for both codes with and without dash
-            if not match and '^(\\d+\\.\\d+)' in item_pattern:
-                # Create pattern with optional dash: ^(\d+\.\d+(?:-\d+)?)
-                # This will match both "35.0400" and "8.5340-1"
-                logger.debug(f"Attempting to create pattern with optional dash from: {item_pattern}")
-                alternative_pattern = item_pattern.replace('^(\\d+\\.\\d+)', '^(\\d+\\.\\d+(?:-\\d+)?)')
-                logger.debug(f"Alternative pattern (optional dash): {alternative_pattern}")
-                
-                try:
-                    match = re.match(alternative_pattern, line)
-                    if match:
-                        logger.info(f"✅ Pattern with optional dash matched: {line[:80]}")
-                        logger.debug(f"Alternative pattern with optional dash: {alternative_pattern}")
-                except re.error as e:
-                    logger.debug(f"Pattern with optional dash failed (this is OK): {e}")
             
             # If primary pattern doesn't match, try alternative Backaldrin patterns for edge cases
             if not match and r'\d{8}' in item_pattern:
