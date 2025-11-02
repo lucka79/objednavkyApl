@@ -326,6 +326,42 @@ def fix_ocr_errors(text: str) -> str:
     # Remove em-dash (—), en-dash (–), and regular dash (-) when followed by a date
     text = re.sub(r':\s*[—–-]+\s*(\d{1,2}\.\d{1,2}\.\d{4})', r': \1', text)
     
+    # Fix 10: Fix capacity indicators misread as numbers (Dekos format)
+    # Pattern: "STOP BAKTER 51 108,1300" → "STOP BAKTER 5L 108,1300"
+    # BUT: "STOP BAKTER 5L 51 108,1300" → no change (51 is thousands separator, not OCR error)
+    # Strategy: Don't fix if the same digit appears in a capacity indicator earlier on the same line
+    # Process line by line to avoid cross-line matches
+    lines = text.split('\n')
+    fixed_lines = []
+    for line in lines:
+        # Find all potential X1 patterns that need fixing
+        # Pattern: NOT preceded by digit + word + space + X1 + space + price_with_4_decimals
+        # Use word boundary to avoid matching "5L 51" where "L" from "5L" would be matched
+        def replace_if_not_duplicate(match):
+            letter = match.group(1)
+            digit = match.group(2)
+            price = match.group(3)
+            # Check if "{digit}L" or "{digit}I" already exists earlier in the line
+            capacity_indicator = f"{digit}L"
+            capacity_indicator_alt = f"{digit}I"
+            line_before_match = line[:match.start()]
+            if capacity_indicator in line_before_match or capacity_indicator_alt in line_before_match:
+                # Don't change - capacity indicator already exists
+                return match.group(0)  # Return original
+            else:
+                # Fix: X1 → XL
+                return f"{letter} {digit}L {price}"
+        
+        # Pattern: word boundary + letter (not preceded by digit) + space + X1 + space + price
+        # Negative lookbehind (?<!\d) ensures the letter isn't part of a capacity indicator like "5L"
+        fixed_line = re.sub(
+            r'(?<!\d)([A-Za-zá-žÁ-Ž])\s+(\d)1\s+(\d+(?:\s\d+)?,\d{4})',
+            replace_if_not_duplicate,
+            line
+        )
+        fixed_lines.append(fixed_line)
+    text = '\n'.join(fixed_lines)
+    
     logger.info("Applied OCR error corrections")
     return text
 
@@ -1022,9 +1058,23 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
             description_pattern_extended = True
             pattern_was_extended = True
         
+        # Automatically improve description pattern to capture capacity indicators like "5L", "10kg"
+        # Convert simple non-greedy pattern to one with negative lookahead
+        # Old: [\wá-žÁ-Ž\s.,%()/+-]+?
+        # New: (?:[\wá-žÁ-Ž.,%()/+-]|\s(?!\d{2,}[\s,]))+?
+        # This stops before "space + 2+ digits with comma" (unit price pattern like "108,1300")
+        capacity_pattern_improved = False
+        if '[\\wá-žÁ-Ž\\s.,%()/+-]+?' in item_pattern and '(?!\\d{2,}[\\s,])' not in item_pattern:
+            item_pattern = item_pattern.replace('[\\wá-žÁ-Ž\\s.,%()/+-]+?', '(?:[\\wá-žÁ-Ž.,%()/+-]|\\s(?!\\d{2,}[\\s,]))+?')
+            capacity_pattern_improved = True
+            pattern_was_extended = True
+        
         # Log the extensions
         if description_pattern_extended:
             logger.info(f"🔧 Extended pattern to support + in descriptions")
+        if capacity_pattern_improved:
+            logger.info(f"🔧 Improved description pattern to capture capacity indicators (5L, 10kg, etc.)")
+        if pattern_was_extended:
             logger.info(f"   Final pattern: {item_pattern}")
         
         logger.info(f"Using line_pattern: {item_pattern}")
@@ -1055,9 +1105,12 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                 # Dekos format: code (with optional dash), description, unit_price, quantity, unit, vat_rate, line_total
                 # Example: "8.5340-1 Utěrka Z-Z / 200 útržků, šedá 15,9700 20,000 bal 21 319,40"
                 # Example: "35.0400 Jar PŘIMONA 5I zelený 79,0000 8,000 1ks 21 632,00"
+                # Example: "35.0265 STOP BAKTER 5L 108,1300 1,000 1ks 21 108,13" (OCR may read "5L" as "51")
                 # Example: "1.2021 Sáček papírový 20+8x33cm hnědý 580,0000 1,000 tis 21 580,00"
-                # Note: Description can contain +, -, /, etc. (e.g., "20+8x33cm", "12-200z")
-                dekos_pattern = r'^(\d+\.\d+(?:-\d+)?)\s+([A-Za-zá-žÁ-Ž/][\wá-žÁ-Ž\s.,%()/+-]+?)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([A-Za-z0-9]{1,10})\s+(\d+)\s+([\d\s,\.]+)'
+                # Note: Description can contain +, -, /, numbers like "5L", "10kg" (e.g., "20+8x33cm", "12-200z", "5L")
+                # Unit price pattern: large number with thousands separator (space or nothing) and comma decimal
+                # Stop before: space + 2+ digits with comma (e.g., "108,1300", "15,9700", "580,0000")
+                dekos_pattern = r'^(\d+\.\d+(?:-\d+)?)\s+([A-Za-zá-žÁ-Ž/](?:[\wá-žÁ-Ž.,%()/+-]|\s(?!\d{2,}[\s,]))+?)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([A-Za-z0-9]{1,10})\s+(\d+)\s+([\d\s,\.]+)'
                 match = re.match(dekos_pattern, line)
                 if match:
                     logger.info(f"✅ Dekos fallback pattern matched for code with dash: {line[:80]}")
@@ -1853,6 +1906,28 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         
                         logger.info(f"Extracting Dekos format (fallback) - code: {corrected_code}, description: {corrected_description}, quantity: {quantity} {unit_of_measure}, unit_price: {unit_price}, total: {line_total}, vat_rate: {vat_rate}")
                         
+                        # Check for ambiguous OCR pattern: capacity indicator + potential thousands separator
+                        # Pattern: description ending with "5L" and unit_price starting with "51" (e.g., "STOP BAKTER 5L" + "51 108,1300")
+                        # This could mean: OCR correctly captured "5L" but also the thousands separator looks suspicious
+                        matching_confidence = 100
+                        if corrected_description and unit_price:
+                            # Check if description ends with capacity indicator (digit + L or I)
+                            capacity_match = re.search(r'(\d)[LI]\s*$', corrected_description)
+                            if capacity_match:
+                                # Check if unit_price starts with a 2-digit number ending in 1
+                                price_str = str(unit_price).replace(',', '').replace('.', '').replace(' ', '')
+                                if price_str and len(price_str) >= 2:
+                                    # Get first 2 digits
+                                    first_two = price_str[:2]
+                                    if first_two.endswith('1'):
+                                        digit_before = capacity_match.group(1)
+                                        # If they match (e.g., "5L" and price starts with "51"), it's ambiguous
+                                        if first_two == f"{digit_before}1":
+                                            matching_confidence = 75
+                                            logger.warning(f"⚠️  Ambiguous OCR pattern detected: description ends with '{capacity_match.group(0)}' and unit_price starts with '{first_two}...'")
+                                            logger.warning(f"   This could be: 1) Correct (5L + price 51,108), or 2) OCR duplicate (5L read as both '5L' and '51')")
+                                            logger.warning(f"   Confidence reduced to {matching_confidence}% - MANUAL REVIEW RECOMMENDED")
+                        
                         return InvoiceItem(
                             product_code=corrected_code,
                             description=corrected_description,
@@ -1862,6 +1937,7 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             line_total=line_total,
                             vat_rate=vat_rate,
                             line_number=line_number,
+                            matching_confidence=matching_confidence,
                         )
                     
                     # MAKRO format: 7 captures (without VAT columns)
