@@ -926,6 +926,18 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                 if pattern_was_extended:
                     logger.warning(f"   (Even extended pattern failed to match)")
             
+            # If primary pattern doesn't match but line starts with Dekos-style code (with optional dash)
+            # Try a more flexible Dekos pattern
+            if not match and re.match(r'^\d+\.\d+(?:-\d+)?', line):
+                # Dekos format: code (with optional dash), description, unit_price, quantity, unit, vat_rate, line_total
+                # Example: "8.5340-1 Utěrka Z-Z / 200 útržků, šedá 15,9700 20,000 bal 21 319,40"
+                # Example: "35.0400 Jar PŘIMONA 5I zelený 79,0000 8,000 1ks 21 632,00"
+                dekos_pattern = r'^(\d+\.\d+(?:-\d+)?)\s+([A-Za-zá-žÁ-Ž/][\wá-žÁ-Ž\s.,%()/-]+?)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([A-Za-z0-9]{1,10})\s+(\d+)\s+([\d\s,\.]+)'
+                match = re.match(dekos_pattern, line)
+                if match:
+                    logger.info(f"✅ Dekos fallback pattern matched for code with dash: {line[:80]}")
+                    logger.info(f"   Using flexible Dekos pattern instead of database pattern")
+            
             # If primary pattern doesn't match, try alternative Backaldrin patterns for edge cases
             if not match and r'\d{8}' in item_pattern:
                 # This looks like a Backaldrin pattern - try alternative formats
