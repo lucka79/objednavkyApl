@@ -178,6 +178,25 @@ async def process_invoice(request: ProcessInvoiceRequest):
         # Extract total amount with detailed logging
         total_amount_pattern = patterns.get('total_amount')
         logger.info(f"🔍 Extracting total_amount with pattern: {total_amount_pattern}")
+        
+        # Debug: Search for "Celková částka" in the text
+        if 'celková částka' in raw_text_display.lower():
+            logger.info(f"✅ Found 'Celková částka' in text")
+            # Find all occurrences
+            lines = raw_text_display.split('\n')
+            for i, line in enumerate(lines):
+                if 'celková částka' in line.lower():
+                    logger.info(f"   Line {i}: '{line.strip()}'")
+                    # Show surrounding lines
+                    if i > 0:
+                        logger.info(f"   Previous line {i-1}: '{lines[i-1].strip()}'")
+                    if i < len(lines) - 1:
+                        logger.info(f"   Next line {i+1}: '{lines[i+1].strip()}'")
+        else:
+            logger.warning(f"❌ 'Celková částka' NOT found in text")
+            # Show first 500 chars to help debug
+            logger.warning(f"   First 500 chars of text: {raw_text_display[:500]}")
+        
         total_amount_str = extract_pattern(raw_text_display, total_amount_pattern)
         if total_amount_str:
             total_amount = extract_number(total_amount_str)
@@ -185,6 +204,21 @@ async def process_invoice(request: ProcessInvoiceRequest):
         else:
             total_amount = 0
             logger.warning(f"⚠️ Total amount not found with pattern: {total_amount_pattern}")
+            # Try to manually test the pattern
+            if total_amount_pattern:
+                try:
+                    import re
+                    test_match = re.search(total_amount_pattern, raw_text_display, re.IGNORECASE | re.MULTILINE)
+                    if test_match:
+                        logger.warning(f"   ⚠️ BUT re.search() DID find match: '{test_match.group(1) if test_match.groups() else test_match.group(0)}'")
+                    else:
+                        logger.warning(f"   ❌ re.search() also failed - pattern likely doesn't match")
+                        # Try simpler pattern
+                        simple_test = re.search(r'Celková částka.*?(\d[\d\s,\.]+)', raw_text_display, re.IGNORECASE)
+                        if simple_test:
+                            logger.warning(f"   💡 Simple pattern found: '{simple_test.group(1)}'")
+                except Exception as e:
+                    logger.error(f"   Error testing pattern: {e}")
         
         payment_type = extract_pattern(raw_text_display, patterns.get('payment_type'))
         
@@ -350,39 +384,72 @@ def detect_qr_codes(image: Image.Image, page_num: int) -> List[QRCodeData]:
 def extract_pattern(text: str, pattern: Optional[str]) -> Optional[str]:
     """Extract data using regex pattern"""
     if not pattern or not text:
+        logger.debug(f"extract_pattern: Missing pattern or text (pattern={pattern is not None}, text_len={len(text) if text else 0})")
         return None
     
+    # Special logging for total_amount pattern
+    is_total_amount_pattern = 'Celková částka' in pattern or 'celková částka' in pattern.lower() if pattern else False
+    
+    if is_total_amount_pattern:
+        logger.info(f"🎯 extract_pattern called for total_amount")
+        logger.info(f"   Pattern: '{pattern}'")
+        logger.info(f"   Text length: {len(text)} chars")
+        logger.info(f"   Pattern length: {len(pattern)} chars")
+    
     try:
-        match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
+        # Compile pattern first to catch syntax errors
+        compiled_pattern = re.compile(pattern, re.IGNORECASE | re.MULTILINE)
+        
+        match = compiled_pattern.search(text)
         if match:
             extracted = match.group(1) if match.groups() else match.group(0)
-            logger.info(f"✅ Pattern matched: '{pattern[:50]}...' -> '{extracted}'")
+            if is_total_amount_pattern:
+                logger.info(f"✅✅✅ Pattern MATCHED for total_amount: '{extracted}'")
+                logger.info(f"   Full match: '{match.group(0)}'")
+                logger.info(f"   Groups: {match.groups()}")
+            else:
+                logger.info(f"✅ Pattern matched: '{pattern[:50]}...' -> '{extracted}'")
             return extracted
         else:
-            # Log first 200 chars of text to help debug
-            logger.warning(f"❌ Pattern did NOT match: '{pattern[:80]}'")
-            
-            # For total_amount pattern, search for "Celková částka" to help debug
-            if 'Celková částka' in pattern or 'celková částka' in pattern.lower():
-                search_terms = ['Celková částka', 'celková částka', 'CELKOVÁ ČÁSTKA']
-                for term in search_terms:
-                    if term in text:
-                        # Find the line containing this term
-                        lines = text.split('\n')
-                        for i, line in enumerate(lines):
-                            if term in line:
-                                logger.warning(f"   Found '{term}' in text at line {i}: {line.strip()}")
-                                # Show surrounding lines for context
-                                if i > 0:
-                                    logger.warning(f"   Previous line: {lines[i-1].strip()}")
-                                if i < len(lines) - 1:
-                                    logger.warning(f"   Next line: {lines[i+1].strip()}")
-                                break
+            # Pattern didn't match
+            if is_total_amount_pattern:
+                logger.warning(f"❌❌❌ Pattern did NOT match for total_amount")
+                logger.warning(f"   Pattern: '{pattern}'")
+                
+                # Show the actual line with Celková částka
+                lines = text.split('\n')
+                for i, line in enumerate(lines):
+                    if 'celková částka' in line.lower():
+                        logger.warning(f"   Found 'Celková částka' at line {i}: '{line.strip()}'")
+                        logger.warning(f"   Line length: {len(line)} chars")
+                        
+                        # Try to match just this line
+                        line_match = compiled_pattern.search(line)
+                        if line_match:
+                            logger.warning(f"   ⚠️ BUT pattern DOES match when searching just this line!")
+                            logger.warning(f"   Line match: '{line_match.group(1) if line_match.groups() else line_match.group(0)}'")
+                        else:
+                            logger.warning(f"   ❌ Pattern doesn't match even on this line alone")
+                            
+                            # Show character codes for debugging
+                            logger.warning(f"   Line bytes: {line.encode('utf-8')}")
+                        
+                        # Show surrounding lines
+                        if i > 0:
+                            logger.warning(f"   Previous line {i-1}: '{lines[i-1].strip()}'")
+                        if i < len(lines) - 1:
+                            logger.warning(f"   Next line {i+1}: '{lines[i+1].strip()}'")
                         break
+                else:
+                    logger.warning(f"   'Celková částka' NOT found in text at all!")
+                    logger.warning(f"   First 500 chars: {text[:500]}")
             else:
+                logger.warning(f"❌ Pattern did NOT match: '{pattern[:80]}'")
                 logger.warning(f"   Searched in text (first 200 chars): {text[:200]}")
+    except re.error as e:
+        logger.error(f"❌ Regex syntax error in pattern '{pattern}': {e}")
     except Exception as e:
-        logger.error(f"Error extracting pattern '{pattern}': {e}")
+        logger.error(f"Error extracting pattern '{pattern}': {e}", exc_info=True)
     
     return None
 

@@ -489,9 +489,13 @@ function TemplateForm({
               } else {
                 // When switching to custom, keep current value if it's already custom
                 if (
-                  !["standard", "makro", "pesek", "zeelandia", "dekos"].includes(
-                    formData.display_layout
-                  )
+                  ![
+                    "standard",
+                    "makro",
+                    "pesek",
+                    "zeelandia",
+                    "dekos",
+                  ].includes(formData.display_layout)
                 ) {
                   // Already custom, keep it
                 } else {
@@ -511,7 +515,9 @@ function TemplateForm({
               <SelectItem value="pesek">pesek (Pešek-Rambousek)</SelectItem>
               <SelectItem value="makro">MAKRO (rozšířená)</SelectItem>
               <SelectItem value="zeelandia">Zeelandia</SelectItem>
-              <SelectItem value="dekos">Dekos (s výpočtem ks a ceny/kus)</SelectItem>
+              <SelectItem value="dekos">
+                Dekos (s výpočtem ks a ceny/kus)
+              </SelectItem>
               <SelectItem value="custom">
                 ✏️ Vlastní název (pro specifického dodavatele)
               </SelectItem>
