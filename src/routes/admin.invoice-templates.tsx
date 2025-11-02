@@ -2557,6 +2557,38 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                   </AlertDescription>
                 </Alert>
               )}
+
+              {/* Check if description is incorrectly captured (number instead of text) */}
+              {result.items &&
+                result.items.length > 0 &&
+                result.items.some((item: any) => {
+                  // Check if description looks like a number (unit_price pattern)
+                  const desc = item.description || "";
+                  const isNumberPattern = /^\d+[,\\.]\d+$/.test(desc.trim());
+                  return isNumberPattern;
+                }) && (
+                  <Alert className="mt-6 bg-yellow-50 border-yellow-300">
+                    <AlertDescription>
+                      ⚠️ <strong>Problém s extrakcí popisů:</strong> Některé
+                      popisy jsou zachyceny jako čísla (např. "79,0000" místo
+                      "Jar PŘIMONA 5I zelený").
+                      <br />
+                      <strong>Řešení:</strong> Použijte interaktivní labeling
+                      pro vytvoření správného patternu:
+                      <br />
+                      1. Klikněte na tlačítko{" "}
+                      <strong>"🏷️ Označit části řádků"</strong>
+                      <br />
+                      2. Označte části řádku z OCR textu: Kód, Popis, Cena/MJ,
+                      Množství, MJ, DPH, Celkem
+                      <br />
+                      3. Klikněte <strong>"✨ Vygenerovat pattern"</strong>
+                      <br />
+                      4. Uložte pattern kliknutím na{" "}
+                      <strong>"💾 Uložit změny"</strong>
+                    </AlertDescription>
+                  </Alert>
+                )}
             </CardContent>
           </Card>
         </CardContent>

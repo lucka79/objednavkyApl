@@ -38,6 +38,7 @@ import {
   Save,
   X,
   Plus,
+  Unlink,
   TrendingUp,
   Printer,
 } from "lucide-react";
@@ -49,6 +50,7 @@ import {
   useReceivedInvoices,
   useDeleteReceivedInvoice,
   useUpdateReceivedInvoice,
+  useUnmapReceivedItem,
   ReceivedInvoice,
 } from "@/hooks/useReceivedInvoices";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -782,6 +784,34 @@ export function ReceivedInvoices() {
       });
     } catch (error: any) {
       // Error handled silently
+    }
+  };
+
+  const unmapItemMutation = useUnmapReceivedItem();
+
+  const handleUnmapItem = async (itemId: string) => {
+    if (!selectedInvoice) return;
+
+    if (
+      !confirm(
+        "Opravdu chcete odstranit mapování této položky? Položka se přesune do nenamapovaných kódů."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await unmapItemMutation.mutateAsync(itemId);
+      toast({
+        title: "Mapování odstraněno",
+        description: "Položka byla přesunuta do nenamapovaných kódů",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Chyba",
+        description: "Nepodařilo se odstranit mapování položky",
+        variant: "destructive",
+      });
     }
   };
 
@@ -1708,6 +1738,18 @@ export function ReceivedInvoices() {
                                   >
                                     <Edit className="h-4 w-4" />
                                   </Button>
+                                  {item.matched_ingredient_id && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleUnmapItem(item.id)}
+                                      className="text-orange-600 hover:text-orange-700"
+                                      disabled={unmapItemMutation.isPending}
+                                      title="Odstranit mapování"
+                                    >
+                                      <Unlink className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                   <Button
                                     variant="ghost"
                                     size="sm"

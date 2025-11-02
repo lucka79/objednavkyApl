@@ -246,3 +246,32 @@ export const useDeleteReceivedInvoice = () => {
     },
   });
 };
+
+export const useUnmapReceivedItem = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (itemId: string) => {
+      console.log("Unmapping item:", itemId);
+      
+      const { data, error } = await supabase
+        .from("items_received")
+        .update({ matched_ingredient_id: null })
+        .eq("id", itemId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error unmapping item:", error);
+        throw error;
+      }
+
+      console.log("Item unmapped successfully:", data);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["receivedInvoices"] });
+      queryClient.invalidateQueries({ queryKey: ["unmappedCodes"] });
+    },
+  });
+};
