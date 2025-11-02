@@ -1165,7 +1165,10 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
               <CardContent>
                 <p className="text-lg font-semibold">
                   {result.totalAmount ? (
-                    `${result.totalAmount.toLocaleString("cs-CZ")} Kč`
+                    `${result.totalAmount.toLocaleString("cs-CZ", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })} Kč`
                   ) : (
                     <span className="text-orange-600">Nenalezeno</span>
                   )}
