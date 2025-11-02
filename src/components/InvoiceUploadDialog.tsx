@@ -788,7 +788,13 @@ export function InvoiceUploadDialog() {
           if (unit === "12" || unit === "tuc") return 12;
 
           // Pieces (kusy)
-          if (unit === "1ks" || unit === "ks" || unit === "kus" || unit === "kusy") return 1;
+          if (
+            unit === "1ks" ||
+            unit === "ks" ||
+            unit === "kus" ||
+            unit === "kusy"
+          )
+            return 1;
 
           // Packages (balení)
           if (unit === "bal" || unit === "balení") return 1;
@@ -898,30 +904,28 @@ export function InvoiceUploadDialog() {
           } else if (isDekos) {
             // For Dekos: calculate total quantity in pieces and price per piece
             const unitMultiplier = getUnitMultiplier(item.unit || "");
-            
+
             // Celk. ks = Množství × unit multiplier
             const totalQuantity = item.quantity * unitMultiplier;
-            
+
             // Cena/kus = Jedn. cena ÷ unit multiplier
-            const pricePerItem = unitMultiplier > 0 ? item.price / unitMultiplier : 0;
-            
+            const pricePerItem =
+              unitMultiplier > 0 ? item.price / unitMultiplier : 0;
+
             quantity = totalQuantity;
             unitPrice = pricePerItem;
-            
+
             // Debug logging for Dekos items
-            console.log(
-              `🔄 Processing Dekos item:`,
-              {
-                itemId: item.id,
-                supplierCode: item.supplierCode,
-                originalQuantity: item.quantity,
-                originalUnit: item.unit,
-                unitMultiplier: unitMultiplier,
-                calculatedTotalQuantity: totalQuantity,
-                originalUnitPrice: item.price,
-                calculatedPricePerItem: pricePerItem,
-              }
-            );
+            console.log(`🔄 Processing Dekos item:`, {
+              itemId: item.id,
+              supplierCode: item.supplierCode,
+              originalQuantity: item.quantity,
+              originalUnit: item.unit,
+              unitMultiplier: unitMultiplier,
+              calculatedTotalQuantity: totalQuantity,
+              originalUnitPrice: item.price,
+              calculatedPricePerItem: pricePerItem,
+            });
           } else {
             // For other suppliers: use regular quantity
             quantity = item.quantity;

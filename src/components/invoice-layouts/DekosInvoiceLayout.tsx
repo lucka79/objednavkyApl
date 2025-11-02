@@ -10,33 +10,37 @@ interface DekosInvoiceLayoutProps {
 // Helper function to convert unit of measure to multiplier
 const getUnitMultiplier = (unitOfMeasure: string): number => {
   if (!unitOfMeasure) return 1;
-  
+
   const unit = unitOfMeasure.toLowerCase().trim();
-  
+
   // Thousands (tisíce)
   if (unit === "tis" || unit === "tisíce") return 1000;
-  
+
   // Hundreds (stovky)
   if (unit === "100" || unit === "sto") return 100;
-  
+
   // Dozens (tucty)
   if (unit === "12" || unit === "tuc") return 12;
-  
+
   // Pieces (kusy)
-  if (unit === "1ks" || unit === "ks" || unit === "kus" || unit === "kusy") return 1;
-  
+  if (unit === "1ks" || unit === "ks" || unit === "kus" || unit === "kusy")
+    return 1;
+
   // Packages (balení)
   if (unit === "bal" || unit === "balení") return 1;
-  
+
   // Try to parse as number (e.g., "50", "100")
   const numericUnit = parseInt(unit);
   if (!isNaN(numericUnit)) return numericUnit;
-  
+
   // Default to 1 for unknown units
   return 1;
 };
 
-export function DekosInvoiceLayout({ items, onUnmap }: DekosInvoiceLayoutProps) {
+export function DekosInvoiceLayout({
+  items,
+  onUnmap,
+}: DekosInvoiceLayoutProps) {
   return (
     <div className="overflow-x-auto border border-gray-300 rounded-lg">
       <table className="w-full border-collapse">
@@ -79,15 +83,16 @@ export function DekosInvoiceLayout({ items, onUnmap }: DekosInvoiceLayoutProps) 
             const lineTotal = item.line_total || item.total;
             const priceTotal =
               lineTotal || (quantity && unitPrice ? quantity * unitPrice : 0);
-            
+
             // Calculate total quantity in base units (pieces)
             const unitMultiplier = getUnitMultiplier(unitOfMeasure || "");
             const totalQuantity = quantity * unitMultiplier;
-            
+
             // Calculate price per single item
             // unitPrice is price per unit_of_measure (e.g., per tis, per 100, per 1ks)
             // So to get price per single piece, divide by the multiplier
-            const pricePerItem = unitMultiplier > 0 ? unitPrice / unitMultiplier : 0;
+            const pricePerItem =
+              unitMultiplier > 0 ? unitPrice / unitMultiplier : 0;
 
             // Support both matching status formats
             const ingredientId =
@@ -95,10 +100,15 @@ export function DekosInvoiceLayout({ items, onUnmap }: DekosInvoiceLayoutProps) 
             const ingredientName =
               item.matched_ingredient_name || item.ingredientName;
             const suggestedName = item.suggested_ingredient_name;
-            
+
             // Get confidence (could be 0-1 or 0-100 range)
-            const confidence = item.confidence || item.matching_confidence || item.match_confidence || 100;
-            const confidencePercent = confidence <= 1 ? confidence * 100 : confidence;
+            const confidence =
+              item.confidence ||
+              item.matching_confidence ||
+              item.match_confidence ||
+              100;
+            const confidencePercent =
+              confidence <= 1 ? confidence * 100 : confidence;
             const isLowConfidence = confidencePercent < 100;
 
             return (
@@ -123,7 +133,9 @@ export function DekosInvoiceLayout({ items, onUnmap }: DekosInvoiceLayoutProps) 
                   {description || "-"}
                 </td>
                 <td className="px-3 py-2 text-right text-sm text-gray-900 border-r border-gray-200">
-                  <span className="font-semibold">{quantity?.toLocaleString("cs-CZ")}</span>{" "}
+                  <span className="font-semibold">
+                    {quantity?.toLocaleString("cs-CZ")}
+                  </span>{" "}
                   <span className="text-gray-500 text-xs">{unitOfMeasure}</span>
                 </td>
                 <td className="px-3 py-2 text-right text-xs font-bold text-blue-700 border-r border-gray-200 bg-blue-50/50">
@@ -175,8 +187,8 @@ export function DekosInvoiceLayout({ items, onUnmap }: DekosInvoiceLayoutProps) 
                         )}
                       </div>
                       {isLowConfidence && (
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300 flex items-center gap-1 w-fit"
                         >
                           <AlertTriangle className="h-3 w-3" />
@@ -204,4 +216,3 @@ export function DekosInvoiceLayout({ items, onUnmap }: DekosInvoiceLayoutProps) 
     </div>
   );
 }
-
