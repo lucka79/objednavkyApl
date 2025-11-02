@@ -911,9 +911,13 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
             if not match and re.match(r'^\d+\.\d+-\d+', line):
                 # Original pattern expects: ^(\d+\.\d+)\s+...
                 # We need to extend it to support: ^(\d+\.\d+-\d+)\s+...
-                # Replace first group pattern to support optional dash part
-                # Try both: exact replacement and with optional dash group
-                alternative_pattern = item_pattern.replace(r'^(\d+\.\d+)', r'^(\d+\.\d+-\d+)')
+                # Pattern is a string with escaped backslashes, so we need to match the escaped version
+                logger.debug(f"Attempting to create alternative pattern for dash code from: {item_pattern}")
+                
+                # Try replacing with escaped backslashes (as they appear in the pattern string)
+                alternative_pattern = item_pattern.replace('^(\\d+\\.\\d+)', '^(\\d+\\.\\d+-\\d+)')
+                logger.debug(f"Alternative pattern (exact dash): {alternative_pattern}")
+                
                 try:
                     match = re.match(alternative_pattern, line)
                     if match:
@@ -925,10 +929,13 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
             
             # Also try pattern with optional dash for any line (in case primary pattern didn't match)
             # This allows pattern to work for both codes with and without dash
-            if not match and r'^(\d+\.\d+)' in item_pattern:
+            if not match and '^(\\d+\\.\\d+)' in item_pattern:
                 # Create pattern with optional dash: ^(\d+\.\d+(?:-\d+)?)
                 # This will match both "35.0400" and "8.5340-1"
-                alternative_pattern = item_pattern.replace(r'^(\d+\.\d+)', r'^(\d+\.\d+(?:-\d+)?)')
+                logger.debug(f"Attempting to create pattern with optional dash from: {item_pattern}")
+                alternative_pattern = item_pattern.replace('^(\\d+\\.\\d+)', '^(\\d+\\.\\d+(?:-\\d+)?)')
+                logger.debug(f"Alternative pattern (optional dash): {alternative_pattern}")
+                
                 try:
                     match = re.match(alternative_pattern, line)
                     if match:
