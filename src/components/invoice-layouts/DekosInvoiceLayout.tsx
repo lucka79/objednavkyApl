@@ -1,17 +1,46 @@
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 
-interface PesekLineInvoiceLayoutProps {
+interface DekosInvoiceLayoutProps {
   items: any[];
   onUnmap?: (itemId: string) => void;
 }
 
-export function PesekLineInvoiceLayout({ items, onUnmap }: PesekLineInvoiceLayoutProps) {
+// Helper function to convert unit of measure to multiplier
+const getUnitMultiplier = (unitOfMeasure: string): number => {
+  if (!unitOfMeasure) return 1;
+  
+  const unit = unitOfMeasure.toLowerCase().trim();
+  
+  // Thousands (tisíce)
+  if (unit === "tis" || unit === "tisíce") return 1000;
+  
+  // Hundreds (stovky)
+  if (unit === "100" || unit === "sto") return 100;
+  
+  // Dozens (tucty)
+  if (unit === "12" || unit === "tuc") return 12;
+  
+  // Pieces (kusy)
+  if (unit === "1ks" || unit === "ks" || unit === "kus" || unit === "kusy") return 1;
+  
+  // Packages (balení)
+  if (unit === "bal" || unit === "balení") return 1;
+  
+  // Try to parse as number (e.g., "50", "100")
+  const numericUnit = parseInt(unit);
+  if (!isNaN(numericUnit)) return numericUnit;
+  
+  // Default to 1 for unknown units
+  return 1;
+};
+
+export function DekosInvoiceLayout({ items, onUnmap }: DekosInvoiceLayoutProps) {
   return (
     <div className="overflow-x-auto border border-gray-300 rounded-lg">
       <table className="w-full border-collapse">
         <thead>
-          <tr className="bg-gray-50 border-b-2 border-gray-300">
+          <tr className="bg-blue-50 border-b-2 border-blue-300">
             <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
               Kód
             </th>
@@ -21,8 +50,14 @@ export function PesekLineInvoiceLayout({ items, onUnmap }: PesekLineInvoiceLayou
             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
               Množství
             </th>
+            <th className="text-right px-3 py-2 text-xs font-semibold text-blue-700 border-r border-gray-200">
+              Celk. ks
+            </th>
             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
               Jedn. cena
+            </th>
+            <th className="text-right px-3 py-2 text-xs font-semibold text-purple-700 border-r border-gray-200">
+              Cena/kus
             </th>
             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
               Celkem bez DPH
@@ -43,6 +78,15 @@ export function PesekLineInvoiceLayout({ items, onUnmap }: PesekLineInvoiceLayou
             const lineTotal = item.line_total || item.total;
             const priceTotal =
               lineTotal || (quantity && unitPrice ? quantity * unitPrice : 0);
+            
+            // Calculate total quantity in base units (pieces)
+            const unitMultiplier = getUnitMultiplier(unitOfMeasure || "");
+            const totalQuantity = quantity * unitMultiplier;
+            
+            // Calculate price per single item
+            // unitPrice is price per unit_of_measure (e.g., per tis, per 100, per 1ks)
+            // So to get price per single piece, divide by the multiplier
+            const pricePerItem = unitMultiplier > 0 ? unitPrice / unitMultiplier : 0;
 
             // Support both matching status formats
             const ingredientId =
@@ -54,7 +98,7 @@ export function PesekLineInvoiceLayout({ items, onUnmap }: PesekLineInvoiceLayou
             return (
               <tr
                 key={idx}
-                className={`border-b border-gray-200 hover:bg-gray-50 ${
+                className={`border-b border-gray-200 hover:bg-blue-50/30 ${
                   ingredientId
                     ? ""
                     : suggestedName
@@ -63,7 +107,7 @@ export function PesekLineInvoiceLayout({ items, onUnmap }: PesekLineInvoiceLayou
                 }`}
               >
                 <td className="px-3 py-2 border-r border-gray-200">
-                  <code className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-mono">
+                  <code className="text-xs bg-blue-100 text-gray-700 px-2 py-0.5 rounded font-mono">
                     {productCode || "???"}
                   </code>
                 </td>
@@ -71,20 +115,36 @@ export function PesekLineInvoiceLayout({ items, onUnmap }: PesekLineInvoiceLayou
                   {description || "-"}
                 </td>
                 <td className="px-3 py-2 text-right text-sm text-gray-900 border-r border-gray-200">
-                  {quantity?.toLocaleString("cs-CZ")}{" "}
+                  <span className="font-semibold">{quantity?.toLocaleString("cs-CZ")}</span>{" "}
                   <span className="text-gray-500 text-xs">{unitOfMeasure}</span>
+                </td>
+                <td className="px-3 py-2 text-right text-xs font-bold text-blue-700 border-r border-gray-200 bg-blue-50/50">
+                  {totalQuantity.toLocaleString("cs-CZ", {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  })}{" "}
+                  <span className="text-gray-500">ks</span>
                 </td>
                 <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
                   {unitPrice?.toLocaleString("cs-CZ", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
-                  })}
+                  })}{" "}
+                  Kč
+                </td>
+                <td className="px-3 py-2 text-right text-xs font-semibold text-purple-700 border-r border-gray-200 bg-purple-50/50">
+                  {pricePerItem.toLocaleString("cs-CZ", {
+                    minimumFractionDigits: 4,
+                    maximumFractionDigits: 4,
+                  })}{" "}
+                  Kč
                 </td>
                 <td className="px-3 py-2 text-right text-sm font-medium text-gray-900 border-r border-gray-200">
                   {priceTotal.toLocaleString("cs-CZ", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
-                  })}
+                  })}{" "}
+                  Kč
                 </td>
                 <td className="px-3 py-2 text-sm">
                   {ingredientId ? (
@@ -125,3 +185,4 @@ export function PesekLineInvoiceLayout({ items, onUnmap }: PesekLineInvoiceLayou
     </div>
   );
 }
+

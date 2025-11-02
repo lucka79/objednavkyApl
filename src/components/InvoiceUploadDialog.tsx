@@ -57,7 +57,10 @@ import { useIngredients } from "@/hooks/useIngredients";
 
 import { AddReceivedInvoiceForm } from "./AddReceivedInvoiceForm";
 
-import { PesekLineInvoiceLayout } from "@/components/invoice-layouts";
+import {
+  PesekLineInvoiceLayout,
+  DekosInvoiceLayout,
+} from "@/components/invoice-layouts";
 
 interface ParsedInvoiceItem {
   id: string;
@@ -133,6 +136,9 @@ const ZEELANDIA_SUPPLIER_ID = "52a93272-88b5-40c2-8c49-39d51250a64a";
 
 // Pešek supplier ID (table layout without colors)
 const PESEK_SUPPLIER_ID = "908cc15c-1055-4e22-9a09-c61fef1e0b9c";
+
+// Dekos supplier ID (Dekos-specific layout with unit calculations)
+const DEKOS_SUPPLIER_ID = "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d"; // TODO: Replace with actual Dekos supplier ID
 
 export function InvoiceUploadDialog() {
   const [isOpen, setIsOpen] = useState(false);
@@ -2435,8 +2441,17 @@ export function InvoiceUploadDialog() {
                         onUnmap={handleUnmapItem}
                       />
                     </div>
+                  ) : /* Dekos layout for Dekos supplier */
+                  selectedSupplier === DEKOS_SUPPLIER_ID ||
+                    invoiceSupplier === DEKOS_SUPPLIER_ID ? (
+                    <div className="mt-2">
+                      <DekosInvoiceLayout
+                        items={parsedInvoice.items}
+                        onUnmap={handleUnmapItem}
+                      />
+                    </div>
                   ) : (
-                    /* Standard table layout for other suppliers (including Dekos) */
+                    /* Standard table layout for other suppliers */
                     <div className="mt-2">
                       <PesekLineInvoiceLayout
                         items={parsedInvoice.items}
