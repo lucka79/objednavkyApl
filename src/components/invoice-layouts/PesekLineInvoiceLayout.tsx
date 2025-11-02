@@ -1,8 +1,12 @@
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
+
 interface PesekLineInvoiceLayoutProps {
   items: any[];
+  onUnmap?: (itemId: string) => void;
 }
 
-export function PesekLineInvoiceLayout({ items }: PesekLineInvoiceLayoutProps) {
+export function PesekLineInvoiceLayout({ items, onUnmap }: PesekLineInvoiceLayoutProps) {
   return (
     <div className="overflow-x-auto border border-gray-300 rounded-lg">
       <table className="w-full border-collapse">
@@ -84,9 +88,22 @@ export function PesekLineInvoiceLayout({ items }: PesekLineInvoiceLayoutProps) {
                 </td>
                 <td className="px-3 py-2 text-sm">
                   {ingredientId ? (
-                    <div className="flex items-center gap-1 text-green-700">
-                      <span className="text-sm">✓</span>
-                      {ingredientName}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1 text-green-700">
+                        <span className="text-sm">✓</span>
+                        {ingredientName}
+                      </div>
+                      {onUnmap && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 w-5 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                          onClick={() => onUnmap(item.id)}
+                          title="Odebrat mapování"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
                     </div>
                   ) : suggestedName ? (
                     <div className="flex items-center gap-1 text-orange-600">

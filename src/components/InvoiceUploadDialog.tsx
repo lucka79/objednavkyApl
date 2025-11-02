@@ -286,6 +286,28 @@ export function InvoiceUploadDialog() {
     setCurrentStep("manual");
   };
 
+  const handleUnmapItem = (itemId: string) => {
+    if (!parsedInvoice) return;
+
+    const updatedItems = parsedInvoice.items.map((i) =>
+      i.id === itemId
+        ? {
+            ...i,
+            ingredientId: null,
+            ingredientName: null,
+            matchStatus: "unmapped" as const,
+          }
+        : i
+    );
+
+    setParsedInvoice({
+      ...parsedInvoice,
+      items: updatedItems,
+      unmappedCount: updatedItems.filter((i) => i.matchStatus === "unmapped")
+        .length,
+    });
+  };
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
@@ -2408,12 +2430,18 @@ export function InvoiceUploadDialog() {
                   selectedSupplier === PESEK_SUPPLIER_ID ||
                     invoiceSupplier === PESEK_SUPPLIER_ID ? (
                     <div className="mt-2">
-                      <PesekLineInvoiceLayout items={parsedInvoice.items} />
+                      <PesekLineInvoiceLayout 
+                        items={parsedInvoice.items}
+                        onUnmap={handleUnmapItem}
+                      />
                     </div>
                   ) : (
-                    /* Standard table layout for other suppliers */
+                    /* Standard table layout for other suppliers (including Dekos) */
                     <div className="mt-2">
-                      <PesekLineInvoiceLayout items={parsedInvoice.items} />
+                      <PesekLineInvoiceLayout 
+                        items={parsedInvoice.items}
+                        onUnmap={handleUnmapItem}
+                      />
                     </div>
                   )}
                 </div>
