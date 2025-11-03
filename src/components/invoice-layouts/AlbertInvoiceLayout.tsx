@@ -44,11 +44,13 @@ export function AlbertInvoiceLayout({
         <tbody className="bg-white">
           {items?.map((item: any, idx: number) => {
             // Support both field name formats (from upload dialog and from templates)
-            const description = item.description || item.name;
-            const quantity = item.quantity;
-            const unitOfMeasure = item.unit_of_measure || item.unit;
-            const unitPrice = item.unit_price || item.price;
-            const lineTotal = item.line_total || item.total;
+            // For Albert: product_code should be null/empty, description has the name
+            // But handle old incorrect format where product_code had the name
+            const description = item.description || item.name || (item.product_code && !item.product_code.match(/^\d/) ? item.product_code : null);
+            const quantity = item.quantity || 1;
+            const unitOfMeasure = item.unit_of_measure || item.unit || "ks";
+            const unitPrice = item.unit_price || item.price || 0;
+            const lineTotal = item.line_total || item.total || 0;
             const vatRate = item.vat_rate;
 
             const priceTotal =
