@@ -878,10 +878,17 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
         ignore_patterns = [ignore_patterns]
     
     items_before_extraction = len(items)
+    skip_next_line = False  # Flag to skip second line of multi-line items
     for line_no, line in enumerate(lines, 1):
         line = line.strip()
         
         if not line or len(line) < 5:
+            continue
+        
+        # Skip this line if it's the second line of a multi-line item
+        if skip_next_line:
+            logger.debug(f"Skipping line {line_no} (second line of multi-line item): {line[:50]}")
+            skip_next_line = False
             continue
         
         # Check if line matches any ignore pattern
@@ -998,6 +1005,7 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
                         # Reconstruct as single-line format for existing parser
                         combined_line = f"{description} {weight} {unit_price_str} {vat_letter}"
                         multiline_item_detected = True
+                        skip_next_line = True  # Mark next line for skipping
                         logger.info(f"🔗 Multi-line Albert item detected (lines {line_no}-{line_no+1}):")
                         logger.info(f"   Line 1: {line}")
                         logger.info(f"   Line 2: {next_line}")
