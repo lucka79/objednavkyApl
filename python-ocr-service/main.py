@@ -955,9 +955,10 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
         # Try to extract item from line
         item = extract_item_from_line(line, table_columns, line_no)
         
-        if item and item.product_code:
+        # Accept items with product_code OR description (for retail formats like Albert)
+        if item and (item.product_code or item.description):
             items.append(item)
-            logger.debug(f"Extracted item: {item.product_code} - {item.description}")
+            logger.debug(f"Extracted item: {item.product_code or 'no-code'} - {item.description}")
         elif re.match(r'^\d+\.\d+-\d+', line):
             # Log if lines with dash codes don't match pattern
             logger.warning(f"❌ Line with dash code did not match pattern (line {line_no}): {line[:100]}")
