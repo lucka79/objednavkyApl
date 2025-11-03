@@ -33,6 +33,9 @@ export function AlbertInvoiceLayout({
             <th className="text-right px-3 py-2 text-xs font-semibold text-green-700 border-r border-gray-200 bg-green-50/50">
               Jedn. cena bez DPH
             </th>
+            <th className="text-right px-3 py-2 text-xs font-semibold text-purple-700 border-r border-gray-200 bg-purple-50/50">
+              Cena/kg bez DPH
+            </th>
             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
               Jedn. cena s DPH
             </th>
@@ -74,6 +77,33 @@ export function AlbertInvoiceLayout({
               ? unitPrice / (1 + vatRate / 100)
               : unitPrice;
 
+            // Calculate price per kilogram without VAT
+            // Extract weight from itemWeight (e.g., "125g" -> 0.125 kg, "2,5kg" -> 2.5 kg)
+            const extractWeightInKg = (weightStr: string): number | null => {
+              if (!weightStr || weightStr === "-") return null;
+              
+              // Pattern: number followed by unit (g, kg, ml, l)
+              const match = weightStr.match(/^([\d,\.]+)\s*(kg|g|ml|l)$/i);
+              if (!match) return null;
+              
+              const value = parseFloat(match[1].replace(",", "."));
+              const unit = match[2].toLowerCase();
+              
+              // Convert to kg
+              if (unit === "g" || unit === "ml") {
+                return value / 1000;
+              } else if (unit === "kg" || unit === "l") {
+                return value;
+              }
+              return null;
+            };
+
+            const weightInKg = extractWeightInKg(itemWeight);
+            const pricePerKgWithoutVat =
+              weightInKg && weightInKg > 0
+                ? unitPriceWithoutVat / weightInKg
+                : null;
+
             // Support both matching status formats
             const ingredientId =
               item.matched_ingredient_id || item.ingredientId;
@@ -110,6 +140,14 @@ export function AlbertInvoiceLayout({
                     maximumFractionDigits: 2,
                   })}{" "}
                   Kč
+                </td>
+                <td className="px-3 py-2 text-right text-sm text-purple-700 border-r border-gray-200 bg-purple-50/30 font-bold">
+                  {pricePerKgWithoutVat
+                    ? `${pricePerKgWithoutVat.toLocaleString("cs-CZ", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })} Kč/kg`
+                    : "-"}
                 </td>
                 <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
                   {unitPrice?.toLocaleString("cs-CZ", {
