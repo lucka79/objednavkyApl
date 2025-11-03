@@ -97,11 +97,12 @@ export function DekosInvoiceLayout({
             const unitOfMeasure = item.unit_of_measure || item.unit;
             const unitPrice = item.unit_price || item.price;
             const lineTotal = item.line_total || item.total;
-            
+
             // Use edited unit price if available
             const finalUnitPrice = editedUnitPrices?.[item.id] ?? unitPrice;
             const priceTotal =
-              lineTotal || (quantity && finalUnitPrice ? quantity * finalUnitPrice : 0);
+              lineTotal ||
+              (quantity && finalUnitPrice ? quantity * finalUnitPrice : 0);
 
             // Calculate total quantity in base units (pieces)
             const unitMultiplier = getUnitMultiplier(unitOfMeasure || "");

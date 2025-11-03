@@ -928,7 +928,7 @@ export function InvoiceUploadDialog() {
           } else if (isDekos) {
             // For Dekos: calculate total quantity in pieces and price per piece
             const unitMultiplier = getUnitMultiplier(item.unit || "");
-            
+
             // Use edited unit price if available, otherwise use original
             const finalJednCena = editedUnitPrices[item.id] ?? item.price;
 
