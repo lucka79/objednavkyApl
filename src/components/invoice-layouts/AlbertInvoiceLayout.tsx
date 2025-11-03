@@ -30,8 +30,11 @@ export function AlbertInvoiceLayout({
             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
               Množství
             </th>
+            <th className="text-right px-3 py-2 text-xs font-semibold text-green-700 border-r border-gray-200 bg-green-50/50">
+              Jedn. cena bez DPH
+            </th>
             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-              Jedn. cena
+              Jedn. cena s DPH
             </th>
             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
               Celkem bez DPH
@@ -49,7 +52,12 @@ export function AlbertInvoiceLayout({
             // Support both field name formats (from upload dialog and from templates)
             // For Albert: product_code should be null/empty, description has the name
             // But handle old incorrect format where product_code had the name
-            const description = item.description || item.name || (item.product_code && !item.product_code.match(/^\d/) ? item.product_code : null);
+            const description =
+              item.description ||
+              item.name ||
+              (item.product_code && !item.product_code.match(/^\d/)
+                ? item.product_code
+                : null);
             const itemWeight = item.item_weight || item.weight || "-";
             const quantity = item.quantity || 1;
             const unitOfMeasure = item.unit_of_measure || item.unit || "ks";
@@ -59,6 +67,12 @@ export function AlbertInvoiceLayout({
 
             const priceTotal =
               lineTotal || (quantity && unitPrice ? quantity * unitPrice : 0);
+
+            // Calculate unit price without VAT
+            // Formula: price_without_vat = price_with_vat / (1 + vat_rate/100)
+            const unitPriceWithoutVat = vatRate
+              ? unitPrice / (1 + vatRate / 100)
+              : unitPrice;
 
             // Support both matching status formats
             const ingredientId =
@@ -89,6 +103,13 @@ export function AlbertInvoiceLayout({
                     {quantity?.toLocaleString("cs-CZ")}
                   </span>{" "}
                   <span className="text-gray-500 text-xs">{unitOfMeasure}</span>
+                </td>
+                <td className="px-3 py-2 text-right text-sm text-green-700 border-r border-gray-200 bg-green-50/30 font-semibold">
+                  {unitPriceWithoutVat?.toLocaleString("cs-CZ", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  Kč
                 </td>
                 <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
                   {unitPrice?.toLocaleString("cs-CZ", {
@@ -145,18 +166,20 @@ export function AlbertInvoiceLayout({
           })}
         </tbody>
       </table>
-      
+
       {items && items.length > 0 && (
         <div className="px-3 py-2 bg-gray-50 border-t border-gray-300 text-xs text-gray-600">
           <p className="mb-1">
-            <strong>ℹ️ Albert formát:</strong> Položky nemají kódy dodavatele - mapování pouze podle názvu
+            <strong>ℹ️ Albert formát:</strong> Položky nemají kódy dodavatele -
+            mapování pouze podle názvu
           </p>
           <p className="text-xs text-gray-500">
-            Pro namapování přejděte do <strong>Admin → Suroviny → Kódy dodavatelů</strong> a přidejte mapování podle názvu (např. "RYBÍZ ČERVENÝ" → surovina)
+            Pro namapování přejděte do{" "}
+            <strong>Admin → Suroviny → Kódy dodavatelů</strong> a přidejte
+            mapování podle názvu (např. "RYBÍZ ČERVENÝ" → surovina)
           </p>
         </div>
       )}
     </div>
   );
 }
-
