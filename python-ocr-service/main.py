@@ -2009,6 +2009,43 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         line_total=extract_number(groups[6]) if len(groups) > 6 else 0,
                         line_number=line_number,
                     )
+                elif len(groups) == 4:
+                    # Albert format (4 groups): description, weight, price, vat_letter
+                    # Example: "RYBÍZ ČERVENÝ 1250 39,90 A"
+                    # No product code - retail format
+                    description = groups[0].strip() if groups[0] else None
+                    weight_raw = groups[1].strip() if len(groups) > 1 else None
+                    unit_price = extract_number(groups[2]) if len(groups) > 2 else 0
+                    vat_letter = groups[3].strip() if len(groups) > 3 else None
+                    
+                    # Convert VAT letter to percentage: A=21%, B=15%, C=10%, D=0%
+                    vat_mapping = {'A': 21, 'B': 15, 'C': 10, 'D': 0}
+                    vat_rate = vat_mapping.get(vat_letter, 21) if vat_letter else None
+                    
+                    # Calculate line_total: quantity=1 (one package), price = unit_price
+                    quantity = 1
+                    line_total = unit_price
+                    
+                    # Apply description corrections to weight (e.g., "1250" → "125g")
+                    description_corrections = table_columns.get('description_corrections', {})
+                    corrected_weight = apply_description_corrections(weight_raw, description_corrections) if weight_raw else None
+                    
+                    logger.info(f"Extracting Albert format (4 groups) - description: {description}, weight: {weight_raw} → {corrected_weight}, unit_price: {unit_price}, vat_letter: {vat_letter} ({vat_rate}%)")
+                    
+                    # Apply description corrections to name as well
+                    corrected_description = apply_description_corrections(description, description_corrections) if description else None
+                    
+                    return InvoiceItem(
+                        product_code=None,  # No product codes for Albert
+                        description=corrected_description,
+                        quantity=quantity,
+                        unit_of_measure="ks",  # Pieces/packages
+                        unit_price=unit_price,
+                        line_total=line_total,
+                        vat_rate=vat_rate,
+                        line_number=line_number,
+                        item_weight=corrected_weight,  # Store corrected weight (e.g., "125g")
+                    )
                 else:
                     # Original 6-group format
                     # Apply code corrections if configured
