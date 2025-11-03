@@ -31,7 +31,7 @@
       "^DPH",
       "^ZAOKROUHLENÍ",
       "^Koruna",
-      "^\\d+\\s+x\\s+",
+      "^\\d+\\s+x\\s+[\\d,]+\\s+Kč",
       "^Obch",
       "^táhněte",
       "^ly fa",

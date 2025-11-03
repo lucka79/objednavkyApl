@@ -952,8 +952,73 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
         if re.match(r'^\d+\.\d+-\d+', line):
             logger.info(f"🔍 Processing line with dash code (line {line_no}): {line[:100]}")
         
-        # Try to extract item from line
-        item = extract_item_from_line(line, table_columns, line_no)
+        # Check for multi-line Albert items (description + weight on line 1, quantity × price on line 2)
+        # Example:
+        #   Line 1: "JAHODY 2500 1"
+        #   Line 2: "2 x 69,90 Kč 139,80 A"
+        combined_line = line
+        multiline_item_detected = False
+        if line_no < len(lines):  # Not the last line
+            # Check if current line matches partial pattern: description + weight + incomplete
+            partial_pattern = r'^(?:[A-Z]\s+)?([A-ZĚŠČŘŽÝÁÍÉÚŮĎŤŇĹ\s]+?)\s+(\d{3,5})\s+\d+\s*$'
+            partial_match = re.match(partial_pattern, line)
+            
+            if partial_match:
+                # Check next line for "quantity x price Kč total VAT" pattern
+                next_line_idx = lines.index(line) + 1 if line in lines else -1
+                if next_line_idx > 0 and next_line_idx < len(lines):
+                    next_line = lines[next_line_idx].strip()
+                    # Pattern: "2 x 69,90 Kč 139,80 A"
+                    multiline_pattern = r'^(\d+)\s+x\s+([\d,]+)\s+Kč\s+([\d,]+)\s+([A-Z])\s*$'
+                    multiline_match = re.match(multiline_pattern, next_line)
+                    
+                    if multiline_match:
+                        # Combine into single line format: description weight quantity×price total VAT
+                        # But reformat to match single-line pattern: description weight unit_price VAT
+                        description = partial_match.group(1).strip()
+                        weight = partial_match.group(2).strip()
+                        quantity = multiline_match.group(1).strip()
+                        unit_price = multiline_match.group(2).strip()
+                        line_total = multiline_match.group(3).strip()
+                        vat_letter = multiline_match.group(4).strip()
+                        
+                        # For multi-item lines, we'll extract the actual unit price
+                        # If quantity > 1, calculate: actual_unit_price = line_total / quantity
+                        try:
+                            qty_num = int(quantity)
+                            total_num = extract_number(line_total)
+                            if qty_num > 1 and total_num > 0:
+                                actual_unit_price = total_num / qty_num
+                                unit_price_str = f"{actual_unit_price:.2f}".replace('.', ',')
+                            else:
+                                unit_price_str = unit_price
+                        except:
+                            unit_price_str = unit_price
+                        
+                        # Reconstruct as single-line format for existing parser
+                        combined_line = f"{description} {weight} {unit_price_str} {vat_letter}"
+                        multiline_item_detected = True
+                        logger.info(f"🔗 Multi-line Albert item detected (lines {line_no}-{line_no+1}):")
+                        logger.info(f"   Line 1: {line}")
+                        logger.info(f"   Line 2: {next_line}")
+                        logger.info(f"   Combined: {combined_line}")
+                        logger.info(f"   Quantity: {quantity}, Unit Price: {unit_price_str}, Total: {line_total}")
+        
+        # Try to extract item from line (or combined line for multi-line items)
+        item = extract_item_from_line(combined_line, table_columns, line_no)
+        
+        # For multi-line items, update quantity and line_total
+        if multiline_item_detected and item:
+            try:
+                # Parse the original quantity and line total from the second line
+                next_line = lines[lines.index(line) + 1].strip()
+                multiline_match = re.match(r'^(\d+)\s+x\s+([\d,]+)\s+Kč\s+([\d,]+)\s+([A-Z])\s*$', next_line)
+                if multiline_match:
+                    item.quantity = int(multiline_match.group(1))
+                    item.line_total = extract_number(multiline_match.group(3))
+                    logger.info(f"   → Updated item: quantity={item.quantity}, line_total={item.line_total}")
+            except Exception as e:
+                logger.warning(f"Failed to update multi-line item quantity/total: {e}")
         
         # Accept items with product_code OR description (for retail formats like Albert)
         if item and (item.product_code or item.description):
