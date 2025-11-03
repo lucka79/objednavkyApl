@@ -13,6 +13,15 @@
   "table_columns": {
     "line_pattern": "^(?:[A-Z]\\s+)?([A-ZĚŠČŘŽÝÁÍÉÚŮĎŤŇĹ\\s]+?)\\s+(\\d{3,5})\\s+([\\d,]+)\\s+([A-Z])\\s*$",
     
+    "description_corrections": {
+      "replace_pattern": [
+        {
+          "pattern": "(\\d+)0(?=\\s|$)",
+          "replacement": "$1g"
+        }
+      ]
+    },
+    
     "ignore_patterns": [
       "^\\d+\\s+00$",
       "^E:",

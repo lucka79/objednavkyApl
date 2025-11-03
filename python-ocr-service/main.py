@@ -2019,9 +2019,9 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     unit_price = extract_number(groups[2]) if len(groups) > 2 else 0
                     vat_letter = groups[3].strip() if len(groups) > 3 else None
                     
-                    # Convert VAT letter to percentage: A=21%, B=15%, C=10%, D=0%
-                    vat_mapping = {'A': 21, 'B': 15, 'C': 10, 'D': 0}
-                    vat_rate = vat_mapping.get(vat_letter, 21) if vat_letter else None
+                    # Convert VAT letter to percentage: A=12%, B=21%, C=10%, D=0%
+                    vat_mapping = {'A': 12, 'B': 21, 'C': 10, 'D': 0}
+                    vat_rate = vat_mapping.get(vat_letter, 12) if vat_letter else None
                     
                     # Calculate line_total: quantity=1 (one package), price = unit_price
                     quantity = 1
