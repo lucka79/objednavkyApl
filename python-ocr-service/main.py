@@ -917,24 +917,30 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
             logger.debug(f"Skipping production info line: {line[:50]}")
             continue
         
-        # Skip section headers (lines with only uppercase letters and spaces)
-        if re.match(r'^[A-ZĚŠČŘŽÝÁÍÉÚŮĎŤŇĹ\s]+$', line) and len(line) < 50:
+        # Skip section headers (lines with only uppercase letters and spaces, but SHORT - likely headers)
+        # But allow longer lines (likely product descriptions)
+        if re.match(r'^[A-ZĚŠČŘŽÝÁÍÉÚŮĎŤŇĹ\s]+$', line) and len(line) < 30:
             logger.debug(f"Skipping header line: {line}")
             continue
         
-        # Skip lines that don't start with a digit (product codes should be numeric)
-        # Also support codes with dash after dot (e.g., "8.5340-1", "7.6550-2")
-        if not re.match(r'^\d', line):
-            logger.debug(f"Skipping non-product line: {line[:50]}")
-            continue
+        # Check if pattern requires product code at start (starts with ^\d)
+        # If pattern starts with optional code or no code requirement, skip this validation
+        requires_product_code = item_pattern and item_pattern.startswith('^(\\d')
         
-        # Check if line starts with a product code (digits with optional dot and dash)
-        # This helps ensure we process lines even after description continuation lines
-        # Examples: "8.5340-1", "7.6550-2", "35.2010-1", "35.0400"
-        code_match = re.match(r'^(\d+\.?\d*-?\d*)', line)
-        if not code_match:
-            logger.debug(f"Skipping line without valid product code format: {line[:50]}")
-            continue
+        if requires_product_code:
+            # Skip lines that don't start with a digit (product codes should be numeric)
+            # Only enforce this for suppliers that use product codes
+            if not re.match(r'^\d', line):
+                logger.debug(f"Skipping non-product line (no code): {line[:50]}")
+                continue
+            
+            # Check if line starts with a product code (digits with optional dot and dash)
+            # This helps ensure we process lines even after description continuation lines
+            # Examples: "8.5340-1", "7.6550-2", "35.2010-1", "35.0400"
+            code_match = re.match(r'^(\d+\.?\d*-?\d*)', line)
+            if not code_match:
+                logger.debug(f"Skipping line without valid product code format: {line[:50]}")
+                continue
         
         # Log lines from second page for debugging
         if '01395050' in line or '01250120' in line or 'Vídeňské chlebové koření' in line or 'BAS tmavý' in line:

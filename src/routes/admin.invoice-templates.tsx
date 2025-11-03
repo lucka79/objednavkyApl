@@ -349,30 +349,38 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
 
     setResult(null);
     setError(null);
-    
+
     // Convert HEIC to JPG if needed
     let processedFile = file;
     try {
-      const isHeic = file.name.toLowerCase().endsWith('.heic') || 
-                     file.name.toLowerCase().endsWith('.heif') ||
-                     file.type === 'image/heic' || 
-                     file.type === 'image/heif';
-      
+      const isHeic =
+        file.name.toLowerCase().endsWith(".heic") ||
+        file.name.toLowerCase().endsWith(".heif") ||
+        file.type === "image/heic" ||
+        file.type === "image/heif";
+
       if (isHeic) {
-        console.log('HEIC file detected, converting to JPG...');
-        const { handleFileWithHeicConversion } = await import('@/utils/heicConverter');
+        console.log("HEIC file detected, converting to JPG...");
+        const { handleFileWithHeicConversion } = await import(
+          "@/utils/heicConverter"
+        );
         processedFile = await handleFileWithHeicConversion(file);
         console.log(`Converted ${file.name} to ${processedFile.name}`);
       }
     } catch (error) {
-      console.error('Error converting HEIC:', error);
-      setError(`Nepodařilo se převést HEIC soubor: ${error instanceof Error ? error.message : 'Neznámá chyba'}`);
+      console.error("Error converting HEIC:", error);
+      setError(
+        `Nepodařilo se převést HEIC soubor: ${error instanceof Error ? error.message : "Neznámá chyba"}`
+      );
       return;
     }
-    
+
     setUploadedFile(processedFile);
     setUploadedFileName(processedFile.name);
-    sessionStorage.setItem(`invoice_filename_${supplierId}`, processedFile.name);
+    sessionStorage.setItem(
+      `invoice_filename_${supplierId}`,
+      processedFile.name
+    );
 
     // Create preview for images and PDFs
     if (processedFile.type.startsWith("image/")) {
@@ -386,9 +394,17 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
       setFilePreview("PDF");
     }
 
-    console.log("Processing file:", processedFile.name, "for supplier:", supplierId);
+    console.log(
+      "Processing file:",
+      processedFile.name,
+      "for supplier:",
+      supplierId
+    );
 
-    const uploadResult = await processDocumentWithTemplate(processedFile, supplierId);
+    const uploadResult = await processDocumentWithTemplate(
+      processedFile,
+      supplierId
+    );
 
     if (uploadResult.success) {
       console.log("InvoiceTestUpload - Received data:", {
@@ -479,7 +495,8 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
       <CardHeader>
         <CardTitle>Upload Invoice</CardTitle>
         <CardDescription>
-          Select a PDF or image file (JPG, PNG, HEIC) of an invoice to test extraction
+          Select a PDF or image file (JPG, PNG, HEIC) of an invoice to test
+          extraction
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

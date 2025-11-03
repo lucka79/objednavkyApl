@@ -1,0 +1,29 @@
+{
+  "display_layout": "standard",
+  "ocr_settings": {
+    "dpi": 300,
+    "language": "ces",
+    "psm": 6
+  },
+  "patterns": {
+    "invoice_number": "Daňový doklad č\\.\\s*(\\d+)",
+    "date": "Datum vystavení:\\s*(\\d{1,2}\\.\\d{1,2}\\.\\d{4})",
+    "total_amount": "Celková částka\\s*:\\s*([\\d ,]+?)(?:\\n|\\r|$)",
+    "payment_type": "Způsob platby:\\s*([a-zA-Zá-žÁ-Ž\\s]+)",
+    "table_start": "Název",
+    "table_end": "Celkem"
+  },
+  "table_columns": {
+    "line_pattern": "^([A-ZĚŠČŘŽÝÁÍÉÚŮĎŤŇĹ\\s]+?)\\s+(\\d{3,5}[a-z]?)\\s+([\\d,]+)\\s+([A-Z])\\s*$",
+    
+    "ignore_patterns": [
+      "^Celkem",
+      "^DPH",
+      "^Zaokrouhlení",
+      "^-{3,}",
+      "^={3,}",
+      "^Název\\s+položky"
+    ]
+  }
+}
+

@@ -1,0 +1,45 @@
+{
+  "display_layout": "albert",
+  "ocr_settings": {
+    "dpi": 300,
+    "language": "ces",
+    "psm": 6
+  },
+  "patterns": {
+    "invoice_number": "Trans\\s+(\\d+)",
+    "date": "(\\d{2}\\.\\d{2}\\.\\d{2})\\s+\\d{2}:\\d{2}",
+    "total_amount": "Celkem\\s+([\\d ,]+)"
+  },
+  "table_columns": {
+    "line_pattern": "^(?:[A-Z]\\s+)?([A-ZĚŠČŘŽÝÁÍÉÚŮĎŤŇĹ\\s]+?)\\s+(\\d{3,5})\\s+([\\d,]+)\\s+([A-Z])\\s*$",
+    
+    "ignore_patterns": [
+      "^\\d+\\s+00$",
+      "^E:",
+      "^\\d{3}\\s+\\d{2}\\s+",
+      "^eno\\s+nn",
+      "^Celkem",
+      "^DPH",
+      "^ZAOKROUHLENÍ",
+      "^Koruna",
+      "^\\d+\\s+x\\s+",
+      "^Obch",
+      "^táhněte",
+      "^ly fa",
+      "^ho\\s+\\d+",
+      "^RU\\s+AKO",
+      "^M\\s+získáváte",
+      "^-{3,}",
+      "^={3,}",
+      "^>",
+      "^M[ŽŘ]\\s+",
+      "^-M\\s+",
+      "^ze\\s+-",
+      "^z\\s+a\\s+",
+      "^ME\\s+",
+      "^E\\s+cs\\s+",
+      "^\\d{18,}"
+    ]
+  }
+}
+

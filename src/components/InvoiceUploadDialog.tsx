@@ -338,19 +338,24 @@ export function InvoiceUploadDialog() {
     });
   };
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
 
     if (file) {
       // Check if file is supported (PDF, image, or HEIC)
-      const isHeic = file.name.toLowerCase().endsWith('.heic') || 
-                     file.name.toLowerCase().endsWith('.heif') ||
-                     file.type === 'image/heic' || 
-                     file.type === 'image/heif';
-      
-      if (file.type !== "application/pdf" && 
-          !file.type.startsWith("image/") && 
-          !isHeic) {
+      const isHeic =
+        file.name.toLowerCase().endsWith(".heic") ||
+        file.name.toLowerCase().endsWith(".heif") ||
+        file.type === "image/heic" ||
+        file.type === "image/heif";
+
+      if (
+        file.type !== "application/pdf" &&
+        !file.type.startsWith("image/") &&
+        !isHeic
+      ) {
         toast({
           title: "Chyba",
           description: "Podporované formáty: PDF, JPG, PNG, HEIC",
@@ -362,28 +367,33 @@ export function InvoiceUploadDialog() {
       // Convert HEIC to JPG if needed
       try {
         let processedFile = file;
-        
+
         if (isHeic) {
           toast({
             title: "Převod HEIC",
             description: "Převádím HEIC na JPG formát...",
           });
-          
-          const { handleFileWithHeicConversion } = await import('@/utils/heicConverter');
+
+          const { handleFileWithHeicConversion } = await import(
+            "@/utils/heicConverter"
+          );
           processedFile = await handleFileWithHeicConversion(file);
-          
+
           toast({
             title: "Úspěch",
             description: `Soubor ${file.name} úspěšně převeden na ${processedFile.name}`,
           });
         }
-        
+
         setSelectedFile(processedFile);
       } catch (error) {
-        console.error('Error processing file:', error);
+        console.error("Error processing file:", error);
         toast({
           title: "Chyba",
-          description: error instanceof Error ? error.message : "Nepodařilo se zpracovat soubor",
+          description:
+            error instanceof Error
+              ? error.message
+              : "Nepodařilo se zpracovat soubor",
           variant: "destructive",
         });
       }
@@ -1305,7 +1315,9 @@ export function InvoiceUploadDialog() {
 
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="invoice-file">Faktura (PDF, JPG, PNG, HEIC)</Label>
+                  <Label htmlFor="invoice-file">
+                    Faktura (PDF, JPG, PNG, HEIC)
+                  </Label>
 
                   <Input
                     id="invoice-file"
