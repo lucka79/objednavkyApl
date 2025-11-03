@@ -54,6 +54,7 @@ class InvoiceItem(BaseModel):
     package_weight_kg: Optional[float] = None  # Weight per package in kg (extracted from description)
     total_weight_kg: Optional[float] = None  # Total weight: quantity × package_weight_kg
     price_per_kg: Optional[float] = None  # Price per kilogram: line_total / total_weight_kg
+    item_weight: Optional[str] = None  # Item weight as string (e.g., "125g", "2,5kg") for retail formats
 
 class QRCodeData(BaseModel):
     data: str
@@ -1331,10 +1332,13 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         quantity = 1
                         line_total = unit_price
                         
-                        logger.info(f"Extracting Albert format (4 groups) - description: {description}, weight: {weight_raw}, unit_price: {unit_price}, vat_letter: {vat_letter} ({vat_rate}%)")
-                        
-                        # Apply description corrections if configured
+                        # Apply description corrections to weight (e.g., "1250" → "125g")
                         description_corrections = table_columns.get('description_corrections', {})
+                        corrected_weight = apply_description_corrections(weight_raw, description_corrections) if weight_raw else None
+                        
+                        logger.info(f"Extracting Albert format (4 groups) - description: {description}, weight: {weight_raw} → {corrected_weight}, unit_price: {unit_price}, vat_letter: {vat_letter} ({vat_rate}%)")
+                        
+                        # Apply description corrections to name as well
                         corrected_description = apply_description_corrections(description, description_corrections) if description else None
                         
                         return InvoiceItem(
@@ -1346,6 +1350,7 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             line_total=line_total,
                             vat_rate=vat_rate,
                             line_number=line_number,
+                            item_weight=corrected_weight,  # Store corrected weight (e.g., "125g")
                         )
                     
                     # Generic interactive labeling format (5-9 groups): use position-based mapping with validation

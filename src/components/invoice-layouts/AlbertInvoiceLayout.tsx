@@ -24,6 +24,9 @@ export function AlbertInvoiceLayout({
             <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
               Název položky
             </th>
+            <th className="text-center px-3 py-2 text-xs font-semibold text-blue-700 border-r border-gray-200">
+              Hmotnost
+            </th>
             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
               Množství
             </th>
@@ -47,6 +50,7 @@ export function AlbertInvoiceLayout({
             // For Albert: product_code should be null/empty, description has the name
             // But handle old incorrect format where product_code had the name
             const description = item.description || item.name || (item.product_code && !item.product_code.match(/^\d/) ? item.product_code : null);
+            const itemWeight = item.item_weight || item.weight || "-";
             const quantity = item.quantity || 1;
             const unitOfMeasure = item.unit_of_measure || item.unit || "ks";
             const unitPrice = item.unit_price || item.price || 0;
@@ -76,6 +80,9 @@ export function AlbertInvoiceLayout({
               >
                 <td className="px-3 py-2 text-sm text-gray-900 border-r border-gray-200 font-medium">
                   {description || "-"}
+                </td>
+                <td className="px-3 py-2 text-center text-sm text-blue-700 border-r border-gray-200 bg-blue-50/50 font-semibold">
+                  {itemWeight}
                 </td>
                 <td className="px-3 py-2 text-right text-sm text-gray-900 border-r border-gray-200">
                   <span className="font-semibold">
