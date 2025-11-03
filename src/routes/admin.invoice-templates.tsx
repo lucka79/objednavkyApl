@@ -20,6 +20,7 @@ import {
   PesekLineInvoiceLayout,
   ZeelandiaInvoiceLayout,
   DekosInvoiceLayout,
+  AlbertInvoiceLayout,
 } from "@/components/invoice-layouts";
 
 export const Route = createFileRoute("/admin/invoice-templates")({
@@ -2551,6 +2552,8 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                   return <ZeelandiaInvoiceLayout items={result.items} />;
                 } else if (layout === "dekos") {
                   return <DekosInvoiceLayout items={result.items} />;
+                } else if (layout === "albert") {
+                  return <AlbertInvoiceLayout items={result.items} />;
                 } else {
                   return <PesekLineInvoiceLayout items={result.items} />;
                 }
