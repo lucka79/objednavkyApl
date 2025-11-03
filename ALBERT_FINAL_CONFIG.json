@@ -16,7 +16,7 @@
     "description_corrections": {
       "replace_pattern": [
         {
-          "pattern": "(\\d+)0(?=\\s|$)",
+          "pattern": "^(\\d+)0$",
           "replacement": "$1g"
         }
       ]
