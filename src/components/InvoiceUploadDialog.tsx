@@ -338,23 +338,55 @@ export function InvoiceUploadDialog() {
     });
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
     if (file) {
-      if (file.type !== "application/pdf" && !file.type.startsWith("image/")) {
+      // Check if file is supported (PDF, image, or HEIC)
+      const isHeic = file.name.toLowerCase().endsWith('.heic') || 
+                     file.name.toLowerCase().endsWith('.heif') ||
+                     file.type === 'image/heic' || 
+                     file.type === 'image/heif';
+      
+      if (file.type !== "application/pdf" && 
+          !file.type.startsWith("image/") && 
+          !isHeic) {
         toast({
           title: "Chyba",
-
-          description: "Podporované formáty: PDF, JPG, PNG",
-
+          description: "Podporované formáty: PDF, JPG, PNG, HEIC",
           variant: "destructive",
         });
-
         return;
       }
 
-      setSelectedFile(file);
+      // Convert HEIC to JPG if needed
+      try {
+        let processedFile = file;
+        
+        if (isHeic) {
+          toast({
+            title: "Převod HEIC",
+            description: "Převádím HEIC na JPG formát...",
+          });
+          
+          const { handleFileWithHeicConversion } = await import('@/utils/heicConverter');
+          processedFile = await handleFileWithHeicConversion(file);
+          
+          toast({
+            title: "Úspěch",
+            description: `Soubor ${file.name} úspěšně převeden na ${processedFile.name}`,
+          });
+        }
+        
+        setSelectedFile(processedFile);
+      } catch (error) {
+        console.error('Error processing file:', error);
+        toast({
+          title: "Chyba",
+          description: error instanceof Error ? error.message : "Nepodařilo se zpracovat soubor",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -1273,12 +1305,12 @@ export function InvoiceUploadDialog() {
 
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="invoice-file">Faktura (PDF, JPG, PNG)</Label>
+                  <Label htmlFor="invoice-file">Faktura (PDF, JPG, PNG, HEIC)</Label>
 
                   <Input
                     id="invoice-file"
                     type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
+                    accept=".pdf,.jpg,.jpeg,.png,.heic,.heif"
                     onChange={handleFileSelect}
                     ref={fileInputRef}
                     className="mt-2"

@@ -349,25 +349,46 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
 
     setResult(null);
     setError(null);
-    setUploadedFile(file);
-    setUploadedFileName(file.name);
-    sessionStorage.setItem(`invoice_filename_${supplierId}`, file.name);
+    
+    // Convert HEIC to JPG if needed
+    let processedFile = file;
+    try {
+      const isHeic = file.name.toLowerCase().endsWith('.heic') || 
+                     file.name.toLowerCase().endsWith('.heif') ||
+                     file.type === 'image/heic' || 
+                     file.type === 'image/heif';
+      
+      if (isHeic) {
+        console.log('HEIC file detected, converting to JPG...');
+        const { handleFileWithHeicConversion } = await import('@/utils/heicConverter');
+        processedFile = await handleFileWithHeicConversion(file);
+        console.log(`Converted ${file.name} to ${processedFile.name}`);
+      }
+    } catch (error) {
+      console.error('Error converting HEIC:', error);
+      setError(`Nepodařilo se převést HEIC soubor: ${error instanceof Error ? error.message : 'Neznámá chyba'}`);
+      return;
+    }
+    
+    setUploadedFile(processedFile);
+    setUploadedFileName(processedFile.name);
+    sessionStorage.setItem(`invoice_filename_${supplierId}`, processedFile.name);
 
     // Create preview for images and PDFs
-    if (file.type.startsWith("image/")) {
+    if (processedFile.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = (e) => setFilePreview(e.target?.result as string);
-      reader.readAsDataURL(file);
-    } else if (file.type === "application/pdf") {
+      reader.readAsDataURL(processedFile);
+    } else if (processedFile.type === "application/pdf") {
       // Create blob URL for PDF preview
-      const blobUrl = URL.createObjectURL(file);
+      const blobUrl = URL.createObjectURL(processedFile);
       setPdfUrl(blobUrl);
       setFilePreview("PDF");
     }
 
-    console.log("Processing file:", file.name, "for supplier:", supplierId);
+    console.log("Processing file:", processedFile.name, "for supplier:", supplierId);
 
-    const uploadResult = await processDocumentWithTemplate(file, supplierId);
+    const uploadResult = await processDocumentWithTemplate(processedFile, supplierId);
 
     if (uploadResult.success) {
       console.log("InvoiceTestUpload - Received data:", {
@@ -458,7 +479,7 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
       <CardHeader>
         <CardTitle>Upload Invoice</CardTitle>
         <CardDescription>
-          Select a PDF or image file of an invoice to test extraction
+          Select a PDF or image file (JPG, PNG, HEIC) of an invoice to test extraction
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -466,7 +487,7 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
           <div className="flex-1">
             <input
               type="file"
-              accept=".pdf,.jpg,.jpeg,.png"
+              accept=".pdf,.jpg,.jpeg,.png,.heic,.heif"
               onChange={handleFileUpload}
               disabled={isProcessing}
               className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
