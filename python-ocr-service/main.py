@@ -1031,7 +1031,10 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
         # Accept items with product_code OR description (for retail formats like Albert)
         if item and (item.product_code or item.description):
             items.append(item)
-            logger.debug(f"Extracted item: {item.product_code or 'no-code'} - {item.description}")
+            if multiline_item_detected:
+                logger.info(f"✅ Added multi-line item: {item.description}, qty={item.quantity}, price={item.unit_price}, total={item.line_total}")
+            else:
+                logger.debug(f"Extracted item: {item.product_code or 'no-code'} - {item.description}")
         elif re.match(r'^\d+\.\d+-\d+', line):
             # Log if lines with dash codes don't match pattern
             logger.warning(f"❌ Line with dash code did not match pattern (line {line_no}): {line[:100]}")
@@ -1044,6 +1047,10 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
             logger.debug(f"Line {line_no} did not match pattern: {line[:80]}")
     
     logger.info(f"Extracted {len(items)} valid items (started with {items_before_extraction}, processed {len(lines)} lines)")
+    
+    # Log all extracted items for debugging
+    for idx, item in enumerate(items, 1):
+        logger.info(f"Item {idx}: desc={item.description}, code={item.product_code}, qty={item.quantity}, price={item.unit_price}, total={item.line_total}, weight={item.item_weight}")
     
     # Check if second page items are missing
     extracted_codes = {item.product_code for item in items}
