@@ -145,6 +145,19 @@ serve(async (req) => {
       });
     }
 
+    // Log OCR extracted items
+    console.log(`\n=== OCR EXTRACTION RESULTS ===`);
+    console.log(`Extracted ${ocrResult.items?.length || 0} items from OCR`);
+    ocrResult.items?.forEach((item: any, idx: number) => {
+      console.log(`\nOCR Item ${idx + 1}:`);
+      console.log(`  product_code: ${item.product_code || 'null'}`);
+      console.log(`  description: ${item.description || 'null'}`);
+      console.log(`  quantity: ${item.quantity}`);
+      console.log(`  unit_price: ${item.unit_price}`);
+      console.log(`  line_total: ${item.line_total}`);
+    });
+    console.log(`\n=== END OCR RESULTS ===\n`);
+
     // Match product codes with ingredients
     const matchedItems = await matchIngredientsWithCodes(
       supabase,
@@ -589,19 +602,36 @@ async function suggestIngredient(supabase: any, productCode: string, description
  * For suppliers without product codes (e.g., Albert), use description as the identifier
  */
 async function trackUnmappedCodes(supabase: any, items: any[], supplierId: string) {
-  const unmappedItems = items.filter(item => item.match_status === 'unmapped');
+  console.log(`\n=== TRACKING UNMAPPED CODES ===`);
+  console.log(`Total items: ${items.length}`);
+  console.log(`Items by match_status:`);
+  const statusCounts = items.reduce((acc: any, item: any) => {
+    acc[item.match_status || 'undefined'] = (acc[item.match_status || 'undefined'] || 0) + 1;
+    return acc;
+  }, {});
+  console.log(statusCounts);
+  
+  // Track both 'unmapped' (no match found) and 'no_code' (no product code to match)
+  const unmappedItems = items.filter(item => 
+    item.match_status === 'unmapped' || item.match_status === 'no_code'
+  );
+  console.log(`\nUnmapped items to track: ${unmappedItems.length}`);
 
   for (const item of unmappedItems) {
     // For items without product_code (e.g., Albert retail), use description as identifier
     // This allows unmapped codes tracking for suppliers that don't use product codes
     const productCodeOrDescription = item.product_code || item.description || 'UNKNOWN';
     
-    // Log for debugging Albert items
-    if (!item.product_code) {
-      console.log(`Tracking unmapped item without code: "${item.description}", using as product_code: "${productCodeOrDescription}"`);
-    }
+    console.log(`\n--- Tracking item ${unmappedItems.indexOf(item) + 1}/${unmappedItems.length} ---`);
+    console.log(`  product_code: ${item.product_code || 'null'}`);
+    console.log(`  description: ${item.description || 'null'}`);
+    console.log(`  using as code: ${productCodeOrDescription}`);
+    console.log(`  quantity: ${item.quantity}`);
+    console.log(`  unit_price: ${item.unit_price}`);
+    console.log(`  unit_of_measure: ${item.unit_of_measure}`);
+    console.log(`  match_status: ${item.match_status}`);
     
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('unmapped_product_codes')
       .upsert({
         supplier_id: supplierId,
@@ -616,15 +646,22 @@ async function trackUnmappedCodes(supabase: any, items: any[], supplierId: strin
       }, {
         onConflict: 'supplier_id,product_code',
         ignoreDuplicates: false,
-      });
+      })
+      .select();
 
     if (error) {
-      console.error('Error tracking unmapped code:', error, {
-        product_code: productCodeOrDescription,
-        description: item.description,
+      console.error('  ❌ ERROR tracking unmapped code:', error.message);
+      console.error('  Error details:', {
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
       });
+    } else {
+      console.log(`  ✅ Successfully tracked: ${data ? data.length : 0} row(s)`);
     }
   }
+  
+  console.log(`\n=== TRACKING COMPLETE ===\n`);
 }
 
 /**
