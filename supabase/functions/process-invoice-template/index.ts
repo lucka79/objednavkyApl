@@ -276,7 +276,7 @@ async function matchIngredientsWithCodes(
   items: any[],
   supplierId: string
 ) {
-  
+  // v2: Similarity-based matching for items without product codes
   const matchedItems = [];
 
   for (const item of items) {
