@@ -136,7 +136,7 @@ export function AlbertInvoiceLayout({
     ingredientId: string,
     productCode: string,
     description: string,
-    unitPrice: number
+    pricePerKg: number | null
   ) => {
     if (!supplierId || !ingredientId) return;
 
@@ -145,6 +145,9 @@ export function AlbertInvoiceLayout({
     try {
       const numericIngredientId = parseInt(ingredientId, 10);
       const codeToUse = productCode || description;
+
+      // For Albert, save price per kg (without VAT) as the price
+      const priceToSave = pricePerKg || 0;
 
       // First check if this mapping already exists
       const { data: existing } = await supabase
@@ -160,7 +163,7 @@ export function AlbertInvoiceLayout({
         const { error } = await supabase
           .from("ingredient_supplier_codes")
           .update({
-            price: unitPrice || 0,
+            price: priceToSave,
             is_active: true,
           })
           .eq("id", existing.id);
@@ -174,7 +177,7 @@ export function AlbertInvoiceLayout({
             ingredient_id: numericIngredientId,
             supplier_id: supplierId,
             product_code: codeToUse,
-            price: unitPrice || 0,
+            price: priceToSave,
             is_active: true,
           });
 
@@ -188,7 +191,7 @@ export function AlbertInvoiceLayout({
 
       toast({
         title: "✅ Mapování uloženo",
-        description: `${description} → ${ingredient?.name}`,
+        description: `${description} → ${ingredient?.name} (${priceToSave.toFixed(2)} Kč/kg)`,
       });
 
       // Notify parent component
@@ -323,7 +326,7 @@ export function AlbertInvoiceLayout({
             const ingredientName =
               item.matched_ingredient_name || item.ingredientName;
             const suggestedName = item.suggested_ingredient_name;
-            
+
             // Debug log for first 3 items
             if (idx < 3) {
               console.log(`🎨 AlbertLayout Item ${idx}:`, {
@@ -503,7 +506,7 @@ export function AlbertInvoiceLayout({
                             selectedIngredients[`item-${idx}`],
                             item.product_code || "",
                             description,
-                            unitPrice
+                            pricePerKgWithoutVat
                           )
                         }
                         disabled={
