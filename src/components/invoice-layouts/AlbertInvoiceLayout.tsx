@@ -159,18 +159,17 @@ export function AlbertInvoiceLayout({
         .maybeSingle();
 
       if (existing) {
-        // Update existing mapping
+        // Update existing mapping - only update price
         const { error } = await supabase
           .from("ingredient_supplier_codes")
           .update({
             price: priceToSave,
-            is_active: true,
           })
           .eq("id", existing.id);
 
         if (error) throw error;
       } else {
-        // Insert new mapping
+        // Insert new mapping - don't set is_active, let it default
         const { error } = await supabase
           .from("ingredient_supplier_codes")
           .insert({
@@ -178,7 +177,6 @@ export function AlbertInvoiceLayout({
             supplier_id: supplierId,
             product_code: codeToUse,
             price: priceToSave,
-            is_active: true,
           });
 
         if (error) throw error;
