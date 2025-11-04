@@ -586,16 +586,26 @@ async function suggestIngredient(supabase: any, productCode: string, description
 
 /**
  * Track unmapped codes for manual mapping
+ * For suppliers without product codes (e.g., Albert), use description as the identifier
  */
 async function trackUnmappedCodes(supabase: any, items: any[], supplierId: string) {
   const unmappedItems = items.filter(item => item.match_status === 'unmapped');
 
   for (const item of unmappedItems) {
+    // For items without product_code (e.g., Albert retail), use description as identifier
+    // This allows unmapped codes tracking for suppliers that don't use product codes
+    const productCodeOrDescription = item.product_code || item.description || 'UNKNOWN';
+    
+    // Log for debugging Albert items
+    if (!item.product_code) {
+      console.log(`Tracking unmapped item without code: "${item.description}", using as product_code: "${productCodeOrDescription}"`);
+    }
+    
     const { error } = await supabase
       .from('unmapped_product_codes')
       .upsert({
         supplier_id: supplierId,
-        product_code: item.product_code,
+        product_code: productCodeOrDescription,  // Use description when code is missing
         description: item.description,
         unit_of_measure: item.unit_of_measure,
         last_seen_price: item.unit_price,
@@ -609,7 +619,10 @@ async function trackUnmappedCodes(supabase: any, items: any[], supplierId: strin
       });
 
     if (error) {
-      console.error('Error tracking unmapped code:', error);
+      console.error('Error tracking unmapped code:', error, {
+        product_code: productCodeOrDescription,
+        description: item.description,
+      });
     }
   }
 }
