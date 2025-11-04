@@ -1,0 +1,108 @@
+{
+  "name": "Albert - VZOR",
+  "version": "1.1",
+  "display_layout": "albert",
+  "ocr_settings": {
+    "dpi": 300,
+    "language": "ces",
+    "psm": 6
+  },
+  "patterns": {
+    "invoice_number": "Trans\\s+(\\d+)",
+    "date": "(\\d{2}\\.\\d{2}\\.\\d{2})\\s+\\d{2}:\\d{2}",
+    "total_amount": "Celkem\\s+([\\d ,]+)",
+    "payment_type": ""
+  },
+  "table_columns": {
+    "line_pattern": "^(?:[A-Z]\\s+)?([A-ZĚŠČŘŽÝÁÍÉÚŮĎŤŇĹ\\s]+?)\\s+(\\d{3,5}[Gg]?)\\s+([\\d,]+)\\s+([A-Z])(?:\\s+[A-Z])?\\s*$",
+    "groups": {
+      "description": 1,
+      "item_weight": 2,
+      "unit_price": 3,
+      "vat_type": 4
+    },
+    "multi_line_detection": {
+      "enabled": true,
+      "first_line_pattern": "^([A-ZĚŠČŘŽÝÁÍÉÚŮĎŤŇĹ\\s]+)\\s+(\\d{3,5}[Gg]?)\\s+\\d+\\s*$",
+      "second_line_pattern": "^(\\d+)\\s+x\\s+([\\d,]+)\\s+Kč\\s+([\\d,]+)\\s+([A-Z])\\s*$",
+      "combine_fields": {
+        "description": "first_line_group_1",
+        "item_weight": "first_line_group_2",
+        "quantity": "second_line_group_1",
+        "unit_price": "second_line_group_2",
+        "line_total": "second_line_group_3",
+        "vat_type": "second_line_group_4"
+      }
+    },
+    "description_corrections": {
+      "replace_pattern": [
+        {
+          "pattern": "^(\\d+)0$",
+          "replacement": "\\1g",
+          "description": "Convert 1250 to 125g"
+        },
+        {
+          "pattern": "^(\\d+)G$",
+          "replacement": "\\1g",
+          "description": "Convert 500G to 500g"
+        }
+      ]
+    },
+    "vat_mapping": {
+      "A": 12,
+      "B": 21,
+      "C": 0
+    },
+    "defaults": {
+      "quantity": 1,
+      "unit_of_measure": "ks"
+    },
+    "ignore_patterns": [
+      "^\\d+\\s+00$",
+      "^E:",
+      "^\\d{3}\\s+\\d{2}\\s+",
+      "^eno\\s+nn",
+      "^Celkem",
+      "^DPH",
+      "^ZAOKROUHLENÍ",
+      "^Koruna",
+      "^\\d+\\s+x\\s+[\\d,]+\\s+Kč",
+      "^Obch",
+      "^táhněte",
+      "^ly fa",
+      "^ho\\s+\\d+",
+      "^RU\\s+AKO",
+      "^M\\s+získáváte",
+      "^-{3,}",
+      "^={3,}",
+      "^>",
+      "^M[ŽŘ]\\s+",
+      "^-M\\s+",
+      "^ze\\s+-",
+      "^z\\s+a\\s+",
+      "^ME\\s+",
+      "^E\\s+cs\\s+",
+      "^\\d{18,}",
+      "^Psi aplikaci",
+      "^gy na",
+      "^POMO AD"
+    ]
+  },
+  "notes": {
+    "supplier": "Albert supermarket (retail)",
+    "characteristics": [
+      "No product codes - items identified by description only",
+      "Weight format: 125g, 250g, 500G, 1250 (needs conversion)",
+      "VAT types: A=12%, B=21%, C=0%",
+      "Some items span two lines (e.g., JAHODY with quantity on next line)",
+      "Price stored as: price per kg without VAT"
+    ],
+    "examples": [
+      "Single line: RYBÍZ ČERVENÝ 1250 39,90 A → RYBÍZ ČERVENÝ, 125g, 39.90 Kč, 12% VAT",
+      "Single line: JAHODY 500G 119,90 A A → JAHODY, 500g, 119.90 Kč, 12% VAT",
+      "Two lines: JAHODY 2500 1 + 2 x 69,90 Kč 139,80 A → JAHODY, 250g, qty=2, 69.90 Kč each"
+    ],
+    "price_calculation": "Unit price (with VAT) / (1 + VAT_rate/100) / weight_in_kg = price per kg without VAT"
+  }
+}
+
