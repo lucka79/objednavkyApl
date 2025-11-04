@@ -290,6 +290,8 @@ async function matchIngredientsWithCodes(
         continue;
       }
 
+      console.log(`\n🔍 Matching by description: "${description}"`);
+
       // Get all ingredient mappings for this supplier
       const { data: supplierIngredients, error } = await supabase
         .from('ingredient_supplier_codes')
@@ -301,10 +303,12 @@ async function matchIngredientsWithCodes(
         .eq('supplier_id', supplierId);
 
       if (error) {
-        console.error(`Error fetching supplier ingredients:`, error);
+        console.error(`❌ Error fetching supplier ingredients:`, error);
         matchedItems.push({ ...item, match_status: 'no_code' });
         continue;
       }
+
+      console.log(`📦 Found ${supplierIngredients?.length || 0} ingredient mappings for this supplier`);
 
       // Simple similarity matching: remove diacritics and compare
       const normalize = (str: string) => str
@@ -341,6 +345,7 @@ async function matchIngredientsWithCodes(
       }
 
       if (bestMatch && bestScore > 0.5) {
+        console.log(`✅ Match found: "${description}" → "${bestMatch.ingredients.name}" (score: ${bestScore.toFixed(2)})`);
         matchedItems.push({
           ...item,
           matched_ingredient_id: bestMatch.ingredients.id,
@@ -352,6 +357,7 @@ async function matchIngredientsWithCodes(
         });
         continue;
       } else {
+        console.log(`❌ No match found for: "${description}" (best score: ${bestScore.toFixed(2)})`);
         matchedItems.push({ ...item, match_status: 'no_code' });
         continue;
       }
