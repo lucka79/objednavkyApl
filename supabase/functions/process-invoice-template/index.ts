@@ -165,6 +165,15 @@ serve(async (req) => {
       supplierId
     );
 
+    console.log('\n=== MATCHING RESULTS ===');
+    matchedItems.forEach((item: any, idx: number) => {
+      console.log(`Item ${idx + 1}: ${item.description || item.product_code}`);
+      console.log(`  Match status: ${item.match_status}`);
+      console.log(`  Matched to: ${item.matched_ingredient_name || 'NONE'}`);
+      console.log(`  Ingredient ID: ${item.matched_ingredient_id || 'NONE'}`);
+    });
+    console.log('=== END MATCHING RESULTS ===\n');
+
     // Track unmapped codes
     await trackUnmappedCodes(supabase, matchedItems, supplierId);
 
@@ -191,6 +200,14 @@ serve(async (req) => {
       'isEmpty': paymentType === '',
     });
 
+    // Add matching debug info for browser console
+    const matchingDebug = matchedItems.map((item: any) => ({
+      description: item.description,
+      product_code: item.product_code,
+      match_status: item.match_status,
+      matched_to: item.matched_ingredient_name,
+    }));
+
     const result = {
       success: true,
       data: {
@@ -205,6 +222,7 @@ serve(async (req) => {
         unmapped_codes: matchedItems.filter((item: any) => !item.matched_ingredient_id).length,
         raw_text: ocrResult.raw_text || '', // Include raw OCR text for debugging
         qr_codes: ocrResult.qr_codes || [], // Include QR codes detected from all pages
+        matching_debug: matchingDebug, // Debug info for browser console
       },
     };
 
