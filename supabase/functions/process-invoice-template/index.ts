@@ -301,8 +301,10 @@ async function matchIngredientsWithCodes(
   const matchedItems = [];
 
   for (const item of items) {
+    console.log(`\n🔍 Processing item: ${JSON.stringify(item)}`);
     const productCode = item.product_code?.trim();
     const description = item.description?.trim();
+    console.log(`  → product_code: ${productCode}, description: ${description}`);
     
     // For items without product_code (e.g., Albert retail), try matching by description
     if (!productCode) {
