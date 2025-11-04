@@ -11,7 +11,7 @@
     "total_amount": "Celkem\\s+([\\d ,]+)"
   },
   "table_columns": {
-    "line_pattern": "^(?:[A-Z]\\s+)?([A-ZĚŠČŘŽÝÁÍÉÚŮĎŤŇĹ\\s]+?)\\s+(\\d{3,5}[Gg]?)\\s+([\\d,]+)\\s+([A-Z])(?:\\s+[A-Z])?\\s*$",
+    "line_pattern": "^[:\\-•\\s]*(?:[A-Z]\\s+)?([A-ZĚŠČŘŽÝÁÍÉÚŮĎŤŇĹ\\s]+?)\\s+(\\d{3,5}[Gg]?)\\s+([\\d,]+)\\s+([A-Z])(?:\\s+[A-Z])?\\s*$",
     
     "description_corrections": {
       "replace_pattern": [
@@ -51,7 +51,12 @@
       "^z\\s+a\\s+",
       "^ME\\s+",
       "^E\\s+cs\\s+",
-      "^\\d{18,}"
+      "^\\d{18,}",
+      "^Stáhněte",
+      "^Sbírejte",
+      "^potřete",
+      "^Vrátit\\s+Kč",
+      "^i\\s+\\d"
     ]
   }
 }
