@@ -284,10 +284,51 @@ async function matchIngredientsWithCodes(
 
   for (const item of items) {
     const productCode = item.product_code?.trim();
+    const description = item.description?.trim();
     
+    // For items without product_code (e.g., Albert retail), try matching by description
     if (!productCode) {
-      matchedItems.push({ ...item, match_status: 'no_code' });
-      continue;
+      if (!description) {
+        matchedItems.push({ ...item, match_status: 'no_code' });
+        continue;
+      }
+
+      console.log(`\nNo product code - trying to match by description: "${description}"`);
+      
+      // Try to match by description (Albert stores description as product_code)
+      let { data: match, error } = await supabase
+        .from('ingredient_supplier_codes')
+        .select(`
+          ingredient_id,
+          product_code,
+          supplier_ingredient_name,
+          ingredients!inner(id, name, unit, category_id)
+        `)
+        .ilike('product_code', description)
+        .eq('supplier_id', supplierId)
+        .maybeSingle();
+
+      if (error) {
+        console.error(`Error searching by description "${description}":`, error);
+      }
+
+      if (match) {
+        console.log(`✓ Match found by description: ${match.ingredients.name}`);
+        matchedItems.push({
+          ...item,
+          matched_ingredient_id: match.ingredients.id,
+          matched_ingredient_name: match.ingredients.name,
+          matched_ingredient_unit: match.ingredients.unit,
+          matched_ingredient_category: match.ingredients.category_id,
+          match_status: 'exact',
+          match_confidence: 1.0,
+        });
+        continue;
+      } else {
+        console.log(`✗ No match found for description: "${description}"`);
+        matchedItems.push({ ...item, match_status: 'no_code' });
+        continue;
+      }
     }
 
     // Try exact match first (case-insensitive, trimmed)
