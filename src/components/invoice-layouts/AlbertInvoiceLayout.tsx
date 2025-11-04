@@ -1,10 +1,28 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { X, Check, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 interface AlbertInvoiceLayoutProps {
   items: any[];
   onUnmap?: (itemId: string) => void;
+  supplierId?: string;
+  onItemMapped?: (
+    itemId: string,
+    ingredientId: number,
+    ingredientName: string
+  ) => void;
 }
 
 /**
@@ -15,7 +33,171 @@ interface AlbertInvoiceLayoutProps {
 export function AlbertInvoiceLayout({
   items,
   onUnmap,
+  supplierId,
+  onItemMapped,
 }: AlbertInvoiceLayoutProps) {
+  const { toast } = useToast();
+  const [selectedIngredients, setSelectedIngredients] = useState<
+    Record<string, string>
+  >({});
+  const [searchTerms, setSearchTerms] = useState<Record<string, string>>({});
+  const [mappingIds, setMappingIds] = useState<Set<string>>(new Set());
+
+  // Fetch ingredients for this supplier
+  const { data: ingredients = [] } = useQuery({
+    queryKey: ["ingredients-for-mapping", supplierId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ingredients")
+        .select("id, name, unit")
+        .order("name");
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!supplierId,
+  });
+
+  // Remove diacritics for better matching
+  const removeDiacritics = (str: string) => {
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  };
+
+  // Calculate similarity score between two strings
+  const calculateSimilarity = (str1: string, str2: string): number => {
+    const s1 = removeDiacritics(str1.toLowerCase());
+    const s2 = removeDiacritics(str2.toLowerCase());
+
+    // Check for exact match
+    if (s1 === s2) return 1.0;
+    if (s1.includes(s2) || s2.includes(s1)) return 0.9;
+
+    // Check word overlap
+    const words1 = s1.split(/\s+/).filter((w) => w.length > 2);
+    const words2 = s2.split(/\s+/).filter((w) => w.length > 2);
+
+    if (words1.length === 0 || words2.length === 0) return 0;
+
+    let matchingWords = 0;
+    for (const word1 of words1) {
+      for (const word2 of words2) {
+        if (word1.includes(word2) || word2.includes(word1)) {
+          matchingWords++;
+          break;
+        }
+      }
+    }
+
+    return matchingWords / Math.max(words1.length, words2.length);
+  };
+
+  // Filter and sort ingredients based on search term or item description
+  const getFilteredIngredients = (
+    searchTerm: string,
+    itemDescription: string
+  ) => {
+    let filtered = [...ingredients];
+
+    if (searchTerm) {
+      // User is searching - filter by search term
+      const query = removeDiacritics(searchTerm.toLowerCase());
+      filtered = filtered.filter((ing) =>
+        removeDiacritics(ing.name.toLowerCase()).includes(query)
+      );
+    } else if (itemDescription) {
+      // No search term - show suggestions based on item description
+      // Calculate similarity for each ingredient
+      const scored = filtered.map((ing) => ({
+        ...ing,
+        similarity: calculateSimilarity(itemDescription, ing.name),
+      }));
+
+      // Sort by similarity
+      scored.sort((a, b) => b.similarity - a.similarity);
+
+      // If we have good matches (> 20%), show only those
+      const goodMatches = scored.filter((item) => item.similarity > 0.2);
+
+      if (goodMatches.length > 0) {
+        filtered = goodMatches;
+      } else {
+        // No good matches - show all ingredients sorted by name
+        filtered = scored;
+      }
+    }
+
+    // Limit to top 50 results
+    return filtered.slice(0, 50);
+  };
+
+  // Handle mapping an item to an ingredient
+  const handleMapIngredient = async (
+    itemId: string,
+    ingredientId: string,
+    productCode: string,
+    description: string
+  ) => {
+    if (!supplierId || !ingredientId) return;
+
+    setMappingIds((prev) => new Set(prev).add(itemId));
+
+    try {
+      const numericIngredientId = parseInt(ingredientId, 10);
+
+      // Save mapping to ingredient_supplier_codes table
+      // For Albert, use description as product_code since they don't have codes
+      const { error } = await supabase.from("ingredient_supplier_codes").upsert(
+        {
+          ingredient_id: numericIngredientId,
+          supplier_id: supplierId,
+          product_code: productCode || description, // Use description if no code
+          is_active: true,
+        },
+        {
+          onConflict: "ingredient_id,supplier_id,product_code",
+          ignoreDuplicates: false,
+        }
+      );
+
+      if (error) throw error;
+
+      // Find ingredient name
+      const ingredient = ingredients.find(
+        (ing) => ing.id === numericIngredientId
+      );
+
+      toast({
+        title: "✅ Mapování uloženo",
+        description: `${description} → ${ingredient?.name}`,
+      });
+
+      // Notify parent component
+      if (onItemMapped && ingredient) {
+        onItemMapped(itemId, numericIngredientId, ingredient.name);
+      }
+
+      // Clear selection
+      setSelectedIngredients((prev) => {
+        const newState = { ...prev };
+        delete newState[itemId];
+        return newState;
+      });
+    } catch (error) {
+      console.error("Error mapping ingredient:", error);
+      toast({
+        title: "❌ Chyba při ukládání",
+        description: "Nepodařilo se uložit mapování",
+        variant: "destructive",
+      });
+    } finally {
+      setMappingIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
+    }
+  };
+
   return (
     <div className="overflow-x-auto border border-gray-300 rounded-lg">
       <table className="w-full border-collapse">
@@ -81,14 +263,14 @@ export function AlbertInvoiceLayout({
             // Extract weight from itemWeight (e.g., "125g" -> 0.125 kg, "2,5kg" -> 2.5 kg)
             const extractWeightInKg = (weightStr: string): number | null => {
               if (!weightStr || weightStr === "-") return null;
-              
+
               // Pattern: number followed by unit (g, kg, ml, l)
               const match = weightStr.match(/^([\d,\.]+)\s*(kg|g|ml|l)$/i);
               if (!match) return null;
-              
+
               const value = parseFloat(match[1].replace(",", "."));
               const unit = match[2].toLowerCase();
-              
+
               // Convert to kg
               if (unit === "g" || unit === "ml") {
                 return value / 1000;
@@ -187,6 +369,112 @@ export function AlbertInvoiceLayout({
                         </Button>
                       )}
                     </div>
+                  ) : supplierId ? (
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={selectedIngredients[`item-${idx}`] || ""}
+                        onValueChange={(value) =>
+                          setSelectedIngredients((prev) => ({
+                            ...prev,
+                            [`item-${idx}`]: value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger className="w-[200px] h-8 text-xs">
+                          <SelectValue placeholder="💡 Návrhy suroviny..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <div className="p-2 sticky top-0 bg-white z-10">
+                            <Input
+                              placeholder="Hledat..."
+                              value={searchTerms[`item-${idx}`] || ""}
+                              onChange={(e) =>
+                                setSearchTerms((prev) => ({
+                                  ...prev,
+                                  [`item-${idx}`]: e.target.value,
+                                }))
+                              }
+                              className="h-8 text-xs"
+                            />
+                          </div>
+                          {(() => {
+                            const filteredList = getFilteredIngredients(
+                              searchTerms[`item-${idx}`] || "",
+                              description
+                            );
+
+                            if (filteredList.length === 0) {
+                              return (
+                                <div className="p-4 text-center text-xs text-muted-foreground">
+                                  {ingredients.length === 0
+                                    ? "Načítání surovin..."
+                                    : searchTerms[`item-${idx}`]
+                                      ? `Žádná surovina nenalezena pro "${searchTerms[`item-${idx}`]}"`
+                                      : "Žádná surovina nenalezena"}
+                                </div>
+                              );
+                            }
+
+                            return filteredList.map(
+                              (ingredient: any, ingIdx: number) => {
+                                const similarity = ingredient.similarity || 0;
+                                const isTopMatch =
+                                  ingIdx === 0 && similarity > 0.5;
+
+                                return (
+                                  <SelectItem
+                                    key={ingredient.id}
+                                    value={ingredient.id.toString()}
+                                    className={`text-xs ${
+                                      isTopMatch
+                                        ? "bg-green-50 font-semibold"
+                                        : ""
+                                    }`}
+                                  >
+                                    {isTopMatch && (
+                                      <span className="text-green-600 mr-1">
+                                        ⭐
+                                      </span>
+                                    )}
+                                    {ingredient.name}{" "}
+                                    <span className="text-muted-foreground">
+                                      ({ingredient.unit})
+                                    </span>
+                                    {similarity > 0.5 && (
+                                      <span className="ml-2 text-xs text-green-600">
+                                        {Math.round(similarity * 100)}%
+                                      </span>
+                                    )}
+                                  </SelectItem>
+                                );
+                              }
+                            );
+                          })()}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          handleMapIngredient(
+                            `item-${idx}`,
+                            selectedIngredients[`item-${idx}`],
+                            item.product_code || "",
+                            description
+                          )
+                        }
+                        disabled={
+                          !selectedIngredients[`item-${idx}`] ||
+                          mappingIds.has(`item-${idx}`)
+                        }
+                        className="h-8 w-8 p-0"
+                      >
+                        {mappingIds.has(`item-${idx}`) ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   ) : suggestedName ? (
                     <div className="flex items-center gap-1 text-orange-600">
                       <span className="text-sm">⚠</span>
@@ -211,11 +499,18 @@ export function AlbertInvoiceLayout({
             <strong>ℹ️ Albert formát:</strong> Položky nemají kódy dodavatele -
             mapování pouze podle názvu
           </p>
-          <p className="text-xs text-gray-500">
-            Pro namapování přejděte do{" "}
-            <strong>Admin → Suroviny → Kódy dodavatelů</strong> a přidejte
-            mapování podle názvu (např. "RYBÍZ ČERVENÝ" → surovina)
-          </p>
+          {supplierId ? (
+            <p className="text-xs text-gray-500">
+              💡 Namapujte suroviny přímo v tabulce - vyberte surovinu a
+              klikněte na ✓
+            </p>
+          ) : (
+            <p className="text-xs text-gray-500">
+              Pro namapování přejděte do{" "}
+              <strong>Admin → Suroviny → Kódy dodavatelů</strong> a přidejte
+              mapování podle názvu (např. "RYBÍZ ČERVENÝ" → surovina)
+            </p>
+          )}
         </div>
       )}
     </div>

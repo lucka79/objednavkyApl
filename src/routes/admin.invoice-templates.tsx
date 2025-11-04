@@ -2553,7 +2553,12 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                 } else if (layout === "dekos") {
                   return <DekosInvoiceLayout items={result.items} />;
                 } else if (layout === "albert") {
-                  return <AlbertInvoiceLayout items={result.items} />;
+                  return (
+                    <AlbertInvoiceLayout
+                      items={result.items}
+                      supplierId={supplierId}
+                    />
+                  );
                 } else {
                   return <PesekLineInvoiceLayout items={result.items} />;
                 }

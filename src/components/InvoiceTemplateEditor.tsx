@@ -477,9 +477,14 @@ function TemplateForm({
         <div className="space-y-2">
           <Select
             value={
-              ["standard", "makro", "pesek", "zeelandia", "dekos", "albert"].includes(
-                formData.display_layout
-              )
+              [
+                "standard",
+                "makro",
+                "pesek",
+                "zeelandia",
+                "dekos",
+                "albert",
+              ].includes(formData.display_layout)
                 ? formData.display_layout
                 : "custom"
             }
@@ -528,9 +533,14 @@ function TemplateForm({
             </SelectContent>
           </Select>
 
-          {!["standard", "makro", "pesek", "zeelandia", "dekos", "albert"].includes(
-            formData.display_layout
-          ) && (
+          {![
+            "standard",
+            "makro",
+            "pesek",
+            "zeelandia",
+            "dekos",
+            "albert",
+          ].includes(formData.display_layout) && (
             <Input
               placeholder="Zadejte vlastní název layoutu (např. 'supplier-name-custom')"
               value={formData.display_layout}
@@ -548,7 +558,8 @@ function TemplateForm({
             <ul className="list-disc list-inside mt-1 space-y-1">
               <li>
                 <strong>Předdefinované layouty</strong> (standard, makro, pesek,
-                zeelandia, dekos, albert) mají specifické komponenty pro zobrazení
+                zeelandia, dekos, albert) mají specifické komponenty pro
+                zobrazení
               </li>
               <li>
                 <strong>Vlastní layout</strong> můžete použít pro dodavatele se
