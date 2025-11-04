@@ -306,13 +306,16 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
     };
 
     console.log("✅ Calling setResult with updated items");
-    console.log("Updated items preview:", updatedItems.map((item: any, idx: number) => ({
-      index: idx,
-      description: item.description,
-      matched_ingredient_id: item.matched_ingredient_id,
-      matched_ingredient_name: item.matched_ingredient_name,
-    })));
-    
+    console.log(
+      "Updated items preview:",
+      updatedItems.map((item: any, idx: number) => ({
+        index: idx,
+        description: item.description,
+        matched_ingredient_id: item.matched_ingredient_id,
+        matched_ingredient_name: item.matched_ingredient_name,
+      }))
+    );
+
     setResult(updatedResult);
     sessionStorage.setItem(
       `invoice_result_${supplierId}`,

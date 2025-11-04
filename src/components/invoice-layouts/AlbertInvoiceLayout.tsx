@@ -323,6 +323,18 @@ export function AlbertInvoiceLayout({
             const ingredientName =
               item.matched_ingredient_name || item.ingredientName;
             const suggestedName = item.suggested_ingredient_name;
+            
+            // Debug log for first 3 items
+            if (idx < 3) {
+              console.log(`🎨 AlbertLayout Item ${idx}:`, {
+                description: item.description,
+                matched_ingredient_id: item.matched_ingredient_id,
+                ingredientId: item.ingredientId,
+                resolvedIngredientId: ingredientId,
+                ingredientName,
+                willShowGreenCheck: !!ingredientId,
+              });
+            }
 
             return (
               <tr
