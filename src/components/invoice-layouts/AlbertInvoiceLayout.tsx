@@ -135,7 +135,8 @@ export function AlbertInvoiceLayout({
     itemId: string,
     ingredientId: string,
     productCode: string,
-    description: string
+    description: string,
+    unitPrice: number
   ) => {
     if (!supplierId || !ingredientId) return;
 
@@ -151,6 +152,7 @@ export function AlbertInvoiceLayout({
           ingredient_id: numericIngredientId,
           supplier_id: supplierId,
           product_code: productCode || description, // Use description if no code
+          price: unitPrice || 0, // Include price from the item
           is_active: true,
         },
         {
@@ -459,7 +461,8 @@ export function AlbertInvoiceLayout({
                             `item-${idx}`,
                             selectedIngredients[`item-${idx}`],
                             item.product_code || "",
-                            description
+                            description,
+                            unitPrice
                           )
                         }
                         disabled={
