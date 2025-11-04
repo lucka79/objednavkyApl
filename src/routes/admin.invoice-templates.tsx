@@ -263,11 +263,28 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
   const [editingLineText, setEditingLineText] = useState<string>("");
 
   // Handle item mapped callback - update result to show mapped ingredient
-  const handleItemMapped = (itemId: string, ingredientId: number, ingredientName: string) => {
-    if (!result) return;
+  const handleItemMapped = (
+    itemId: string,
+    ingredientId: number,
+    ingredientName: string
+  ) => {
+    console.log('📥 handleItemMapped called:', { itemId, ingredientId, ingredientName });
+    
+    if (!result) {
+      console.warn('⚠️ No result object available');
+      return;
+    }
+
+    console.log('Current result items count:', result.items?.length);
 
     const updatedItems = result.items.map((item: any, idx: number) => {
-      if (`item-${idx}` === itemId) {
+      const currentItemId = `item-${idx}`;
+      if (currentItemId === itemId) {
+        console.log(`✓ Updating item at index ${idx}:`, {
+          description: item.description,
+          before: { matched_ingredient_id: item.matched_ingredient_id },
+          after: { ingredientId, ingredientName }
+        });
         return {
           ...item,
           matched_ingredient_id: ingredientId,
@@ -284,8 +301,13 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
       items: updatedItems,
     };
 
+    console.log('✅ Calling setResult with updated items');
     setResult(updatedResult);
-    sessionStorage.setItem(`invoice_result_${supplierId}`, JSON.stringify(updatedResult));
+    sessionStorage.setItem(
+      `invoice_result_${supplierId}`,
+      JSON.stringify(updatedResult)
+    );
+    console.log('✅ Result and sessionStorage updated');
   };
 
   // Extract potential item lines from OCR text

@@ -192,8 +192,19 @@ export function AlbertInvoiceLayout({
       });
 
       // Notify parent component
+      console.log("🔔 Calling onItemMapped callback:", {
+        itemId,
+        ingredientId: numericIngredientId,
+        ingredientName: ingredient?.name,
+        hasCallback: !!onItemMapped,
+      });
+
       if (onItemMapped && ingredient) {
         onItemMapped(itemId, numericIngredientId, ingredient.name);
+      } else {
+        console.warn(
+          "⚠️ onItemMapped callback not available or ingredient not found"
+        );
       }
 
       // Clear selection
