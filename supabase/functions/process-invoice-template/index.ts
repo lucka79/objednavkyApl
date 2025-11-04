@@ -145,18 +145,7 @@ serve(async (req) => {
       });
     }
 
-    // Log OCR extracted items
-    console.log(`\n=== OCR EXTRACTION RESULTS ===`);
-    console.log(`Extracted ${ocrResult.items?.length || 0} items from OCR`);
-    ocrResult.items?.forEach((item: any, idx: number) => {
-      console.log(`\nOCR Item ${idx + 1}:`);
-      console.log(`  product_code: ${item.product_code || 'null'}`);
-      console.log(`  description: ${item.description || 'null'}`);
-      console.log(`  quantity: ${item.quantity}`);
-      console.log(`  unit_price: ${item.unit_price}`);
-      console.log(`  line_total: ${item.line_total}`);
-    });
-    console.log(`\n=== END OCR RESULTS ===\n`);
+    console.log(`OCR extracted ${ocrResult.items?.length || 0} items`);
 
     // Match product codes with ingredients
     const matchedItems = await matchIngredientsWithCodes(
@@ -165,14 +154,6 @@ serve(async (req) => {
       supplierId
     );
 
-    console.log('\n=== MATCHING RESULTS ===');
-    matchedItems.forEach((item: any, idx: number) => {
-      console.log(`Item ${idx + 1}: ${item.description || item.product_code}`);
-      console.log(`  Match status: ${item.match_status}`);
-      console.log(`  Matched to: ${item.matched_ingredient_name || 'NONE'}`);
-      console.log(`  Ingredient ID: ${item.matched_ingredient_id || 'NONE'}`);
-    });
-    console.log('=== END MATCHING RESULTS ===\n');
 
     // Track unmapped codes
     await trackUnmappedCodes(supabase, matchedItems, supplierId);
@@ -295,16 +276,12 @@ async function matchIngredientsWithCodes(
   items: any[],
   supplierId: string
 ) {
-  console.log(`\n=== Starting ingredient matching for supplier: ${supplierId} ===`);
-  console.log(`Total items to match: ${items.length}`);
   
   const matchedItems = [];
 
   for (const item of items) {
-    console.log(`\n🔍 Processing item: ${JSON.stringify(item)}`);
     const productCode = item.product_code?.trim();
     const description = item.description?.trim();
-    console.log(`  → product_code: ${productCode}, description: ${description}`);
     
     // For items without product_code (e.g., Albert retail), try matching by description
     if (!productCode) {
@@ -313,39 +290,68 @@ async function matchIngredientsWithCodes(
         continue;
       }
 
-      console.log(`\nNo product code - trying to match by description: "${description}"`);
-      
-      // Try to match by description (Albert stores description as product_code)
-      let { data: match, error } = await supabase
+      // Get all ingredient mappings for this supplier
+      const { data: supplierIngredients, error } = await supabase
         .from('ingredient_supplier_codes')
         .select(`
           ingredient_id,
           product_code,
-          supplier_ingredient_name,
           ingredients!inner(id, name, unit, category_id)
         `)
-        .ilike('product_code', description)
-        .eq('supplier_id', supplierId)
-        .maybeSingle();
+        .eq('supplier_id', supplierId);
 
       if (error) {
-        console.error(`Error searching by description "${description}":`, error);
+        console.error(`Error fetching supplier ingredients:`, error);
+        matchedItems.push({ ...item, match_status: 'no_code' });
+        continue;
       }
 
-      if (match) {
-        console.log(`✓ Match found by description: ${match.ingredients.name}`);
+      // Simple similarity matching: remove diacritics and compare
+      const normalize = (str: string) => str
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+
+      const normalizedDesc = normalize(description);
+      let bestMatch = null;
+      let bestScore = 0;
+
+      for (const mapping of supplierIngredients || []) {
+        // Check both product_code and ingredient name
+        const normalizedCode = normalize(mapping.product_code || '');
+        const normalizedName = normalize(mapping.ingredients.name || '');
+        
+        // Check if description contains the code/name or vice versa
+        if (normalizedDesc.includes(normalizedCode) || normalizedCode.includes(normalizedDesc)) {
+          const score = Math.max(normalizedCode.length / normalizedDesc.length, normalizedDesc.length / normalizedCode.length);
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = mapping;
+          }
+        }
+        
+        if (normalizedDesc.includes(normalizedName) || normalizedName.includes(normalizedDesc)) {
+          const score = Math.max(normalizedName.length / normalizedDesc.length, normalizedDesc.length / normalizedName.length);
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = mapping;
+          }
+        }
+      }
+
+      if (bestMatch && bestScore > 0.5) {
         matchedItems.push({
           ...item,
-          matched_ingredient_id: match.ingredients.id,
-          matched_ingredient_name: match.ingredients.name,
-          matched_ingredient_unit: match.ingredients.unit,
-          matched_ingredient_category: match.ingredients.category_id,
+          matched_ingredient_id: bestMatch.ingredients.id,
+          matched_ingredient_name: bestMatch.ingredients.name,
+          matched_ingredient_unit: bestMatch.ingredients.unit,
+          matched_ingredient_category: bestMatch.ingredients.category_id,
           match_status: 'exact',
-          match_confidence: 1.0,
+          match_confidence: bestScore,
         });
         continue;
       } else {
-        console.log(`✗ No match found for description: "${description}"`);
         matchedItems.push({ ...item, match_status: 'no_code' });
         continue;
       }
@@ -353,7 +359,6 @@ async function matchIngredientsWithCodes(
 
     // Try exact match first (case-insensitive, trimmed)
     const trimmedCode = productCode.trim();
-    console.log(`\nSearching for code: "${trimmedCode}" (original: "${productCode}", length: ${trimmedCode.length})`);
     
     let { data: match, error } = await supabase
       .from('ingredient_supplier_codes')
@@ -372,7 +377,6 @@ async function matchIngredientsWithCodes(
     }
 
     if (match) {
-      console.log(`✓ Exact match found for "${trimmedCode}": ${match.ingredients.name} (DB code: "${match.product_code}")`);
       matchedItems.push({
         ...item,
         matched_ingredient_id: match.ingredients.id,
@@ -383,21 +387,6 @@ async function matchIngredientsWithCodes(
         match_confidence: 1.0,
       });
       continue;
-    } else {
-      console.log(`✗ No exact match for "${trimmedCode}" (supplier: ${supplierId})`);
-      
-      // Debug: Show some existing codes for this supplier
-      const { data: existingCodes } = await supabase
-        .from('ingredient_supplier_codes')
-        .select('product_code')
-        .eq('supplier_id', supplierId)
-        .limit(10);
-      
-      if (existingCodes && existingCodes.length > 0) {
-        console.log(`  Available codes for this supplier (first 10): ${existingCodes.map((c: any) => `"${c.product_code}"`).join(', ')}`);
-      } else {
-        console.log(`  No codes found in database for supplier: ${supplierId}`);
-      }
     }
 
     // Try fuzzy matching (remove leading zeros, spaces, etc.)
@@ -439,7 +428,6 @@ async function matchIngredientsWithCodes(
 
     // Try fuzzy name matching on ingredient names
     if (item.description) {
-      console.log(`Trying fuzzy name match for: "${item.description}"`);
       
       // Get first few words of description (remove size/quantity info)
       const descWords = item.description.trim().split(/\s+/).slice(0, 3).join(' ').toLowerCase();
