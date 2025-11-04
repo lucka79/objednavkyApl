@@ -144,24 +144,42 @@ export function AlbertInvoiceLayout({
 
     try {
       const numericIngredientId = parseInt(ingredientId, 10);
+      const codeToUse = productCode || description;
 
-      // Save mapping to ingredient_supplier_codes table
-      // For Albert, use description as product_code since they don't have codes
-      const { error } = await supabase.from("ingredient_supplier_codes").upsert(
-        {
-          ingredient_id: numericIngredientId,
-          supplier_id: supplierId,
-          product_code: productCode || description, // Use description if no code
-          price: unitPrice || 0, // Include price from the item
-          is_active: true,
-        },
-        {
-          onConflict: "ingredient_id,supplier_id,product_code",
-          ignoreDuplicates: false,
-        }
-      );
+      // First check if this mapping already exists
+      const { data: existing } = await supabase
+        .from("ingredient_supplier_codes")
+        .select("id")
+        .eq("ingredient_id", numericIngredientId)
+        .eq("supplier_id", supplierId)
+        .eq("product_code", codeToUse)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (existing) {
+        // Update existing mapping
+        const { error } = await supabase
+          .from("ingredient_supplier_codes")
+          .update({
+            price: unitPrice || 0,
+            is_active: true,
+          })
+          .eq("id", existing.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new mapping
+        const { error } = await supabase
+          .from("ingredient_supplier_codes")
+          .insert({
+            ingredient_id: numericIngredientId,
+            supplier_id: supplierId,
+            product_code: codeToUse,
+            price: unitPrice || 0,
+            is_active: true,
+          });
+
+        if (error) throw error;
+      }
 
       // Find ingredient name
       const ingredient = ingredients.find(

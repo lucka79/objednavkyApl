@@ -262,6 +262,32 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
   const [editingLineIndex, setEditingLineIndex] = useState<number | null>(null);
   const [editingLineText, setEditingLineText] = useState<string>("");
 
+  // Handle item mapped callback - update result to show mapped ingredient
+  const handleItemMapped = (itemId: string, ingredientId: number, ingredientName: string) => {
+    if (!result) return;
+
+    const updatedItems = result.items.map((item: any, idx: number) => {
+      if (`item-${idx}` === itemId) {
+        return {
+          ...item,
+          matched_ingredient_id: ingredientId,
+          matched_ingredient_name: ingredientName,
+          ingredientId: ingredientId,
+          ingredientName: ingredientName,
+        };
+      }
+      return item;
+    });
+
+    const updatedResult = {
+      ...result,
+      items: updatedItems,
+    };
+
+    setResult(updatedResult);
+    sessionStorage.setItem(`invoice_result_${supplierId}`, JSON.stringify(updatedResult));
+  };
+
   // Extract potential item lines from OCR text
   const extractPotentialLines = (text: string): string[] => {
     if (!text) return [];
@@ -2557,6 +2583,7 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                     <AlbertInvoiceLayout
                       items={result.items}
                       supplierId={supplierId}
+                      onItemMapped={handleItemMapped}
                     />
                   );
                 } else {
