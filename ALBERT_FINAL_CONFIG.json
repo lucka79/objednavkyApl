@@ -11,12 +11,16 @@
     "total_amount": "Celkem\\s+([\\d ,]+)"
   },
   "table_columns": {
-    "line_pattern": "^(?:[A-Z]\\s+)?([A-ZĚŠČŘŽÝÁÍÉÚŮĎŤŇĹ\\s]+?)\\s+(\\d{3,5})\\s+([\\d,]+)\\s+([A-Z])\\s*$",
+    "line_pattern": "^(?:[A-Z]\\s+)?([A-ZĚŠČŘŽÝÁÍÉÚŮĎŤŇĹ\\s]+?)\\s+(\\d{3,5}[Gg]?)\\s+([\\d,]+)\\s+([A-Z])(?:\\s+[A-Z])?\\s*$",
     
     "description_corrections": {
       "replace_pattern": [
         {
           "pattern": "^(\\d+)0$",
+          "replacement": "\\1g"
+        },
+        {
+          "pattern": "^(\\d+)G$",
           "replacement": "\\1g"
         }
       ]
