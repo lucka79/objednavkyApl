@@ -268,14 +268,18 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
     ingredientId: number,
     ingredientName: string
   ) => {
-    console.log('📥 handleItemMapped called:', { itemId, ingredientId, ingredientName });
-    
+    console.log("📥 handleItemMapped called:", {
+      itemId,
+      ingredientId,
+      ingredientName,
+    });
+
     if (!result) {
-      console.warn('⚠️ No result object available');
+      console.warn("⚠️ No result object available");
       return;
     }
 
-    console.log('Current result items count:', result.items?.length);
+    console.log("Current result items count:", result.items?.length);
 
     const updatedItems = result.items.map((item: any, idx: number) => {
       const currentItemId = `item-${idx}`;
@@ -283,7 +287,7 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
         console.log(`✓ Updating item at index ${idx}:`, {
           description: item.description,
           before: { matched_ingredient_id: item.matched_ingredient_id },
-          after: { ingredientId, ingredientName }
+          after: { ingredientId, ingredientName },
         });
         return {
           ...item,
@@ -301,13 +305,20 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
       items: updatedItems,
     };
 
-    console.log('✅ Calling setResult with updated items');
+    console.log("✅ Calling setResult with updated items");
+    console.log("Updated items preview:", updatedItems.map((item: any, idx: number) => ({
+      index: idx,
+      description: item.description,
+      matched_ingredient_id: item.matched_ingredient_id,
+      matched_ingredient_name: item.matched_ingredient_name,
+    })));
+    
     setResult(updatedResult);
     sessionStorage.setItem(
       `invoice_result_${supplierId}`,
       JSON.stringify(updatedResult)
     );
-    console.log('✅ Result and sessionStorage updated');
+    console.log("✅ Result and sessionStorage updated");
   };
 
   // Extract potential item lines from OCR text
@@ -2433,16 +2444,18 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                     console.log(`Item ${idx + 1}:`, {
                       product_code: item.product_code,
                       description: item.description,
-                      description_length: item.description?.length || 0,
-                      description_type: typeof item.description,
+                      // MAPPING FIELDS - Check if these exist:
+                      matched_ingredient_id: item.matched_ingredient_id,
+                      matched_ingredient_name: item.matched_ingredient_name,
+                      ingredientId: item.ingredientId,
+                      ingredientName: item.ingredientName,
+                      // Other fields:
                       quantity: item.quantity,
                       unit_of_measure: item.unit_of_measure,
                       unit_price: item.unit_price,
                       line_total: item.line_total,
                       vat_rate: item.vat_rate,
-                      line_number: item.line_number,
                       allKeys: Object.keys(item),
-                      rawItem: item,
                     });
                   });
                 }
