@@ -62,6 +62,8 @@ import { IngredientPriceFluctuation } from "./IngredientPriceFluctuation";
 const MAKRO_SUPPLIER_ID = "16293f61-b9e8-4016-9882-0b8fa90125e4";
 // Pešek supplier ID (table layout without colors)
 const PESEK_SUPPLIER_ID = "908cc15c-1055-4e22-9a09-c61fef1e0b9c";
+// Albert supplier ID (weight-based layout with kg units)
+const ALBERT_SUPPLIER_ID = "cf433a0c-f55d-4935-8941-043b13cea7a3";
 
 // Add Item Modal Component
 function AddItemModal({
@@ -945,7 +947,10 @@ export function ReceivedInvoices() {
             const productCode = supplierCode?.product_code || "";
 
             const quantity = (item.quantity || 0).toFixed(
-              selectedInvoice?.supplier_id === MAKRO_SUPPLIER_ID ? 3 : 1
+              selectedInvoice?.supplier_id === MAKRO_SUPPLIER_ID ||
+                selectedInvoice?.supplier_id === ALBERT_SUPPLIER_ID
+                ? 3
+                : 1
             );
             const unit = item.unit_of_measure || item.ingredient?.unit || "";
             const unitPrice = (item.unit_price || 0).toLocaleString("cs-CZ", {
@@ -1666,7 +1671,9 @@ export function ReceivedInvoices() {
                                   <span className="text-sm Consolas font-semibold text-right block">
                                     {(item.quantity || 0).toFixed(
                                       selectedInvoice?.supplier_id ===
-                                        MAKRO_SUPPLIER_ID
+                                        MAKRO_SUPPLIER_ID ||
+                                        selectedInvoice?.supplier_id ===
+                                          ALBERT_SUPPLIER_ID
                                         ? 3
                                         : 1
                                     )}{" "}

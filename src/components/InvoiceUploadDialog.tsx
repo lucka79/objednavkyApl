@@ -60,12 +60,15 @@ import { AddReceivedInvoiceForm } from "./AddReceivedInvoiceForm";
 import {
   PesekLineInvoiceLayout,
   DekosInvoiceLayout,
+  AlbertInvoiceLayout,
 } from "@/components/invoice-layouts";
 
 interface ParsedInvoiceItem {
   id: string;
 
   name: string;
+
+  description?: string; // For layouts that need separate description field
 
   quantity: number;
 
@@ -98,6 +101,12 @@ interface ParsedInvoiceItem {
   basePrice?: number;
 
   unitsInMu?: number;
+
+  // Albert-specific fields
+  itemWeight?: string;
+  vatRate?: number;
+  unitPriceWithoutVat?: number;
+  pricePerKgWithoutVat?: number; // Price per kg without VAT (for Albert)
 }
 
 interface ParsedInvoice {
@@ -139,6 +148,9 @@ const PESEK_SUPPLIER_ID = "908cc15c-1055-4e22-9a09-c61fef1e0b9c";
 
 // Dekos supplier ID (Dekos-specific layout with unit calculations)
 const DEKOS_SUPPLIER_ID = "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d"; // TODO: Replace with actual Dekos supplier ID
+
+// Albert supplier ID (Albert-specific layout without product codes)
+const ALBERT_SUPPLIER_ID = "cf433a0c-f55d-4935-8941-043b13cea7a3";
 
 export function InvoiceUploadDialog() {
   const [isOpen, setIsOpen] = useState(false);
@@ -451,6 +463,8 @@ export function InvoiceUploadDialog() {
             package_weight_kg: item.package_weight_kg,
             unit_price: item.unit_price,
             total_price: item.total_price || item.line_total,
+            item_weight: item.item_weight,
+            vat_rate: item.vat_rate,
           }))
         );
 
@@ -475,10 +489,68 @@ export function InvoiceUploadDialog() {
             });
           }
 
-          return {
+          // Calculate Albert-specific fields before creating mapped item
+          let albertUnitPriceWithoutVat: number | undefined;
+          let albertTotalWeightKg: number | undefined;
+          let albertPricePerKgWithoutVat: number | undefined;
+
+          // Helper function to extract weight in kg
+          const extractWeightInKg = (weightStr: string): number | null => {
+            if (!weightStr) return null;
+            const match = weightStr.match(/^([\d,\.]+)\s*(kg|g|ml|l)$/i);
+            if (!match) return null;
+            const value = parseFloat(match[1].replace(",", "."));
+            const unit = match[2].toLowerCase();
+            // Convert to kg
+            if (unit === "g" || unit === "ml") {
+              return value / 1000;
+            } else if (unit === "kg" || unit === "l") {
+              return value;
+            }
+            return null;
+          };
+
+          if (item.item_weight && item.vat_rate) {
+            // Calculate unit price without VAT
+            const unitPrice = item.unit_price || item.price || 0;
+            albertUnitPriceWithoutVat = unitPrice / (1 + item.vat_rate / 100);
+
+            // Calculate total weight in kg (itemWeight × quantity)
+            const weightInKg = extractWeightInKg(item.item_weight);
+            if (weightInKg) {
+              albertTotalWeightKg = weightInKg * item.quantity;
+              // Calculate price per kg without VAT: unitPriceWithoutVat / weightInKg (not totalWeightKg!)
+              if (weightInKg > 0) {
+                albertPricePerKgWithoutVat =
+                  albertUnitPriceWithoutVat / weightInKg;
+              }
+            }
+
+            console.log(`🔵 Albert calculation for ${item.description}:`, {
+              item_weight: item.item_weight,
+              vat_rate: item.vat_rate,
+              quantity: item.quantity,
+              unitPrice: unitPrice,
+              albertUnitPriceWithoutVat,
+              weightInKg,
+              albertTotalWeightKg,
+              albertPricePerKgWithoutVat,
+            });
+          } else {
+            console.warn(
+              `⚠️ Missing Albert fields for ${item.description || item.name}:`,
+              {
+                item_weight: item.item_weight,
+                vat_rate: item.vat_rate,
+              }
+            );
+          }
+
+          const mappedItem: ParsedInvoiceItem = {
             id: (index + 1).toString(),
 
             name: item.description || item.name,
+            description: item.description || item.name, // Add description field for layouts that use it
 
             quantity: item.quantity,
 
@@ -504,15 +576,57 @@ export function InvoiceUploadDialog() {
 
             packageWeightKg: item.package_weight_kg,
 
-            totalWeightKg: calculatedTotalWeight,
+            totalWeightKg: albertTotalWeightKg || calculatedTotalWeight,
 
             pricePerKg: item.price_per_kg,
 
             basePrice: item.base_price,
 
             unitsInMu: unitsInMu,
+
+            // Albert-specific fields
+            itemWeight: item.item_weight,
+            vatRate: item.vat_rate,
+            unitPriceWithoutVat: albertUnitPriceWithoutVat,
+            pricePerKgWithoutVat: albertPricePerKgWithoutVat,
           };
+
+          // Debug log for Albert items
+          if (item.item_weight || item.vat_rate) {
+            console.log(`🛒 Albert item ${index + 1} mapping:`, {
+              description: item.description,
+              item_weight: item.item_weight,
+              vat_rate: item.vat_rate,
+              unit_price: item.unit_price,
+              quantity: item.quantity,
+              mapped_itemWeight: mappedItem.itemWeight,
+              mapped_vatRate: mappedItem.vatRate,
+              calculated_unitPriceWithoutVat: mappedItem.unitPriceWithoutVat,
+              calculated_totalWeightKg: mappedItem.totalWeightKg,
+              calculated_pricePerKgWithoutVat: mappedItem.pricePerKgWithoutVat,
+            });
+          }
+
+          return mappedItem;
         });
+
+        console.log("📦 All mapped items (full):", items);
+        console.log(
+          "📦 All mapped items (summary):",
+          items.map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            description: item.description,
+            itemWeight: item.itemWeight,
+            vatRate: item.vatRate,
+            price: item.price,
+            unitPriceWithoutVat: item.unitPriceWithoutVat,
+            totalWeightKg: item.totalWeightKg,
+            total: item.total,
+            unit: item.unit,
+            quantity: item.quantity,
+          }))
+        );
 
         // Calculate subtotal (without VAT) from line items
 
@@ -688,7 +802,9 @@ export function InvoiceUploadDialog() {
         const dotParts = dateStr.split(".");
         if (dotParts.length === 3) {
           const [day, month, year] = dotParts;
-          return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+          // Handle 2-digit year (assume 20YY for years 00-99)
+          const fullYear = year.length === 2 ? `20${year}` : year;
+          return `${fullYear}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
         }
 
         // Try DD-MM-YYYY format
@@ -696,6 +812,17 @@ export function InvoiceUploadDialog() {
         if (dashParts.length === 3 && dashParts[2].length === 4) {
           const [day, month, year] = dashParts;
           return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+        }
+
+        // Try YY-MM-DD format (2-digit year, assumes 20YY)
+        if (
+          dashParts.length === 3 &&
+          dashParts[0].length === 2 &&
+          dashParts[1].length === 2 &&
+          dashParts[2].length === 2
+        ) {
+          const [year, month, day] = dashParts;
+          return `20${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
         }
 
         // If already in YYYY-MM-DD format, return as-is
@@ -881,6 +1008,9 @@ export function InvoiceUploadDialog() {
           const isMakro =
             selectedSupplier === MAKRO_SUPPLIER_ID ||
             invoiceSupplier === MAKRO_SUPPLIER_ID;
+          const isAlbert =
+            selectedSupplier === ALBERT_SUPPLIER_ID ||
+            invoiceSupplier === ALBERT_SUPPLIER_ID;
           // Check if Dekos supplier (by template display_layout or supplier ID)
           const dekosTemplate = templates?.find(
             (t: any) =>
@@ -997,6 +1127,25 @@ export function InvoiceUploadDialog() {
               finalJednCena: finalJednCena,
               calculatedPricePerItem: pricePerItem,
             });
+          } else if (isAlbert) {
+            // For Albert: use totalWeightKg as quantity and pricePerKgWithoutVat as unit_price
+            quantity = item.totalWeightKg || 0;
+            unitPrice = item.pricePerKgWithoutVat || item.price || 0;
+
+            // Debug logging for Albert items
+            console.log(`🛒 Processing Albert item:`, {
+              itemId: item.id,
+              description: item.name,
+              itemWeight: item.itemWeight,
+              originalQuantity: item.quantity,
+              totalWeightKg: item.totalWeightKg,
+              priceWithVat: item.price,
+              unitPriceWithoutVat: item.unitPriceWithoutVat,
+              pricePerKgWithoutVat: item.pricePerKgWithoutVat,
+              vatRate: item.vatRate,
+              savedQuantity: quantity,
+              savedUnitPrice: unitPrice,
+            });
           } else {
             // For other suppliers: use regular quantity
             quantity = item.quantity;
@@ -1013,7 +1162,9 @@ export function InvoiceUploadDialog() {
                   ? "Zeelandia"
                   : isDekos
                     ? "Dekos"
-                    : "Other",
+                    : isAlbert
+                      ? "Albert"
+                      : "Other",
               displayedInCelkHmot: isMakro
                 ? item.ingredientUnit === "ks" &&
                   (ksUnitChecked[item.id] !== undefined
@@ -1089,7 +1240,9 @@ export function InvoiceUploadDialog() {
                   : "kg" // Checkbox unchecked or not ks: using weight, so use kg
                 : isDekos
                   ? "ks" // Dekos always saves total quantity in pieces
-                  : item.unit,
+                  : isAlbert
+                    ? "kg" // Albert always saves total weight in kg
+                    : item.unit,
 
             matching_confidence: item.confidence || 100,
           };
@@ -2617,6 +2770,29 @@ export function InvoiceUploadDialog() {
                         setEditingItemId={setEditingItemId}
                         editingField={editingField}
                         setEditingField={setEditingField}
+                      />
+                    </div>
+                  ) : /* Albert layout for Albert supplier - check by template display_layout or supplier ID */
+                  (() => {
+                      const supplierId = selectedSupplier || invoiceSupplier;
+                      // Check if supplier has a template with display_layout: "albert"
+                      const albertTemplate = templates?.find(
+                        (t: any) =>
+                          t.supplier_id === supplierId &&
+                          t.is_active &&
+                          t.config?.display_layout === "albert"
+                      );
+                      return (
+                        selectedSupplier === ALBERT_SUPPLIER_ID ||
+                        invoiceSupplier === ALBERT_SUPPLIER_ID ||
+                        albertTemplate
+                      );
+                    })() ? (
+                    <div className="mt-2">
+                      <AlbertInvoiceLayout
+                        items={parsedInvoice.items}
+                        onUnmap={handleUnmapItem}
+                        supplierId={selectedSupplier || invoiceSupplier}
                       />
                     </div>
                   ) : (
