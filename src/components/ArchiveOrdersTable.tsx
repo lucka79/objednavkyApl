@@ -461,6 +461,64 @@ export function ArchiveOrdersTable() {
     selectedAllOZ,
   ]);
 
+  // Filter drivers to only show those with orders in the current period
+  // Calculate from orders WITHOUT driver filter to show all available drivers
+  const activeDrivers = useMemo(() => {
+    if (!driverUsers || !orders) return [];
+
+    // Apply all filters EXCEPT driver filter to get the base filtered orders
+    let baseFiltered = orders;
+
+    if (selectedStatus !== "all") {
+      baseFiltered = baseFiltered.filter(
+        (order) => order.status === selectedStatus
+      );
+    }
+
+    if (selectedRole !== "all") {
+      baseFiltered = baseFiltered.filter(
+        (order) => order.user?.role === selectedRole
+      );
+    }
+
+    if (selectedAllOZ === "oz") {
+      baseFiltered = baseFiltered.filter((order) => order.user?.oz === true);
+    } else if (selectedAllOZ === "mo_partners") {
+      baseFiltered = baseFiltered.filter(
+        (order) => order.user?.mo_partners === true
+      );
+    } else if (selectedAllOZ === "oz_new") {
+      baseFiltered = baseFiltered.filter(
+        (order) => order.user?.oz_new === true
+      );
+    } else if (selectedAllOZ === "no_oz_both") {
+      baseFiltered = baseFiltered.filter(
+        (order) => order.user?.oz === false && order.user?.oz_new === false
+      );
+    }
+
+    if (selectedAllUsers !== "all") {
+      baseFiltered = baseFiltered.filter(
+        (order) => order.user.full_name === selectedAllUsers
+      );
+    }
+
+    const driverIdsWithOrders = new Set(
+      baseFiltered
+        .filter((order) => order.driver_id)
+        .map((order) => order.driver_id)
+    );
+
+    return driverUsers.filter((driver) => driverIdsWithOrders.has(driver.id));
+  }, [
+    driverUsers,
+    orders,
+    selectedStatus,
+    selectedRole,
+    selectedAllOZ,
+    selectedAllUsers,
+  ]);
+
   // Custom hook for comparison orders
   const useComparisonOrders = (
     week1: number,
@@ -1232,7 +1290,7 @@ export function ArchiveOrdersTable() {
                 <SelectContent>
                   <SelectItem value="all">Všichni řidiči</SelectItem>
                   <SelectItem value="none">Bez řidiče</SelectItem>
-                  {driverUsers?.map((driver) => (
+                  {activeDrivers?.map((driver) => (
                     <SelectItem key={driver.id} value={driver.id}>
                       {driver.full_name}
                     </SelectItem>

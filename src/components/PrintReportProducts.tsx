@@ -43,27 +43,25 @@ export const PrintReportProducts = forwardRef<
       ? formatDate(minDate)
       : `${formatDate(minDate)} - ${formatDate(maxDate)}`;
 
+  // Group by both product_id AND price to handle different user roles
   const productSummary = orders.reduce(
     (acc, order) => {
       order.order_items.forEach((item) => {
-        // Skip products from categories 4, 5, and 17
-        // if (
-        //   item.product.category_id !== 4 &&
-        //   item.product.category_id !== 5 &&
-        //   item.product.category_id !== 17
-        // ) {
-        if (!acc[item.product_id]) {
-          acc[item.product_id] = {
+        // Create a unique key combining product_id and price
+        const key = `${item.product_id}-${item.price.toFixed(2)}`;
+
+        if (!acc[key]) {
+          acc[key] = {
             name: item.product.name,
             quantity: 0,
             total: 0,
             price: item.price,
             category_id: item.product.category_id || 0,
+            product_id: item.product_id.toString(),
           };
         }
-        acc[item.product_id].quantity += item.quantity;
-        acc[item.product_id].total += item.quantity * item.price;
-        // }
+        acc[key].quantity += item.quantity;
+        acc[key].total += item.quantity * item.price;
       });
       return acc;
     },
@@ -75,6 +73,7 @@ export const PrintReportProducts = forwardRef<
         total: number;
         price: number;
         category_id: number;
+        product_id: string;
       }
     >
   );
@@ -116,7 +115,12 @@ export const PrintReportProducts = forwardRef<
                 return a.category_id - b.category_id;
               }
               // Then sort by name within the same category
-              return a.name.localeCompare(b.name);
+              const nameCompare = a.name.localeCompare(b.name, "cs");
+              if (nameCompare !== 0) {
+                return nameCompare;
+              }
+              // If same name, sort by price (ascending)
+              return a.price - b.price;
             })
             .map((item, index) => (
               <tr key={index} className="border-b">

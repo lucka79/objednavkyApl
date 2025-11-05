@@ -2616,6 +2616,8 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                   return <ZeelandiaInvoiceLayout items={result.items} />;
                 } else if (layout === "dekos") {
                   return <DekosInvoiceLayout items={result.items} />;
+                } else if (layout === "backaldrin") {
+                  return <PesekLineInvoiceLayout items={result.items} />;
                 } else if (layout === "albert") {
                   return (
                     <AlbertInvoiceLayout

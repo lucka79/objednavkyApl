@@ -34,6 +34,7 @@ export interface ReceivedItem {
   unit_of_measure: string | null;
   line_number: number | null; // OCR order
   product_code: string | null; // Product code from ingredient_supplier_codes
+  tax_rate: number | null; // VAT rate percentage
   created_at: string | null;
   updated_at: string | null;
   // Zeelandia-specific fields
@@ -47,6 +48,7 @@ export interface ReceivedItem {
     id: number;
     name: string;
     unit: string;
+    vat?: number | null;
   };
 }
 
@@ -67,6 +69,7 @@ export const useReceivedInvoices = () => {
                 id, 
                 name, 
                 unit,
+                vat,
                 ingredient_supplier_codes(
                   supplier_id,
                   supplier_ingredient_name,
@@ -176,14 +179,20 @@ export const useUpdateReceivedInvoice = () => {
     mutationFn: async ({
       id,
       receiver_id,
+      total_amount,
     }: {
       id: string;
       receiver_id?: string;
+      total_amount?: number;
     }) => {
       const updateData: any = {};
       
       if (receiver_id !== undefined) {
         updateData.receiver_id = receiver_id || null;
+      }
+      
+      if (total_amount !== undefined) {
+        updateData.total_amount = total_amount;
       }
 
       console.log("Updating invoice:", { id, updateData });

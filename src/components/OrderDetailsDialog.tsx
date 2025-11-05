@@ -23,6 +23,7 @@ import {
   SquarePlus,
   Lock,
   X,
+  Save,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import {
@@ -45,6 +46,7 @@ import { Input } from "./ui/input";
 import { OrderPrint } from "./OrderPrint";
 import ReactDOMServer from "react-dom/server";
 import { Button } from "@/components/ui/button";
+import { useQueryClient } from "@tanstack/react-query";
 
 // import React from "react";
 
@@ -56,6 +58,7 @@ export function OrderDetailsDialog() {
   const [isLocked, setIsLocked] = useState(false);
   const { data: driverUsers } = useDriverUsers();
   const [localNote, setLocalNote] = useState("");
+  const queryClient = useQueryClient();
   const {
     data: orders,
     error,
@@ -352,7 +355,10 @@ export function OrderDetailsDialog() {
       open={!!selectedOrderId}
       onOpenChange={(open) => !open && setSelectedOrderId(null)}
     >
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto print:p-0 print:w-full">
+      <DialogContent
+        className="max-w-4xl max-h-[90vh] overflow-y-auto print:p-0 print:w-full [&>button]:hidden"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <style type="text/css" media="print">
           {`
             @page { size: auto; margin: 20mm; }
@@ -377,6 +383,44 @@ export function OrderDetailsDialog() {
                   Detail objednávky včetně informací o zákazníkovi, položkách a
                   stavu
                 </DialogDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Refetch to discard any unsaved changes
+                    refetch();
+                    setSelectedOrderId(null);
+                  }}
+                >
+                  Zrušit
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    // Invalidate all order-related queries to ensure immediate updates
+                    queryClient.invalidateQueries({ queryKey: ["orders"] });
+                    queryClient.invalidateQueries({
+                      queryKey: ["expeditionOrders"],
+                    });
+                    queryClient.invalidateQueries({
+                      queryKey: ["ordersByMonth"],
+                    });
+                    queryClient.invalidateQueries({
+                      queryKey: ["orderCounts"],
+                    });
+                    queryClient.invalidateQueries({
+                      queryKey: ["comparisonOrders"],
+                    });
+                    setSelectedOrderId(null);
+                  }}
+                  className="bg-orange-500 hover:bg-orange-600"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Uložit a zavřít
+                </Button>
               </div>
             </div>
           </DialogHeader>

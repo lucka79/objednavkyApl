@@ -483,6 +483,7 @@ function TemplateForm({
                 "pesek",
                 "zeelandia",
                 "dekos",
+                "backaldrin",
                 "albert",
               ].includes(formData.display_layout)
                 ? formData.display_layout
@@ -500,6 +501,7 @@ function TemplateForm({
                     "pesek",
                     "zeelandia",
                     "dekos",
+                    "backaldrin",
                     "albert",
                   ].includes(formData.display_layout)
                 ) {
@@ -524,6 +526,9 @@ function TemplateForm({
               <SelectItem value="dekos">
                 Dekos (s výpočtem ks a ceny/kus)
               </SelectItem>
+              <SelectItem value="backaldrin">
+                Backaldrin (řádkový layout)
+              </SelectItem>
               <SelectItem value="albert">
                 Albert (bez kódů, jen názvy)
               </SelectItem>
@@ -539,6 +544,7 @@ function TemplateForm({
             "pesek",
             "zeelandia",
             "dekos",
+            "backaldrin",
             "albert",
           ].includes(formData.display_layout) && (
             <Input

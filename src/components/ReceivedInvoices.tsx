@@ -523,6 +523,7 @@ export function ReceivedInvoices() {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     receiver_id: "",
+    total_amount: 0,
   });
   const [isEditItemDialogOpen, setIsEditItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -532,6 +533,7 @@ export function ReceivedInvoices() {
   });
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
   const [isPriceFluctuationOpen, setIsPriceFluctuationOpen] = useState(false);
+  const [invoiceFileUrl, setInvoiceFileUrl] = useState<string | null>(null);
 
   const { data: allUsers } = useUsers();
   const { data: invoices, isLoading } = useReceivedInvoices();
@@ -641,13 +643,43 @@ export function ReceivedInvoices() {
     return { count, totalAmount: Math.round(totalAmount) };
   }, [filteredInvoices]);
 
-  const handleViewInvoice = (invoice: ReceivedInvoice) => {
+  const handleViewInvoice = async (invoice: ReceivedInvoice) => {
     setSelectedInvoice(invoice);
     setEditForm({
       receiver_id: invoice.receiver_id || "",
+      total_amount: invoice.total_amount || 0,
     });
     setIsEditing(false);
     setIsDetailDialogOpen(true);
+
+    // Try to get file URL if file_path exists
+    const invoiceAny = invoice as any;
+    if (
+      invoiceAny.file_path ||
+      invoiceAny.storage_path ||
+      invoiceAny.document_path
+    ) {
+      const filePath =
+        invoiceAny.file_path ||
+        invoiceAny.storage_path ||
+        invoiceAny.document_path;
+      try {
+        const { data } = await supabase.storage
+          .from("documents")
+          .createSignedUrl(filePath, 3600); // 1 hour expiry
+
+        if (data?.signedUrl) {
+          setInvoiceFileUrl(data.signedUrl);
+        } else {
+          setInvoiceFileUrl(null);
+        }
+      } catch (error) {
+        console.error("Error fetching invoice file:", error);
+        setInvoiceFileUrl(null);
+      }
+    } else {
+      setInvoiceFileUrl(null);
+    }
   };
 
   const handleDeleteInvoice = async (invoiceId: string) => {
@@ -672,6 +704,7 @@ export function ReceivedInvoices() {
       // Reset form when canceling edit
       setEditForm({
         receiver_id: selectedInvoice?.receiver_id || "",
+        total_amount: selectedInvoice?.total_amount || 0,
       });
     }
   };
@@ -683,12 +716,14 @@ export function ReceivedInvoices() {
       await updateInvoiceMutation.mutateAsync({
         id: selectedInvoice.id,
         receiver_id: editForm.receiver_id,
+        total_amount: editForm.total_amount,
       });
 
       // Update the selected invoice with new data
       setSelectedInvoice({
         ...selectedInvoice,
         receiver_id: editForm.receiver_id,
+        total_amount: editForm.total_amount,
       });
 
       setIsEditing(false);
@@ -1381,7 +1416,15 @@ export function ReceivedInvoices() {
       </Card>
 
       {/* Invoice Detail Dialog */}
-      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+      <Dialog
+        open={isDetailDialogOpen}
+        onOpenChange={(open) => {
+          setIsDetailDialogOpen(open);
+          if (!open) {
+            setInvoiceFileUrl(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1510,35 +1553,59 @@ export function ReceivedInvoices() {
                       </p>
                     </div>
                     <div>
-                      <div className="flex items-center gap-3">
-                        <p className="text-lg font-semibold text-green-600">
-                          {(() => {
-                            const total = selectedInvoice.total_amount || 0;
-                            const isPesek =
-                              selectedInvoice.supplier_id === PESEK_SUPPLIER_ID;
-                            return total.toLocaleString("cs-CZ", {
-                              minimumFractionDigits: isPesek ? 2 : 0,
-                              maximumFractionDigits: isPesek ? 2 : 0,
-                            });
-                          })()}{" "}
-                          Kč
-                        </p>
-                        {/* QR Code next to Celková částka */}
-                        {selectedInvoice.qr_codes &&
-                          selectedInvoice.qr_codes.length > 0 &&
-                          selectedInvoice.qr_codes[0].type === "QRCODE" && (
-                            <div className="flex-shrink-0">
-                              <div className="bg-white p-1 rounded border border-gray-200">
-                                <QRCodeSVG
-                                  value={selectedInvoice.qr_codes[0].data}
-                                  size={100}
-                                  level="M"
-                                  includeMargin={true}
-                                />
+                      <Label className="text-sm font-medium">
+                        Celková částka s DPH
+                      </Label>
+                      {isEditing ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={editForm.total_amount}
+                            onChange={(e) =>
+                              setEditForm((prev) => ({
+                                ...prev,
+                                total_amount: parseFloat(e.target.value) || 0,
+                              }))
+                            }
+                            className="no-spinner text-right w-40"
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            Kč
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <p className="text-lg font-semibold text-green-600">
+                            {(() => {
+                              const total = selectedInvoice.total_amount || 0;
+                              const isPesek =
+                                selectedInvoice.supplier_id ===
+                                PESEK_SUPPLIER_ID;
+                              return total.toLocaleString("cs-CZ", {
+                                minimumFractionDigits: isPesek ? 2 : 0,
+                                maximumFractionDigits: isPesek ? 2 : 0,
+                              });
+                            })()}{" "}
+                            Kč
+                          </p>
+                          {/* QR Code next to Celková částka */}
+                          {selectedInvoice.qr_codes &&
+                            selectedInvoice.qr_codes.length > 0 &&
+                            selectedInvoice.qr_codes[0].type === "QRCODE" && (
+                              <div className="flex-shrink-0">
+                                <div className="bg-white p-1 rounded border border-gray-200">
+                                  <QRCodeSVG
+                                    value={selectedInvoice.qr_codes[0].data}
+                                    size={100}
+                                    level="M"
+                                    includeMargin={true}
+                                  />
+                                </div>
                               </div>
-                            </div>
-                          )}
-                      </div>
+                            )}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <Label className="text-sm font-medium">Příjemce</Label>
@@ -1577,6 +1644,79 @@ export function ReceivedInvoices() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Invoice File Display */}
+              {invoiceFileUrl && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Dokument faktury</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {(() => {
+                        // Get file extension from invoice file path if available
+                        const invoiceAny = selectedInvoice as any;
+                        const filePath =
+                          invoiceAny.file_path ||
+                          invoiceAny.storage_path ||
+                          invoiceAny.document_path ||
+                          "";
+                        const fileExtension =
+                          filePath.split(".").pop()?.toLowerCase() ||
+                          invoiceFileUrl.split(".").pop()?.toLowerCase() ||
+                          "";
+                        const isPDF = fileExtension === "pdf";
+                        const isImage =
+                          fileExtension === "jpg" ||
+                          fileExtension === "jpeg" ||
+                          fileExtension === "png" ||
+                          fileExtension === "gif" ||
+                          fileExtension === "webp" ||
+                          fileExtension === "heic" ||
+                          fileExtension === "heif";
+
+                        if (isPDF) {
+                          return (
+                            <div className="w-full border rounded-lg overflow-hidden">
+                              <iframe
+                                src={invoiceFileUrl}
+                                className="w-full h-[600px]"
+                                title="Invoice PDF"
+                              />
+                            </div>
+                          );
+                        } else if (isImage) {
+                          return (
+                            <div className="w-full border rounded-lg overflow-hidden">
+                              <img
+                                src={invoiceFileUrl}
+                                alt="Invoice"
+                                className="w-full h-auto max-h-[800px] object-contain"
+                              />
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <div className="p-4 bg-gray-50 rounded-lg">
+                              <p className="text-sm text-muted-foreground">
+                                Formát souboru není podporován pro zobrazení.
+                              </p>
+                              <a
+                                href={invoiceFileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline mt-2 inline-block"
+                              >
+                                Otevřít soubor
+                              </a>
+                            </div>
+                          );
+                        }
+                      })()}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Invoice Items */}
               <Card>
@@ -1731,18 +1871,18 @@ export function ReceivedInvoices() {
                             </div>
                           ))}
                       </div>
-                      {/* Sum row */}
+                      {/* Sum row - without VAT */}
                       <div className="px-3 py-2 bg-gray-50 border-t-2 border-gray-300 font-semibold">
                         <div className="grid grid-cols-12 gap-4 items-center">
                           <div className="col-span-1"></div>
                           <div className="col-span-3">
                             <span className="text-sm font-medium text-gray-700">
-                              Celkem
+                              Celkem bez DPH
                             </span>
                           </div>
                           <div className="col-span-2"></div>
                           <div className="col-span-2"></div>
-                          <div className="col-span-3 text-right font-semibold text-green-700 pr-6">
+                          <div className="col-span-3 text-right font-semibold text-blue-700 pr-6">
                             {(() => {
                               const total = (
                                 selectedInvoice.items || []
@@ -1751,6 +1891,59 @@ export function ReceivedInvoices() {
                                 0
                               );
                               return total.toLocaleString("cs-CZ", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              });
+                            })()}{" "}
+                            Kč
+                          </div>
+                          <div className="col-span-1"></div>
+                        </div>
+                      </div>
+                      {/* Sum row - with VAT */}
+                      <div className="px-3 py-2 bg-green-50 border-t font-semibold">
+                        <div className="grid grid-cols-12 gap-4 items-center">
+                          <div className="col-span-1"></div>
+                          <div className="col-span-3">
+                            <span className="text-sm font-medium text-gray-700">
+                              Celkem s DPH
+                            </span>
+                          </div>
+                          <div className="col-span-2"></div>
+                          <div className="col-span-2"></div>
+                          <div className="col-span-3 text-right font-semibold text-green-700 pr-6">
+                            {(() => {
+                              console.log("=== VAT Calculation Debug ===");
+                              const totalWithVAT = (
+                                selectedInvoice.items || []
+                              ).reduce((sum, item) => {
+                                // line_total is WITHOUT VAT (base price)
+                                const lineTotal = item.line_total || 0;
+                                // Get VAT rate from item.tax_rate or ingredient.vat, default 12%
+                                const vatRate =
+                                  item.tax_rate ?? item.ingredient?.vat ?? 12;
+                                console.log(
+                                  `Item: ${item.ingredient?.name || "Unknown"}`
+                                );
+                                console.log(
+                                  `  line_total (without VAT): ${lineTotal}`
+                                );
+                                console.log(
+                                  `  item.tax_rate: ${item.tax_rate}`
+                                );
+                                console.log(
+                                  `  ingredient.vat: ${item.ingredient?.vat}`
+                                );
+                                console.log(`  vatRate used: ${vatRate}%`);
+                                // Calculate total WITH VAT: base_price * (1 + vat_rate/100)
+                                const vatMultiplier = 1 + vatRate / 100;
+                                const itemWithVat = lineTotal * vatMultiplier;
+                                console.log(`  total with VAT: ${itemWithVat}`);
+                                return sum + itemWithVat;
+                              }, 0);
+                              console.log(`Total with VAT: ${totalWithVAT}`);
+                              console.log("=== End VAT Debug ===");
+                              return totalWithVAT.toLocaleString("cs-CZ", {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                               });

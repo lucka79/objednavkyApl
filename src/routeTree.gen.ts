@@ -34,6 +34,7 @@ import { Route as AdminReportsImport } from './routes/admin.reports'
 import { Route as AdminRecipesImport } from './routes/admin.recipes'
 import { Route as AdminProductsImport } from './routes/admin.products'
 import { Route as AdminOrdersImport } from './routes/admin.orders'
+import { Route as AdminNotificationSettingsImport } from './routes/admin.notification-settings'
 import { Route as AdminInvoicesImport } from './routes/admin.invoices'
 import { Route as AdminInvoiceTemplatesImport } from './routes/admin.invoice-templates'
 import { Route as AdminIngredientsOverviewImport } from './routes/admin.ingredients-overview'
@@ -159,6 +160,11 @@ const AdminOrdersRoute = AdminOrdersImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
+const AdminNotificationSettingsRoute = AdminNotificationSettingsImport.update({
+  path: '/admin/notification-settings',
+  getParentRoute: () => rootRoute,
+} as any)
+
 const AdminInvoicesRoute = AdminInvoicesImport.update({
   path: '/admin/invoices',
   getParentRoute: () => rootRoute,
@@ -280,6 +286,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/invoices'
       fullPath: '/admin/invoices'
       preLoaderRoute: typeof AdminInvoicesImport
+      parentRoute: typeof rootRoute
+    }
+    '/admin/notification-settings': {
+      id: '/admin/notification-settings'
+      path: '/admin/notification-settings'
+      fullPath: '/admin/notification-settings'
+      preLoaderRoute: typeof AdminNotificationSettingsImport
       parentRoute: typeof rootRoute
     }
     '/admin/orders': {
@@ -438,6 +451,7 @@ export interface FileRoutesByFullPath {
   '/admin/ingredients-overview': typeof AdminIngredientsOverviewRoute
   '/admin/invoice-templates': typeof AdminInvoiceTemplatesRoute
   '/admin/invoices': typeof AdminInvoicesRoute
+  '/admin/notification-settings': typeof AdminNotificationSettingsRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
   '/admin/recipes': typeof AdminRecipesRoute
@@ -471,6 +485,7 @@ export interface FileRoutesByTo {
   '/admin/ingredients-overview': typeof AdminIngredientsOverviewRoute
   '/admin/invoice-templates': typeof AdminInvoiceTemplatesRoute
   '/admin/invoices': typeof AdminInvoicesRoute
+  '/admin/notification-settings': typeof AdminNotificationSettingsRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
   '/admin/recipes': typeof AdminRecipesRoute
@@ -505,6 +520,7 @@ export interface FileRoutesById {
   '/admin/ingredients-overview': typeof AdminIngredientsOverviewRoute
   '/admin/invoice-templates': typeof AdminInvoiceTemplatesRoute
   '/admin/invoices': typeof AdminInvoicesRoute
+  '/admin/notification-settings': typeof AdminNotificationSettingsRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
   '/admin/recipes': typeof AdminRecipesRoute
@@ -540,6 +556,7 @@ export interface FileRouteTypes {
     | '/admin/ingredients-overview'
     | '/admin/invoice-templates'
     | '/admin/invoices'
+    | '/admin/notification-settings'
     | '/admin/orders'
     | '/admin/products'
     | '/admin/recipes'
@@ -572,6 +589,7 @@ export interface FileRouteTypes {
     | '/admin/ingredients-overview'
     | '/admin/invoice-templates'
     | '/admin/invoices'
+    | '/admin/notification-settings'
     | '/admin/orders'
     | '/admin/products'
     | '/admin/recipes'
@@ -604,6 +622,7 @@ export interface FileRouteTypes {
     | '/admin/ingredients-overview'
     | '/admin/invoice-templates'
     | '/admin/invoices'
+    | '/admin/notification-settings'
     | '/admin/orders'
     | '/admin/products'
     | '/admin/recipes'
@@ -638,6 +657,7 @@ export interface RootRouteChildren {
   AdminIngredientsOverviewRoute: typeof AdminIngredientsOverviewRoute
   AdminInvoiceTemplatesRoute: typeof AdminInvoiceTemplatesRoute
   AdminInvoicesRoute: typeof AdminInvoicesRoute
+  AdminNotificationSettingsRoute: typeof AdminNotificationSettingsRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminProductsRoute: typeof AdminProductsRouteWithChildren
   AdminRecipesRoute: typeof AdminRecipesRoute
@@ -670,6 +690,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminIngredientsOverviewRoute: AdminIngredientsOverviewRoute,
   AdminInvoiceTemplatesRoute: AdminInvoiceTemplatesRoute,
   AdminInvoicesRoute: AdminInvoicesRoute,
+  AdminNotificationSettingsRoute: AdminNotificationSettingsRoute,
   AdminOrdersRoute: AdminOrdersRoute,
   AdminProductsRoute: AdminProductsRouteWithChildren,
   AdminRecipesRoute: AdminRecipesRoute,
@@ -713,6 +734,7 @@ export const routeTree = rootRoute
         "/admin/ingredients-overview",
         "/admin/invoice-templates",
         "/admin/invoices",
+        "/admin/notification-settings",
         "/admin/orders",
         "/admin/products",
         "/admin/recipes",
@@ -767,6 +789,9 @@ export const routeTree = rootRoute
     },
     "/admin/invoices": {
       "filePath": "admin.invoices.tsx"
+    },
+    "/admin/notification-settings": {
+      "filePath": "admin.notification-settings.tsx"
     },
     "/admin/orders": {
       "filePath": "admin.orders.tsx"

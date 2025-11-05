@@ -244,6 +244,9 @@ export function AlbertInvoiceLayout({
             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
               Množství
             </th>
+            <th className="text-center px-3 py-2 text-xs font-semibold text-orange-700 border-r border-gray-200 bg-orange-50/50">
+              Celk. hmotnost
+            </th>
             <th className="text-right px-3 py-2 text-xs font-semibold text-green-700 border-r border-gray-200 bg-green-50/50">
               Jedn. cena bez DPH
             </th>
@@ -254,7 +257,7 @@ export function AlbertInvoiceLayout({
               Jedn. cena s DPH
             </th>
             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-              Celkem bez DPH
+              Celkem s DPH
             </th>
             <th className="text-center px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
               DPH
@@ -275,12 +278,13 @@ export function AlbertInvoiceLayout({
               (item.product_code && !item.product_code.match(/^\d/)
                 ? item.product_code
                 : null);
-            const itemWeight = item.item_weight || item.weight || "-";
+            const itemWeight =
+              item.itemWeight || item.item_weight || item.weight || "-";
             const quantity = item.quantity || 1;
-            const unitOfMeasure = item.unit_of_measure || item.unit || "ks";
-            const unitPrice = item.unit_price || item.price || 0;
-            const lineTotal = item.line_total || item.total || 0;
-            const vatRate = item.vat_rate;
+            const unitOfMeasure = item.unit || item.unit_of_measure || "ks";
+            const unitPrice = item.price || item.unit_price || 0;
+            const lineTotal = item.total || item.line_total || 0;
+            const vatRate = item.vatRate || item.vat_rate;
 
             const priceTotal =
               lineTotal || (quantity && unitPrice ? quantity * unitPrice : 0);
@@ -317,6 +321,30 @@ export function AlbertInvoiceLayout({
               weightInKg && weightInKg > 0
                 ? unitPriceWithoutVat / weightInKg
                 : null;
+
+            // Calculate total weight (itemWeight × quantity)
+            const calculateTotalWeight = (
+              weightStr: string,
+              qty: number
+            ): string => {
+              if (!weightStr || weightStr === "-") return "-";
+
+              const match = weightStr.match(/^([\d,\.]+)\s*(kg|g|ml|l)$/i);
+              if (!match) return weightStr;
+
+              const value = parseFloat(match[1].replace(",", "."));
+              const unit = match[2];
+              const totalValue = value * qty;
+
+              // Format with proper decimal places
+              const formatted =
+                totalValue % 1 === 0
+                  ? totalValue.toString()
+                  : totalValue.toFixed(2).replace(".", ",");
+              return `${formatted}${unit}`;
+            };
+
+            const totalWeight = calculateTotalWeight(itemWeight, quantity);
 
             // Support both matching status formats
             const ingredientId =
@@ -359,6 +387,9 @@ export function AlbertInvoiceLayout({
                     {quantity?.toLocaleString("cs-CZ")}
                   </span>{" "}
                   <span className="text-gray-500 text-xs">{unitOfMeasure}</span>
+                </td>
+                <td className="px-3 py-2 text-center text-sm text-orange-700 border-r border-gray-200 bg-orange-50/50 font-bold">
+                  {totalWeight}
                 </td>
                 <td className="px-3 py-2 text-right text-sm text-green-700 border-r border-gray-200 bg-green-50/30 font-semibold">
                   {unitPriceWithoutVat?.toLocaleString("cs-CZ", {

@@ -164,7 +164,10 @@ const PriceEditDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent
+        className="max-w-md"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Upravit cenu</DialogTitle>
           <DialogDescription>
@@ -210,7 +213,7 @@ export default function UpdateCart({
   items,
   orderId,
   onUpdate,
-  // selectedUserId,
+  selectedUserId,
   order,
 }: UpdateCartProps) {
   const [orderItems, setOrderItems] = useState<OrderItem[]>(items);
@@ -223,6 +226,7 @@ export default function UpdateCart({
   );
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [isDebugOpen, setIsDebugOpen] = useState(false);
+  const [orderUserRole, setOrderUserRole] = useState<string | null>(null);
   const { mutate: updateOrderItems } = useUpdateOrderItems();
   const { mutate: updateOrder } = useUpdateOrder();
   const { mutate: updateOrderTotal } = useUpdateOrderTotal();
@@ -242,6 +246,47 @@ export default function UpdateCart({
   const { data: allHistoryData } = useOrderItemsHistory(orderItems);
 
   const canUnlock = user?.role === "admin" || user?.role === "expedition";
+
+  // Fetch order user role on mount
+  useEffect(() => {
+    const fetchOrderUserRole = async () => {
+      const { data: orderData } = await supabase
+        .from("orders")
+        .select(
+          `
+          id,
+          user:profiles!orders_user_id_fkey(
+            id,
+            role
+          )
+        `
+        )
+        .eq("id", orderId)
+        .single();
+
+      if (orderData) {
+        const orderUser = Array.isArray(orderData?.user)
+          ? orderData.user[0]
+          : orderData?.user;
+        setOrderUserRole(orderUser?.role || null);
+      }
+    };
+
+    fetchOrderUserRole();
+  }, [orderId]);
+
+  // Helper function to get suggested price based on order user role
+  const getSuggestedPrice = (item: OrderItem): number | null => {
+    if (item.price !== 0) return null;
+
+    if (orderUserRole === "mobil") {
+      return item.product.priceMobil;
+    } else if (orderUserRole === "store") {
+      return item.product.priceBuyer;
+    } else {
+      return item.product.priceBuyer; // fallback
+    }
+  };
 
   const toggleLock = () => {
     if (!canUnlock) return;
@@ -600,6 +645,34 @@ export default function UpdateCart({
     try {
       addDebugLog(`Přidávám ${items.length} položek do objednávky...`);
 
+      // Get order details including user role
+      const { data: orderData, error: orderError } = await supabase
+        .from("orders")
+        .select(
+          `
+          id,
+          user:profiles!orders_user_id_fkey(
+            id,
+            role
+          )
+        `
+        )
+        .eq("id", orderId)
+        .single();
+
+      if (orderError) {
+        addDebugLog(
+          `✗ Chyba při načítání detailů objednávky: ${orderError.message}`
+        );
+        throw new Error("Failed to fetch order details");
+      }
+
+      const orderUser = Array.isArray(orderData?.user)
+        ? orderData.user[0]
+        : orderData?.user;
+      const orderUserRole = orderUser?.role;
+      addDebugLog(`Role uživatele objednávky: ${orderUserRole}`);
+
       // Get product details for the items
       const productIds = items.map((item) => item.product_id);
       const { data: products, error: productsError } = await supabase
@@ -647,15 +720,35 @@ export default function UpdateCart({
             return null;
           }
 
-          // Always use buyer price for uploaded products
-          let price = product.priceBuyer;
+          // Determine price based on order user's role
+          let price: number;
+
+          if (user?.role === "expedition") {
+            // For expedition users, use price based on order user's role
+            if (orderUserRole === "store") {
+              price = product.priceBuyer;
+              addDebugLog(
+                `Expedice -> Obchod: používám kupní cenu ${price} Kč`
+              );
+            } else if (orderUserRole === "mobil") {
+              price = product.priceMobil;
+              addDebugLog(
+                `Expedice -> Mobil: používám mobilní cenu ${price} Kč`
+              );
+            } else {
+              price = product.priceBuyer;
+              addDebugLog(
+                `Expedice -> Jiná role (${orderUserRole}): používám kupní cenu ${price} Kč jako fallback`
+              );
+            }
+          } else {
+            // For other users (e.g., admin), always use buyer price
+            price = product.priceBuyer;
+            addDebugLog(`Role ${user?.role}: používám kupní cenu ${price} Kč`);
+          }
 
           addDebugLog(
-            `Používám kupní cenu: ${price} (běžná: ${product.price}, mobil: ${product.priceMobil}, kupní: ${product.priceBuyer})`
-          );
-
-          addDebugLog(
-            `✓ Přidávám ${item.quantity}x ${product.name} (ID: ${item.product_id}) za ${price} Kč za kus`
+            `✓ Přidávám ${item.quantity}x ${product.name} (ID: ${item.product_id}) za ${price} Kč za kus (běžná: ${product.price}, mobil: ${product.priceMobil}, kupní: ${product.priceBuyer})`
           );
 
           return {
@@ -991,7 +1084,7 @@ export default function UpdateCart({
                 Připravit {getCheckboxCounts().unchecked}
               </Badge>
               <div className="flex gap-2 ml-auto">
-                {user?.role === "admin" && (
+                {selectedUserId === "6626f651-6c0c-43ce-81a1-8f061949b3ee" && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -1012,6 +1105,7 @@ export default function UpdateCart({
                   <DialogContent
                     className="max-w-6xl max-h-[90vh] overflow-y-auto"
                     aria-describedby="dialog-description"
+                    onInteractOutside={(e) => e.preventDefault()}
                   >
                     <DialogTitle>Add Product to Order</DialogTitle>
                     <div id="dialog-description" className="sr-only">
@@ -1063,18 +1157,58 @@ export default function UpdateCart({
                   </div>
                   <div className="text-sm flex-1 mr-2 text-end">
                     <div className="flex items-center justify-end gap-1">
-                      <span>{item.price.toFixed(2)} Kč</span>
-                      {user?.role === "admin" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openPriceEditModal(item)}
-                          disabled={isReadOnly}
-                          className="h-4 w-4 p-0 hover:bg-orange-50 text-orange-600"
-                        >
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                      )}
+                      <div className="flex flex-col items-end">
+                        <div className="flex items-center gap-1">
+                          <span
+                            className={
+                              item.price === 0
+                                ? "text-red-500 font-semibold"
+                                : ""
+                            }
+                          >
+                            {item.price.toFixed(2)} Kč
+                          </span>
+                          {user?.role === "admin" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openPriceEditModal(item)}
+                              disabled={isReadOnly}
+                              className="h-4 w-4 p-0 hover:bg-orange-50 text-orange-600"
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                        {item.price === 0 &&
+                          getSuggestedPrice(item) !== null && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-green-600 font-medium">
+                                💡 Doporučeno:{" "}
+                                {getSuggestedPrice(item)?.toFixed(2)} Kč
+                                {orderUserRole === "mobil"
+                                  ? " (mobil)"
+                                  : " (kupní)"}
+                              </span>
+                              {user?.role === "admin" && !isReadOnly && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    const suggestedPrice =
+                                      getSuggestedPrice(item);
+                                    if (suggestedPrice !== null) {
+                                      updateOrderPrice(item.id, suggestedPrice);
+                                    }
+                                  }}
+                                  className="h-4 px-1 text-[10px] hover:bg-green-50 text-green-600"
+                                >
+                                  Použít
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center">
@@ -1151,7 +1285,9 @@ export default function UpdateCart({
                           <History className="h-4 w-4" />
                         </Button>
                       </DialogTrigger>
-                      <DialogContent>
+                      <DialogContent
+                        onInteractOutside={(e) => e.preventDefault()}
+                      >
                         <DialogHeader>
                           <DialogTitle>Historie položky</DialogTitle>
                         </DialogHeader>
@@ -1203,7 +1339,10 @@ export default function UpdateCart({
 
       {/* Debug Modal */}
       <Dialog open={isDebugOpen} onOpenChange={setIsDebugOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh]">
+        <DialogContent
+          className="max-w-4xl max-h-[80vh]"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Ladění - Proces nahrávání souboru</DialogTitle>
             <DialogDescription>
