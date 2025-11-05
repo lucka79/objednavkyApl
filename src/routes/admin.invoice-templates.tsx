@@ -20,6 +20,7 @@ import {
   PesekLineInvoiceLayout,
   ZeelandiaInvoiceLayout,
   DekosInvoiceLayout,
+  BackaldrinInvoiceLayout,
   AlbertInvoiceLayout,
 } from "@/components/invoice-layouts";
 
@@ -2617,7 +2618,7 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                 } else if (layout === "dekos") {
                   return <DekosInvoiceLayout items={result.items} />;
                 } else if (layout === "backaldrin") {
-                  return <PesekLineInvoiceLayout items={result.items} />;
+                  return <BackaldrinInvoiceLayout items={result.items} />;
                 } else if (layout === "albert") {
                   return (
                     <AlbertInvoiceLayout
