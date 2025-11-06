@@ -1188,9 +1188,11 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                 if pattern_was_extended:
                     logger.warning(f"   (Even extended pattern failed to match)")
             
-            # If primary pattern doesn't match but line starts with Dekos-style code (with optional dash)
-            # Try a more flexible Dekos pattern
-            if not match and re.match(r'^\d+\.\d+(?:-\d+)?', line):
+            # Always try Dekos pattern if line starts with Dekos-style code (with optional dash)
+            # This ensures Dekos invoices work even if the main pattern is incorrect
+            # Check if line starts with Dekos code pattern (digits.digits with optional dash)
+            is_dekos_code = re.match(r'^\d+\.\d+(?:-\d+)?', line)
+            if is_dekos_code:
                 # Dekos format: code (with optional dash), description, unit_price, quantity, unit, vat_rate, line_total
                 # Example: "8.5340-1 Utěrka Z-Z / 200 útržků, šedá 15,9700 20,000 bal 21 319,40"
                 # Example: "35.0400 Jar PŘIMONA 5I zelený 79,0000 8,000 1ks 21 632,00"
@@ -1198,12 +1200,22 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                 # Example: "1.2021 Sáček papírový 20+8x33cm hnědý 580,0000 1,000 tis 21 580,00"
                 # Note: Description can contain +, -, /, numbers like "5L", "10kg" (e.g., "20+8x33cm", "12-200z", "5L")
                 # Unit price pattern: large number with thousands separator (space or nothing) and comma decimal
-                # Stop before: space + 2+ digits with comma (e.g., "108,1300", "15,9700", "580,0000")
-                dekos_pattern = r'^(\d+\.\d+(?:-\d+)?)\s+([A-Za-zá-žÁ-Ž/](?:[\wá-žÁ-Ž.,%()/+-]|\s(?!\d{2,}[\s,]))+?)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([A-Za-z0-9]{1,10})\s+(\d+)\s+([\d\s,\.]+)'
-                match = re.match(dekos_pattern, line)
-                if match:
-                    logger.info(f"✅ Dekos fallback pattern matched for code with dash: {line[:80]}")
-                    logger.info(f"   Using flexible Dekos pattern instead of database pattern")
+                # Stop before: space + digit + comma + 4 digits (unit_price pattern like "5,3000", "108,1300")
+                # Description can contain numbers and "x" (e.g., "28x28x10cm", "20+8x33cm")
+                # Use negative lookahead to stop before unit_price: space + digit + comma + 4 digits
+                dekos_pattern = r'^(\d+\.\d+(?:-\d+)?)\s+([A-Za-zá-žÁ-Ž/](?:[\wá-žÁ-Ž.,%()/+-]|\s(?!\d+,\d{4}))+?)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([A-Za-z0-9]{1,10})\s+(\d+)\s+([\d\s,\.]+)'
+                dekos_match = re.match(dekos_pattern, line)
+                if dekos_match and len(dekos_match.groups()) == 7:
+                    # Dekos pattern matched with correct number of groups - use it instead of main pattern
+                    match = dekos_match
+                    logger.info(f"✅ Dekos pattern matched (7 groups) for line: {line[:80]}")
+                    logger.info(f"   Using Dekos pattern instead of database pattern")
+                elif not match:
+                    # If main pattern didn't match, try Dekos pattern as fallback
+                    match = dekos_match
+                    if match:
+                        logger.info(f"✅ Dekos fallback pattern matched for code with dash: {line[:80]}")
+                        logger.info(f"   Using flexible Dekos pattern instead of database pattern")
             
             # If primary pattern doesn't match, try alternative Backaldrin patterns for edge cases
             if not match and r'\d{8}' in item_pattern:

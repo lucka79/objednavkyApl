@@ -40,6 +40,7 @@ import {
   Download,
   Sparkles,
   AlertCircle,
+  Receipt,
 } from "lucide-react";
 import { IngredientForm } from "./IngredientForm";
 import {
@@ -53,6 +54,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { removeDiacritics } from "@/utils/removeDiacritics";
 import { useAuthStore } from "@/lib/supabase";
@@ -81,6 +90,17 @@ export function IngredientsTable() {
   const [ingredientUsage, setIngredientUsage] = useState<
     Record<number, number>
   >({});
+  const [showUsageDialog, setShowUsageDialog] = useState(false);
+  const [usageDetails, setUsageDetails] = useState<{
+    ingredientName: string;
+    recipes: Array<{ id: number; name: string }>;
+    products: Array<{ id: number; name: string }>;
+    invoices: Array<{
+      id: string;
+      invoice_number: string;
+      invoice_date: string;
+    }>;
+  } | null>(null);
 
   // Check if user can delete ingredients
   const canDelete =
@@ -224,11 +244,6 @@ export function IngredientsTable() {
             ingredient.name.toLowerCase()
           ).includes(searchLower);
           const eanMatch = ingredient.ean?.includes(globalFilter);
-          const categoryMatch = ingredient.ingredient_categories?.name
-            ? removeDiacritics(
-                ingredient.ingredient_categories.name.toLowerCase()
-              ).includes(searchLower)
-            : false;
           const supplierName = (supplierUsers || [])
             .find((u: any) => u.id === ingredient.supplier_id)
             ?.full_name?.toLowerCase();
@@ -236,9 +251,24 @@ export function IngredientsTable() {
             ? removeDiacritics(supplierName).includes(searchLower)
             : false;
 
+          // Search in alternative supplier names (supplier_ingredient_name)
+          const alternativeSupplierNameMatch =
+            ingredient.ingredient_supplier_codes?.some((code: any) => {
+              if (!code.supplier_ingredient_name) return false;
+              const altName = removeDiacritics(
+                code.supplier_ingredient_name.toLowerCase()
+              );
+              return altName.includes(searchLower);
+            }) || false;
+
           // If there's a search term, search globally
           if (globalFilter.trim() !== "") {
-            return nameMatch || eanMatch || categoryMatch || supplierMatch;
+            return (
+              nameMatch ||
+              eanMatch ||
+              supplierMatch ||
+              alternativeSupplierNameMatch
+            );
           }
 
           // If no search term, apply category filter
@@ -264,11 +294,6 @@ export function IngredientsTable() {
           ingredient.name.toLowerCase()
         ).includes(searchLower);
         const eanMatch = ingredient.ean?.includes(globalFilter);
-        const categoryMatch = ingredient.ingredient_categories?.name
-          ? removeDiacritics(
-              ingredient.ingredient_categories.name.toLowerCase()
-            ).includes(searchLower)
-          : false;
         const supplierName = (supplierUsers || [])
           .find((u: any) => u.id === ingredient.supplier_id)
           ?.full_name?.toLowerCase();
@@ -276,9 +301,24 @@ export function IngredientsTable() {
           ? removeDiacritics(supplierName).includes(searchLower)
           : false;
 
+        // Search in alternative supplier names (supplier_ingredient_name)
+        const alternativeSupplierNameMatch =
+          ingredient.ingredient_supplier_codes?.some((code: any) => {
+            if (!code.supplier_ingredient_name) return false;
+            const altName = removeDiacritics(
+              code.supplier_ingredient_name.toLowerCase()
+            );
+            return altName.includes(searchLower);
+          }) || false;
+
         // If there's a search term, search globally
         if (globalFilter.trim() !== "") {
-          return nameMatch || eanMatch || categoryMatch || supplierMatch;
+          return (
+            nameMatch ||
+            eanMatch ||
+            supplierMatch ||
+            alternativeSupplierNameMatch
+          );
         }
 
         // If no search term, apply category filter
@@ -315,13 +355,12 @@ export function IngredientsTable() {
       // Check if ingredient is used in any recipes or products
       const { supabase } = await import("@/lib/supabase");
 
-      // Check recipe usage
+      // Check recipe usage - fetch ALL recipes
       const { data: recipeIngredients, error: recipeCheckError } =
         await supabase
           .from("recipe_ingredients")
-          .select("id, recipes(name)")
-          .eq("ingredient_id", ingredient.id)
-          .limit(5); // Get up to 5 recipes for error message
+          .select("id, recipe_id, recipes(id, name)")
+          .eq("ingredient_id", ingredient.id);
 
       if (recipeCheckError) {
         console.error("Error checking recipe usage:", recipeCheckError);
@@ -334,12 +373,13 @@ export function IngredientsTable() {
         return;
       }
 
-      // Check product parts usage
+      // Check product parts usage - fetch ALL products
       const { data: productParts, error: productCheckError } = await supabase
         .from("product_parts")
-        .select("id, products!product_parts_product_id_fkey(name)")
-        .eq("ingredient_id", ingredient.id)
-        .limit(5); // Get up to 5 products for error message
+        .select(
+          "id, product_id, products!product_parts_product_id_fkey(id, name)"
+        )
+        .eq("ingredient_id", ingredient.id);
 
       if (productCheckError) {
         console.error("Error checking product usage:", productCheckError);
@@ -352,45 +392,88 @@ export function IngredientsTable() {
         return;
       }
 
-      // Build error message if ingredient is used
-      const usageMessages = [];
+      // Check invoice items usage - fetch ALL invoices
+      const { data: invoiceItems, error: invoiceCheckError } = await supabase
+        .from("items_received")
+        .select(
+          "id, invoice_received_id, invoices_received!items_received_invoice_received_id_fkey(id, invoice_number, invoice_date)"
+        )
+        .eq("matched_ingredient_id", ingredient.id);
 
-      if (recipeIngredients && recipeIngredients.length > 0) {
-        const recipeNames = recipeIngredients
-          .map((ri: any) => ri.recipes?.name)
-          .filter(Boolean)
-          .slice(0, 3)
-          .join(", ");
-
-        const moreRecipes =
-          recipeIngredients.length > 3
-            ? ` a ${recipeIngredients.length - 3} dalších`
-            : "";
-
-        usageMessages.push(`Recepty: ${recipeNames}${moreRecipes}`);
-      }
-
-      if (productParts && productParts.length > 0) {
-        const productNames = productParts
-          .map((pp: any) => pp.products?.name)
-          .filter(Boolean)
-          .slice(0, 3)
-          .join(", ");
-
-        const moreProducts =
-          productParts.length > 3
-            ? ` a ${productParts.length - 3} dalších`
-            : "";
-
-        usageMessages.push(`Produkty: ${productNames}${moreProducts}`);
-      }
-
-      if (usageMessages.length > 0) {
+      if (invoiceCheckError) {
+        console.error("Error checking invoice usage:", invoiceCheckError);
         toast({
-          title: "Nelze smazat",
-          description: `Ingredience "${ingredient.name}" je použita v:\n${usageMessages.join("\n")}.\n\nNejprve ji odstraňte z receptů a produktů.`,
+          title: "Chyba",
+          description:
+            "Nepodařilo se zkontrolovat použití ingredience ve fakturách",
           variant: "destructive",
         });
+        return;
+      }
+
+      // Extract unique recipes, products, and invoices
+      const recipes: Array<{ id: number; name: string }> = [];
+      const recipeMap = new Map<number, string>();
+
+      recipeIngredients?.forEach((ri: any) => {
+        if (ri.recipes && ri.recipes.id && ri.recipes.name) {
+          if (!recipeMap.has(ri.recipes.id)) {
+            recipeMap.set(ri.recipes.id, ri.recipes.name);
+            recipes.push({ id: ri.recipes.id, name: ri.recipes.name });
+          }
+        }
+      });
+
+      const products: Array<{ id: number; name: string }> = [];
+      const productMap = new Map<number, string>();
+
+      productParts?.forEach((pp: any) => {
+        if (pp.products && pp.products.id && pp.products.name) {
+          if (!productMap.has(pp.products.id)) {
+            productMap.set(pp.products.id, pp.products.name);
+            products.push({ id: pp.products.id, name: pp.products.name });
+          }
+        }
+      });
+
+      const invoices: Array<{
+        id: string;
+        invoice_number: string;
+        invoice_date: string;
+      }> = [];
+      const invoiceMap = new Map<
+        string,
+        { invoice_number: string; invoice_date: string }
+      >();
+
+      invoiceItems?.forEach((item: any) => {
+        if (item.invoices_received && item.invoices_received.id) {
+          const invoiceId = item.invoices_received.id;
+          if (!invoiceMap.has(invoiceId)) {
+            invoiceMap.set(invoiceId, {
+              invoice_number:
+                item.invoices_received.invoice_number || "Neznámé číslo",
+              invoice_date: item.invoices_received.invoice_date || "",
+            });
+            invoices.push({
+              id: invoiceId,
+              invoice_number:
+                item.invoices_received.invoice_number || "Neznámé číslo",
+              invoice_date: item.invoices_received.invoice_date || "",
+            });
+          }
+        }
+      });
+
+      // If ingredient is used, show debug dialog
+      if (recipes.length > 0 || products.length > 0 || invoices.length > 0) {
+        setUsageDetails({
+          ingredientName: ingredient.name,
+          recipes,
+          products,
+          invoices,
+        });
+        setShowUsageDialog(true);
         return;
       }
 
@@ -952,36 +1035,43 @@ export function IngredientsTable() {
             <Edit className="h-4 w-4" />
           </Button>
           {canDelete && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Smazat ingredienci</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Opravdu chcete smazat ingredienci "{ingredient.name}"? Tato
-                    akce je nevratná.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Zrušit</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => handleDelete(ingredient)}
-                    className="bg-red-600 hover:bg-red-700"
+            <div onClick={(e) => e.stopPropagation()}>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    Smazat
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Smazat ingredienci</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Opravdu chcete smazat ingredienci "{ingredient.name}"?
+                      Tato akce je nevratná.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={(e) => e.stopPropagation()}>
+                      Zrušit
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(ingredient);
+                      }}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      Smazat
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           )}
         </div>
       </TableCell>
@@ -1024,7 +1114,7 @@ export function IngredientsTable() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Hledat podle názvu, EAN, dodavatele nebo kategorie..."
+                placeholder="Hledat podle názvu, EAN, dodavatele nebo alternativních názvů..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
                 className="pl-10"
@@ -1191,6 +1281,121 @@ export function IngredientsTable() {
 
       {/* Ingredient Form Dialog */}
       <IngredientForm />
+
+      {/* Usage Debug Dialog */}
+      <Dialog open={showUsageDialog} onOpenChange={setShowUsageDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">
+              Nelze smazat ingredienci "{usageDetails?.ingredientName}"
+            </DialogTitle>
+            <DialogDescription>
+              Tato ingredience je použita v následujících receptech, produktech
+              a/nebo fakturách. Nejdříve ji odstraňte z těchto míst.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-4">
+            {usageDetails && usageDetails.recipes.length > 0 && (
+              <div>
+                <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-600" />
+                  Recepty ({usageDetails.recipes.length})
+                </h3>
+                <div className="border rounded-md p-3 max-h-48 overflow-y-auto bg-gray-50">
+                  <ul className="space-y-1">
+                    {usageDetails.recipes.map((recipe) => (
+                      <li
+                        key={recipe.id}
+                        className="text-sm flex items-center gap-2"
+                      >
+                        <span className="text-blue-600 font-mono text-xs">
+                          ID: {recipe.id}
+                        </span>
+                        <span className="text-gray-700">{recipe.name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {usageDetails && usageDetails.products.length > 0 && (
+              <div>
+                <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
+                  <Package className="h-5 w-5 text-orange-600" />
+                  Produkty ({usageDetails.products.length})
+                </h3>
+                <div className="border rounded-md p-3 max-h-48 overflow-y-auto bg-gray-50">
+                  <ul className="space-y-1">
+                    {usageDetails.products.map((product) => (
+                      <li
+                        key={product.id}
+                        className="text-sm flex items-center gap-2"
+                      >
+                        <span className="text-orange-600 font-mono text-xs">
+                          ID: {product.id}
+                        </span>
+                        <span className="text-gray-700">{product.name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {usageDetails && usageDetails.invoices.length > 0 && (
+              <div>
+                <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
+                  <Receipt className="h-5 w-5 text-purple-600" />
+                  Faktury ({usageDetails.invoices.length})
+                </h3>
+                <div className="border rounded-md p-3 max-h-48 overflow-y-auto bg-gray-50">
+                  <ul className="space-y-1">
+                    {usageDetails.invoices.map((invoice) => (
+                      <li
+                        key={invoice.id}
+                        className="text-sm flex items-center gap-2"
+                      >
+                        <span className="text-purple-600 font-mono text-xs">
+                          ID: {invoice.id}
+                        </span>
+                        <span className="text-gray-700">
+                          {invoice.invoice_number}
+                        </span>
+                        {invoice.invoice_date && (
+                          <span className="text-gray-500 text-xs">
+                            (
+                            {new Date(invoice.invoice_date).toLocaleDateString(
+                              "cs-CZ"
+                            )}
+                            )
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {usageDetails &&
+              usageDetails.recipes.length === 0 &&
+              usageDetails.products.length === 0 &&
+              usageDetails.invoices.length === 0 && (
+                <div className="text-center py-4 text-muted-foreground">
+                  Žádné použití nebylo nalezeno
+                </div>
+              )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowUsageDialog(false)}>
+              Zavřít
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

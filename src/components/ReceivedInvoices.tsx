@@ -970,11 +970,14 @@ export function ReceivedInvoices() {
         ${sortedItems
           .map((item, index) => {
             const ingredient = item.ingredient;
+            // Get supplier-specific ingredient name for this invoice's supplier
+            // (not the active supplier, but the one matching the invoice)
             const supplierCode = (
               ingredient as any
             )?.ingredient_supplier_codes?.find(
               (code: any) => code.supplier_id === selectedInvoice.supplier_id
             );
+            // Always use supplier-specific name if available, otherwise fallback to main name
             const supplierIngredientName =
               supplierCode?.supplier_ingredient_name ||
               ingredient?.name ||
@@ -1316,7 +1319,12 @@ export function ReceivedInvoices() {
                 </TableHeader>
                 <TableBody>
                   {filteredInvoices.map((invoice) => (
-                    <TableRow key={invoice.id}>
+                    <TableRow
+                      key={invoice.id}
+                      onClick={() => handleViewInvoice(invoice)}
+                      className="cursor-pointer hover:bg-orange-50 transition-colors"
+                      style={{ userSelect: "none" }}
+                    >
                       <TableCell className="font-medium">
                         {invoice.invoice_number}
                       </TableCell>
@@ -1388,11 +1396,17 @@ export function ReceivedInvoices() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+                        <div
+                          className="flex justify-end gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleViewInvoice(invoice)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewInvoice(invoice);
+                            }}
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -1400,7 +1414,10 @@ export function ReceivedInvoices() {
                             variant="ghost"
                             size="sm"
                             className="text-red-600 hover:text-red-700"
-                            onClick={() => handleDeleteInvoice(invoice.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteInvoice(invoice.id);
+                            }}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -1791,7 +1808,8 @@ export function ReceivedInvoices() {
                                     const ingredient = item.ingredient;
                                     if (!ingredient) return "Neznámá surovina";
 
-                                    // Get supplier's ingredient name if available
+                                    // Get supplier-specific ingredient name for this invoice's supplier
+                                    // (not the active supplier, but the one matching the invoice)
                                     const supplierCode = (
                                       ingredient as any
                                     ).ingredient_supplier_codes?.find(
@@ -1799,11 +1817,11 @@ export function ReceivedInvoices() {
                                         code.supplier_id ===
                                         selectedInvoice.supplier_id
                                     );
-                                    const supplierIngredientName =
-                                      supplierCode?.supplier_ingredient_name;
 
+                                    // Always use supplier-specific name if available, otherwise fallback to main name
                                     return (
-                                      supplierIngredientName || ingredient.name
+                                      supplierCode?.supplier_ingredient_name ||
+                                      ingredient.name
                                     );
                                   })()}
                                 </div>
@@ -1987,13 +2005,16 @@ export function ReceivedInvoices() {
                     );
                   }
 
-                  // Get supplier's ingredient name if available
+                  // Get supplier-specific ingredient name for this invoice's supplier
+                  // (not the active supplier, but the one matching the invoice)
                   const supplierCode = (
                     ingredient as any
                   ).ingredient_supplier_codes?.find(
                     (code: any) =>
                       code.supplier_id === selectedInvoice?.supplier_id
                   );
+
+                  // Always use supplier-specific name if available, otherwise fallback to main name
                   const supplierIngredientName =
                     supplierCode?.supplier_ingredient_name;
 
