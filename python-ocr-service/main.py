@@ -1227,13 +1227,13 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
             if not match:
                 is_dekos_code = re.match(r'^\d+\.\d+(?:-\d+)?', line)
                 if is_dekos_code:
-                    # Dekos format: code (with optional dash), description, unit_price, quantity, unit, vat_rate, line_total
-                    # Example: "8.5340-1 Utěrka Z-Z / 200 útržků, šedá 15,9700 20,000 bal 21 319,40"
-                    # Example: "35.0400 Jar PŘIMONA 5I zelený 79,0000 8,000 1ks 21 632,00"
-                    # Example: "35.0265 STOP BAKTER 5L 108,1300 1,000 1ks 21 108,13" (OCR may read "5L" as "51")
-                    # Example: "1.2021 Sáček papírový 20+8x33cm hnědý 580,0000 1,000 tis 21 580,00"
-                    # Note: Description can contain +, -, /, numbers like "5L", "10kg" (e.g., "20+8x33cm", "12-200z", "5L")
-                    # Unit price pattern: large number with thousands separator (space or nothing) and comma decimal
+                # Dekos format: code (with optional dash), description, unit_price, quantity, unit, vat_rate, line_total
+                # Example: "8.5340-1 Utěrka Z-Z / 200 útržků, šedá 15,9700 20,000 bal 21 319,40"
+                # Example: "35.0400 Jar PŘIMONA 5I zelený 79,0000 8,000 1ks 21 632,00"
+                # Example: "35.0265 STOP BAKTER 5L 108,1300 1,000 1ks 21 108,13" (OCR may read "5L" as "51")
+                # Example: "1.2021 Sáček papírový 20+8x33cm hnědý 580,0000 1,000 tis 21 580,00"
+                # Note: Description can contain +, -, /, numbers like "5L", "10kg" (e.g., "20+8x33cm", "12-200z", "5L")
+                # Unit price pattern: large number with thousands separator (space or nothing) and comma decimal
                     # Stop before: space + digit + comma + 4 digits (unit_price pattern like "5,3000", "108,1300")
                     # Description can contain numbers and "x" (e.g., "28x28x10cm", "20+8x33cm")
                     # Use negative lookahead to stop before unit_price: space + digit + comma + 4 digits

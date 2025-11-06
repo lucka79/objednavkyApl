@@ -5,5 +5,6 @@ export { DekosInvoiceLayout } from "./DekosInvoiceLayout";
 export { BackaldrinInvoiceLayout } from "./BackaldrinInvoiceLayout";
 export { AlbertInvoiceLayout } from "./AlbertInvoiceLayout";
 export { LeCoInvoiceLayout } from "./LeCoInvoiceLayout";
+export { IngredientMapping } from "./IngredientMapping";
 // export { StandardInvoiceLayout } from "./StandardInvoiceLayout";
 

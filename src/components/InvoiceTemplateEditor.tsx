@@ -535,7 +535,8 @@ function TemplateForm({
                 Albert (bez kódů, jen názvy)
               </SelectItem>
               <SelectItem value="leco">
-                Le-co (9 polí: kód, popis, množství, jednotka, cena/jed, celkem, DPH%, DPH částka, celkem s DPH)
+                Le-co (9 polí: kód, popis, množství, jednotka, cena/jed, celkem,
+                DPH%, DPH částka, celkem s DPH)
               </SelectItem>
               <SelectItem value="custom">
                 ✏️ Vlastní název (pro specifického dodavatele)

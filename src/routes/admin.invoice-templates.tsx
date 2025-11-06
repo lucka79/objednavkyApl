@@ -15,6 +15,7 @@ import { useDocumentAI } from "@/hooks/useDocumentAI";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useInvoiceTemplates } from "@/hooks/useInvoiceTemplates";
+import { useIngredients } from "@/hooks/useIngredients";
 import {
   MakroInvoiceLayout,
   PesekLineInvoiceLayout,
@@ -226,6 +227,8 @@ function InvoiceTemplatesPage() {
 function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
   const { processDocumentWithTemplate, isProcessing } = useDocumentAI();
   const { templates, updateTemplate } = useInvoiceTemplates(supplierId);
+  const { data: ingredientsData } = useIngredients();
+  const ingredients = ingredientsData?.ingredients || [];
 
   // Persist state in sessionStorage to survive tab switches
   const [result, setResult] = useState<any>(() => {
@@ -267,9 +270,12 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
   // Handle item mapped callback - update result to show mapped ingredient
   const handleItemMapped = (
     itemId: string,
-    ingredientId: number,
-    ingredientName: string
+    ingredientId: number
   ) => {
+    // Look up ingredient name from ingredients array
+    const ingredient = ingredients.find((ing) => ing.id === ingredientId);
+    const ingredientName = ingredient?.name || "";
+
     console.log("📥 handleItemMapped called:", {
       itemId,
       ingredientId,
@@ -2617,7 +2623,14 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                 } else if (layout === "zeelandia") {
                   return <ZeelandiaInvoiceLayout items={result.items} />;
                 } else if (layout === "dekos") {
-                  return <DekosInvoiceLayout items={result.items} />;
+                  return (
+                    <DekosInvoiceLayout
+                      items={result.items}
+                      supplierId={supplierId}
+                      onItemMapped={handleItemMapped}
+                      supplierIngredients={ingredients}
+                    />
+                  );
                 } else if (layout === "backaldrin") {
                   return <BackaldrinInvoiceLayout items={result.items} />;
                 } else if (layout === "albert") {

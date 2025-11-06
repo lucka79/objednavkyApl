@@ -2848,7 +2848,31 @@ export function InvoiceUploadDialog() {
                     <div className="mt-2">
                       <DekosInvoiceLayout
                         items={parsedInvoice.items}
+                        supplierId={selectedSupplier || invoiceSupplier}
                         onUnmap={handleUnmapItem}
+                        onItemMapped={(
+                          itemId: string,
+                          ingredientId: number
+                        ) => {
+                          const ingredient = ingredients.find(
+                            (ing) => ing.id === ingredientId
+                          );
+                          if (!ingredient || !parsedInvoice) return;
+
+                          setParsedInvoice({
+                            ...parsedInvoice,
+                            items: parsedInvoice.items.map((item) =>
+                              item.id === itemId
+                                ? {
+                                    ...item,
+                                    ingredientId: ingredient.id,
+                                    ingredientName: ingredient.name,
+                                  }
+                                : item
+                            ),
+                          });
+                        }}
+                        supplierIngredients={ingredients}
                         editedUnitPrices={editedUnitPrices}
                         setEditedUnitPrices={setEditedUnitPrices}
                         editingItemId={editingItemId}
@@ -2889,7 +2913,7 @@ export function InvoiceUploadDialog() {
                           t.supplier_id === supplierId &&
                           t.is_active &&
                           (t.config?.display_layout === "leco" ||
-                           t.config?.display_layout === "le-co")
+                            t.config?.display_layout === "le-co")
                       );
                       return (
                         selectedSupplier === LECO_SUPPLIER_ID ||
