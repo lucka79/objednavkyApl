@@ -559,12 +559,17 @@ def extract_line_items(
     display_layout = template_config.get('display_layout', '')
     if display_layout.lower() == 'dekos':
         logger.info("🔧 Dekos display_layout detected - using proven Dekos patterns")
-        # Override table start to match the first table header (not the second page)
-        patterns['table_start'] = r'(?:Položka|POLOŽKA)\s+(?:Cena|CENA)'
+        # For Dekos, items appear right after the payment/delivery info, before any table header
+        # Look for "Zp.dopravy:" or "Forma úhrady:" which comes right before the items start
+        # Then items follow immediately (e.g., "3.1003 Krabice dortová...")
+        patterns['table_start'] = r'(?:Zp\.dopravy|Forma úhrady):[^\n]*\n'
         # Override line pattern to use the proven Dekos pattern (7 groups)
         # Format: code, description, unit_price, quantity, unit, vat_rate, line_total
         table_columns['line_pattern'] = r'^(\d+\.\d+(?:-\d+)?)\s+([A-Za-zá-žÁ-Ž/](?:[\wá-žÁ-Ž.,%()/+-]|\s(?!\d+,\d{4}))+?)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([A-Za-z0-9]{1,10})\s+(\d+)\s+([\d\s,\.]+)'
+        # For table_end, use the "FAKTURA č." line that appears before the summary on page 2
+        patterns['table_end'] = r'(?:FAKTURA|Faktura)\s+č\.'
         logger.info(f"   Using Dekos table_start: {patterns['table_start']}")
+        logger.info(f"   Using Dekos table_end: {patterns.get('table_end')}")
         logger.info(f"   Using Dekos line_pattern (7 groups): {table_columns['line_pattern']}")
     elif display_layout.lower() in ['leco', 'le-co']:
         logger.info("🔧 Le-co display_layout detected - using proven Le-co patterns")
