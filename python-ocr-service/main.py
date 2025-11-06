@@ -187,19 +187,23 @@ async def process_invoice(request: ProcessInvoiceRequest):
             patterns['invoice_number'] = r'(?:DAŇOVÝ|DANOVY|Daňový|Danovy)\s+DOKLAD\s*-\s*faktura\s+č\.\s*(\d{5,})'
             logger.info(f"   Using Dekos invoice_number: {patterns['invoice_number']}")
         elif display_layout.lower() == 'zeelandia':
-            logger.info("🔧 Zeelandia display_layout detected - overriding patterns")
-            # Override patterns for Zeelandia invoices
-            # Handle invoice number on separate line: "Číslo faktury\n525041598"
-            patterns['invoice_number'] = r'Číslo faktury[\s\n]+(\d+)'
-            # Handle date on separate line: "DUZP\n05.11.2025"
-            patterns['date'] = r'DUZP[\s\n]+(\d{1,2}\.\d{1,2}\.\d{4})'
-            # Handle total amount on separate line with optional currency: "K úhradě\n33 751,78 CZK"
-            patterns['total_amount'] = r'K úhradě[\s\n]+([\d\s,]+)(?:\s*[A-Z]{2,3})?'
-            patterns['payment_type'] = r'Plateb\.podmínky[\s\n]*([a-zA-Zá-žÁ-Ž]+)'
-            logger.info(f"   Using Zeelandia invoice_number (multiline): {patterns['invoice_number']}")
-            logger.info(f"   Using Zeelandia date (DUZP, multiline): {patterns['date']}")
-            logger.info(f"   Using Zeelandia total_amount (multiline with optional currency): {patterns['total_amount']}")
-            logger.info(f"   Using Zeelandia payment_type (multiline): {patterns['payment_type']}")
+            logger.info("🔧 Zeelandia display_layout detected - overriding patterns (sequence-based)")
+            # Zeelandia: Extract by SEQUENCE, not labels (more robust for OCR errors)
+            # Sequence: invoice_number → total_amount → date → payment_type
+            
+            # 1st: Invoice number - first 8-9 digit number in header
+            patterns['invoice_number'] = r'(?:Číslo faktury|faktur)[\s\S]{0,50}?(\d{8,9})'
+            # 2nd: Total amount - first amount with space/comma separator (e.g., "33 751,78")
+            patterns['total_amount'] = r'(?:úhradě|K úhradě)[\s\S]{0,50}?([\d\s,]+?)(?:\s*(?:CZK|Kč|EUR)|\s*\n)'
+            # 3rd: Date - first date in DD.MM.YYYY format
+            patterns['date'] = r'(?:DUZP|Datum)[\s\S]{0,50}?(\d{1,2}\.\d{1,2}\.\d{4})'
+            # 4th: Payment type - text after "Plateb.podmínky"
+            patterns['payment_type'] = r'Plateb\.?\s*podmínky[\s\n]*([a-zA-Zá-žÁ-Žů]+)'
+            
+            logger.info(f"   Using Zeelandia invoice_number (sequence): {patterns['invoice_number']}")
+            logger.info(f"   Using Zeelandia total_amount (sequence): {patterns['total_amount']}")
+            logger.info(f"   Using Zeelandia date (sequence): {patterns['date']}")
+            logger.info(f"   Using Zeelandia payment_type (sequence): {patterns['payment_type']}")
         
         invoice_number = extract_pattern(raw_text_display, patterns.get('invoice_number'))
         date = extract_pattern(raw_text_display, patterns.get('date'))
@@ -652,19 +656,23 @@ def extract_line_items(
         table_columns['line_pattern'] = r'^(?:[A-Z]\s+)?([A-ZĚŠČŘŽÝÁÍÉÚŮĎŤŇĹ\s]+?)\s+(\d{3,5})\s+([\d,]+)\s+([A-D])\s*$'
         logger.info(f"   Using Albert pattern (4 groups, no product codes): {table_columns['line_pattern']}")
     elif display_layout.lower() == 'zeelandia':
-        logger.info("🔧 Zeelandia display_layout detected - using proven Zeelandia patterns")
-        # Override invoice-level patterns for Zeelandia
-        # Handle invoice number on separate line: "Číslo faktury\n525041598"
-        patterns['invoice_number'] = r'Číslo faktury[\s\n]+(\d+)'
-        # Handle date on separate line: "DUZP\n05.11.2025"
-        patterns['date'] = r'DUZP[\s\n]+(\d{1,2}\.\d{1,2}\.\d{4})'
-        # Handle total amount on separate line with optional currency: "K úhradě\n33 751,78 CZK"
-        patterns['total_amount'] = r'K úhradě[\s\n]+([\d\s,]+)(?:\s*[A-Z]{2,3})?'
-        patterns['payment_type'] = r'Plateb\.podmínky[\s\n]*([a-zA-Zá-žÁ-Ž]+)'
-        logger.info(f"   Using Zeelandia invoice_number (multiline): {patterns['invoice_number']}")
-        logger.info(f"   Using Zeelandia date (DUZP, multiline): {patterns['date']}")
-        logger.info(f"   Using Zeelandia total_amount (multiline with optional currency): {patterns['total_amount']}")
-        logger.info(f"   Using Zeelandia payment_type (multiline): {patterns['payment_type']}")
+        logger.info("🔧 Zeelandia display_layout detected - using sequence-based patterns")
+        # Zeelandia: Extract by SEQUENCE, not labels (more robust for OCR errors)
+        # Sequence: invoice_number → total_amount → date → payment_type
+        
+        # 1st: Invoice number - first 8-9 digit number in header
+        patterns['invoice_number'] = r'(?:Číslo faktury|faktur)[\s\S]{0,50}?(\d{8,9})'
+        # 2nd: Total amount - first amount with space/comma separator (e.g., "33 751,78")
+        patterns['total_amount'] = r'(?:úhradě|K úhradě)[\s\S]{0,50}?([\d\s,]+?)(?:\s*(?:CZK|Kč|EUR)|\s*\n)'
+        # 3rd: Date - first date in DD.MM.YYYY format
+        patterns['date'] = r'(?:DUZP|Datum)[\s\S]{0,50}?(\d{1,2}\.\d{1,2}\.\d{4})'
+        # 4th: Payment type - text after "Plateb.podmínky"
+        patterns['payment_type'] = r'Plateb\.?\s*podmínky[\s\n]*([a-zA-Zá-žÁ-Žů]+)'
+        
+        logger.info(f"   Using Zeelandia invoice_number (sequence): {patterns['invoice_number']}")
+        logger.info(f"   Using Zeelandia total_amount (sequence): {patterns['total_amount']}")
+        logger.info(f"   Using Zeelandia date (sequence): {patterns['date']}")
+        logger.info(f"   Using Zeelandia payment_type (sequence): {patterns['payment_type']}")
         
         # Zeelandia pattern: 12 groups (single-line format with detailed packaging info)
         # Format: Code Description Quantity Unit Obsah Obsah_Unit Fakt.mn Fakt.mn_Unit UnitPrice TotalPrice Currency VAT%
