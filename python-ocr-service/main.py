@@ -605,6 +605,18 @@ def extract_line_items(
         # Pattern captures: description, code, quantity, unit, unit_price, line_total
         table_columns['line_pattern'] = r'^([^\n]+?)\s*\n\s*(\d+)\s+([\d,]+)\s*([a-zA-Z]{1,5})\s+([\d,\s]+)\s+\d+\s*%?\s*\d*\s+([\d,\.\s]+)'
         logger.info(f"   Using Pešek multi-line pattern (6 groups): {table_columns['line_pattern']}")
+    elif display_layout.lower() == 'goodmills':
+        logger.info("🔧 Goodmills display_layout detected - using proven Goodmills multi-line patterns")
+        # Goodmills pattern: 7 groups (multi-line format)
+        # Format: Data on line 1, description on line 2
+        # Line 1: Code VAT% Quantity Unit UnitPrice LineTotal
+        # Line 2: Description
+        # Example:
+        #   Line 1: "512001 12% 7160.00 KG 8.9000 63724.00"
+        #   Line 2: "Pš.m.hl.světlá T530 volná"
+        # Pattern captures: code, vat_rate, quantity, unit, unit_price, line_total, description
+        table_columns['line_pattern'] = r'^(\d{6})\s+(\d+)%\s+([\d\.]+)\s+([A-Z]{2,4})\s+([\d\.]+)\s+([\d\.]+)\s*\n\s*(.+?)(?:\n|$)'
+        logger.info(f"   Using Goodmills multi-line pattern (7 groups): {table_columns['line_pattern']}")
     
     # Find table start and end
     table_start_pattern = patterns.get('table_start')

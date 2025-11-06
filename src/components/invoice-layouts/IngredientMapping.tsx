@@ -293,7 +293,11 @@ export function IngredientMapping({
   }
 
   // If not mapped (or user just clicked unmap) and we have supplier ingredients, show mapping UI
-  if (supplierId && supplierIngredients && (forceShowDropdown || !ingredientId)) {
+  if (
+    supplierId &&
+    supplierIngredients &&
+    (forceShowDropdown || !ingredientId)
+  ) {
     const filteredList = getFilteredIngredients();
 
     return (

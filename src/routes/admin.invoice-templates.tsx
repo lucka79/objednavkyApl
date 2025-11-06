@@ -24,6 +24,7 @@ import {
   BackaldrinInvoiceLayout,
   AlbertInvoiceLayout,
   LeCoInvoiceLayout,
+  GoodmillsInvoiceLayout,
 } from "@/components/invoice-layouts";
 
 export const Route = createFileRoute("/admin/invoice-templates")({
@@ -2687,6 +2688,16 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                   );
                 } else if (layout === "leco" || layout === "le-co") {
                   return <LeCoInvoiceLayout items={result.items} />;
+                } else if (layout === "goodmills") {
+                  return (
+                    <GoodmillsInvoiceLayout
+                      items={result.items}
+                      supplierId={supplierId}
+                      onUnmap={handleUnmap}
+                      onItemMapped={handleItemMapped}
+                      supplierIngredients={ingredients}
+                    />
+                  );
                 } else {
                   return <PesekLineInvoiceLayout items={result.items} />;
                 }
