@@ -12,6 +12,7 @@ import { X, AlertTriangle, Pencil, Check, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface DekosInvoiceLayoutProps {
   items: any[];
@@ -71,6 +72,7 @@ export function DekosInvoiceLayout({
   setEditingField,
 }: DekosInvoiceLayoutProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [selectedIngredients, setSelectedIngredients] = useState<
     Record<string, string>
   >({});
@@ -175,6 +177,77 @@ export function DekosInvoiceLayout({
 
     // Limit to top 50 results
     return filtered.slice(0, 50);
+  };
+
+  // Handle unmapping an item from an ingredient
+  const handleUnmapIngredient = async (
+    itemId: string,
+    productCode: string,
+    description: string
+  ) => {
+    if (!supplierId) {
+      console.warn("⚠️ No supplierId provided for unmapping");
+      return;
+    }
+
+    const codeToUse = productCode || description;
+
+    console.log("🗑️ handleUnmapIngredient called:", {
+      itemId,
+      productCode,
+      description,
+      codeToUse,
+      supplierId,
+    });
+
+    setMappingIds((prev) => new Set(prev).add(itemId));
+
+    try {
+      // Delete the mapping from the database
+      const { error } = await supabase
+        .from("ingredient_supplier_codes")
+        .delete()
+        .eq("supplier_id", supplierId)
+        .eq("product_code", codeToUse);
+
+      if (error) {
+        console.error("❌ Error deleting mapping:", error);
+        throw error;
+      }
+
+      console.log("✅ Mapping deleted successfully");
+
+      toast({
+        title: "✅ Mapování odebráno",
+        description: `Mapování pro ${productCode || description} bylo odebráno`,
+      });
+
+      // Invalidate queries to refresh data
+      console.log("🔄 Invalidating queries after unmap...");
+      await queryClient.invalidateQueries({ queryKey: ["ingredients"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["ingredients-for-mapping"],
+      });
+      console.log("✅ Queries invalidated");
+
+      // Call parent's onUnmap callback to update UI
+      if (onUnmap) {
+        onUnmap(itemId);
+      }
+    } catch (error) {
+      console.error("❌ Error unmapping ingredient:", error);
+      toast({
+        title: "❌ Chyba při odebírání",
+        description: `Nepodařilo se odebrat mapování: ${(error as any)?.message || "Neznámá chyba"}`,
+        variant: "destructive",
+      });
+    } finally {
+      setMappingIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
+    }
   };
 
   // Handle mapping an item to an ingredient
@@ -288,6 +361,14 @@ export function DekosInvoiceLayout({
         title: "✅ Mapování uloženo",
         description: `${productCode || description} → ${ingredient?.name}`,
       });
+
+      // Invalidate queries to refresh data
+      console.log("🔄 Invalidating queries...");
+      await queryClient.invalidateQueries({ queryKey: ["ingredients"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["ingredients-for-mapping"],
+      });
+      console.log("✅ Queries invalidated");
 
       // Notify parent component
       if (onItemMapped && ingredient) {
@@ -522,17 +603,26 @@ export function DekosInvoiceLayout({
                           <span className="text-sm">✓</span>
                           {ingredientName}
                         </div>
-                        {onUnmap && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 w-5 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
-                            onClick={() => onUnmap(item.id)}
-                            title="Odebrat mapování"
-                          >
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 w-5 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                          onClick={() =>
+                            handleUnmapIngredient(
+                              item.id,
+                              productCode,
+                              description
+                            )
+                          }
+                          disabled={mappingIds.has(item.id)}
+                          title="Odebrat mapování"
+                        >
+                          {mappingIds.has(item.id) ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
                             <X className="h-3 w-3" />
-                          </Button>
-                        )}
+                          )}
+                        </Button>
                       </div>
                       {isLowConfidence && (
                         <Badge
