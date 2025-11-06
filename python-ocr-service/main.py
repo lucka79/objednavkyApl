@@ -191,11 +191,11 @@ async def process_invoice(request: ProcessInvoiceRequest):
             # Override patterns for Zeelandia invoices
             patterns['invoice_number'] = r'Číslo faktury\s+(\d+)'
             patterns['date'] = r'DUZP\s+(\d{1,2}\.\d{1,2}\.\d{4})'
-            patterns['total_amount'] = r'K úhradě\s+([\d\s,]+)'
+            patterns['total_amount'] = r'K úhradě\s+([\d\s,]+)(?:\s*[A-Z]{2,3})?'
             patterns['payment_type'] = r'Plateb\.podmínky\s*([a-zA-Zá-žÁ-Ž]+)'
             logger.info(f"   Using Zeelandia invoice_number: {patterns['invoice_number']}")
             logger.info(f"   Using Zeelandia date (DUZP): {patterns['date']}")
-            logger.info(f"   Using Zeelandia total_amount: {patterns['total_amount']}")
+            logger.info(f"   Using Zeelandia total_amount (with optional currency): {patterns['total_amount']}")
             logger.info(f"   Using Zeelandia payment_type: {patterns['payment_type']}")
         
         invoice_number = extract_pattern(raw_text_display, patterns.get('invoice_number'))
@@ -653,11 +653,11 @@ def extract_line_items(
         # Override invoice-level patterns for Zeelandia
         patterns['invoice_number'] = r'Číslo faktury\s+(\d+)'
         patterns['date'] = r'DUZP\s+(\d{1,2}\.\d{1,2}\.\d{4})'
-        patterns['total_amount'] = r'K úhradě\s+([\d\s,]+)'
+        patterns['total_amount'] = r'K úhradě\s+([\d\s,]+)(?:\s*[A-Z]{2,3})?'
         patterns['payment_type'] = r'Plateb\.podmínky\s*([a-zA-Zá-žÁ-Ž]+)'
         logger.info(f"   Using Zeelandia invoice_number: {patterns['invoice_number']}")
         logger.info(f"   Using Zeelandia date (DUZP): {patterns['date']}")
-        logger.info(f"   Using Zeelandia total_amount: {patterns['total_amount']}")
+        logger.info(f"   Using Zeelandia total_amount (with optional currency): {patterns['total_amount']}")
         logger.info(f"   Using Zeelandia payment_type: {patterns['payment_type']}")
         
         # Zeelandia pattern: 12 groups (single-line format with detailed packaging info)
