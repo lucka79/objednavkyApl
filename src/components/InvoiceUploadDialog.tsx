@@ -850,6 +850,15 @@ export function InvoiceUploadDialog() {
           return; // User cancelled
         }
 
+        console.log(
+          "🔄 Updating existing invoice (no notification will be sent):",
+          {
+            existingInvoiceId: existingInvoice.id,
+            invoiceNumber: editedInvoiceNumber || parsedInvoice.invoiceNumber,
+            supplierId: supplierId,
+          }
+        );
+
         // Delete existing items
 
         const { error: deleteItemsError } = await supabase
@@ -891,8 +900,22 @@ export function InvoiceUploadDialog() {
         if (updateError) throw updateError;
 
         savedInvoice = updatedInvoice;
+        console.log(
+          "✅ Invoice updated successfully (UPDATE does not trigger notification)"
+        );
       } else {
         // Create new invoice
+        console.log(
+          "📤 INSERTING NEW INVOICE into invoices_received (should trigger Telegram notification):",
+          {
+            invoice_number: editedInvoiceNumber || parsedInvoice.invoiceNumber,
+            supplier_id: supplierId,
+            invoice_date: isoDate,
+            total_amount: parsedInvoice.totalAmount,
+            receiver_id: selectedReceiver || null,
+            payment_type: parsedInvoice.payment_type || null,
+          }
+        );
 
         const { data: newInvoice, error: invoiceError } = await supabase
 
@@ -918,9 +941,19 @@ export function InvoiceUploadDialog() {
 
           .single();
 
-        if (invoiceError) throw invoiceError;
+        if (invoiceError) {
+          console.error("❌ Failed to insert invoice:", invoiceError);
+          throw invoiceError;
+        }
 
         savedInvoice = newInvoice;
+        console.log("✅ NEW INVOICE INSERTED SUCCESSFULLY!", {
+          id: newInvoice.id,
+          invoice_number: newInvoice.invoice_number,
+          supplier_id: newInvoice.supplier_id,
+          total_amount: newInvoice.total_amount,
+          created_at: newInvoice.created_at,
+        });
       }
 
       // Save items that have matched ingredients
@@ -1282,6 +1315,48 @@ export function InvoiceUploadDialog() {
 
         if (itemsError) throw itemsError;
       }
+
+      // Send Telegram notification after items are saved (non-blocking)
+      console.log("📤 Sending Telegram notification...");
+      const { data: supplierData } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", supplierId)
+        .single();
+
+      supabase.functions
+        .invoke("notify-telegram", {
+          body: {
+            type: "INSERT",
+            record: {
+              table: "invoices_received",
+              id: savedInvoice.id,
+              invoice_number: savedInvoice.invoice_number,
+              supplier_id: supplierId,
+              supplier_name: supplierData?.full_name || "Neznámý",
+              invoice_date: savedInvoice.invoice_date,
+              total_amount: savedInvoice.total_amount,
+              items_count: matchedItems.length,
+            },
+          },
+        })
+        .then(({ data, error }) => {
+          if (error) {
+            console.warn(
+              "⚠️ Telegram notification failed (invoice saved successfully):",
+              error
+            );
+          } else {
+            console.log("✅ Telegram notification sent!", data);
+            console.log("📱 Check your Telegram app!");
+          }
+        })
+        .catch((err) => {
+          console.warn(
+            "⚠️ Telegram notification error (invoice saved successfully):",
+            err
+          );
+        });
 
       // Show success message
 

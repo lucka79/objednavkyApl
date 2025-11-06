@@ -172,11 +172,17 @@ export function Navbar() {
 
                     {user.email === "l.batelkova@gmail.com" && (
                       <>
-                        <Link
+                        {/* <Link
                           to="/admin/invoices"
                           className="hover:text-gray-300"
                         >
                           Faktury
+                        </Link> */}
+                        <Link
+                          to="/admin/notification-settings"
+                          className="hover:text-gray-300"
+                        >
+                          Notifikace
                         </Link>
                         <Link
                           to="/admin/invoice-templates"

@@ -28,19 +28,10 @@ serve(async (req) => {
 
     if (type === "INSERT" && record.table === "invoices_received") {
       // New invoice received
-      const supabaseUrl = Deno.env.get("SUPABASE_URL");
-      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-      // Get supplier name
-      const { data: supplier } = await supabase
-        .from("users")
-        .select("full_name")
-        .eq("id", record.supplier_id)
-        .single();
+      const supplierName = record.supplier_name || "Neznámý";
 
       message = `🧾 *Nová faktura přijata!*\n\n`;
-      message += `📦 Dodavatel: ${supplier?.full_name || "Neznámý"}\n`;
+      message += `📦 Dodavatel: ${supplierName}\n`;
       message += `📄 Číslo faktury: ${record.invoice_number || "N/A"}\n`;
       message += `💰 Částka: ${record.total_amount ? `${record.total_amount} Kč` : "N/A"}\n`;
       message += `📅 Datum: ${record.invoice_date || "N/A"}\n`;
