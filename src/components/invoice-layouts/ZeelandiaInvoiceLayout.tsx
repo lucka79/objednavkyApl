@@ -108,15 +108,17 @@ export function ZeelandiaInvoiceLayout({
                 </td>
                 <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
                   {item.unit_price?.toLocaleString("cs-CZ", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  })}{" "}
+                  Kč
                 </td>
                 <td className="px-3 py-2 text-right text-sm font-medium text-gray-900 border-r border-gray-200">
-                  {priceTotal.toLocaleString("cs-CZ", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+                  {Math.floor(priceTotal).toLocaleString("cs-CZ", {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  })}{" "}
+                  Kč
                 </td>
                 <td className="px-3 py-2 text-sm">
                   <IngredientMapping
