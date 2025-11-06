@@ -632,9 +632,10 @@ def extract_line_items(
         # - Format B: Items sold by weight (description starts with "*")
         # Pattern captures: code(6-7 digits), quantity/weight(decimal), description(any text), base_price, units_in_mu, price_per_mu, total, vat_rate, vat_amount, total_with_vat
         # Note: VAT rate can be "12,0" or "21,0" (with decimal), so using [\d,\.]+ instead of \d+
-        # Description: Must start with letter/number, can have internal spaces/special chars, must end with letter/number/g/G/+ (for "150+", "250+")
-        table_columns['line_pattern'] = r'^(\d{6,7})\s+([\d,\.]+)\s+([*]?[A-Za-zá-žÁ-Ž0-9][A-Za-zá-žÁ-Ž0-9\s.,%()/-]*?[A-Za-zá-žÁ-Ž0-9gG+])\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([\d,\.]+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)'
-        logger.info(f"   Using Makro line_pattern (10 groups, allows + at end): {table_columns['line_pattern']}")
+        # Description: Match anything except digits (non-greedy) until we hit space + digit pattern
+        # Changed to use lookahead: stop description before " digit"
+        table_columns['line_pattern'] = r'^(\d{6,7})\s+([\d,\.]+)\s+([*]?(?:(?!\s+\d).)+?)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([\d,\.]+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)'
+        logger.info(f"   Using Makro line_pattern (10 groups, lookahead for description end): {table_columns['line_pattern']}")
     elif display_layout.lower() == 'pesek':
         logger.info("🔧 Pešek display_layout detected - using proven Pešek multi-line patterns")
         # Pešek pattern: 6 groups (multi-line format)
@@ -2375,11 +2376,11 @@ def calculate_confidence(extracted_data: Dict) -> float:
     if items:
         # Score based on completeness of item data
         try:
-            complete_items = sum(
-                1 for item in items 
+        complete_items = sum(
+            1 for item in items 
                 if hasattr(item, 'product_code') and hasattr(item, 'quantity') and item.product_code and item.quantity > 0
-            )
-            score += (complete_items / len(items)) * 60
+        )
+        score += (complete_items / len(items)) * 60
         except Exception as e:
             logger.error(f"Error calculating item completeness: {e}")
             logger.error(f"  items type: {type(items)}")
