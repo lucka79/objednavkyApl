@@ -282,6 +282,10 @@ async def process_invoice(request: ProcessInvoiceRequest):
                 logger.info(f"  Page {qr.page}: {qr.type} - {qr.data[:100]}...")
         
         # Calculate confidence based on extracted data
+        logger.info(f"🔍 Debug: items type={type(items)}, length={len(items) if isinstance(items, (list, tuple)) else 'N/A'}")
+        if items and len(items) > 0:
+            logger.info(f"🔍 Debug: first item type={type(items[0])}, has product_code={hasattr(items[0], 'product_code') if not isinstance(items[0], (list, tuple)) else 'is list/tuple!'}")
+        
         confidence = calculate_confidence({
             'invoice_number': invoice_number,
             'date': date,
@@ -2370,11 +2374,21 @@ def calculate_confidence(extracted_data: Dict) -> float:
     items = extracted_data.get('items', [])
     if items:
         # Score based on completeness of item data
-        complete_items = sum(
-            1 for item in items 
-            if item.product_code and item.quantity > 0
-        )
-        score += (complete_items / len(items)) * 60
+        try:
+            complete_items = sum(
+                1 for item in items 
+                if hasattr(item, 'product_code') and hasattr(item, 'quantity') and item.product_code and item.quantity > 0
+            )
+            score += (complete_items / len(items)) * 60
+        except Exception as e:
+            logger.error(f"Error calculating item completeness: {e}")
+            logger.error(f"  items type: {type(items)}")
+            logger.error(f"  items length: {len(items)}")
+            if items and len(items) > 0:
+                logger.error(f"  first item type: {type(items[0])}")
+                logger.error(f"  first item value: {items[0]}")
+            # Fallback: give partial score if we have items at all
+            score += 30
     
     return (score / max_score) * 100 if max_score > 0 else 0
 
