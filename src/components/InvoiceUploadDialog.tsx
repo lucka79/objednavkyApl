@@ -144,6 +144,9 @@ interface ParsedInvoice {
   templateUsed?: string;
 
   qrCodes?: Array<{ data: string; type: string; page: number }>;
+
+  linesProcessed?: number;
+  itemsExtracted?: number;
 }
 
 // MAKRO supplier ID (weight-based layout)
@@ -699,6 +702,9 @@ export function InvoiceUploadDialog() {
           templateUsed: result.data.template_used,
 
           qrCodes: result.data.qr_codes,
+
+          linesProcessed: result.data.lines_processed,
+          itemsExtracted: result.data.items_extracted || items.length,
         });
 
         // Auto-select the supplier in the dropdown
@@ -709,13 +715,27 @@ export function InvoiceUploadDialog() {
           (i: any) => i.matchStatus === "unmapped"
         ).length;
 
-        toast({
-          title: "✅ Faktura zpracována!",
+        // Check for skipped items (lines that didn't match the pattern)
+        const linesProcessed = result.data.lines_processed || 0;
+        const itemsExtracted = result.data.items_extracted || items.length;
+        const skippedLines = linesProcessed > itemsExtracted ? linesProcessed - itemsExtracted : 0;
 
-          description:
-            unmappedCount > 0
-              ? `Extrahováno ${items.length} položek (${unmappedCount} nenamapováno)`
-              : `Všech ${items.length} položek úspěšně namapováno`,
+        let description = "";
+        if (skippedLines > 0) {
+          description = `Extrahováno ${items.length} položek, ${skippedLines} řádků přeskočeno (neodpovídá vzoru)`;
+          if (unmappedCount > 0) {
+            description += `, ${unmappedCount} nenamapováno`;
+          }
+        } else if (unmappedCount > 0) {
+          description = `Extrahováno ${items.length} položek (${unmappedCount} nenamapováno)`;
+        } else {
+          description = `Všech ${items.length} položek úspěšně namapováno`;
+        }
+
+        toast({
+          title: skippedLines > 0 ? "⚠️ Faktura zpracována s výhradami" : "✅ Faktura zpracována!",
+          description,
+          variant: skippedLines > 0 ? "destructive" : "default",
         });
       } else {
         throw new Error(result.error || "Failed to process document");
@@ -1918,8 +1938,36 @@ export function InvoiceUploadDialog() {
                             {parsedInvoice.unmappedCount} nenamapováno
                           </Badge>
                         )}
+
+                      {parsedInvoice.linesProcessed &&
+                        parsedInvoice.itemsExtracted &&
+                        parsedInvoice.linesProcessed > parsedInvoice.itemsExtracted && (
+                          <Badge variant="destructive" className="text-xs bg-orange-600 hover:bg-orange-700">
+                            ⚠️ {parsedInvoice.linesProcessed - parsedInvoice.itemsExtracted} řádků přeskočeno
+                          </Badge>
+                        )}
                     </div>
                   </div>
+
+                  {/* Warning for skipped lines */}
+                  {parsedInvoice.linesProcessed &&
+                    parsedInvoice.itemsExtracted &&
+                    parsedInvoice.linesProcessed > parsedInvoice.itemsExtracted && (
+                      <Alert className="mb-4 bg-red-50 border-red-300">
+                        <AlertDescription className="text-sm text-red-900">
+                          <strong>🚨 Kritické upozornění:</strong> Bylo zpracováno{" "}
+                          <strong>{parsedInvoice.linesProcessed}</strong> řádků, ale pouze{" "}
+                          <strong>{parsedInvoice.itemsExtracted}</strong> položek bylo extrahováno.{" "}
+                          <strong>{parsedInvoice.linesProcessed - parsedInvoice.itemsExtracted}</strong>{" "}
+                          řádků neodpovídalo vzoru a byly přeskočeny.
+                          <br />
+                          <span className="text-xs mt-1 block">
+                            💡 To obvykle znamená, že vzor (pattern) pro tohoto dodavatele není správně nastaven.
+                            Zkontrolujte chybějící položky a případně upravte vzor v Admin → Šablony faktur.
+                          </span>
+                        </AlertDescription>
+                      </Alert>
+                    )}
 
                   {/* Warning for unmapped items */}
 
@@ -2238,9 +2286,11 @@ export function InvoiceUploadDialog() {
                             {parsedInvoice.items
                               .reduce((sum, item) => {
                                 const totalWeightValue =
-                                  (item.total_weight || item.totalWeightKg) ?? 0;
+                                  (item.total_weight || item.totalWeightKg) ??
+                                  0;
                                 const finalTotalWeight =
-                                  editedTotalWeights[item.id] ?? totalWeightValue;
+                                  editedTotalWeights[item.id] ??
+                                  totalWeightValue;
                                 const finalPrice =
                                   editedPrices[item.id] ?? item.price ?? 0;
                                 const priceTotal = parseFloat(
