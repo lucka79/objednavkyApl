@@ -1086,16 +1086,20 @@ export function InvoiceUploadDialog() {
                 itemId: item.id,
                 supplierCode: item.supplierCode,
                 totalWeightKg: item.totalWeightKg,
+                total_weight: item.total_weight,
+                total_weight_unit: item.total_weight_unit,
                 editedTotalWeight: editedTotalWeights[item.id],
                 finalQuantity:
                   isZeelandia || isMakro
                     ? parseFloat(
                         (
-                          editedTotalWeights[item.id] ?? item.totalWeightKg
+                          editedTotalWeights[item.id] ?? item.total_weight ?? item.totalWeightKg
                         )?.toString() || "0"
                       )
                     : item.quantity,
-                unit: isZeelandia || isMakro ? "kg" : item.unit,
+                unit: isZeelandia 
+                  ? (item.total_weight_unit || item.unit || "kg").toLowerCase()
+                  : isMakro ? "kg" : item.unit,
               }
             );
           }
@@ -1147,9 +1151,10 @@ export function InvoiceUploadDialog() {
             quantity = displayedQuantity;
             unitPrice = displayedUnitPrice;
           } else if (isZeelandia) {
-            // For Zeelandia: use totalWeightKg as quantity (preserve decimals)
+            // For Zeelandia: use total_weight (with units) as quantity (preserve decimals)
+            // Support both KG and PCE units
             const rawTotalWeight =
-              editedTotalWeights[item.id] ?? item.totalWeightKg;
+              editedTotalWeights[item.id] ?? item.total_weight ?? item.totalWeightKg;
             quantity = parseFloat(rawTotalWeight?.toString() || "0");
             unitPrice = Math.floor((editedPrices[item.id] ?? item.price) || 0); // Zeelandia floors unit price
           } else if (isDekos) {
@@ -1250,7 +1255,7 @@ export function InvoiceUploadDialog() {
               savedQuantity: quantity,
               savedUnitPrice: unitPrice,
               savedUnitOfMeasure: isZeelandia
-                ? "kg"
+                ? (item.total_weight_unit || item.unit || "kg").toLowerCase()
                 : isMakro
                   ? item.ingredientUnit === "ks" &&
                     (ksUnitChecked[item.id] !== undefined
@@ -1284,7 +1289,7 @@ export function InvoiceUploadDialog() {
             line_number: index + 1,
 
             unit_of_measure: isZeelandia
-              ? "kg"
+              ? (item.total_weight_unit || item.unit || "kg").toLowerCase()
               : isMakro
                 ? // For Makro: determine unit based on what quantity represents
                   item.ingredientUnit === "ks" &&

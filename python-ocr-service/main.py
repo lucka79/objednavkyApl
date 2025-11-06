@@ -186,6 +186,17 @@ async def process_invoice(request: ProcessInvoiceRequest):
             # Support both with and without diacritics
             patterns['invoice_number'] = r'(?:DAŇOVÝ|DANOVY|Daňový|Danovy)\s+DOKLAD\s*-\s*faktura\s+č\.\s*(\d{5,})'
             logger.info(f"   Using Dekos invoice_number: {patterns['invoice_number']}")
+        elif display_layout.lower() == 'zeelandia':
+            logger.info("🔧 Zeelandia display_layout detected - overriding patterns")
+            # Override patterns for Zeelandia invoices
+            patterns['invoice_number'] = r'Číslo faktury\s+(\d+)'
+            patterns['date'] = r'DUZP\s+(\d{1,2}\.\d{1,2}\.\d{4})'
+            patterns['total_amount'] = r'K úhradě\s+([\d\s,]+)'
+            patterns['payment_type'] = r'Plateb\.podmínky\s*([a-zA-Zá-žÁ-Ž]+)'
+            logger.info(f"   Using Zeelandia invoice_number: {patterns['invoice_number']}")
+            logger.info(f"   Using Zeelandia date (DUZP): {patterns['date']}")
+            logger.info(f"   Using Zeelandia total_amount: {patterns['total_amount']}")
+            logger.info(f"   Using Zeelandia payment_type: {patterns['payment_type']}")
         
         invoice_number = extract_pattern(raw_text_display, patterns.get('invoice_number'))
         date = extract_pattern(raw_text_display, patterns.get('date'))
@@ -639,6 +650,16 @@ def extract_line_items(
         logger.info(f"   Using Albert pattern (4 groups, no product codes): {table_columns['line_pattern']}")
     elif display_layout.lower() == 'zeelandia':
         logger.info("🔧 Zeelandia display_layout detected - using proven Zeelandia patterns")
+        # Override invoice-level patterns for Zeelandia
+        patterns['invoice_number'] = r'Číslo faktury\s+(\d+)'
+        patterns['date'] = r'DUZP\s+(\d{1,2}\.\d{1,2}\.\d{4})'
+        patterns['total_amount'] = r'K úhradě\s+([\d\s,]+)'
+        patterns['payment_type'] = r'Plateb\.podmínky\s*([a-zA-Zá-žÁ-Ž]+)'
+        logger.info(f"   Using Zeelandia invoice_number: {patterns['invoice_number']}")
+        logger.info(f"   Using Zeelandia date (DUZP): {patterns['date']}")
+        logger.info(f"   Using Zeelandia total_amount: {patterns['total_amount']}")
+        logger.info(f"   Using Zeelandia payment_type: {patterns['payment_type']}")
+        
         # Zeelandia pattern: 12 groups (single-line format with detailed packaging info)
         # Format: Code Description Quantity Unit Obsah Obsah_Unit Fakt.mn Fakt.mn_Unit UnitPrice TotalPrice Currency VAT%
         # Example: "10000891 ON Hruška gel 1kg 12 BAG 1,00 KG 12,00 KG 64,00 768,00 CZ 2%"
@@ -647,7 +668,7 @@ def extract_line_items(
         # Pattern captures: code(7-8 digits), description, quantity, unit(BAG/BKT/PCE), obsah, obsah_unit, fakt_mn, fakt_mn_unit, unit_price, total_price, currency, vat_rate
         # Czech number format: use \d+(?:\s\d+)* to match numbers with space thousands separators (e.g., "7 579,00")
         table_columns['line_pattern'] = r'^(\d{7,8})\s+([A-Za-zá-žÁ-Ž0-9\s.,%()-]+?)\s+(\d+)\s+(BAG|BKT|PCE)\s+([\d,\.]+)\s+(KG|PCE|G)\s+([\d\s,\.]+)\s+(KG|PCE|G)\s+(\d+(?:\s\d+)*,\d+)\s+(\d+(?:\s\d+)*,\d+)\s*([A-Z]{2,3})\s+(\d+)%'
-        logger.info(f"   Using Zeelandia pattern (12 groups with Czech number format): {table_columns['line_pattern']}")
+        logger.info(f"   Using Zeelandia line_pattern (12 groups with Czech number format): {table_columns['line_pattern']}")
         
         # Zeelandia-specific description corrections
         table_columns['description_corrections'] = {
