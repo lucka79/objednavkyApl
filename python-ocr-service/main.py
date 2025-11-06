@@ -298,6 +298,12 @@ def fix_ocr_errors(text: str) -> str:
     # Use \g<1> to avoid ambiguity with \11 (group 11)
     text = re.sub(r'(\d)l(kg|g)(?=\s|$|,|\d)', r'\g<1>1\2', text)
     
+    # Fix 2.6: "1l" or "2l" should be "1L" or "2L" (liter unit with uppercase L)
+    # Pattern: digit(s) + lowercase "l" at word boundary or before space
+    # Fixes cases like "Rosette 1l" → "Rosette 1L", "gel 2l" → "gel 2L"
+    # This corrects OCR error where lowercase "l" should be uppercase "L" for liters
+    text = re.sub(r'(\d+)l(?=\s|$|,)', r'\1L', text)
+    
     # Fix 3: VAT percentage - "12 5" should be "12 %"
     # Only in table rows (NOT after ":" to avoid fixing amounts like "95 223,00")
     # Match when: 1-2 digits + optional space + "5" + space + digits + comma/space (table format)
