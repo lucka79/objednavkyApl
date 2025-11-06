@@ -644,6 +644,15 @@ def extract_line_items(
         # Czech number format: use \d+(?:\s\d+)* to match numbers with space thousands separators (e.g., "7 579,00")
         table_columns['line_pattern'] = r'^(\d{7,8})\s+([A-Za-zá-žÁ-Ž0-9\s.,%()-]+?)\s+(\d+)\s+(BAG|BKT|PCE)\s+([\d,\.]+)\s+(KG|PCE|G)\s+([\d\s,\.]+)\s+(KG|PCE|G)\s+(\d+(?:\s\d+)*,\d+)\s+(\d+(?:\s\d+)*,\d+)\s*([A-Z]{2,3})\s+(\d+)%'
         logger.info(f"   Using Zeelandia pattern (12 groups with Czech number format): {table_columns['line_pattern']}")
+        
+        # Zeelandia-specific description corrections
+        table_columns['description_corrections'] = {
+            'replace_pattern': [
+                {'pattern': r'^Rosette 1$', 'replacement': 'Rosette 1L'},
+                {'pattern': r'^Rosette 1\s', 'replacement': 'Rosette 1L '},
+            ]
+        }
+        logger.info("   Applied Zeelandia description corrections: Rosette 1 → Rosette 1L")
     
     # Find table start and end
     table_start_pattern = patterns.get('table_start')
