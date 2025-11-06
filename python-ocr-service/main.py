@@ -1409,12 +1409,20 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     currency = groups[10] if len(groups) > 10 else None
                     vat_rate = extract_number(groups[11]) if len(groups) > 11 else None
                     
-                    # Zeelandia OCR Error Fix: If total_weight is 0 or missing, calculate from quantity × package_weight
-                    # This handles OCR errors where "10,00" is misread as "0,00" or "1" is missing
-                    if (total_weight == 0 or total_weight is None) and quantity and package_weight:
+                    # Zeelandia OCR Error Fix: Validate total_weight against quantity × package_weight
+                    # This handles OCR errors where leading digits are dropped (e.g., "12,00" → "2,00")
+                    if quantity and package_weight:
                         calculated_total_weight = quantity * package_weight
-                        logger.info(f"⚠️ OCR Error Correction: total_weight was {total_weight}, calculating from quantity × package_weight: {quantity} × {package_weight} = {calculated_total_weight}")
-                        total_weight = calculated_total_weight
+                        
+                        # If total_weight is missing, zero, or significantly different from calculation, use calculated value
+                        if total_weight is None or total_weight == 0:
+                            logger.info(f"⚠️ OCR Error Correction: total_weight was {total_weight}, calculating: {quantity} × {package_weight} = {calculated_total_weight}")
+                            total_weight = calculated_total_weight
+                        elif abs(total_weight - calculated_total_weight) > 0.1:
+                            # If difference > 0.1, likely OCR error (e.g., "12,00" read as "2,00")
+                            logger.warning(f"⚠️ OCR Error Detected: total_weight {total_weight} != expected {calculated_total_weight} (diff: {abs(total_weight - calculated_total_weight)})")
+                            logger.info(f"   Correcting: {total_weight} → {calculated_total_weight} (using quantity × package_weight)")
+                            total_weight = calculated_total_weight
                     
                     # Calculate line_total from total_weight * unit_price for more accuracy
                     # This avoids OCR errors in the total price field
