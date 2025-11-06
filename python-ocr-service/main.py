@@ -173,6 +173,16 @@ async def process_invoice(request: ProcessInvoiceRequest):
         # Extract data using template patterns (use cleaned text for better extraction)
         patterns = request.template_config.get('patterns', {})
         
+        # Override patterns for specific suppliers based on display_layout
+        # This ensures proven patterns are always used, regardless of template configuration
+        display_layout = request.template_config.get('display_layout', '')
+        if display_layout.lower() == 'dekos':
+            logger.info("🔧 Dekos display_layout detected - overriding invoice_number pattern")
+            # Override invoice number pattern to handle Czech diacritics (DAŇOVÝ vs DANOVY)
+            # Support both with and without diacritics
+            patterns['invoice_number'] = r'(?:DAŇOVÝ|DANOVY|Daňový|Danovy)\s+DOKLAD\s*-\s*faktura\s+č\.\s*(\d{5,})'
+            logger.info(f"   Using Dekos invoice_number: {patterns['invoice_number']}")
+        
         invoice_number = extract_pattern(raw_text_display, patterns.get('invoice_number'))
         date = extract_pattern(raw_text_display, patterns.get('date'))
         supplier = extract_pattern(raw_text_display, patterns.get('supplier'))
@@ -558,7 +568,7 @@ def extract_line_items(
     # This ensures proven patterns are always used, regardless of template configuration
     display_layout = template_config.get('display_layout', '')
     if display_layout.lower() == 'dekos':
-        logger.info("🔧 Dekos display_layout detected - using proven Dekos patterns")
+        logger.info("🔧 Dekos display_layout detected - using proven Dekos table/line patterns")
         # For Dekos, items appear right after the payment/delivery info, before any table header
         # Look for "Zp.dopravy:" or "Forma úhrady:" which comes right before the items start
         # Then items follow immediately (e.g., "3.1003 Krabice dortová...")
