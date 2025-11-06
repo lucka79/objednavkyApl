@@ -1,4 +1,4 @@
- """
+"""
 Template-based Invoice OCR Service
 Extracts data from invoices using supplier-specific templates
 Version: 2.0.1 - Albert format support with weight field
