@@ -632,9 +632,9 @@ def extract_line_items(
         # - Format B: Items sold by weight (description starts with "*")
         # Pattern captures: code(6-7 digits), quantity/weight(decimal), description(any text), base_price, units_in_mu, price_per_mu, total, vat_rate, vat_amount, total_with_vat
         # Note: VAT rate can be "12,0" or "21,0" (with decimal), so using [\d,\.]+ instead of \d+
-        # Description: Use \S to match non-space, then allow internal spaces, but trim trailing spaces with (?=\s+\d)
-        table_columns['line_pattern'] = r'^(\d{6,7})\s+([\d,\.]+)\s+([*]?[A-Za-zá-žÁ-Ž0-9][A-Za-zá-žÁ-Ž0-9\s.,%()/-]*?[A-Za-zá-žÁ-Ž0-9gG])\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([\d,\.]+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)'
-        logger.info(f"   Using Makro line_pattern (10 groups, improved description matching): {table_columns['line_pattern']}")
+        # Description: Must start with letter/number, can have internal spaces/special chars, must end with letter/number/g/G/+ (for "150+", "250+")
+        table_columns['line_pattern'] = r'^(\d{6,7})\s+([\d,\.]+)\s+([*]?[A-Za-zá-žÁ-Ž0-9][A-Za-zá-žÁ-Ž0-9\s.,%()/-]*?[A-Za-zá-žÁ-Ž0-9gG+])\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([\d,\.]+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)'
+        logger.info(f"   Using Makro line_pattern (10 groups, allows + at end): {table_columns['line_pattern']}")
     elif display_layout.lower() == 'pesek':
         logger.info("🔧 Pešek display_layout detected - using proven Pešek multi-line patterns")
         # Pešek pattern: 6 groups (multi-line format)
