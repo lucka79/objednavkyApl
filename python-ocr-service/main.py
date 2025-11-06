@@ -595,6 +595,16 @@ def extract_line_items(
         # Pattern captures: code(6-7 digits), quantity/weight(decimal), description(any text), base_price, units_in_mu, price_per_mu, total, vat_rate, vat_amount, total_with_vat
         table_columns['line_pattern'] = r'^(\d{6,7})\s+([\d,\.]+)\s+([*]?[A-Za-zá-žÁ-Ž0-9\s.,%()/-]+?)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+(\d+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)'
         logger.info(f"   Using Makro line_pattern (10 groups): {table_columns['line_pattern']}")
+    elif display_layout.lower() == 'pesek':
+        logger.info("🔧 Pešek display_layout detected - using proven Pešek multi-line patterns")
+        # Pešek pattern: 6 groups (multi-line format)
+        # Format: Description on line 1, then on line 2: Code Quantity Unit Price VAT% Total
+        # Example:
+        #   Line 1: "Mouka pšeničná hladká speciál"
+        #   Line 2: "0201 50kg 6,80 12 % 340,00"
+        # Pattern captures: description, code, quantity, unit, unit_price, line_total
+        table_columns['line_pattern'] = r'^([^\n]+?)\s*\n\s*(\d+)\s+([\d,]+)\s*([a-zA-Z]{1,5})\s+([\d,\s]+)\s+\d+\s*%?\s*\d*\s+([\d,\.\s]+)'
+        logger.info(f"   Using Pešek multi-line pattern (6 groups): {table_columns['line_pattern']}")
     
     # Find table start and end
     table_start_pattern = patterns.get('table_start')

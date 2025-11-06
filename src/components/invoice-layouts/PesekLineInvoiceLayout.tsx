@@ -1,12 +1,20 @@
-import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { IngredientMapping } from "./IngredientMapping";
 
 interface PesekLineInvoiceLayoutProps {
   items: any[];
   onUnmap?: (itemId: string) => void;
+  supplierId?: string;
+  onItemMapped?: (itemId: string, ingredientId: number) => void;
+  supplierIngredients?: any[];
 }
 
-export function PesekLineInvoiceLayout({ items, onUnmap }: PesekLineInvoiceLayoutProps) {
+export function PesekLineInvoiceLayout({
+  items,
+  onUnmap,
+  supplierId,
+  onItemMapped,
+  supplierIngredients,
+}: PesekLineInvoiceLayoutProps) {
   return (
     <div className="overflow-x-auto border border-gray-300 rounded-lg">
       <table className="w-full border-collapse">
@@ -87,35 +95,25 @@ export function PesekLineInvoiceLayout({ items, onUnmap }: PesekLineInvoiceLayou
                   })}
                 </td>
                 <td className="px-3 py-2 text-sm">
-                  {ingredientId ? (
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1 text-green-700">
-                        <span className="text-sm">✓</span>
-                        {ingredientName}
-                      </div>
-                      {onUnmap && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-5 w-5 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
-                          onClick={() => onUnmap(item.id)}
-                          title="Odebrat mapování"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  ) : suggestedName ? (
-                    <div className="flex items-center gap-1 text-orange-600">
-                      <span className="text-sm">⚠</span>
-                      {suggestedName}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1 text-red-600">
-                      <span className="text-sm">✗</span>
-                      Neznámý kód
-                    </div>
-                  )}
+                  <IngredientMapping
+                    itemId={`item-${idx}`}
+                    productCode={productCode || ""}
+                    description={description || ""}
+                    unitPrice={unitPrice}
+                    supplierId={supplierId}
+                    supplierIngredients={supplierIngredients}
+                    ingredientId={ingredientId}
+                    ingredientName={ingredientName}
+                    suggestedName={suggestedName}
+                    confidence={
+                      item.confidence ||
+                      item.matching_confidence ||
+                      item.match_confidence ||
+                      100
+                    }
+                    onUnmap={onUnmap}
+                    onItemMapped={onItemMapped}
+                  />
                 </td>
               </tr>
             );
