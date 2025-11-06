@@ -76,6 +76,8 @@ class ProcessInvoiceResponse(BaseModel):
     confidence: float = 0
     raw_text: Optional[str] = None
     qr_codes: List[QRCodeData] = []
+    lines_processed: Optional[int] = 0  # Total lines in item section
+    items_extracted: Optional[int] = 0  # Successfully extracted items
 
 @app.get("/health")
 async def health_check():
@@ -260,7 +262,7 @@ async def process_invoice(request: ProcessInvoiceRequest):
         payment_type = extract_pattern(raw_text_display, patterns.get('payment_type'))
         
         # Extract line items (use cleaned text for seamless multi-page extraction)
-        items = extract_line_items(
+        items, lines_processed = extract_line_items(
             raw_text_display,
             images[0],
             request.template_config,
@@ -298,6 +300,8 @@ async def process_invoice(request: ProcessInvoiceRequest):
             confidence=confidence,
             raw_text=raw_text_display if len(raw_text_display) < 20000 else raw_text_display[:20000] + "\n\n... (text truncated for display)",
             qr_codes=qr_codes,
+            lines_processed=lines_processed,
+            items_extracted=len(items),
         )
         
     except Exception as e:
@@ -584,11 +588,13 @@ def extract_line_items(
     template_config: Dict,
     language: str,
     psm: int
-) -> List[InvoiceItem]:
+) -> tuple[List[InvoiceItem], int]:
     """
     Extract line items from invoice using template configuration
+    Returns: (items, lines_processed)
     """
     items = []
+    lines_processed = 0  # Track total lines in item section
     patterns = template_config.get('patterns', {})
     table_columns = template_config.get('table_columns', {})
     
@@ -788,7 +794,7 @@ def extract_line_items(
     except Exception as e:
         logger.error(f"Error extracting table section: {e}")
     
-    return items
+    return items, 0  # Return 0 lines_processed if extraction failed early
 
 def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]:
     """
@@ -992,7 +998,7 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
                             logger.debug(f"Extracted generic multi-line item: {item.product_code} - {item.description}")
             
             logger.info(f"Extracted {len(items)} items using multi-line pattern")
-            return items
+            return items, lines_processed
             
         except Exception as e:
             logger.error(f"Error with multi-line pattern: {e}")
@@ -1187,7 +1193,8 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
         elif line_no % 50 == 0:  # Log every 50th line to see progress
             logger.debug(f"Line {line_no} did not match pattern: {line[:80]}")
     
-    logger.info(f"Extracted {len(items)} valid items (started with {items_before_extraction}, processed {len(lines)} lines)")
+    lines_processed = len(lines)  # Store for return value
+    logger.info(f"Extracted {len(items)} valid items (started with {items_before_extraction}, processed {lines_processed} lines)")
     
     # Log all extracted items for debugging
     for idx, item in enumerate(items, 1):
@@ -1200,7 +1207,7 @@ def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]
     if missing_second_page:
         logger.warning(f"Missing second page items with codes: {missing_second_page}")
     
-    return items
+    return items, lines_processed
 
 def apply_code_corrections(product_code: str, corrections: Dict) -> str:
     """
