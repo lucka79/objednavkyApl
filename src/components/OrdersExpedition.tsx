@@ -868,82 +868,112 @@ export function OrdersExpeditionTable({
     }
   };
 
-  const printReportBuyerOrders = (orders: Order[]) => {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
+  const printReportBuyerOrders = async (orders: Order[]) => {
+    try {
+      // Get the IDs of orders to print
+      const orderIds = orders.map((order) => order.id);
 
-    printWindow.document.write(`
-    <html>
-      <head>
-        <title>Tisk reportu objednávek</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-        </style>
-      </head>
-      <body>
-        <div id="print-content">
-          ${ReactDOMServer.renderToString(<PrintReportBuyerOrders orders={orders} />)}
-        </div>
-      </body>
-    </html>
-  `);
+      // Fetch complete order data for printing
+      const completeOrders = await fetchOrdersForPrinting(orderIds);
 
-    printWindow.document.close();
-    printWindow.print();
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) return;
+
+      printWindow.document.write(`
+      <html>
+        <head>
+          <title>Tisk reportu objednávek</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+          </style>
+        </head>
+        <body>
+          <div id="print-content">
+            ${ReactDOMServer.renderToString(<PrintReportBuyerOrders orders={completeOrders} />)}
+          </div>
+        </body>
+      </html>
+    `);
+
+      printWindow.document.close();
+      printWindow.print();
+    } catch (error) {
+      console.error("Error preparing print data:", error);
+    }
   };
 
-  const printReportProducts = (orders: Order[]) => {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
+  const printReportProducts = async (orders: Order[]) => {
+    try {
+      // Get the IDs of orders to print
+      const orderIds = orders.map((order) => order.id);
 
-    printWindow.document.write(`
-    <html>
-      <head>
-        <title>Tisk reportu výrobků</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-        </style>
-      </head>
-      <body>
-        <div id="print-content">
-          ${ReactDOMServer.renderToString(<PrintReportProducts orders={orders} />)}
-        </div>
-      </body>
-    </html>
-  `);
+      // Fetch complete order data for printing
+      const completeOrders = await fetchOrdersForPrinting(orderIds);
 
-    printWindow.document.close();
-    printWindow.print();
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) return;
+
+      printWindow.document.write(`
+      <html>
+        <head>
+          <title>Tisk reportu výrobků</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+          </style>
+        </head>
+        <body>
+          <div id="print-content">
+            ${ReactDOMServer.renderToString(<PrintReportProducts orders={completeOrders} />)}
+          </div>
+        </body>
+      </html>
+    `);
+
+      printWindow.document.close();
+      printWindow.print();
+    } catch (error) {
+      console.error("Error preparing print data:", error);
+    }
   };
 
-  const printReportBuyersSummary = (orders: Order[]) => {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
+  const printReportBuyersSummary = async (orders: Order[]) => {
+    try {
+      // Get the IDs of orders to print
+      const orderIds = orders.map((order) => order.id);
 
-    printWindow.document.write(`
-    <html>
-      <head>
-        <title>Tisk reportu odběratelů</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-        </style>
-      </head>
-      <body>
-        <div id="print-content">
-          ${ReactDOMServer.renderToString(<PrintReportBuyersSummary orders={orders} />)}
-        </div>
-      </body>
-    </html>
-  `);
+      // Fetch complete order data for printing
+      const completeOrders = await fetchOrdersForPrinting(orderIds);
 
-    printWindow.document.close();
-    printWindow.print();
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) return;
+
+      printWindow.document.write(`
+      <html>
+        <head>
+          <title>Tisk reportu odběratelů</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+          </style>
+        </head>
+        <body>
+          <div id="print-content">
+            ${ReactDOMServer.renderToString(<PrintReportBuyersSummary orders={completeOrders} />)}
+          </div>
+        </body>
+      </html>
+    `);
+
+      printWindow.document.close();
+      printWindow.print();
+    } catch (error) {
+      console.error("Error preparing print data:", error);
+    }
   };
 
   // Removed isOrderInDate function - no longer needed with period-based fetching
@@ -1732,7 +1762,7 @@ export function OrdersExpeditionTable({
                       {authUser?.role === "admin" && (
                         <Select
                           defaultValue=""
-                          onValueChange={(value) => {
+                          onValueChange={async (value) => {
                             const orders =
                               tableInstance.getFilteredSelectedRowModel().rows
                                 .length > 0
@@ -1745,13 +1775,13 @@ export function OrdersExpeditionTable({
 
                             switch (value) {
                               case "orders":
-                                printReportBuyerOrders(orders);
+                                await printReportBuyerOrders(orders);
                                 break;
                               case "products":
-                                printReportProducts(orders);
+                                await printReportProducts(orders);
                                 break;
                               case "buyers":
-                                printReportBuyersSummary(orders);
+                                await printReportBuyersSummary(orders);
                                 break;
                             }
                           }}

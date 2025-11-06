@@ -2004,7 +2004,7 @@ export function ArchiveOrdersTable() {
                     <div className="flex gap-2">
                       <Select
                         value={selectedReport}
-                        onValueChange={(value) => {
+                        onValueChange={async (value) => {
                           setSelectedReport(value);
                           const selectedOrders =
                             table.getFilteredSelectedRowModel().rows.length > 0
@@ -2017,16 +2017,16 @@ export function ArchiveOrdersTable() {
 
                           switch (value) {
                             case "orders":
-                              printReportBuyerOrders(selectedOrders);
+                              await printReportBuyerOrders(selectedOrders);
                               break;
                             case "products":
-                              printReportProducts(selectedOrders);
+                              await printReportProducts(selectedOrders);
                               break;
                             case "buyers":
-                              printReportBuyersSummary(selectedOrders);
+                              await printReportBuyersSummary(selectedOrders);
                               break;
                             case "daily":
-                              printReportDaily(selectedOrders);
+                              await printReportDaily(selectedOrders);
                               break;
                           }
                         }}
@@ -2555,82 +2555,112 @@ const printCategorySweets = async (orders: Order[]) => {
   }
 };
 
-const printReportBuyerOrders = (orders: Order[]) => {
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) return;
+const printReportBuyerOrders = async (orders: Order[]) => {
+  try {
+    // Get the IDs of orders to print
+    const orderIds = orders.map((order) => order.id);
 
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Tisk reportu objednávek</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-        </style>
-      </head>
-      <body>
-        <div id="print-content">
-          ${ReactDOMServer.renderToString(<PrintReportBuyerOrders orders={orders} />)}
-        </div>
-      </body>
-    </html>
-  `);
+    // Fetch complete order data for printing
+    const completeOrders = await fetchOrdersForPrinting(orderIds);
 
-  printWindow.document.close();
-  printWindow.print();
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Tisk reportu objednávek</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+          </style>
+        </head>
+        <body>
+          <div id="print-content">
+            ${ReactDOMServer.renderToString(<PrintReportBuyerOrders orders={completeOrders} />)}
+          </div>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.print();
+  } catch (error) {
+    console.error("Error preparing print data:", error);
+  }
 };
 
-const printReportProducts = (orders: Order[]) => {
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) return;
+const printReportProducts = async (orders: Order[]) => {
+  try {
+    // Get the IDs of orders to print
+    const orderIds = orders.map((order) => order.id);
 
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Tisk reportu výrobků</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-        </style>
-      </head>
-      <body>
-        <div id="print-content">
-          ${ReactDOMServer.renderToString(<PrintReportProducts orders={orders} />)}
-        </div>
-      </body>
-    </html>
-  `);
+    // Fetch complete order data for printing
+    const completeOrders = await fetchOrdersForPrinting(orderIds);
 
-  printWindow.document.close();
-  printWindow.print();
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Tisk reportu výrobků</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+          </style>
+        </head>
+        <body>
+          <div id="print-content">
+            ${ReactDOMServer.renderToString(<PrintReportProducts orders={completeOrders} />)}
+          </div>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.print();
+  } catch (error) {
+    console.error("Error preparing print data:", error);
+  }
 };
 
-const printReportBuyersSummary = (orders: Order[]) => {
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) return;
+const printReportBuyersSummary = async (orders: Order[]) => {
+  try {
+    // Get the IDs of orders to print
+    const orderIds = orders.map((order) => order.id);
 
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Tisk reportu odběratelů</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-        </style>
-      </head>
-      <body>
-        <div id="print-content">
-          ${ReactDOMServer.renderToString(<PrintReportBuyersSummary orders={orders} />)}
-        </div>
-      </body>
-    </html>
-  `);
+    // Fetch complete order data for printing
+    const completeOrders = await fetchOrdersForPrinting(orderIds);
 
-  printWindow.document.close();
-  printWindow.print();
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Tisk reportu odběratelů</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+          </style>
+        </head>
+        <body>
+          <div id="print-content">
+            ${ReactDOMServer.renderToString(<PrintReportBuyersSummary orders={completeOrders} />)}
+          </div>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.print();
+  } catch (error) {
+    console.error("Error preparing print data:", error);
+  }
 };
 
 const printOrderTotals = async (orders: Order[]) => {
@@ -2671,30 +2701,40 @@ const printOrderTotals = async (orders: Order[]) => {
   }
 };
 
-const printReportDaily = (orders: Order[]) => {
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) return;
+const printReportDaily = async (orders: Order[]) => {
+  try {
+    // Get the IDs of orders to print
+    const orderIds = orders.map((order) => order.id);
 
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Denní přehled objednávek</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-        </style>
-      </head>
-      <body>
-        <div id="print-content">
-          ${ReactDOMServer.renderToString(<PrintReportDaily orders={orders} />)}
-        </div>
-      </body>
-    </html>
-  `);
+    // Fetch complete order data for printing
+    const completeOrders = await fetchOrdersForPrinting(orderIds);
 
-  printWindow.document.close();
-  printWindow.print();
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Denní přehled objednávek</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+          </style>
+        </head>
+        <body>
+          <div id="print-content">
+            ${ReactDOMServer.renderToString(<PrintReportDaily orders={completeOrders} />)}
+          </div>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.print();
+  } catch (error) {
+    console.error("Error preparing print data:", error);
+  }
 };
 
 // Add this helper function at the top level
