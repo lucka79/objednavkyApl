@@ -268,10 +268,7 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
   const [editingLineText, setEditingLineText] = useState<string>("");
 
   // Handle item mapped callback - update result to show mapped ingredient
-  const handleItemMapped = (
-    itemId: string,
-    ingredientId: number
-  ) => {
+  const handleItemMapped = (itemId: string, ingredientId: number) => {
     // Look up ingredient name from ingredients array
     const ingredient = ingredients.find((ing) => ing.id === ingredientId);
     const ingredientName = ingredient?.name || "";
@@ -324,6 +321,52 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
       }))
     );
 
+    setResult(updatedResult);
+    sessionStorage.setItem(
+      `invoice_result_${supplierId}`,
+      JSON.stringify(updatedResult)
+    );
+    console.log("✅ Result and sessionStorage updated");
+  };
+
+  // Handle item unmapped callback - remove mapping from result
+  const handleUnmap = (itemId: string) => {
+    console.log("🗑️ handleUnmap called:", {
+      itemId,
+    });
+
+    if (!result) {
+      console.warn("⚠️ No result object available");
+      return;
+    }
+
+    const updatedItems = result.items.map((item: any, idx: number) => {
+      const currentItemId = `item-${idx}`;
+      if (currentItemId === itemId) {
+        console.log(`✓ Unmapping item at index ${idx}:`, {
+          description: item.description,
+          before: {
+            matched_ingredient_id: item.matched_ingredient_id,
+            matched_ingredient_name: item.matched_ingredient_name,
+          },
+        });
+        return {
+          ...item,
+          matched_ingredient_id: null,
+          matched_ingredient_name: null,
+          ingredientId: null,
+          ingredientName: null,
+        };
+      }
+      return item;
+    });
+
+    const updatedResult = {
+      ...result,
+      items: updatedItems,
+    };
+
+    console.log("✅ Calling setResult with unmapped item");
     setResult(updatedResult);
     sessionStorage.setItem(
       `invoice_result_${supplierId}`,
@@ -2627,6 +2670,7 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                     <DekosInvoiceLayout
                       items={result.items}
                       supplierId={supplierId}
+                      onUnmap={handleUnmap}
                       onItemMapped={handleItemMapped}
                       supplierIngredients={ingredients}
                     />

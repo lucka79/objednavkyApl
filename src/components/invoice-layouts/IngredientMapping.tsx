@@ -249,7 +249,11 @@ export function IngredientMapping({
             <Button
               variant="ghost"
               size="sm"
-              className="h-5 w-5 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+              className={`h-5 w-5 p-0 ${
+                isLowConfidence
+                  ? "text-orange-600 hover:text-orange-800 hover:bg-orange-100 ring-2 ring-orange-300"
+                  : "text-red-600 hover:text-red-800 hover:bg-red-50"
+              }`}
               onClick={() => {
                 console.log("🗑️ Unmapping item:", {
                   itemId,
@@ -257,12 +261,17 @@ export function IngredientMapping({
                   description,
                   ingredientId,
                   ingredientName,
+                  confidence: confidencePercent,
                 });
                 onUnmap(itemId);
               }}
-              title="Odebrat mapování"
+              title={
+                isLowConfidence
+                  ? `Nízká shoda (${confidencePercent.toFixed(0)}%) - klikněte pro změnu`
+                  : "Odebrat mapování"
+              }
             >
-              <X className="h-3 w-3" />
+              <X className={isLowConfidence ? "h-3.5 w-3.5" : "h-3 w-3"} />
             </Button>
           )}
         </div>
