@@ -2228,6 +2228,36 @@ export function InvoiceUploadDialog() {
                           })}
                         </tbody>
                       </table>
+                      {/* Summary row for Zeelandia */}
+                      <div className="mt-3 px-4 py-3 bg-green-50 border-t-2 border-green-300 rounded-b-lg">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-semibold text-gray-700">
+                            Mezisoučet (součet řádků):
+                          </span>
+                          <span className="text-lg font-bold text-green-700">
+                            {parsedInvoice.items
+                              .reduce((sum, item) => {
+                                const totalWeightValue =
+                                  (item.total_weight || item.totalWeightKg) ?? 0;
+                                const finalTotalWeight =
+                                  editedTotalWeights[item.id] ?? totalWeightValue;
+                                const finalPrice =
+                                  editedPrices[item.id] ?? item.price ?? 0;
+                                const priceTotal = parseFloat(
+                                  (
+                                    Math.floor(finalTotalWeight) * finalPrice
+                                  ).toFixed(2)
+                                );
+                                return sum + priceTotal;
+                              }, 0)
+                              .toLocaleString("cs-CZ", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}{" "}
+                            Kč
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   ) : /* Weight-based layout for MAKRO */
                   selectedSupplier === MAKRO_SUPPLIER_ID ||
