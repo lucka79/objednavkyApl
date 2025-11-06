@@ -2387,11 +2387,11 @@ def calculate_confidence(extracted_data: Dict) -> float:
     if items:
         # Score based on completeness of item data
         try:
-        complete_items = sum(
-            1 for item in items 
+            complete_items = sum(
+                1 for item in items 
                 if hasattr(item, 'product_code') and hasattr(item, 'quantity') and item.product_code and item.quantity > 0
-        )
-        score += (complete_items / len(items)) * 60
+            )
+            score += (complete_items / len(items)) * 60
         except Exception as e:
             logger.error(f"Error calculating item completeness: {e}")
             logger.error(f"  items type: {type(items)}")
