@@ -712,9 +712,14 @@ def extract_line_items(
     
     if not table_start_pattern:
         # Fallback: extract from entire text
-        return extract_items_from_text(raw_text, table_columns)
+        items = extract_items_from_text(raw_text, table_columns)
+        # Count lines in text as approximation (split by newline)
+        lines_processed = len([line for line in raw_text.split('\n') if line.strip()])
+        return items, lines_processed
     
     # Extract table section
+    items = []
+    lines_processed = 0
     try:
         start_match = re.search(table_start_pattern, raw_text, re.IGNORECASE | re.MULTILINE)
         
@@ -793,13 +798,19 @@ def extract_line_items(
             
             # Extract items from table text
             items = extract_items_from_text(table_text, table_columns)
+            # Calculate lines_processed from table_text (count non-empty lines)
+            lines_processed = len([line for line in table_text.split('\n') if line.strip()])
         else:
             logger.warning(f"Table start pattern not found: {table_start_pattern}")
+            items = []
+            lines_processed = 0
             
     except Exception as e:
         logger.error(f"Error extracting table section: {e}")
+        items = []
+        lines_processed = 0
     
-    return items, 0  # Return 0 lines_processed if extraction failed early
+    return items, lines_processed
 
 def extract_items_from_text(text: str, table_columns: Dict) -> List[InvoiceItem]:
     """
@@ -2376,11 +2387,11 @@ def calculate_confidence(extracted_data: Dict) -> float:
     if items:
         # Score based on completeness of item data
         try:
-            complete_items = sum(
-                1 for item in items 
+        complete_items = sum(
+            1 for item in items 
                 if hasattr(item, 'product_code') and hasattr(item, 'quantity') and item.product_code and item.quantity > 0
-            )
-            score += (complete_items / len(items)) * 60
+        )
+        score += (complete_items / len(items)) * 60
         except Exception as e:
             logger.error(f"Error calculating item completeness: {e}")
             logger.error(f"  items type: {type(items)}")
