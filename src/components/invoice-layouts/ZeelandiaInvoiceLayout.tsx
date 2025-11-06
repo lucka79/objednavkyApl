@@ -86,7 +86,12 @@ export function ZeelandiaInvoiceLayout({
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })} kg`
-                    : "-"}
+                    : item.package_weight && item.package_weight_unit
+                      ? `${item.package_weight.toLocaleString("cs-CZ", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })} ${item.package_weight_unit.toLowerCase()}`
+                      : "-"}
                 </td>
                 <td className="px-3 py-2 text-right text-sm text-gray-900 border-r border-gray-200">
                   {item.total_weight_kg
@@ -94,7 +99,12 @@ export function ZeelandiaInvoiceLayout({
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })} kg`
-                    : "-"}
+                    : item.total_weight && item.total_weight_unit
+                      ? `${item.total_weight.toLocaleString("cs-CZ", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })} ${item.total_weight_unit.toLowerCase()}`
+                      : "-"}
                 </td>
                 <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
                   {item.unit_price?.toLocaleString("cs-CZ", {
@@ -141,4 +151,3 @@ export function ZeelandiaInvoiceLayout({
     </div>
   );
 }
-

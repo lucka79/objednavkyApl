@@ -56,6 +56,10 @@ class InvoiceItem(BaseModel):
     total_weight_kg: Optional[float] = None  # Total weight: quantity × package_weight_kg
     price_per_kg: Optional[float] = None  # Price per kilogram: line_total / total_weight_kg
     item_weight: Optional[str] = None  # Item weight as string (e.g., "125g", "2,5kg") for retail formats
+    package_weight: Optional[float] = None  # ZEELANDIA: Obsah (package weight value)
+    package_weight_unit: Optional[str] = None  # ZEELANDIA: Obsah unit (KG/PCE/G)
+    total_weight: Optional[float] = None  # ZEELANDIA: Fakt.mn (total weight value)
+    total_weight_unit: Optional[str] = None  # ZEELANDIA: Fakt.mn unit (KG/PCE/G)
 
 class QRCodeData(BaseModel):
     data: str
@@ -1392,6 +1396,10 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         line_total=calculated_line_total,
                         package_weight_kg=package_weight if package_weight_unit == 'KG' else None,
                         total_weight_kg=total_weight if total_weight_unit == 'KG' else None,
+                        package_weight=package_weight,
+                        package_weight_unit=package_weight_unit,
+                        total_weight=total_weight,
+                        total_weight_unit=total_weight_unit,
                         vat_rate=vat_rate,
                         line_number=line_number,
                     )
