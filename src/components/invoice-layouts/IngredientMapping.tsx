@@ -20,13 +20,13 @@ interface IngredientMappingProps {
   unitPrice?: number;
   supplierId?: string;
   supplierIngredients?: any[];
-  
+
   // Already mapped ingredient info
   ingredientId?: number;
   ingredientName?: string;
   suggestedName?: string;
   confidence?: number;
-  
+
   // Callbacks
   onUnmap?: (itemId: string) => void;
   onItemMapped?: (itemId: string, ingredientId: number) => void;
@@ -50,6 +50,7 @@ export function IngredientMapping({
   const [selectedIngredient, setSelectedIngredient] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [isMappingInProgress, setIsMappingInProgress] = useState(false);
+  const [forceShowDropdown, setForceShowDropdown] = useState(false);
 
   // Remove diacritics for better matching
   const removeDiacritics = (str: string) => {
@@ -218,9 +219,10 @@ export function IngredientMapping({
         onItemMapped(itemId, numericIngredientId);
       }
 
-      // Clear selection
+      // Clear selection and reset dropdown state
       setSelectedIngredient("");
       setSearchTerm("");
+      setForceShowDropdown(false);
     } catch (error) {
       console.error("❌ Error mapping ingredient:", error);
       toast({
@@ -233,11 +235,12 @@ export function IngredientMapping({
     }
   };
 
-  const confidencePercent = confidence && confidence <= 1 ? confidence * 100 : confidence || 100;
+  const confidencePercent =
+    confidence && confidence <= 1 ? confidence * 100 : confidence || 100;
   const isLowConfidence = confidencePercent < 100;
 
-  // If already mapped, show the mapping with unmap button
-  if (ingredientId) {
+  // If already mapped but user clicked X, show dropdown immediately
+  if (ingredientId && !forceShowDropdown) {
     return (
       <div className="space-y-1">
         <div className="flex items-center justify-between gap-2">
@@ -263,6 +266,7 @@ export function IngredientMapping({
                   ingredientName,
                   confidence: confidencePercent,
                 });
+                setForceShowDropdown(true);
                 onUnmap(itemId);
               }}
               title={
@@ -288,8 +292,8 @@ export function IngredientMapping({
     );
   }
 
-  // If not mapped and we have supplier ingredients, show mapping UI
-  if (supplierId && supplierIngredients) {
+  // If not mapped (or user just clicked unmap) and we have supplier ingredients, show mapping UI
+  if (supplierId && supplierIngredients && (forceShowDropdown || !ingredientId)) {
     const filteredList = getFilteredIngredients();
 
     return (
@@ -387,4 +391,3 @@ export function IngredientMapping({
     </div>
   );
 }
-
