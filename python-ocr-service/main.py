@@ -554,6 +554,24 @@ def extract_line_items(
     patterns = template_config.get('patterns', {})
     table_columns = template_config.get('table_columns', {})
     
+    # Override patterns for specific suppliers based on display_layout
+    # This ensures proven patterns are always used, regardless of template configuration
+    display_layout = template_config.get('display_layout', '')
+    if display_layout.lower() == 'dekos':
+        logger.info("🔧 Dekos display_layout detected - using proven Dekos patterns")
+        # Override table start to match the first table header (not the second page)
+        patterns['table_start'] = r'(?:Položka|POLOŽKA)\s+(?:Cena|CENA)'
+        # Override line pattern to use the proven Dekos pattern (7 groups)
+        # Format: code, description, unit_price, quantity, unit, vat_rate, line_total
+        table_columns['line_pattern'] = r'^(\d+\.\d+(?:-\d+)?)\s+([A-Za-zá-žÁ-Ž/](?:[\wá-žÁ-Ž.,%()/+-]|\s(?!\d+,\d{4}))+?)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([A-Za-z0-9]{1,10})\s+(\d+)\s+([\d\s,\.]+)'
+        logger.info(f"   Using Dekos table_start: {patterns['table_start']}")
+        logger.info(f"   Using Dekos line_pattern (7 groups): {table_columns['line_pattern']}")
+    elif display_layout.lower() in ['leco', 'le-co']:
+        logger.info("🔧 Le-co display_layout detected - using proven Le-co patterns")
+        # Le-co pattern: 9 groups (code, description, quantity, unit, unit_price, line_total, vat_rate, vat_amount, total_with_vat)
+        table_columns['line_pattern'] = r'^(\d+)\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\s.,%()-]+?)\s+(\d[\d,\.]*)\s+([A-Za-z]{1,5})\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+(\d+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)'
+        logger.info(f"   Using Le-co line_pattern (9 groups): {table_columns['line_pattern']}")
+    
     # Find table start and end
     table_start_pattern = patterns.get('table_start')
     table_end_pattern = patterns.get('table_end')
