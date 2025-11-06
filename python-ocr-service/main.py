@@ -617,6 +617,16 @@ def extract_line_items(
         # Pattern captures: code, vat_rate, quantity, unit, unit_price, line_total, description
         table_columns['line_pattern'] = r'^(\d{6})\s+(\d+)%\s+([\d\.]+)\s+([A-Z]{2,4})\s+([\d\.]+)\s+([\d\.]+)\s*\n\s*(.+?)(?:\n|$)'
         logger.info(f"   Using Goodmills multi-line pattern (7 groups): {table_columns['line_pattern']}")
+    elif display_layout.lower() == 'albert':
+        logger.info("🔧 Albert display_layout detected - using proven Albert patterns")
+        # Albert pattern: 4 groups (retail format without product codes)
+        # Format: Description Weight Price VAT_Letter
+        # Example: "RYBÍZ ČERVENÝ 1250 39,90 A"
+        # Pattern captures: description (uppercase Czech letters), weight (3-5 digits), unit_price, vat_letter (A/B/C/D)
+        # VAT mapping: A=21%, B=15%, C=10%, D=0%
+        # Weight corrections applied via description_corrections (e.g., "1250" → "125g")
+        table_columns['line_pattern'] = r'^(?:[A-Z]\s+)?([A-ZĚŠČŘŽÝÁÍÉÚŮĎŤŇĹ\s]+?)\s+(\d{3,5})\s+([\d,]+)\s+([A-D])\s*$'
+        logger.info(f"   Using Albert pattern (4 groups, no product codes): {table_columns['line_pattern']}")
     
     # Find table start and end
     table_start_pattern = patterns.get('table_start')
