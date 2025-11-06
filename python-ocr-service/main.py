@@ -189,14 +189,17 @@ async def process_invoice(request: ProcessInvoiceRequest):
         elif display_layout.lower() == 'zeelandia':
             logger.info("🔧 Zeelandia display_layout detected - overriding patterns")
             # Override patterns for Zeelandia invoices
-            patterns['invoice_number'] = r'Číslo faktury\s+(\d+)'
-            patterns['date'] = r'DUZP\s+(\d{1,2}\.\d{1,2}\.\d{4})'
-            patterns['total_amount'] = r'K úhradě\s+([\d\s,]+)(?:\s*[A-Z]{2,3})?'
-            patterns['payment_type'] = r'Plateb\.podmínky\s*([a-zA-Zá-žÁ-Ž]+)'
-            logger.info(f"   Using Zeelandia invoice_number: {patterns['invoice_number']}")
-            logger.info(f"   Using Zeelandia date (DUZP): {patterns['date']}")
-            logger.info(f"   Using Zeelandia total_amount (with optional currency): {patterns['total_amount']}")
-            logger.info(f"   Using Zeelandia payment_type: {patterns['payment_type']}")
+            # Handle invoice number on separate line: "Číslo faktury\n525041598"
+            patterns['invoice_number'] = r'Číslo faktury[\s\n]+(\d+)'
+            # Handle date on separate line: "DUZP\n05.11.2025"
+            patterns['date'] = r'DUZP[\s\n]+(\d{1,2}\.\d{1,2}\.\d{4})'
+            # Handle total amount on separate line with optional currency: "K úhradě\n33 751,78 CZK"
+            patterns['total_amount'] = r'K úhradě[\s\n]+([\d\s,]+)(?:\s*[A-Z]{2,3})?'
+            patterns['payment_type'] = r'Plateb\.podmínky[\s\n]*([a-zA-Zá-žÁ-Ž]+)'
+            logger.info(f"   Using Zeelandia invoice_number (multiline): {patterns['invoice_number']}")
+            logger.info(f"   Using Zeelandia date (DUZP, multiline): {patterns['date']}")
+            logger.info(f"   Using Zeelandia total_amount (multiline with optional currency): {patterns['total_amount']}")
+            logger.info(f"   Using Zeelandia payment_type (multiline): {patterns['payment_type']}")
         
         invoice_number = extract_pattern(raw_text_display, patterns.get('invoice_number'))
         date = extract_pattern(raw_text_display, patterns.get('date'))
@@ -651,14 +654,17 @@ def extract_line_items(
     elif display_layout.lower() == 'zeelandia':
         logger.info("🔧 Zeelandia display_layout detected - using proven Zeelandia patterns")
         # Override invoice-level patterns for Zeelandia
-        patterns['invoice_number'] = r'Číslo faktury\s+(\d+)'
-        patterns['date'] = r'DUZP\s+(\d{1,2}\.\d{1,2}\.\d{4})'
-        patterns['total_amount'] = r'K úhradě\s+([\d\s,]+)(?:\s*[A-Z]{2,3})?'
-        patterns['payment_type'] = r'Plateb\.podmínky\s*([a-zA-Zá-žÁ-Ž]+)'
-        logger.info(f"   Using Zeelandia invoice_number: {patterns['invoice_number']}")
-        logger.info(f"   Using Zeelandia date (DUZP): {patterns['date']}")
-        logger.info(f"   Using Zeelandia total_amount (with optional currency): {patterns['total_amount']}")
-        logger.info(f"   Using Zeelandia payment_type: {patterns['payment_type']}")
+        # Handle invoice number on separate line: "Číslo faktury\n525041598"
+        patterns['invoice_number'] = r'Číslo faktury[\s\n]+(\d+)'
+        # Handle date on separate line: "DUZP\n05.11.2025"
+        patterns['date'] = r'DUZP[\s\n]+(\d{1,2}\.\d{1,2}\.\d{4})'
+        # Handle total amount on separate line with optional currency: "K úhradě\n33 751,78 CZK"
+        patterns['total_amount'] = r'K úhradě[\s\n]+([\d\s,]+)(?:\s*[A-Z]{2,3})?'
+        patterns['payment_type'] = r'Plateb\.podmínky[\s\n]*([a-zA-Zá-žÁ-Ž]+)'
+        logger.info(f"   Using Zeelandia invoice_number (multiline): {patterns['invoice_number']}")
+        logger.info(f"   Using Zeelandia date (DUZP, multiline): {patterns['date']}")
+        logger.info(f"   Using Zeelandia total_amount (multiline with optional currency): {patterns['total_amount']}")
+        logger.info(f"   Using Zeelandia payment_type (multiline): {patterns['payment_type']}")
         
         # Zeelandia pattern: 12 groups (single-line format with detailed packaging info)
         # Format: Code Description Quantity Unit Obsah Obsah_Unit Fakt.mn Fakt.mn_Unit UnitPrice TotalPrice Currency VAT%
