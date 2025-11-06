@@ -627,6 +627,15 @@ def extract_line_items(
         # Weight corrections applied via description_corrections (e.g., "1250" → "125g")
         table_columns['line_pattern'] = r'^(?:[A-Z]\s+)?([A-ZĚŠČŘŽÝÁÍÉÚŮĎŤŇĹ\s]+?)\s+(\d{3,5})\s+([\d,]+)\s+([A-D])\s*$'
         logger.info(f"   Using Albert pattern (4 groups, no product codes): {table_columns['line_pattern']}")
+    elif display_layout.lower() == 'zeelandia':
+        logger.info("🔧 Zeelandia display_layout detected - using proven Zeelandia patterns")
+        # Zeelandia pattern: 12 groups (single-line format with detailed packaging info)
+        # Format: Code Description Quantity Unit Obsah Obsah_Unit Fakt.mn Fakt.mn_Unit UnitPrice TotalPrice Currency VAT%
+        # Example: "10000891 ON Hruška gel 1kg 12 BAG 1,00 KG 12,00 KG 64,00 768,00 CZ 2%"
+        # Example: "0000930 ON Jablko skořice gel 11kg 13 BKT 11,00 KG 143,00 KG 53,00 7 579,00 CZ 12%"
+        # Pattern captures: code(7-8 digits), description, quantity, unit(BAG/BKT/PCE), obsah, obsah_unit, fakt_mn, fakt_mn_unit, unit_price, total_price, currency, vat_rate
+        table_columns['line_pattern'] = r'^(\d{7,8})\s+([A-Za-zá-žÁ-Ž0-9\s.,%()-]+?)\s+(\d+)\s+(BAG|BKT|PCE)\s+([\d,\.]+)\s+(KG|PCE|G)\s+([\d\s,\.]+)\s+(KG|PCE|G)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([A-Z]{2})\s+(\d+)%'
+        logger.info(f"   Using Zeelandia pattern (12 groups): {table_columns['line_pattern']}")
     
     # Find table start and end
     table_start_pattern = patterns.get('table_start')

@@ -1,8 +1,20 @@
+import { IngredientMapping } from "./IngredientMapping";
+
 interface ZeelandiaInvoiceLayoutProps {
   items: any[];
+  onUnmap?: (itemId: string) => void;
+  supplierId?: string;
+  onItemMapped?: (itemId: string, ingredientId: number) => void;
+  supplierIngredients?: any[];
 }
 
-export function ZeelandiaInvoiceLayout({ items }: ZeelandiaInvoiceLayoutProps) {
+export function ZeelandiaInvoiceLayout({
+  items,
+  onUnmap,
+  supplierId,
+  onItemMapped,
+  supplierIngredients,
+}: ZeelandiaInvoiceLayoutProps) {
   console.log("Using Zeelandia layout, items:", items);
   console.log("Items count:", items?.length);
 
@@ -97,22 +109,29 @@ export function ZeelandiaInvoiceLayout({ items }: ZeelandiaInvoiceLayoutProps) {
                   })}
                 </td>
                 <td className="px-3 py-2 text-sm">
-                  {item.matched_ingredient_id ? (
-                    <div className="flex items-center gap-1 text-green-700">
-                      <span className="text-sm">✓</span>
-                      {item.matched_ingredient_name}
-                    </div>
-                  ) : item.suggested_ingredient_name ? (
-                    <div className="flex items-center gap-1 text-orange-600">
-                      <span className="text-sm">⚠</span>
-                      {item.suggested_ingredient_name}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1 text-red-600">
-                      <span className="text-sm">✗</span>
-                      Neznámý kód
-                    </div>
-                  )}
+                  <IngredientMapping
+                    itemId={`item-${idx}`}
+                    productCode={item.product_code || ""}
+                    description={item.description || ""}
+                    unitPrice={item.unit_price}
+                    supplierId={supplierId}
+                    supplierIngredients={supplierIngredients}
+                    ingredientId={
+                      item.matched_ingredient_id || item.ingredientId
+                    }
+                    ingredientName={
+                      item.matched_ingredient_name || item.ingredientName
+                    }
+                    suggestedName={item.suggested_ingredient_name}
+                    confidence={
+                      item.confidence ||
+                      item.matching_confidence ||
+                      item.match_confidence ||
+                      100
+                    }
+                    onUnmap={onUnmap}
+                    onItemMapped={onItemMapped}
+                  />
                 </td>
               </tr>
             );

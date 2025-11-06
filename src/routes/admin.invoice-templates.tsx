@@ -2661,11 +2661,35 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                 });
 
                 if (layout === "makro") {
-                  return <MakroInvoiceLayout items={result.items} />;
+                  return (
+                    <MakroInvoiceLayout
+                      items={result.items}
+                      supplierId={supplierId}
+                      onUnmap={handleUnmap}
+                      onItemMapped={handleItemMapped}
+                      supplierIngredients={ingredients}
+                    />
+                  );
                 } else if (layout === "pesek") {
-                  return <PesekLineInvoiceLayout items={result.items} />;
+                  return (
+                    <PesekLineInvoiceLayout
+                      items={result.items}
+                      supplierId={supplierId}
+                      onUnmap={handleUnmap}
+                      onItemMapped={handleItemMapped}
+                      supplierIngredients={ingredients}
+                    />
+                  );
                 } else if (layout === "zeelandia") {
-                  return <ZeelandiaInvoiceLayout items={result.items} />;
+                  return (
+                    <ZeelandiaInvoiceLayout
+                      items={result.items}
+                      supplierId={supplierId}
+                      onUnmap={handleUnmap}
+                      onItemMapped={handleItemMapped}
+                      supplierIngredients={ingredients}
+                    />
+                  );
                 } else if (layout === "dekos") {
                   return (
                     <DekosInvoiceLayout
