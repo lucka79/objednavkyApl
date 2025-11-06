@@ -235,9 +235,7 @@ export function InvoiceUploadDialog() {
         const finalPrice = editedPrices[item.id] ?? item.price ?? 0;
         return (
           sum +
-          parseFloat(
-            (Math.floor(finalTotalWeight) * Math.floor(finalPrice)).toFixed(2)
-          )
+          parseFloat((Math.floor(finalTotalWeight) * finalPrice).toFixed(2))
         );
       }, 0);
     }
@@ -1093,13 +1091,17 @@ export function InvoiceUploadDialog() {
                   isZeelandia || isMakro
                     ? parseFloat(
                         (
-                          editedTotalWeights[item.id] ?? item.total_weight ?? item.totalWeightKg
+                          editedTotalWeights[item.id] ??
+                          item.total_weight ??
+                          item.totalWeightKg
                         )?.toString() || "0"
                       )
                     : item.quantity,
-                unit: isZeelandia 
+                unit: isZeelandia
                   ? (item.total_weight_unit || item.unit || "kg").toLowerCase()
-                  : isMakro ? "kg" : item.unit,
+                  : isMakro
+                    ? "kg"
+                    : item.unit,
               }
             );
           }
@@ -1154,9 +1156,13 @@ export function InvoiceUploadDialog() {
             // For Zeelandia: use total_weight (with units) as quantity (preserve decimals)
             // Support both KG and PCE units
             const rawTotalWeight =
-              editedTotalWeights[item.id] ?? item.total_weight ?? item.totalWeightKg;
+              editedTotalWeights[item.id] ??
+              item.total_weight ??
+              item.totalWeightKg;
             quantity = parseFloat(rawTotalWeight?.toString() || "0");
-            unitPrice = Math.floor((editedPrices[item.id] ?? item.price) || 0); // Zeelandia floors unit price
+            unitPrice = parseFloat(
+              ((editedPrices[item.id] ?? item.price) || 0).toString()
+            ); // Zeelandia uses decimal prices
           } else if (isDekos) {
             // For Dekos: calculate total quantity in pieces and price per piece
             const unitMultiplier = getUnitMultiplier(item.unit || "");
@@ -1987,8 +1993,7 @@ export function InvoiceUploadDialog() {
                               editedPrices[item.id] ?? item.price ?? 0;
                             const priceTotal = parseFloat(
                               (
-                                Math.floor(finalTotalWeight) *
-                                Math.floor(finalPrice)
+                                Math.floor(finalTotalWeight) * finalPrice
                               ).toFixed(2)
                             );
 
@@ -2095,20 +2100,14 @@ export function InvoiceUploadDialog() {
                                       step="0.01"
                                       value={
                                         editedPrices[item.id] !== undefined
-                                          ? Math.floor(
-                                              editedPrices[item.id]
-                                            ).toString()
-                                          : Math.floor(
-                                              item.price ?? 0
-                                            ).toString()
+                                          ? editedPrices[item.id].toString()
+                                          : (item.price ?? 0).toString()
                                       }
                                       onChange={(e) => {
                                         const value = e.target.value;
                                         setEditedPrices((prev) => ({
                                           ...prev,
-                                          [item.id]: Math.floor(
-                                            parseFloat(value) || 0
-                                          ),
+                                          [item.id]: parseFloat(value) || 0,
                                         }));
                                       }}
                                       onBlur={() => {
@@ -2146,15 +2145,25 @@ export function InvoiceUploadDialog() {
                                       className="cursor-pointer hover:bg-gray-100 px-1 rounded"
                                       title="Klikněte pro úpravu"
                                     >
-                                      {Math.floor(
-                                        editedPrices[item.id] ?? item.price ?? 0
-                                      ).toLocaleString("cs-CZ")}
+                                      {(
+                                        editedPrices[item.id] ??
+                                        item.price ??
+                                        0
+                                      ).toLocaleString("cs-CZ", {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}{" "}
+                                      Kč
                                     </span>
                                   )}
                                 </td>
                                 {/* Cena celkem */}
                                 <td className="px-3 py-2 text-right text-sm font-medium text-gray-900 border-r border-gray-200">
-                                  {priceTotal.toLocaleString("cs-CZ")}
+                                  {priceTotal.toLocaleString("cs-CZ", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}{" "}
+                                  Kč
                                 </td>
                                 {/* Namapováno */}
                                 <td className="px-3 py-2 text-sm">
