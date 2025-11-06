@@ -103,6 +103,12 @@ interface ParsedInvoiceItem {
 
   unitsInMu?: number;
 
+  // Zeelandia-specific fields (with units)
+  package_weight?: number; // Obsah value
+  package_weight_unit?: string; // Obsah unit (KG/PCE/G)
+  total_weight?: number; // Fakt.mn value
+  total_weight_unit?: string; // Fakt.mn unit (KG/PCE/G)
+
   // Albert-specific fields
   itemWeight?: string;
   vatRate?: number;
@@ -590,6 +596,12 @@ export function InvoiceUploadDialog() {
             basePrice: item.base_price,
 
             unitsInMu: unitsInMu,
+
+            // Zeelandia-specific fields (with units)
+            package_weight: item.package_weight,
+            package_weight_unit: item.package_weight_unit,
+            total_weight: item.total_weight,
+            total_weight_unit: item.total_weight_unit,
 
             // Albert-specific fields
             itemWeight: item.item_weight,
@@ -1935,13 +1947,13 @@ export function InvoiceUploadDialog() {
                             </th>
                             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
                               <div className="flex items-center justify-end gap-1">
-                                Fakt. mn. (kg)
+                                Fakt. mn.
                                 <Pencil className="w-3 h-3 text-gray-400" />
                               </div>
                             </th>
                             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
                               <div className="flex items-center justify-end gap-1">
-                                Cena/jed (Kč/kg) → unit_price
+                                Cena/jed → unit_price
                                 <Pencil className="w-3 h-3 text-gray-400" />
                               </div>
                             </th>
@@ -1954,12 +1966,18 @@ export function InvoiceUploadDialog() {
                           </tr>
                         </thead>
                         <tbody className="bg-white">
-                          {parsedInvoice.items.map((item) => {
+                          {parsedInvoice.items.map((item: any) => {
+                            // Get unit information - prioritize new fields with units
+                            const totalWeightValue =
+                              (item.total_weight || item.totalWeightKg) ?? 0;
+                            const totalWeightUnit = (
+                              item.total_weight_unit ||
+                              (item.totalWeightKg ? "KG" : "")
+                            ).toLowerCase();
+
                             // Calculate price total using edited values if available
                             const finalTotalWeight =
-                              editedTotalWeights[item.id] ??
-                              item.totalWeightKg ??
-                              0;
+                              editedTotalWeights[item.id] ?? totalWeightValue;
                             const finalPrice =
                               editedPrices[item.id] ?? item.price ?? 0;
                             const priceTotal = parseFloat(
@@ -1990,7 +2008,7 @@ export function InvoiceUploadDialog() {
                                 <td className="px-3 py-2 text-sm text-gray-900 border-r border-gray-200">
                                   {item.name || "-"}
                                 </td>
-                                {/* Fakt. mn. (kg) - This will be saved as quantity */}
+                                {/* Fakt. mn. - This will be saved as quantity */}
                                 <td className="px-3 py-2 text-right text-sm text-gray-900 border-r border-gray-200">
                                   {editingItemId === item.id &&
                                   editingField === "totalWeight" ? (
@@ -2004,7 +2022,7 @@ export function InvoiceUploadDialog() {
                                               editedTotalWeights[item.id]
                                             ).toString()
                                           : Math.floor(
-                                              item.totalWeightKg ?? 0
+                                              totalWeightValue
                                             ).toString()
                                       }
                                       onChange={(e) => {
@@ -2052,16 +2070,18 @@ export function InvoiceUploadDialog() {
                                       title="Klikněte pro úpravu"
                                     >
                                       {(editedTotalWeights[item.id] ??
-                                      item.totalWeightKg)
+                                      totalWeightValue)
                                         ? `${Math.floor(
                                             editedTotalWeights[item.id] ??
-                                              item.totalWeightKg
-                                          ).toLocaleString("cs-CZ")} kg`
+                                              totalWeightValue
+                                          ).toLocaleString(
+                                            "cs-CZ"
+                                          )} ${totalWeightUnit}`
                                         : "-"}
                                     </span>
                                   )}
                                 </td>
-                                {/* Cena/jed (Kč/kg) - This will be saved as unit_price */}
+                                {/* Cena/jed - This will be saved as unit_price */}
                                 <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
                                   {editingItemId === item.id &&
                                   editingField === "price" ? (
