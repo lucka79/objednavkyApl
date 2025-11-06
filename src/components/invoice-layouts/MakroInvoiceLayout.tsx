@@ -1,8 +1,20 @@
+import { IngredientMapping } from "./IngredientMapping";
+
 interface MakroInvoiceLayoutProps {
   items: any[];
+  onUnmap?: (itemId: string) => void;
+  supplierId?: string;
+  onItemMapped?: (itemId: string, ingredientId: number) => void;
+  supplierIngredients?: any[];
 }
 
-export function MakroInvoiceLayout({ items }: MakroInvoiceLayoutProps) {
+export function MakroInvoiceLayout({
+  items,
+  onUnmap,
+  supplierId,
+  onItemMapped,
+  supplierIngredients,
+}: MakroInvoiceLayoutProps) {
   return (
     <div className="overflow-x-auto border rounded-md">
       <table className="w-full text-sm">
@@ -18,6 +30,7 @@ export function MakroInvoiceLayout({ items }: MakroInvoiceLayoutProps) {
             <th className="text-right p-2 text-xs">cena za MU</th>
             <th className="text-right p-2 text-xs">cena celkem</th>
             <th className="text-right p-2 text-xs bg-orange-50">Cena/kg</th>
+            <th className="text-left p-2 text-xs">Namapováno</th>
           </tr>
         </thead>
         <tbody>
@@ -120,6 +133,32 @@ export function MakroInvoiceLayout({ items }: MakroInvoiceLayoutProps) {
                   ) : (
                     <span className="text-gray-400">-</span>
                   )}
+                </td>
+                {/* Namapováno */}
+                <td className="p-2 text-xs">
+                  <IngredientMapping
+                    itemId={`item-${idx}`}
+                    productCode={item.product_code || ""}
+                    description={item.description || ""}
+                    unitPrice={item.price_per_kg || item.unit_price}
+                    supplierId={supplierId}
+                    supplierIngredients={supplierIngredients}
+                    ingredientId={
+                      item.matched_ingredient_id || item.ingredientId
+                    }
+                    ingredientName={
+                      item.matched_ingredient_name || item.ingredientName
+                    }
+                    suggestedName={item.suggested_ingredient_name}
+                    confidence={
+                      item.confidence ||
+                      item.matching_confidence ||
+                      item.match_confidence ||
+                      100
+                    }
+                    onUnmap={onUnmap}
+                    onItemMapped={onItemMapped}
+                  />
                 </td>
               </tr>
             );

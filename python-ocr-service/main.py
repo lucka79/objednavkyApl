@@ -586,6 +586,15 @@ def extract_line_items(
         # Le-co pattern: 9 groups (code, description, quantity, unit, unit_price, line_total, vat_rate, vat_amount, total_with_vat)
         table_columns['line_pattern'] = r'^(\d+)\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\s.,%()-]+?)\s+(\d[\d,\.]*)\s+([A-Za-z]{1,5})\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+(\d+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)'
         logger.info(f"   Using Le-co line_pattern (9 groups): {table_columns['line_pattern']}")
+    elif display_layout.lower() == 'makro':
+        logger.info("🔧 Makro display_layout detected - using proven Makro patterns")
+        # Makro pattern: 10 groups (code, quantity, description, base_price, units_in_mu, price_per_mu, total, vat_rate, vat_amount, total_with_vat)
+        # Format handles two types:
+        # - Format A: Regular items with package weight (e.g., "100g 12x")
+        # - Format B: Items sold by weight (description starts with "*")
+        # Pattern captures: code(6-7 digits), quantity/weight(decimal), description(any text), base_price, units_in_mu, price_per_mu, total, vat_rate, vat_amount, total_with_vat
+        table_columns['line_pattern'] = r'^(\d{6,7})\s+([\d,\.]+)\s+([*]?[A-Za-zá-žÁ-Ž0-9\s.,%()/-]+?)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+(\d+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)'
+        logger.info(f"   Using Makro line_pattern (10 groups): {table_columns['line_pattern']}")
     
     # Find table start and end
     table_start_pattern = patterns.get('table_start')
