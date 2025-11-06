@@ -1,8 +1,8 @@
 # 🔔 Complete Telegram Notification Setup
 
 ## ✅ What's Already Done:
-1. ✅ Telegram Bot Token: `8546165443:AAH6Hj4zOQ4HK9pBdrHVxxyLlbhrSmnvw8c`
-2. ✅ Chat ID: `8587203854`
+1. ✅ Telegram Bot Token: Configured as Supabase secret (not in code)
+2. ✅ Chat ID: Configured as Supabase secret (not in code)
 3. ✅ Secrets configured in Supabase
 4. ✅ Edge Function `notify-telegram` deployed
 
