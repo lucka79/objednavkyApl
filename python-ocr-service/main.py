@@ -1222,6 +1222,20 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                 if match:
                     logger.info(f"✅ Alternative Backaldrin pattern matched (flexible spacing + optional batch): {line[:80]}")
             
+            # If primary pattern doesn't match, try Le-co fallback pattern (9 groups format)
+            # Le-co format: code, description, quantity, unit, unit_price, line_total, vat_rate, vat_amount, total_with_vat
+            # Example: "486510 BORŮVKY KANADSKÉ VAN. 125g 1,000 BAG 53,70 53,70 12 6,44 60,14"
+            if not match:
+                # Check if line starts with product code (digits) and might be Le-co format
+                # Le-co pattern: KÓD POPIS MNOŽSTVÍ JEDNOTKA CENA/J CELKEM DPH% DPH_ČÁSTKA CELKEM_S_DPH
+                leco_pattern = r'^(\d+)\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\s.,%()-]+?)\s+(\d[\d,\.]*)\s+([A-Za-z]{1,5})\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+(\d+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)'
+                leco_match = re.match(leco_pattern, line)
+                if leco_match and len(leco_match.groups()) == 9:
+                    # Use Le-co pattern as fallback only if main pattern didn't match
+                    match = leco_match
+                    logger.info(f"✅ Le-co fallback pattern matched (9 groups) for line: {line[:80]}")
+                    logger.info(f"   Using Le-co fallback pattern (main pattern didn't match)")
+            
             if match:
                 try:
                     groups = match.groups()
@@ -1456,6 +1470,8 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         unit_price = 0
                         line_total = 0
                         vat_rate = None
+                        vat_amount = None
+                        total_with_vat = None
                         
                         # Detect Dekos format: code contains dot (e.g., "35.0400") and has 7 groups
                         # Dekos order: code, description, unit_price, quantity, unit, vat_rate, line_total
@@ -1626,16 +1642,18 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                                         logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> vat_rate: {vat_rate}")
                             
                             elif field_type == 'vat_amount':
-                                # VAT amount: number (extracted for logging, but not stored in InvoiceItem)
+                                # VAT amount: number (for Le-co format)
                                 num_val = extract_number(group_str)
                                 if num_val > 0:
-                                    logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> vat_amount: {num_val}")
+                                    vat_amount = num_val
+                                    logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> vat_amount: {vat_amount}")
                             
                             elif field_type == 'total_with_vat':
-                                # Total with VAT: number (extracted for logging, but line_total is already set)
+                                # Total with VAT: number (for Le-co format)
                                 num_val = extract_number(group_str)
                                 if num_val > 0:
-                                    logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> total_with_vat: {num_val}")
+                                    total_with_vat = num_val
+                                    logger.debug(f"Group {idx+1} (position {idx}): {group_str} -> total_with_vat: {total_with_vat}")
                                     # Use total_with_vat as line_total if line_total is smaller (sometimes line_total is before VAT)
                                     if num_val > line_total:
                                         line_total = num_val
@@ -1817,14 +1835,13 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         
                         # If we found product_code or at least some fields, use this format
                         if product_code or description or quantity > 0:
-                            # For Leco format (9 groups), calculate line_total = quantity * unit_price
-                            # This is more accurate than OCR extraction, especially with Czech number formatting
+                            # For Leco format (9 groups), calculate line_total = quantity * unit_price for accuracy
                             if len(groups) == 9 and quantity > 0 and unit_price > 0:
                                 calculated_line_total = quantity * unit_price
                                 logger.info(f"Leco format detected (9 groups) - calculating line_total: {quantity} * {unit_price} = {calculated_line_total} (was: {line_total})")
                                 line_total = calculated_line_total
                             
-                            logger.info(f"Extracting interactive labeling format ({len(groups)} groups) - code: {product_code}, description: {description}, quantity: {quantity} {unit_of_measure}, unit_price: {unit_price}, total: {line_total}, vat_rate: {vat_rate}")
+                            logger.info(f"Extracting interactive labeling format ({len(groups)} groups) - code: {product_code}, description: {description}, quantity: {quantity} {unit_of_measure}, unit_price: {unit_price}, total: {line_total}, vat_rate: {vat_rate}, vat_amount: {vat_amount}, total_with_vat: {total_with_vat}")
                             
                             # Apply code corrections if configured
                             corrected_code = apply_code_corrections(product_code, code_corrections) if product_code else None
@@ -1841,6 +1858,8 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                                 unit_price=unit_price,
                                 line_total=line_total,
                                 vat_rate=vat_rate,
+                                vat_amount=vat_amount,
+                                total_with_vat=total_with_vat,
                                 line_number=line_number,
                             )
                     

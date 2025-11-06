@@ -22,6 +22,7 @@ import {
   DekosInvoiceLayout,
   BackaldrinInvoiceLayout,
   AlbertInvoiceLayout,
+  LeCoInvoiceLayout,
 } from "@/components/invoice-layouts";
 
 export const Route = createFileRoute("/admin/invoice-templates")({
@@ -2627,6 +2628,8 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                       onItemMapped={handleItemMapped}
                     />
                   );
+                } else if (layout === "leco" || layout === "le-co") {
+                  return <LeCoInvoiceLayout items={result.items} />;
                 } else {
                   return <PesekLineInvoiceLayout items={result.items} />;
                 }

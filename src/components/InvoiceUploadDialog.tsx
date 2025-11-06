@@ -61,6 +61,7 @@ import {
   PesekLineInvoiceLayout,
   DekosInvoiceLayout,
   AlbertInvoiceLayout,
+  LeCoInvoiceLayout,
 } from "@/components/invoice-layouts";
 
 interface ParsedInvoiceItem {
@@ -107,6 +108,9 @@ interface ParsedInvoiceItem {
   vatRate?: number;
   unitPriceWithoutVat?: number;
   pricePerKgWithoutVat?: number; // Price per kg without VAT (for Albert)
+  // Le-co-specific fields
+  vatAmount?: number; // DPH částka (for Le-co)
+  totalWithVat?: number; // Celkem s DPH (for Le-co)
 }
 
 interface ParsedInvoice {
@@ -151,6 +155,9 @@ const DEKOS_SUPPLIER_ID = "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d"; // TODO: Repla
 
 // Albert supplier ID (Albert-specific layout without product codes)
 const ALBERT_SUPPLIER_ID = "cf433a0c-f55d-4935-8941-043b13cea7a3";
+
+// Le-co supplier ID (Le-co-specific layout with 9 fields)
+const LECO_SUPPLIER_ID = ""; // TODO: Replace with actual Le-co supplier ID
 
 export function InvoiceUploadDialog() {
   const [isOpen, setIsOpen] = useState(false);
@@ -589,6 +596,9 @@ export function InvoiceUploadDialog() {
             vatRate: item.vat_rate,
             unitPriceWithoutVat: albertUnitPriceWithoutVat,
             pricePerKgWithoutVat: albertPricePerKgWithoutVat,
+            // Le-co-specific fields
+            vatAmount: item.vat_amount,
+            totalWithVat: item.total_with_vat,
           };
 
           // Debug log for Albert items
@@ -2868,6 +2878,29 @@ export function InvoiceUploadDialog() {
                         items={parsedInvoice.items}
                         onUnmap={handleUnmapItem}
                         supplierId={selectedSupplier || invoiceSupplier}
+                      />
+                    </div>
+                  ) : /* Le-co layout for Le-co supplier - check by template display_layout or supplier ID */
+                  (() => {
+                      const supplierId = selectedSupplier || invoiceSupplier;
+                      // Check if supplier has a template with display_layout: "leco"
+                      const lecoTemplate = templates?.find(
+                        (t: any) =>
+                          t.supplier_id === supplierId &&
+                          t.is_active &&
+                          (t.config?.display_layout === "leco" ||
+                           t.config?.display_layout === "le-co")
+                      );
+                      return (
+                        selectedSupplier === LECO_SUPPLIER_ID ||
+                        invoiceSupplier === LECO_SUPPLIER_ID ||
+                        lecoTemplate
+                      );
+                    })() ? (
+                    <div className="mt-2">
+                      <LeCoInvoiceLayout
+                        items={parsedInvoice.items}
+                        onUnmap={handleUnmapItem}
                       />
                     </div>
                   ) : (

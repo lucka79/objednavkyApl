@@ -485,6 +485,7 @@ function TemplateForm({
                 "dekos",
                 "backaldrin",
                 "albert",
+                "leco",
               ].includes(formData.display_layout)
                 ? formData.display_layout
                 : "custom"
@@ -503,6 +504,7 @@ function TemplateForm({
                     "dekos",
                     "backaldrin",
                     "albert",
+                    "leco",
                   ].includes(formData.display_layout)
                 ) {
                   // Already custom, keep it
@@ -532,6 +534,9 @@ function TemplateForm({
               <SelectItem value="albert">
                 Albert (bez kódů, jen názvy)
               </SelectItem>
+              <SelectItem value="leco">
+                Le-co (9 polí: kód, popis, množství, jednotka, cena/jed, celkem, DPH%, DPH částka, celkem s DPH)
+              </SelectItem>
               <SelectItem value="custom">
                 ✏️ Vlastní název (pro specifického dodavatele)
               </SelectItem>
@@ -546,6 +551,7 @@ function TemplateForm({
             "dekos",
             "backaldrin",
             "albert",
+            "leco",
           ].includes(formData.display_layout) && (
             <Input
               placeholder="Zadejte vlastní název layoutu (např. 'supplier-name-custom')"
