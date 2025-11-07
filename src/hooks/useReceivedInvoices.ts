@@ -180,10 +180,12 @@ export const useUpdateReceivedInvoice = () => {
       id,
       receiver_id,
       total_amount,
+      invoice_number,
     }: {
       id: string;
       receiver_id?: string;
       total_amount?: number;
+      invoice_number?: string;
     }) => {
       const updateData: any = {};
       
@@ -193,6 +195,10 @@ export const useUpdateReceivedInvoice = () => {
       
       if (total_amount !== undefined) {
         updateData.total_amount = total_amount;
+      }
+      
+      if (invoice_number !== undefined) {
+        updateData.invoice_number = invoice_number;
       }
 
       console.log("Updating invoice:", { id, updateData });

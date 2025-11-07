@@ -252,7 +252,7 @@ export function IngredientComparison() {
       const row = [
         ingredient.name,
         ingredient.unit,
-        ingredient.package || "",
+        ingredient.package ? `${ingredient.package} ${ingredient.unit}` : "",
         ingredient.ingredient_categories?.name || "Bez kategorie",
       ];
 
@@ -417,12 +417,21 @@ export function IngredientComparison() {
                     onCheckedChange={(checked) =>
                       setIncludeIngredientsWithoutSuppliers(checked === true)
                     }
+                    className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                   />
                   <Label
                     htmlFor="include-without-suppliers"
-                    className="font-medium"
+                    className="font-medium cursor-pointer"
                   >
                     Zahrnout suroviny bez dodavatelů
+                    {matrixData.ingredientsWithoutSuppliers.length > 0 && (
+                      <Badge
+                        variant="outline"
+                        className="ml-2 text-xs text-orange-600 border-orange-300"
+                      >
+                        {matrixData.ingredientsWithoutSuppliers.length}
+                      </Badge>
+                    )}
                   </Label>
                 </div>
               </div>
@@ -591,7 +600,8 @@ export function IngredientComparison() {
                                   {ingredient.unit}
                                   {ingredient.package && (
                                     <span className="ml-2 text-xs bg-gray-100 px-2 py-1 rounded">
-                                      Balení: {ingredient.package}
+                                      Balení: {ingredient.package}{" "}
+                                      {ingredient.unit}
                                     </span>
                                   )}
                                 </div>
@@ -819,38 +829,52 @@ export function IngredientComparison() {
         </CardContent>
       </Card>
 
-      {/* Ingredients without suppliers */}
+      {/* Ingredients without suppliers - Warning Card */}
       {matrixData.ingredientsWithoutSuppliers.length > 0 && (
-        <Card>
+        <Card className="border-orange-300 bg-orange-50">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-orange-800">
               <Minus className="h-5 w-5" />
-              Suroviny bez dodavatelů (
+              ⚠️ Suroviny bez dodavatelů (
               {matrixData.ingredientsWithoutSuppliers.length})
             </CardTitle>
+            <p className="text-sm text-orange-700 mt-2">
+              Tyto suroviny nemají přiřazené žádné kódy dodavatelů. Přidejte jim
+              dodavatele v sekci "Suroviny" pro lepší porovnání cen.
+            </p>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {matrixData.ingredientsWithoutSuppliers.map((ingredient) => (
                 <div
                   key={ingredient.id}
-                  className="p-4 border border-gray-200 rounded-lg bg-gray-50"
+                  className="p-4 border border-orange-200 rounded-lg bg-white shadow-sm"
                 >
                   <div className="font-medium text-gray-900">
                     {ingredient.name}
                   </div>
                   <div className="text-sm text-gray-600 mt-1">
                     {ingredient.unit}
+                    {ingredient.package && (
+                      <span className="ml-2 text-xs bg-gray-100 px-2 py-1 rounded">
+                        Balení: {ingredient.package} {ingredient.unit}
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-gray-500 mt-2">
                     {ingredient.ingredient_categories?.name || "Bez kategorie"}
                   </div>
+                  {ingredient.price && (
+                    <div className="text-sm font-medium text-orange-600 mt-2">
+                      Hlavní cena: {ingredient.price.toFixed(2)} Kč
+                    </div>
+                  )}
                   <div className="mt-2">
                     <Badge
                       variant="outline"
-                      className="text-xs text-orange-600 border-orange-300"
+                      className="text-xs text-orange-600 border-orange-300 bg-orange-100"
                     >
-                      Bez dodavatele
+                      Chybí kódy dodavatelů
                     </Badge>
                   </div>
                 </div>

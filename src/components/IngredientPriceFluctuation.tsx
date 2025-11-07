@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, Calendar, Package } from "lucide-react";
+import { TrendingUp, Calendar, Package, Printer } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 
@@ -455,24 +455,197 @@ export function IngredientPriceFluctuation({
     };
   }, [chartData]);
 
+  // Print function for the price fluctuation modal
+  const handlePrint = () => {
+    if (!selectedIngredient || !chartData || chartData.length === 0) {
+      return;
+    }
+
+    const selectedIngredientData = ingredients.find(
+      (ing) => ing.id === parseInt(selectedIngredient)
+    );
+
+    if (!selectedIngredientData) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    const period = useWholeYear
+      ? `Celý rok ${selectedMonth.getFullYear()}`
+      : selectedMonth.toLocaleDateString("cs-CZ", {
+          month: "long",
+          year: "numeric",
+        });
+
+    const tableRows = chartData
+      .map(
+        (item: any) => `
+        <tr>
+          <td>${item.date}</td>
+          <td>${item.invoiceNumber || "—"}</td>
+          <td>${item.supplierName}</td>
+          <td style="text-align: right;">${item["Cena z faktury"].toFixed(2)} Kč</td>
+          <td style="text-align: right;">${item.quantity.toFixed(3)} ${item.unitOfMeasure}</td>
+          <td style="text-align: right;">${item["Základní cena"].toFixed(2)} Kč</td>
+          <td style="text-align: right; ${
+            item["Cena z faktury"] > item["Základní cena"]
+              ? "color: #dc2626;"
+              : item["Cena z faktury"] < item["Základní cena"]
+                ? "color: #16a34a;"
+                : ""
+          }">
+            ${(item["Cena z faktury"] - item["Základní cena"]).toFixed(2)} Kč
+          </td>
+        </tr>
+      `
+      )
+      .join("");
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Vývoj cen - ${selectedIngredientData.name}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              padding: 20px;
+            }
+            h1 {
+              color: #333;
+              margin-bottom: 5px;
+            }
+            .subtitle {
+              color: #666;
+              margin-bottom: 20px;
+              font-size: 14px;
+              line-height: 1.6;
+            }
+            .stats {
+              background-color: #f9fafb;
+              border: 1px solid #e5e7eb;
+              border-radius: 6px;
+              padding: 12px;
+              margin-bottom: 20px;
+            }
+            .stats-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 10px;
+            }
+            .stat-item {
+              font-size: 13px;
+            }
+            .stat-label {
+              color: #6b7280;
+              font-weight: normal;
+            }
+            .stat-value {
+              color: #111827;
+              font-weight: bold;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 20px;
+            }
+            th, td {
+              border: 1px solid #ddd;
+              padding: 8px;
+              text-align: left;
+            }
+            th {
+              background-color: #f2f2f2;
+              font-weight: bold;
+            }
+            tr:nth-child(even) {
+              background-color: #f9f9f9;
+            }
+            @media print {
+              body {
+                padding: 10px;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Vývoj cen surovin</h1>
+          <div class="subtitle">
+            <strong>Surovina:</strong> ${selectedIngredientData.name} (${selectedIngredientData.unit})<br>
+            <strong>Období:</strong> ${period}<br>
+            <strong>Základní cena:</strong> ${selectedIngredientData.basePrice.toFixed(2)} Kč
+          </div>
+          <div class="stats">
+            <div class="stats-grid">
+              <div class="stat-item">
+                <span class="stat-label">Celkové množství:</span>
+                <span class="stat-value">${statistics.totalQuantity.toFixed(3)} ${chartData[0]?.unitOfMeasure || ""}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Průměr za týden:</span>
+                <span class="stat-value">${statistics.avgWeekQuantity.toFixed(3)} ${chartData[0]?.unitOfMeasure || ""}</span>
+              </div>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Datum faktury</th>
+                <th>Č. faktury</th>
+                <th>Dodavatel</th>
+                <th>Cena z faktury</th>
+                <th>Množství</th>
+                <th>Základní cena</th>
+                <th>Rozdíl</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Vývoj cen surovin
-            <span className="text-sm text-muted-foreground font-normal">
-              (
-              {useWholeYear
-                ? `Celý rok ${selectedMonth.getFullYear()}`
-                : selectedMonth.toLocaleDateString("cs-CZ", {
-                    month: "long",
-                    year: "numeric",
-                  })}
-              )
-            </span>
-          </DialogTitle>
+          <div className="flex items-center justify-between pr-8">
+            <DialogTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Vývoj cen surovin
+              <span className="text-sm text-muted-foreground font-normal">
+                (
+                {useWholeYear
+                  ? `Celý rok ${selectedMonth.getFullYear()}`
+                  : selectedMonth.toLocaleDateString("cs-CZ", {
+                      month: "long",
+                      year: "numeric",
+                    })}
+                )
+              </span>
+            </DialogTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrint}
+              disabled={
+                !selectedIngredient || !chartData || chartData.length === 0
+              }
+              className="flex items-center gap-2"
+            >
+              <Printer className="h-4 w-4" />
+              Tisknout
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="space-y-6">

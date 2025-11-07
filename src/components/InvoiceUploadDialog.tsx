@@ -2884,6 +2884,27 @@ export function InvoiceUploadDialog() {
                           </tbody>
                         </table>
                       </div>
+                      {/* Summary row for Makro */}
+                      <div className="mt-3 px-4 py-3 bg-green-50 border-t-2 border-green-300 rounded-b-lg">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-semibold text-gray-700">
+                            Celkem (součet cena celkem):
+                          </span>
+                          <span className="text-lg font-bold text-green-700">
+                            {parsedInvoice.items
+                              .reduce((sum, item) => {
+                                const itemTotal =
+                                  item.total || item.quantity * item.price || 0;
+                                return sum + itemTotal;
+                              }, 0)
+                              .toLocaleString("cs-CZ", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}{" "}
+                            Kč
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   ) : /* pesek layout for Pešek supplier */
                   selectedSupplier === PESEK_SUPPLIER_ID ||

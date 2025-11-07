@@ -176,22 +176,9 @@ export const useIngredientStore = create<IngredientStore>((set, get) => ({
         console.log("Ingredient ID:", id);
         console.log("Supplier codes to update:", supplier_codes);
         
-        // Delete existing supplier codes for this ingredient
-        const { error: deleteError } = await supabase
-          .from("ingredient_supplier_codes")
-          .delete()
-          .eq("ingredient_id", id);
-
-        if (deleteError) {
-          console.error("=== DEBUG STORE: Delete error ===", deleteError);
-          throw deleteError;
-        }
-        
-        console.log("=== DEBUG STORE: Existing codes deleted ===");
-
-        // Insert new supplier codes if any
         if (supplier_codes && supplier_codes.length > 0) {
-          const codesToInsert = supplier_codes.map((code: any) => ({
+          // Validate all codes before proceeding
+          const codesToUpsert = supplier_codes.map((code: any) => ({
             ingredient_id: id,
             supplier_id: code.supplier_id,
             product_code: code.product_code,
@@ -201,28 +188,112 @@ export const useIngredientStore = create<IngredientStore>((set, get) => ({
             is_active: code.is_active
           }));
 
-          console.log("Mapped codes to insert:", codesToInsert);
-
-          const { error: insertError } = await supabase
-            .from("ingredient_supplier_codes")
-            .insert(codesToInsert);
-
-          if (insertError) {
-            console.error("=== DEBUG STORE: Insert error ===", insertError);
-            throw insertError;
+          // Validate required fields
+          for (const code of codesToUpsert) {
+            if (!code.supplier_id) {
+              throw new Error("Všechny kódy dodavatelů musí mít nastaveného dodavatele");
+            }
+            if (!code.product_code || code.product_code.trim() === "") {
+              throw new Error("Všechny kódy dodavatelů musí mít nastavený kód produktu");
+            }
+            if (code.price === null || code.price === undefined || code.price < 0) {
+              throw new Error("Všechny kódy dodavatelů musí mít platnou cenu (≥ 0)");
+            }
           }
-          
-          console.log("=== DEBUG STORE: Supplier codes updated successfully ===");
+
+          console.log("=== DEBUG STORE: Validation passed, proceeding with upsert ===");
+          console.log("Mapped codes to upsert:", codesToUpsert);
+
+          // Get existing codes to identify which ones to update vs insert
+          const { data: existingCodes, error: fetchError } = await supabase
+            .from("ingredient_supplier_codes")
+            .select("id, ingredient_id, supplier_id, product_code")
+            .eq("ingredient_id", id);
+
+          if (fetchError) {
+            console.error("=== DEBUG STORE: Fetch existing codes error ===", fetchError);
+            throw new Error(`Chyba při načítání existujících kódů: ${fetchError.message}`);
+          }
+
+          console.log("=== DEBUG STORE: Existing codes found ===", existingCodes);
+
+          // Separate codes into updates and inserts
+          const codesToUpdate: any[] = [];
+          const codesToInsert: any[] = [];
+
+          for (const code of codesToUpsert) {
+            // Check if code exists (by ingredient_id, supplier_id, product_code combination)
+            const existingCode = existingCodes?.find(
+              (ec: any) =>
+                ec.ingredient_id === code.ingredient_id &&
+                ec.supplier_id === code.supplier_id &&
+                ec.product_code === code.product_code
+            );
+
+            if (existingCode) {
+              // Update existing code
+              codesToUpdate.push({
+                id: existingCode.id,
+                ...code
+              });
+            } else {
+              // Insert new code
+              codesToInsert.push(code);
+            }
+          }
+
+          console.log("=== DEBUG STORE: Codes to update ===", codesToUpdate);
+          console.log("=== DEBUG STORE: Codes to insert ===", codesToInsert);
+
+          // Update existing codes
+          if (codesToUpdate.length > 0) {
+            for (const code of codesToUpdate) {
+              const { id: codeId, ...updateData } = code;
+              const { error: updateError } = await supabase
+                .from("ingredient_supplier_codes")
+                .update(updateData)
+                .eq("id", codeId);
+
+              if (updateError) {
+                console.error("=== DEBUG STORE: Update error ===", updateError);
+                throw new Error(`Chyba při aktualizaci kódu dodavatele: ${updateError.message}`);
+              }
+            }
+            console.log("=== DEBUG STORE: Codes updated successfully ===");
+          }
+
+          // Insert new codes
+          if (codesToInsert.length > 0) {
+            const { error: insertError } = await supabase
+              .from("ingredient_supplier_codes")
+              .insert(codesToInsert);
+
+            if (insertError) {
+              console.error("=== DEBUG STORE: Insert error ===", insertError);
+              throw new Error(`Chyba při ukládání nových kódů dodavatelů: ${insertError.message}`);
+            }
+            console.log("=== DEBUG STORE: New codes inserted successfully ===");
+          }
+
+          console.log("=== DEBUG STORE: Supplier codes upserted successfully ===");
+          console.log(`Updated: ${codesToUpdate.length}, Inserted: ${codesToInsert.length}`);
         }
+        // Note: We don't delete any codes - all existing codes are preserved
+        // Only codes explicitly in the form are updated/inserted
       }
 
       // Refresh ingredients list
       await get().fetchIngredients();
       set({ isLoading: false, isFormOpen: false, selectedIngredient: null });
     } catch (error) {
+      // Don't close the form on error - keep it open so user can see the error and retry
+      // This prevents data loss if there's an issue with supplier codes
       set({ 
         error: error instanceof Error ? error.message : "Failed to update ingredient",
-        isLoading: false 
+        isLoading: false,
+        // Keep form open and selected ingredient so user can retry
+        isFormOpen: true,
+        // Don't clear selectedIngredient so form data is preserved
       });
     }
   },

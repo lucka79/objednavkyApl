@@ -593,9 +593,28 @@ export function IngredientForm() {
     if (formData.package !== null && formData.package <= 0) {
       errors.package = "Balení musí být větší než 0";
     }
+    // Note: Package can be a decimal value (e.g., 0.5, 1.25, etc.)
 
     if (formData.vat !== null && (formData.vat < 0 || formData.vat > 100)) {
       errors.vat = "DPH musí být mezi 0 a 100%";
+    }
+
+    // Validate supplier codes before submission to prevent data loss
+    if (formData.supplier_codes && formData.supplier_codes.length > 0) {
+      formData.supplier_codes.forEach((code, index) => {
+        if (!code.supplier_id) {
+          errors[`supplier_code_${index}_supplier`] =
+            `Kód dodavatele #${index + 1}: Musí být vybrán dodavatel`;
+        }
+        if (!code.product_code || code.product_code.trim() === "") {
+          errors[`supplier_code_${index}_code`] =
+            `Kód dodavatele #${index + 1}: Musí být vyplněn kód produktu`;
+        }
+        if (code.price === null || code.price === undefined || code.price < 0) {
+          errors[`supplier_code_${index}_price`] =
+            `Kód dodavatele #${index + 1}: Musí být vyplněna platná cena (≥ 0)`;
+        }
+      });
     }
 
     setValidationErrors(errors);
@@ -624,6 +643,29 @@ export function IngredientForm() {
     });
 
     try {
+      // Additional validation for supplier codes to prevent data loss
+      if (formData.supplier_codes && formData.supplier_codes.length > 0) {
+        const invalidCodes = formData.supplier_codes.filter(
+          (code) =>
+            !code.supplier_id ||
+            !code.product_code ||
+            code.product_code.trim() === "" ||
+            code.price === null ||
+            code.price === undefined ||
+            code.price < 0
+        );
+
+        if (invalidCodes.length > 0) {
+          toast({
+            title: "Chyba validace",
+            description:
+              "Některé kódy dodavatelů nejsou správně vyplněny. Opravte je před uložením.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       // Find the active supplier to sync main ingredient data
       const activeSupplier = formData.supplier_codes.find(
         (code) => code.is_active
@@ -674,14 +716,23 @@ export function IngredientForm() {
       console.log("=== DEBUG: SAVE COMPLETE ===");
     } catch (error) {
       console.error("=== DEBUG: SAVE FAILED ===", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Nepodařilo se uložit ingredienci";
+
       toast({
-        title: "Chyba",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Nepodařilo se uložit ingredienci",
+        title: "Chyba při ukládání",
+        description: errorMessage,
         variant: "destructive",
       });
+
+      // If we're in edit mode and there was an error, don't close the form
+      // so user can see the error and try again
+      if (isEditMode && selectedIngredient) {
+        // Keep form open so user can retry
+        console.log("Form kept open due to error - user can retry");
+      }
     }
   };
 
@@ -1234,7 +1285,7 @@ export function IngredientForm() {
                                       <Label>Balení</Label>
                                       <Input
                                         type="number"
-                                        step="0.1"
+                                        step="0.01"
                                         value={supplierCode.package || ""}
                                         onChange={(e) => {
                                           const newCodes = [
@@ -1250,6 +1301,7 @@ export function IngredientForm() {
                                           );
                                         }}
                                         className="no-spinner"
+                                        inputMode="decimal"
                                       />
                                     </div>
 
@@ -1544,6 +1596,7 @@ export function IngredientForm() {
                                         );
                                       }}
                                       className="no-spinner"
+                                      inputMode="decimal"
                                     />
                                   </div>
 

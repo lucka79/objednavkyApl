@@ -522,6 +522,7 @@ export function ReceivedInvoices() {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
+    invoice_number: "",
     receiver_id: "",
     total_amount: 0,
   });
@@ -646,6 +647,7 @@ export function ReceivedInvoices() {
   const handleViewInvoice = async (invoice: ReceivedInvoice) => {
     setSelectedInvoice(invoice);
     setEditForm({
+      invoice_number: invoice.invoice_number || "",
       receiver_id: invoice.receiver_id || "",
       total_amount: invoice.total_amount || 0,
     });
@@ -703,6 +705,7 @@ export function ReceivedInvoices() {
     if (isEditing) {
       // Reset form when canceling edit
       setEditForm({
+        invoice_number: selectedInvoice?.invoice_number || "",
         receiver_id: selectedInvoice?.receiver_id || "",
         total_amount: selectedInvoice?.total_amount || 0,
       });
@@ -715,6 +718,7 @@ export function ReceivedInvoices() {
     try {
       await updateInvoiceMutation.mutateAsync({
         id: selectedInvoice.id,
+        invoice_number: editForm.invoice_number,
         receiver_id: editForm.receiver_id,
         total_amount: editForm.total_amount,
       });
@@ -722,6 +726,7 @@ export function ReceivedInvoices() {
       // Update the selected invoice with new data
       setSelectedInvoice({
         ...selectedInvoice,
+        invoice_number: editForm.invoice_number,
         receiver_id: editForm.receiver_id,
         total_amount: editForm.total_amount,
       });
@@ -1527,9 +1532,22 @@ export function ReceivedInvoices() {
                       <Label className="text-sm font-medium">
                         Číslo faktury
                       </Label>
-                      <p className="text-lg font-semibold">
-                        {selectedInvoice.invoice_number}
-                      </p>
+                      {isEditing ? (
+                        <Input
+                          value={editForm.invoice_number}
+                          onChange={(e) =>
+                            setEditForm((prev) => ({
+                              ...prev,
+                              invoice_number: e.target.value,
+                            }))
+                          }
+                          className="text-lg font-semibold"
+                        />
+                      ) : (
+                        <p className="text-lg font-semibold">
+                          {selectedInvoice.invoice_number}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <Label className="text-sm font-medium">Dodavatel</Label>

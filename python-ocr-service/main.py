@@ -1,4 +1,4 @@
-"""
+ """
 Template-based Invoice OCR Service
 Extracts data from invoices using supplier-specific templates
 Version: 2.0.1 - Albert format support with weight field
@@ -180,7 +180,13 @@ async def process_invoice(request: ProcessInvoiceRequest):
         # Override patterns for specific suppliers based on display_layout
         # This ensures proven patterns are always used, regardless of template configuration
         display_layout = request.template_config.get('display_layout', '')
-        if display_layout.lower() == 'dekos':
+        if display_layout.lower() == 'makro':
+            logger.info("🔧 Makro display_layout detected - overriding invoice_number pattern")
+            # Makro invoice number format: "Faktura č./VS: 0875300275"
+            # Pattern handles variations in spacing and different invoice number lengths
+            patterns['invoice_number'] = r'Faktura\s+č\./VS:\s*(\d{8,10})'
+            logger.info(f"   Using Makro invoice_number: {patterns['invoice_number']}")
+        elif display_layout.lower() == 'dekos':
             logger.info("🔧 Dekos display_layout detected - overriding invoice_number pattern")
             # Override invoice number pattern to handle Czech diacritics (DAŇOVÝ vs DANOVY)
             # Support both with and without diacritics
@@ -595,7 +601,38 @@ def extract_line_items(
     # Override patterns for specific suppliers based on display_layout
     # This ensures proven patterns are always used, regardless of template configuration
     display_layout = template_config.get('display_layout', '')
-    if display_layout.lower() == 'dekos':
+    
+    # Auto-detect Makro invoices by checking for Makro-specific patterns in the text
+    # This makes the Makro pattern permanent - it will always be applied for Makro invoices
+    is_makro_invoice = False
+    if display_layout.lower() == 'makro':
+        is_makro_invoice = True
+        logger.info("🔧 Makro display_layout detected")
+    else:
+        # Auto-detect Makro by looking for characteristic patterns:
+        # 1. "MAKRO" company name in text
+        # 2. Lines matching Makro format: 6-7 digit code followed by decimal quantity
+        makro_indicators = [
+            'makro' in raw_text.lower(),
+            re.search(r'^\d{6,7}\s+[\d,\.]+\s+', raw_text, re.MULTILINE) is not None
+        ]
+        if any(makro_indicators):
+            is_makro_invoice = True
+            logger.info("🔧 Makro invoice auto-detected from invoice content")
+    
+    if is_makro_invoice:
+        logger.info("🔧 Using proven Makro patterns (permanent)")
+        # Makro pattern: 10 groups (code, quantity, description, base_price, units_in_mu, price_per_mu, total, vat_rate, vat_amount, total_with_vat)
+        # Format handles two types:
+        # - Format A: Regular items with package weight (e.g., "100g 12x")
+        # - Format B: Items sold by weight (description starts with "*")
+        # Pattern captures: code(6-7 digits), quantity/weight(decimal), description(any text), base_price, units_in_mu, price_per_mu, total, vat_rate, vat_amount, total_with_vat
+        # Note: VAT rate can be "12,0" or "21,0" (with decimal), so using [\d,\.]+ instead of \d+
+        # Description: Match until we see a decimal price pattern (e.g., "42,90" or "42.90") followed by space and integer
+        # This pattern identifies the start of base_price field (first numeric field after description)
+        table_columns['line_pattern'] = r'^(\d{6,7})\s+([\d,\.]+)\s+([*]?(?:(?!\s+\d+[,\.]\d{1,2}\s+\d+).)+?)\s+([\d,\.]+)\s+(\d+)\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)'
+        logger.info(f"   Using Makro line_pattern (10 groups, stops at decimal price pattern): {table_columns['line_pattern']}")
+    elif display_layout.lower() == 'dekos':
         logger.info("🔧 Dekos display_layout detected - using proven Dekos table/line patterns")
         # For Dekos, items appear right after the payment/delivery info, before any table header
         # Look for "Zp.dopravy:" or "Forma úhrady:" which comes right before the items start
@@ -614,18 +651,6 @@ def extract_line_items(
         # Le-co pattern: 9 groups (code, description, quantity, unit, unit_price, line_total, vat_rate, vat_amount, total_with_vat)
         table_columns['line_pattern'] = r'^(\d+)\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\s.,%()-]+?)\s+(\d[\d,\.]*)\s+([A-Za-z]{1,5})\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+(\d+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)'
         logger.info(f"   Using Le-co line_pattern (9 groups): {table_columns['line_pattern']}")
-    elif display_layout.lower() == 'makro':
-        logger.info("🔧 Makro display_layout detected - using proven Makro patterns")
-        # Makro pattern: 10 groups (code, quantity, description, base_price, units_in_mu, price_per_mu, total, vat_rate, vat_amount, total_with_vat)
-        # Format handles two types:
-        # - Format A: Regular items with package weight (e.g., "100g 12x")
-        # - Format B: Items sold by weight (description starts with "*")
-        # Pattern captures: code(6-7 digits), quantity/weight(decimal), description(any text), base_price, units_in_mu, price_per_mu, total, vat_rate, vat_amount, total_with_vat
-        # Note: VAT rate can be "12,0" or "21,0" (with decimal), so using [\d,\.]+ instead of \d+
-        # Description: Match until we see a decimal price pattern (e.g., "42,90" or "42.90") followed by space and integer
-        # This pattern identifies the start of base_price field (first numeric field after description)
-        table_columns['line_pattern'] = r'^(\d{6,7})\s+([\d,\.]+)\s+([*]?(?:(?!\s+\d+[,\.]\d{1,2}\s+\d+).)+?)\s+([\d,\.]+)\s+(\d+)\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)'
-        logger.info(f"   Using Makro line_pattern (10 groups, stops at decimal price pattern): {table_columns['line_pattern']}")
     elif display_layout.lower() == 'pesek':
         logger.info("🔧 Pešek display_layout detected - using proven Pešek multi-line patterns")
         # Pešek pattern: 6 groups (multi-line format)

@@ -122,7 +122,7 @@ export function IngredientPriceList() {
               : true
           );
 
-  // Flatten and sort all rows by product code
+  // Flatten and sort all rows by ingredient name
   const sortedRows = filteredIngredients
     .flatMap((ingredient) =>
       ingredient.supplier_codes.map((code) => ({
@@ -131,7 +131,7 @@ export function IngredientPriceList() {
       }))
     )
     .sort((a, b) =>
-      (a.code.product_code || "").localeCompare(b.code.product_code || "")
+      a.ingredient.name.localeCompare(b.ingredient.name, "cs-CZ")
     );
 
   const handlePriceChange = (codeId: number, newPrice: string) => {
