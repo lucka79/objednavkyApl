@@ -430,6 +430,17 @@ export function IngredientForm() {
   // Reset form when opening/closing
   useEffect(() => {
     if (isFormOpen) {
+      console.log("=== FORM OPENED ===");
+      console.log("isEditMode:", isEditMode);
+      console.log("isLoading:", isLoading);
+
+      // Check if form element exists
+      setTimeout(() => {
+        const formElement = document.getElementById("ingredient-form");
+        console.log("Form element exists:", !!formElement);
+        console.log("Form element:", formElement);
+      }, 100);
+
       if (isEditMode && selectedIngredient) {
         console.log("Loading ingredient for edit:", selectedIngredient);
         console.log(
@@ -568,9 +579,12 @@ export function IngredientForm() {
   // Price and supplier codes are now managed independently through the UI
 
   const validateForm = (): boolean => {
+    console.log("=== VALIDATE FORM CALLED ===");
+    console.log("Current form data:", formData);
     const errors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
+      console.log("Validation error: Name is empty");
       errors.name = "Název je povinný";
     }
 
@@ -601,32 +615,59 @@ export function IngredientForm() {
 
     // Validate supplier codes before submission to prevent data loss
     if (formData.supplier_codes && formData.supplier_codes.length > 0) {
+      console.log("Validating supplier codes:", formData.supplier_codes);
       formData.supplier_codes.forEach((code, index) => {
         if (!code.supplier_id) {
+          console.log(`Supplier code ${index}: Missing supplier_id`);
           errors[`supplier_code_${index}_supplier`] =
             `Kód dodavatele #${index + 1}: Musí být vybrán dodavatel`;
         }
-        if (!code.product_code || code.product_code.trim() === "") {
-          errors[`supplier_code_${index}_code`] =
-            `Kód dodavatele #${index + 1}: Musí být vyplněn kód produktu`;
-        }
+        // Product code is optional - removed validation
+        // if (!code.product_code || code.product_code.trim() === "") {
+        //   console.log(`Supplier code ${index}: Missing or empty product_code`);
+        //   errors[`supplier_code_${index}_code`] =
+        //     `Kód dodavatele #${index + 1}: Musí být vyplněn kód produktu`;
+        // }
         if (code.price === null || code.price === undefined || code.price < 0) {
+          console.log(`Supplier code ${index}: Invalid price (${code.price})`);
           errors[`supplier_code_${index}_price`] =
             `Kód dodavatele #${index + 1}: Musí být vyplněna platná cena (≥ 0)`;
         }
       });
     }
 
+    console.log("=== VALIDATION COMPLETE ===");
+    console.log("Total errors found:", Object.keys(errors).length);
+    console.log("Errors:", errors);
+
     setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
+    const isValid = Object.keys(errors).length === 0;
+    console.log("Returning validation result:", isValid);
+    return isValid;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    console.log("=== HANDLE SUBMIT CALLED ===");
+    console.log("Event:", e);
+    console.log("Event type:", e.type);
+    console.log("isEditMode:", isEditMode);
+    console.log("selectedIngredient:", selectedIngredient);
 
-    if (!validateForm()) {
+    e.preventDefault();
+    console.log("After preventDefault");
+
+    console.log("=== STARTING VALIDATION ===");
+    const isValid = validateForm();
+    console.log("Validation result:", isValid);
+    console.log("Validation errors:", validationErrors);
+
+    if (!isValid) {
+      console.log("=== VALIDATION FAILED - STOPPING ===");
+      console.log("Errors:", validationErrors);
       return;
     }
+
+    console.log("=== VALIDATION PASSED ===");
 
     console.log("=== DEBUG: SAVING INGREDIENT ===");
     console.log("Form data:", formData);
@@ -648,8 +689,6 @@ export function IngredientForm() {
         const invalidCodes = formData.supplier_codes.filter(
           (code) =>
             !code.supplier_id ||
-            !code.product_code ||
-            code.product_code.trim() === "" ||
             code.price === null ||
             code.price === undefined ||
             code.price < 0
@@ -659,7 +698,7 @@ export function IngredientForm() {
           toast({
             title: "Chyba validace",
             description:
-              "Některé kódy dodavatelů nejsou správně vyplněny. Opravte je před uložením.",
+              "Některé kódy dodavatelů nejsou správně vyplněny. Dodavatel a cena jsou povinné.",
             variant: "destructive",
           });
           return;
@@ -699,23 +738,57 @@ export function IngredientForm() {
       }
 
       if (isEditMode && selectedIngredient) {
-        console.log("Updating ingredient ID:", selectedIngredient.id);
-        await updateIngredient(selectedIngredient.id, dataToSave);
-        toast({
-          title: "Úspěch",
-          description: "Ingredience byla úspěšně upravena",
-        });
+        console.log("=== UPDATING EXISTING INGREDIENT ===");
+        console.log("Ingredient ID:", selectedIngredient.id);
+        console.log("Data to save:", dataToSave);
+
+        try {
+          const result = await updateIngredient(
+            selectedIngredient.id,
+            dataToSave
+          );
+          console.log("Update result:", result);
+
+          toast({
+            title: "Úspěch",
+            description: "Ingredience byla úspěšně upravena",
+          });
+          console.log("=== UPDATE SUCCESS ===");
+        } catch (updateError) {
+          console.error("=== UPDATE ERROR ===", updateError);
+          throw updateError;
+        }
       } else {
-        console.log("Creating new ingredient");
-        await createIngredient(dataToSave);
-        toast({
-          title: "Úspěch",
-          description: "Ingredience byla úspěšně vytvořena",
-        });
+        console.log("=== CREATING NEW INGREDIENT ===");
+        console.log("Data to save:", dataToSave);
+
+        try {
+          const result = await createIngredient(dataToSave);
+          console.log("Create result:", result);
+
+          toast({
+            title: "Úspěch",
+            description: "Ingredience byla úspěšně vytvořena",
+          });
+          console.log("=== CREATE SUCCESS ===");
+        } catch (createError) {
+          console.error("=== CREATE ERROR ===", createError);
+          throw createError;
+        }
       }
       console.log("=== DEBUG: SAVE COMPLETE ===");
     } catch (error) {
-      console.error("=== DEBUG: SAVE FAILED ===", error);
+      console.error("=== DEBUG: SAVE FAILED ===");
+      console.error("Error object:", error);
+      console.error("Error type:", typeof error);
+      console.error(
+        "Error message:",
+        error instanceof Error ? error.message : String(error)
+      );
+      console.error(
+        "Error stack:",
+        error instanceof Error ? error.stack : "N/A"
+      );
       const errorMessage =
         error instanceof Error
           ? error.message
@@ -784,9 +857,11 @@ export function IngredientForm() {
       <DialogContent
         className="max-w-2xl max-h-[90vh] overflow-y-auto"
         onInteractOutside={(e) => {
+          console.log("=== INTERACT OUTSIDE DIALOG ===");
           e.preventDefault();
         }}
         onEscapeKeyDown={(e) => {
+          console.log("=== ESCAPE KEY PRESSED ===");
           e.preventDefault();
         }}
       >
@@ -1361,7 +1436,11 @@ export function IngredientForm() {
                                               }
                                             }
                                           }}
-                                          className="text-xs"
+                                          className={`text-xs ${
+                                            supplierCode.is_active
+                                              ? "pointer-events-none"
+                                              : ""
+                                          }`}
                                         >
                                           <Star className="h-3 w-3 mr-1" />
                                           {supplierCode.is_active
@@ -1656,7 +1735,11 @@ export function IngredientForm() {
                                             }
                                           }
                                         }}
-                                        className="text-xs"
+                                        className={`text-xs ${
+                                          supplierCode.is_active
+                                            ? "pointer-events-none"
+                                            : ""
+                                        }`}
                                       >
                                         <Star className="h-3 w-3 mr-1" />
                                         {supplierCode.is_active
@@ -2284,6 +2367,15 @@ export function IngredientForm() {
               form="ingredient-form"
               disabled={isLoading}
               className="bg-orange-600 hover:bg-orange-700"
+              onClick={(e) => {
+                console.log("=== BUTTON CLICKED ===");
+                console.log("Button type:", e.currentTarget.type);
+                console.log("Button disabled:", e.currentTarget.disabled);
+                console.log("isLoading:", isLoading);
+                console.log("isEditMode:", isEditMode);
+                console.log("Form ID:", e.currentTarget.form?.id);
+                console.log("=== END BUTTON CLICK ===");
+              }}
             >
               <Save className="h-4 w-4 mr-2" />
               {isLoading

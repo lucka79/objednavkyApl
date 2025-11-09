@@ -38,6 +38,19 @@ export function MakroInvoiceLayout({
             const priceTotal =
               item.line_total || item.quantity * item.unit_price || 0;
 
+            // Calculate total weight for kg items with empty package_weight_kg
+            // Formula: jedn. v MU * počet MU = celk. hmot. (same as for ks items)
+            let calculatedTotalWeight = item.total_weight_kg;
+            if (
+              !calculatedTotalWeight &&
+              !item.package_weight_kg &&
+              item.units_in_mu &&
+              item.quantity
+            ) {
+              // For kg items with empty package_weight_kg, calculate: units_in_mu * quantity
+              calculatedTotalWeight = item.units_in_mu * item.quantity;
+            }
+
             return (
               <tr key={idx} className="border-b hover:bg-gray-50">
                 {/* číslo zboží */}
@@ -75,8 +88,8 @@ export function MakroInvoiceLayout({
                 </td>
                 {/* celk. hmot. (total weight) */}
                 <td className="p-2 text-right text-xs text-green-600 font-medium">
-                  {item.total_weight_kg
-                    ? `${item.total_weight_kg.toLocaleString("cs-CZ", {
+                  {calculatedTotalWeight
+                    ? `${calculatedTotalWeight.toLocaleString("cs-CZ", {
                         minimumFractionDigits: 3,
                         maximumFractionDigits: 3,
                       })} kg`
@@ -122,12 +135,15 @@ export function MakroInvoiceLayout({
                 </td>
                 {/* Cena/kg (calculated) */}
                 <td className="p-2 text-right text-xs bg-orange-50">
-                  {item.price_per_kg ? (
+                  {item.price_per_kg || item.base_price ? (
                     <span className="text-orange-600 font-bold">
-                      {item.price_per_kg.toLocaleString("cs-CZ", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{" "}
+                      {(item.price_per_kg || item.base_price).toLocaleString(
+                        "cs-CZ",
+                        {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }
+                      )}{" "}
                       Kč/kg
                     </span>
                   ) : (

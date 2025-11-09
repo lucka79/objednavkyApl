@@ -350,6 +350,74 @@ export function IngredientsTable() {
     getDisplayName,
   ]);
 
+  // Filter inactive ingredients
+  const filteredInactiveIngredients = useMemo(() => {
+    if (!ingredients) return [];
+
+    return ingredients
+      .filter((ingredient) => !ingredient.active) // Only inactive ingredients
+      .filter((ingredient) => {
+        const searchLower = removeDiacritics(globalFilter.toLowerCase());
+        const nameMatch = removeDiacritics(
+          ingredient.name.toLowerCase()
+        ).includes(searchLower);
+        const eanMatch = ingredient.ean?.includes(globalFilter);
+        const supplierName = (supplierUsers || [])
+          .find((u: any) => u.id === ingredient.supplier_id)
+          ?.full_name?.toLowerCase();
+        const supplierMatch = supplierName
+          ? removeDiacritics(supplierName).includes(searchLower)
+          : false;
+
+        // Search in alternative supplier names (supplier_ingredient_name)
+        const alternativeSupplierNameMatch =
+          ingredient.ingredient_supplier_codes?.some((code: any) => {
+            if (!code.supplier_ingredient_name) return false;
+            const altName = removeDiacritics(
+              code.supplier_ingredient_name.toLowerCase()
+            );
+            return altName.includes(searchLower);
+          }) || false;
+
+        // If there's a search term, search globally
+        if (globalFilter.trim() !== "") {
+          return (
+            nameMatch ||
+            eanMatch ||
+            supplierMatch ||
+            alternativeSupplierNameMatch
+          );
+        }
+
+        // If no search term, apply category filter
+        if (categoryFilter === "all") return true;
+        const categoryName =
+          ingredient.ingredient_categories?.name || "Bez kategorie";
+        return categoryName === categoryFilter;
+      })
+      .filter((ing) => {
+        if (supplierFilter === "all") return true;
+
+        // Check main supplier_id
+        if (ing.supplier_id === supplierFilter) return true;
+
+        // Check if supplier exists in ingredient_supplier_codes
+        const hasSupplierInCodes = ing.ingredient_supplier_codes?.some(
+          (code: any) => code.supplier_id === supplierFilter
+        );
+
+        return hasSupplierInCodes;
+      })
+      .sort((a, b) => getDisplayName(a).localeCompare(getDisplayName(b)));
+  }, [
+    ingredients,
+    globalFilter,
+    categoryFilter,
+    supplierFilter,
+    supplierUsers,
+    getDisplayName,
+  ]);
+
   const handleDelete = async (ingredient: (typeof ingredients)[0]) => {
     try {
       // Check if ingredient is used in any recipes or products
@@ -635,6 +703,7 @@ export function IngredientsTable() {
 
   const totalIngredients = ingredients.length || 0;
   const activeIngredients = ingredients.filter((i) => i.active).length || 0;
+  const inactiveIngredients = ingredients.filter((i) => !i.active).length || 0;
 
   // Helper function to check if ingredient was created within the last month
   const isRecentlyCreated = (ingredient: any) => {
@@ -865,60 +934,99 @@ export function IngredientsTable() {
         <span className="text-sm">{ingredient.kiloPerUnit.toFixed(3)}</span>
       </TableCell>
       <TableCell className="text-right w-[120px]">
-        <div className="flex items-center gap-1 justify-end">
-          <span className="text-sm">
-            {(() => {
-              // Get the active supplier's price, or fall back to first supplier
-              const activeSupplier = ingredient.ingredient_supplier_codes?.find(
-                (code: any) => code.is_active
-              );
+        <div className="flex flex-col items-end gap-0.5">
+          {(() => {
+            // Get the active supplier's price, or fall back to first supplier
+            const activeSupplier = ingredient.ingredient_supplier_codes?.find(
+              (code: any) => code.is_active
+            );
 
-              // If no active supplier, use the first supplier
-              const supplierToUse =
-                activeSupplier || ingredient.ingredient_supplier_codes?.[0];
-              const price = supplierToUse?.price || ingredient.price;
+            // If no active supplier, use the first supplier
+            const supplierToUse =
+              activeSupplier || ingredient.ingredient_supplier_codes?.[0];
+            const supplierPrice = supplierToUse?.price;
+            const basePrice = ingredient.price;
 
-              // Debug logging
-              if (ingredient.name === "Rostlinná šlehačka") {
-                console.log("Debug - Active supplier:", activeSupplier);
-                console.log("Debug - Supplier to use:", supplierToUse);
-                console.log(
-                  "Debug - Price from supplier:",
-                  supplierToUse?.price
-                );
-                console.log("Debug - Main price:", ingredient.price);
-                console.log("Debug - Final price:", price);
-              }
+            // If there are multiple codes, show price range
+            const hasMultipleCodes =
+              ingredient.ingredient_supplier_codes &&
+              ingredient.ingredient_supplier_codes.length > 1;
 
-              const priceText = price ? `${price.toFixed(2)} Kč` : "—";
+            if (hasMultipleCodes) {
+              const prices = ingredient.ingredient_supplier_codes
+                .map((code: any) => code.price)
+                .filter((price: any) => price > 0)
+                .sort((a: any, b: any) => a - b);
 
-              // If there are multiple codes, show price range
-              if (
-                ingredient.ingredient_supplier_codes &&
-                ingredient.ingredient_supplier_codes.length > 1
-              ) {
-                const prices = ingredient.ingredient_supplier_codes
-                  .map((code: any) => code.price)
-                  .filter((price: any) => price > 0)
-                  .sort((a: any, b: any) => a - b);
-
-                if (prices.length > 1) {
-                  const minPrice = prices[0];
-                  const maxPrice = prices[prices.length - 1];
-                  return (
-                    <span className="flex items-center gap-1">
-                      <span>{priceText}</span>
-                      <span className="text-xs text-blue-600">
-                        ({minPrice.toFixed(2)}-{maxPrice.toFixed(2)})
-                      </span>
+              if (prices.length > 1) {
+                const minPrice = prices[0];
+                const maxPrice = prices[prices.length - 1];
+                return (
+                  <>
+                    <span className="text-sm font-semibold">
+                      {supplierPrice
+                        ? `${supplierPrice.toFixed(2)} Kč`
+                        : basePrice
+                          ? `${basePrice.toFixed(2)} Kč`
+                          : "—"}
                     </span>
-                  );
-                }
+                    <span className="text-xs text-blue-600">
+                      Rozsah: {minPrice.toFixed(2)}-{maxPrice.toFixed(2)} Kč
+                    </span>
+                    {basePrice &&
+                      supplierPrice &&
+                      basePrice !== supplierPrice && (
+                        <span className="text-xs text-gray-500">
+                          Základ: {basePrice.toFixed(2)} Kč
+                        </span>
+                      )}
+                  </>
+                );
               }
+            }
 
-              return priceText;
-            })()}
-          </span>
+            // Show both supplier price and base price if different
+            if (supplierPrice && basePrice) {
+              if (supplierPrice !== basePrice) {
+                return (
+                  <>
+                    <span className="text-sm font-semibold text-blue-600">
+                      {supplierPrice.toFixed(2)} Kč
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      Základ: {basePrice.toFixed(2)} Kč
+                    </span>
+                  </>
+                );
+              } else {
+                return (
+                  <span className="text-sm font-semibold">
+                    {supplierPrice.toFixed(2)} Kč
+                  </span>
+                );
+              }
+            }
+
+            // Show supplier price only
+            if (supplierPrice) {
+              return (
+                <span className="text-sm font-semibold text-blue-600">
+                  {supplierPrice.toFixed(2)} Kč
+                </span>
+              );
+            }
+
+            // Show base price only
+            if (basePrice) {
+              return (
+                <span className="text-sm font-semibold">
+                  {basePrice.toFixed(2)} Kč
+                </span>
+              );
+            }
+
+            return <span className="text-sm">—</span>;
+          })()}
         </div>
       </TableCell>
       <TableCell className="w-[80px]">
@@ -1002,8 +1110,8 @@ export function IngredientsTable() {
           variant={ingredient.active ? "default" : "secondary"}
           className={
             ingredient.active
-              ? "bg-green-100 text-green-800"
-              : "bg-gray-100 text-gray-600"
+              ? "bg-green-100 text-green-800 hover:bg-green-100 pointer-events-none"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-100 pointer-events-none"
           }
         >
           {ingredient.active ? "Aktivní" : "Neaktivní"}
@@ -1151,9 +1259,20 @@ export function IngredientsTable() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="categories">Podle kategorií</TabsTrigger>
               <TabsTrigger value="all">Všechny suroviny</TabsTrigger>
+              <TabsTrigger value="inactive">
+                Neaktivní
+                {inactiveIngredients > 0 && (
+                  <Badge
+                    variant="outline"
+                    className="ml-2 bg-gray-100 text-gray-700"
+                  >
+                    {inactiveIngredients}
+                  </Badge>
+                )}
+              </TabsTrigger>
             </TabsList>
 
             {/* Categories Tab */}
@@ -1272,6 +1391,57 @@ export function IngredientsTable() {
               {filteredAllIngredients.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   Nebyly nalezeny žádné ingredience odpovídající filtru.
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Inactive Ingredients Tab */}
+            <TabsContent value="inactive" className="space-y-6 mt-6">
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[200px]">Název</TableHead>
+                      <TableHead className="w-[150px]">Dodavatel</TableHead>
+                      <TableHead className="w-[120px]">Kód</TableHead>
+                      <TableHead className="w-[80px]">Jednotka</TableHead>
+                      <TableHead className="text-right w-[100px]">
+                        kg/Jednotka
+                      </TableHead>
+                      <TableHead className="text-right w-[120px]">
+                        Cena
+                      </TableHead>
+                      <TableHead className="w-[80px]">Balení</TableHead>
+                      <TableHead className="text-right w-[70px]">DPH</TableHead>
+                      <TableHead className="w-[80px]">Složení</TableHead>
+                      <TableHead className="w-[80px]">Výživa</TableHead>
+                      <TableHead className="w-[90px]">Použití</TableHead>
+                      <TableHead className="w-[90px]">Status</TableHead>
+                      <TableHead className="w-[120px]">
+                        Pouze prodejna
+                      </TableHead>
+                      <TableHead className="text-right w-[100px]">
+                        Akce
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredInactiveIngredients.map(renderIngredientRow)}
+                    {/* Add fake empty row to help with border display */}
+                    <TableRow className="h-0">
+                      <TableCell
+                        colSpan={14}
+                        className="p-0 border-0"
+                      ></TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+
+              {filteredInactiveIngredients.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  Nebyly nalezeny žádné neaktivní ingredience odpovídající
+                  filtru.
                 </div>
               )}
             </TabsContent>

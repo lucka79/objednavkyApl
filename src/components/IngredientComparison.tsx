@@ -22,6 +22,7 @@ import {
   TrendingDown,
   Minus,
   Download,
+  Tag,
 } from "lucide-react";
 
 export function IngredientComparison() {
@@ -182,6 +183,19 @@ export function IngredientComparison() {
       );
     }
 
+    // If suppliers are selected, show only ingredients that ALL selected suppliers have
+    if (selectedSuppliers.size > 0) {
+      ingredients = ingredients.filter((ingredient) => {
+        if (!matrix[ingredient.id]) return false;
+
+        // Check if this ingredient has codes for ALL selected suppliers
+        const selectedSupplierIds = Array.from(selectedSuppliers);
+        return selectedSupplierIds.every(
+          (supplierId) => matrix[ingredient.id][supplierId]
+        );
+      });
+    }
+
     return {
       ingredients,
       suppliers,
@@ -237,6 +251,10 @@ export function IngredientComparison() {
       "Jednotka",
       "Balení",
       "Kategorie",
+      ...matrixData.suppliers.map(
+        (supplier) => `${supplier.full_name} (Název)`
+      ),
+      ...matrixData.suppliers.map((supplier) => `${supplier.full_name} (Kód)`),
       ...matrixData.suppliers.map((supplier) => `${supplier.full_name} (Cena)`),
       ...matrixData.suppliers.map(
         (supplier) => `${supplier.full_name} (Aktualizováno)`
@@ -255,6 +273,18 @@ export function IngredientComparison() {
         ingredient.package ? `${ingredient.package} ${ingredient.unit}` : "",
         ingredient.ingredient_categories?.name || "Bez kategorie",
       ];
+
+      // Add supplier ingredient names for each supplier
+      matrixData.suppliers.forEach((supplier) => {
+        const code = matrixData.matrix[ingredient.id]?.[supplier.id];
+        row.push(code?.supplier_ingredient_name || ingredient.name);
+      });
+
+      // Add supplier product codes for each supplier
+      matrixData.suppliers.forEach((supplier) => {
+        const code = matrixData.matrix[ingredient.id]?.[supplier.id];
+        row.push(code?.product_code || "");
+      });
 
       // Add supplier prices for each supplier
       matrixData.suppliers.forEach((supplier) => {
@@ -567,7 +597,7 @@ export function IngredientComparison() {
                     return sortedCategories.map((categoryName) => (
                       <React.Fragment key={categoryName}>
                         {/* Category header row */}
-                        <TableRow className="bg-gray-100">
+                        <TableRow className="bg-gray-50">
                           <TableCell
                             colSpan={
                               matrixData.suppliers.length +
@@ -576,11 +606,13 @@ export function IngredientComparison() {
                                 ? 2
                                 : 1)
                             }
-                            className="font-semibold text-gray-800 py-3"
+                            className="py-3"
                           >
                             <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                              {categoryName}
+                              <Tag className="h-4 w-4 text-orange-600" />
+                              <h3 className="text-lg font-semibold text-orange-800">
+                                {categoryName}
+                              </h3>
                               <Badge variant="outline" className="text-xs">
                                 {groupedByCategory[categoryName].length} surovin
                               </Badge>
@@ -624,18 +656,45 @@ export function IngredientComparison() {
                               return (
                                 <TableCell
                                   key={supplier.id}
-                                  className="text-center"
+                                  className={`text-center ${
+                                    isCheapest
+                                      ? "bg-green-50 border-2 border-green-300"
+                                      : ""
+                                  }`}
                                 >
                                   {code ? (
                                     <div className="space-y-2">
                                       <div className="flex flex-col items-center gap-1">
-                                        <code className="bg-gray-100 px-2 py-1 rounded text-xs font-mono">
+                                        {/* Supplier ingredient name - Always show */}
+                                        <div
+                                          className={`text-xs font-medium mb-1 px-2 py-1 rounded w-full text-center ${
+                                            isCheapest
+                                              ? "bg-green-200 text-green-900 font-semibold"
+                                              : code.supplier_ingredient_name
+                                                ? "bg-blue-50 text-blue-800"
+                                                : "bg-gray-50 text-gray-600"
+                                          }`}
+                                          title={
+                                            code.supplier_ingredient_name ||
+                                            ingredient.name
+                                          }
+                                        >
+                                          {code.supplier_ingredient_name ||
+                                            ingredient.name}
+                                        </div>
+                                        <code
+                                          className={`px-2 py-1 rounded text-xs font-mono ${
+                                            isCheapest
+                                              ? "bg-green-100 text-green-800 font-semibold"
+                                              : "bg-gray-100"
+                                          }`}
+                                        >
                                           {code.product_code || "—"}
                                         </code>
                                         <div
-                                          className={`font-medium ${
+                                          className={`font-bold text-base ${
                                             isCheapest
-                                              ? "text-green-600"
+                                              ? "text-green-700"
                                               : isMostExpensive
                                                 ? "text-red-600"
                                                 : code.is_active
@@ -694,9 +753,9 @@ export function IngredientComparison() {
                                           comparison.codes.length > 1 && (
                                             <div className="flex items-center justify-center">
                                               {isCheapest ? (
-                                                <div className="flex items-center gap-1 text-green-600">
-                                                  <TrendingDown className="h-3 w-3" />
-                                                  <span className="text-xs">
+                                                <div className="flex items-center gap-1 text-green-700 bg-green-100 px-2 py-1 rounded-full">
+                                                  <TrendingDown className="h-3 w-3 font-bold" />
+                                                  <span className="text-xs font-semibold">
                                                     Nejlevnější
                                                   </span>
                                                 </div>
@@ -724,10 +783,10 @@ export function IngredientComparison() {
                                             ? "default"
                                             : "secondary"
                                         }
-                                        className={`text-xs ${
+                                        className={`text-xs pointer-events-none ${
                                           code.is_active
-                                            ? "bg-green-100 text-green-800"
-                                            : "bg-gray-100 text-gray-600"
+                                            ? "bg-green-100 text-green-800 hover:bg-green-100"
+                                            : "bg-gray-100 text-gray-600 hover:bg-gray-100"
                                         }`}
                                       >
                                         {code.is_active

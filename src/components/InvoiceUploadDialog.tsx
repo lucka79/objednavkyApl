@@ -483,14 +483,13 @@ export function InvoiceUploadDialog() {
 
         const items = result.data.items.map((item: any, index: number) => {
           // Calculate totalWeightKg: if jedn. v MU != 1, then totalWeightKg = unitsInMu * quantity
+          // Also calculate for kg items with empty package_weight_kg: jedn. v MU * počet MU = celk. hmot.
           const unitsInMu = item.units_in_mu || 1;
-          const calculatedTotalWeight =
-            unitsInMu !== 1 && unitsInMu > 0
-              ? unitsInMu * item.quantity
-              : item.total_weight_kg;
+          let calculatedTotalWeight = item.total_weight_kg;
 
-          // Debug log when calculation is used
+          // Calculate if unitsInMu != 1 (for ks items)
           if (unitsInMu !== 1 && unitsInMu > 0) {
+            calculatedTotalWeight = unitsInMu * item.quantity;
             console.log(`📐 Calculating celk. hmot. for item ${index + 1}:`, {
               productCode: item.product_code,
               "počet MU": item.quantity,
@@ -498,6 +497,24 @@ export function InvoiceUploadDialog() {
               "calculated celk. hmot.": calculatedTotalWeight,
               "original total_weight_kg": item.total_weight_kg,
             });
+          }
+          // Calculate for kg items with empty package_weight_kg
+          else if (
+            !calculatedTotalWeight &&
+            !item.package_weight_kg &&
+            unitsInMu &&
+            item.quantity
+          ) {
+            calculatedTotalWeight = unitsInMu * item.quantity;
+            console.log(
+              `📐 Calculating celk. hmot. for kg item ${index + 1} (empty package_weight_kg):`,
+              {
+                productCode: item.product_code,
+                "počet MU": item.quantity,
+                "jedn. v MU": unitsInMu,
+                "calculated celk. hmot.": calculatedTotalWeight,
+              }
+            );
           }
 
           // Calculate Albert-specific fields before creating mapped item
@@ -2571,6 +2588,21 @@ export function InvoiceUploadDialog() {
                                       }
 
                                       // Otherwise show normal weight editing
+                                      // Calculate total weight for kg items with empty package_weight_kg
+                                      let displayTotalWeight =
+                                        editedTotalWeights[item.id] ??
+                                        item.totalWeightKg;
+                                      if (
+                                        !displayTotalWeight &&
+                                        !item.packageWeightKg &&
+                                        item.unitsInMu &&
+                                        item.quantity
+                                      ) {
+                                        // For kg items with empty package_weight_kg, calculate: jedn. v MU * počet MU
+                                        displayTotalWeight =
+                                          item.unitsInMu * item.quantity;
+                                      }
+
                                       return editingItemId === item.id &&
                                         editingField === "totalWeight" ? (
                                         <Input
@@ -2583,7 +2615,7 @@ export function InvoiceUploadDialog() {
                                                   item.id
                                                 ].toString()
                                               : (
-                                                  item.totalWeightKg ?? 0
+                                                  displayTotalWeight ?? 0
                                                 ).toString()
                                           }
                                           onChange={(e) => {
@@ -2628,15 +2660,14 @@ export function InvoiceUploadDialog() {
                                           className="cursor-pointer hover:bg-gray-100 px-1 rounded"
                                           title="Klikněte pro úpravu"
                                         >
-                                          {(editedTotalWeights[item.id] ??
-                                          item.totalWeightKg)
-                                            ? `${(
-                                                editedTotalWeights[item.id] ??
-                                                item.totalWeightKg
-                                              ).toLocaleString("cs-CZ", {
-                                                minimumFractionDigits: 3,
-                                                maximumFractionDigits: 3,
-                                              })}`
+                                          {displayTotalWeight
+                                            ? `${displayTotalWeight.toLocaleString(
+                                                "cs-CZ",
+                                                {
+                                                  minimumFractionDigits: 3,
+                                                  maximumFractionDigits: 3,
+                                                }
+                                              )}`
                                             : "-"}
                                         </span>
                                       );
@@ -2795,11 +2826,13 @@ export function InvoiceUploadDialog() {
                                           title="Klikněte pro úpravu"
                                         >
                                           {(editedPricePerKg[item.id] ??
-                                          item.pricePerKg) ? (
+                                          item.pricePerKg ??
+                                          item.basePrice) ? (
                                             <span className="text-orange-600 font-bold">
                                               {(
                                                 editedPricePerKg[item.id] ??
-                                                item.pricePerKg
+                                                item.pricePerKg ??
+                                                item.basePrice
                                               ).toLocaleString("cs-CZ", {
                                                 minimumFractionDigits: 2,
                                                 maximumFractionDigits: 2,

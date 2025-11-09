@@ -193,9 +193,10 @@ export const useIngredientStore = create<IngredientStore>((set, get) => ({
             if (!code.supplier_id) {
               throw new Error("Všechny kódy dodavatelů musí mít nastaveného dodavatele");
             }
-            if (!code.product_code || code.product_code.trim() === "") {
-              throw new Error("Všechny kódy dodavatelů musí mít nastavený kód produktu");
-            }
+            // Product code is optional - removed validation
+            // if (!code.product_code || code.product_code.trim() === "") {
+            //   throw new Error("Všechny kódy dodavatelů musí mít nastavený kód produktu");
+            // }
             if (code.price === null || code.price === undefined || code.price < 0) {
               throw new Error("Všechny kódy dodavatelů musí mít platnou cenu (≥ 0)");
             }
@@ -222,12 +223,15 @@ export const useIngredientStore = create<IngredientStore>((set, get) => ({
           const codesToInsert: any[] = [];
 
           for (const code of codesToUpsert) {
-            // Check if code exists (by ingredient_id, supplier_id, product_code combination)
+            // Check if code exists (by ingredient_id and supplier_id)
+            // Note: We match primarily by supplier_id since that's the unique key per ingredient
             const existingCode = existingCodes?.find(
               (ec: any) =>
                 ec.ingredient_id === code.ingredient_id &&
                 ec.supplier_id === code.supplier_id &&
-                ec.product_code === code.product_code
+                // Match product_code only if both are non-empty, otherwise just match by supplier
+                ((!ec.product_code && !code.product_code) || 
+                 (ec.product_code === code.product_code))
             );
 
             if (existingCode) {

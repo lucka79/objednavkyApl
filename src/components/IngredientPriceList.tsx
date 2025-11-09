@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, Save, Star, Printer, X } from "lucide-react";
+import { Loader2, Save, Star, Printer, X, Tag } from "lucide-react";
 
 interface IngredientSupplierCode {
   id: number;
@@ -53,6 +53,7 @@ export function IngredientPriceList() {
   const { data: supplierUsers, isLoading: suppliersLoading } =
     useSupplierUsers();
   const [selectedSupplier, setSelectedSupplier] = useState<string>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [editedPrices, setEditedPrices] = useState<Record<number, number>>({});
   const [editedCodes, setEditedCodes] = useState<Record<number, string>>({});
   const [editedPackages, setEditedPackages] = useState<
@@ -67,6 +68,15 @@ export function IngredientPriceList() {
 
   const ingredients = ingredientsData?.ingredients || [];
 
+  // Get unique categories from ingredients
+  const categories = Array.from(
+    new Set(
+      ingredients
+        .map((ing: any) => ing.ingredient_categories?.name)
+        .filter(Boolean)
+    )
+  ).sort((a: any, b: any) => a.localeCompare(b, "cs-CZ"));
+
   // Filter ingredients that have supplier codes
   const ingredientsWithCodes: IngredientWithSupplierCodes[] = ingredients
     .filter(
@@ -74,6 +84,14 @@ export function IngredientPriceList() {
         ing.ingredient_supplier_codes &&
         ing.ingredient_supplier_codes.length > 0
     )
+    .filter((ing: any) => {
+      // Filter by category
+      if (selectedCategory === "all") return true;
+      if (selectedCategory === "Bez kategorie") {
+        return !ing.ingredient_categories?.name;
+      }
+      return ing.ingredient_categories?.name === selectedCategory;
+    })
     .map((ing) => ({
       id: ing.id,
       name: ing.name,
@@ -122,17 +140,38 @@ export function IngredientPriceList() {
               : true
           );
 
-  // Flatten and sort all rows by ingredient name
-  const sortedRows = filteredIngredients
-    .flatMap((ingredient) =>
-      ingredient.supplier_codes.map((code) => ({
-        ingredient,
-        code,
-      }))
-    )
-    .sort((a, b) =>
+  // Flatten all rows and group by category
+  const allRows = filteredIngredients.flatMap((ingredient) =>
+    ingredient.supplier_codes.map((code) => ({
+      ingredient,
+      code,
+    }))
+  );
+
+  // Group rows by category
+  const groupedByCategory = allRows.reduce(
+    (acc, row) => {
+      const ing = ingredients.find((i) => i.id === row.ingredient.id);
+      const categoryName = ing?.ingredient_categories?.name || "Bez kategorie";
+      if (!acc[categoryName]) {
+        acc[categoryName] = [];
+      }
+      acc[categoryName].push(row);
+      return acc;
+    },
+    {} as Record<string, typeof allRows>
+  );
+
+  // Sort categories and ingredients within each category
+  const sortedCategories = Object.keys(groupedByCategory).sort((a, b) =>
+    a.localeCompare(b, "cs-CZ")
+  );
+
+  sortedCategories.forEach((category) => {
+    groupedByCategory[category].sort((a, b) =>
       a.ingredient.name.localeCompare(b.ingredient.name, "cs-CZ")
     );
+  });
 
   const handlePriceChange = (codeId: number, newPrice: string) => {
     const price = parseFloat(newPrice);
@@ -219,48 +258,75 @@ export function IngredientPriceList() {
         : supplierUsers?.find((s) => s.id === selectedSupplier)?.full_name ||
           "Neznámý dodavatel";
 
-    const tableContent = sortedRows
-      .map(({ ingredient, code }) => {
-        const supplier = supplierUsers?.find((s) => s.id === code.supplier_id);
-        const currentPrice =
-          editedPrices[code.id] !== undefined
-            ? editedPrices[code.id]
-            : code.price;
-        const currentBasePrice =
-          editedBasePrices[ingredient.id] !== undefined
-            ? editedBasePrices[ingredient.id]
-            : (ingredient.price ?? 0);
-        const diff = currentPrice - currentBasePrice;
-        const diffPercent =
-          currentBasePrice > 0
-            ? ((diff / currentBasePrice) * 100).toFixed(0)
-            : "0";
+    const selectedCategoryName =
+      selectedCategory === "all" ? "Všechny kategorie" : selectedCategory;
+
+    const tableContent = sortedCategories
+      .map((categoryName) => {
+        const categoryRows = groupedByCategory[categoryName]
+          .map(({ ingredient, code }) => {
+            const supplier = supplierUsers?.find(
+              (s) => s.id === code.supplier_id
+            );
+            const currentPrice =
+              editedPrices[code.id] !== undefined
+                ? editedPrices[code.id]
+                : code.price;
+            const currentBasePrice =
+              editedBasePrices[ingredient.id] !== undefined
+                ? editedBasePrices[ingredient.id]
+                : (ingredient.price ?? 0);
+            const diff = currentPrice - currentBasePrice;
+            const diffPercent =
+              currentBasePrice > 0
+                ? ((diff / currentBasePrice) * 100).toFixed(0)
+                : "0";
+
+            return `
+              <tr>
+                <td>${ingredient.name} (${ingredient.unit})</td>
+                <td>${supplier?.full_name || "Neznámý dodavatel"}</td>
+                <td>${code.product_code || "-"}</td>
+                <td>${code.supplier_ingredient_name || "-"}</td>
+                <td style="text-align: right;">${currentPrice.toFixed(2)} Kč/${ingredient.unit}</td>
+                <td>
+                  Základ: ${currentBasePrice.toFixed(2)} Kč<br>
+                  ${diff > 0 ? "+" : ""}${diff.toFixed(2)} Kč (${diffPercent}%)
+                </td>
+                <td style="text-align: right;">${code.package || "-"} ${ingredient.unit}</td>
+                <td>${
+                  code.updated_at
+                    ? `${new Date(code.updated_at).toLocaleDateString("cs-CZ", {
+                        day: "numeric",
+                        month: "numeric",
+                        year: "numeric",
+                      })} ${new Date(code.updated_at).toLocaleTimeString(
+                        "cs-CZ",
+                        {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }
+                      )}`
+                    : "-"
+                }</td>
+              </tr>
+            `;
+          })
+          .join("");
 
         return `
-          <tr>
-            <td>${ingredient.name} (${ingredient.unit})</td>
-            <td>${supplier?.full_name || "Neznámý dodavatel"}</td>
-            <td>${code.product_code || "-"}</td>
-            <td>${code.supplier_ingredient_name || "-"}</td>
-            <td style="text-align: right;">${currentPrice.toFixed(2)} Kč/${ingredient.unit}</td>
-            <td>
-              Základ: ${currentBasePrice.toFixed(2)} Kč<br>
-              ${diff > 0 ? "+" : ""}${diff.toFixed(2)} Kč (${diffPercent}%)
+          <tr style="background-color: #f3f4f6;">
+            <td colspan="8" style="font-weight: 600; padding: 12px 8px;">
+              <span style="display: inline-flex; align-items: center; gap: 8px;">
+                <span style="width: 8px; height: 8px; background-color: #f97316; border-radius: 50%; display: inline-block;"></span>
+                ${categoryName}
+                <span style="font-size: 11px; padding: 2px 8px; background-color: white; border: 1px solid #d1d5db; border-radius: 4px; font-weight: normal;">
+                  ${groupedByCategory[categoryName].length} surovin
+                </span>
+              </span>
             </td>
-            <td style="text-align: right;">${code.package || "-"} ${ingredient.unit}</td>
-            <td>${
-              code.updated_at
-                ? `${new Date(code.updated_at).toLocaleDateString("cs-CZ", {
-                    day: "numeric",
-                    month: "numeric",
-                    year: "numeric",
-                  })} ${new Date(code.updated_at).toLocaleTimeString("cs-CZ", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}`
-                : "-"
-            }</td>
           </tr>
+          ${categoryRows}
         `;
       })
       .join("");
@@ -311,7 +377,7 @@ export function IngredientPriceList() {
         </head>
         <body>
           <h1>Ceník surovin podle dodavatelů</h1>
-          <div class="subtitle">Dodavatel: ${selectedSupplierName}</div>
+          <div class="subtitle">Dodavatel: ${selectedSupplierName} | Kategorie: ${selectedCategoryName}</div>
           <table>
             <thead>
               <tr>
@@ -443,9 +509,9 @@ export function IngredientPriceList() {
             <h2 className="text-2xl font-bold">
               Ceník surovin podle dodavatelů
             </h2>
-            {sortedRows.length > 0 && (
+            {allRows.length > 0 && (
               <Badge variant="secondary" className="text-sm">
-                {sortedRows.length} položek
+                {allRows.length} položek
               </Badge>
             )}
           </div>
@@ -472,6 +538,25 @@ export function IngredientPriceList() {
                 <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
               </Button>
             )}
+          </div>
+          <div className="w-64">
+            <Select
+              value={selectedCategory}
+              onValueChange={setSelectedCategory}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Všechny kategorie" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Všechny kategorie</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
+                  </SelectItem>
+                ))}
+                <SelectItem value="Bez kategorie">Bez kategorie</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="w-64">
             <Select
@@ -526,279 +611,309 @@ export function IngredientPriceList() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedRows.map(({ ingredient, code }) => {
-                  const supplier = supplierUsers?.find(
-                    (s) => s.id === code.supplier_id
-                  );
-                  const currentPrice =
-                    editedPrices[code.id] !== undefined
-                      ? editedPrices[code.id]
-                      : code.price;
-                  const currentCode =
-                    editedCodes[code.id] !== undefined
-                      ? editedCodes[code.id]
-                      : code.product_code;
-                  const currentPackage =
-                    editedPackages[code.id] !== undefined
-                      ? editedPackages[code.id]
-                      : code.package;
-                  const priceChanged =
-                    editedPrices[code.id] !== undefined &&
-                    editedPrices[code.id] !== code.price;
-                  const codeChanged =
-                    editedCodes[code.id] !== undefined &&
-                    editedCodes[code.id] !== code.product_code;
-                  const packageChanged =
-                    editedPackages[code.id] !== undefined &&
-                    editedPackages[code.id] !== code.package;
-                  const hasChanges =
-                    priceChanged || codeChanged || packageChanged;
-                  const isSaving = savingIds.has(code.id);
-
-                  return (
-                    <TableRow key={code.id}>
-                      <TableCell className="font-medium">
+                {sortedCategories.map((categoryName) => (
+                  <>
+                    {/* Category header row */}
+                    <TableRow
+                      key={`category-${categoryName}`}
+                      className="bg-gray-50"
+                    >
+                      <TableCell colSpan={9} className="py-3">
                         <div className="flex items-center gap-2">
-                          {code.is_active && (
-                            <Star className="h-4 w-4 text-yellow-500 fill-current flex-shrink-0" />
-                          )}
-                          <div>
-                            {ingredient.name}
-                            <span className="text-xs text-muted-foreground ml-1">
-                              ({ingredient.unit})
-                            </span>
-                          </div>
+                          <Tag className="h-4 w-4 text-orange-600" />
+                          <h3 className="text-lg font-semibold text-orange-800">
+                            {categoryName}
+                          </h3>
+                          <Badge variant="outline" className="text-xs">
+                            {groupedByCategory[categoryName].length} surovin
+                          </Badge>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        {supplier?.full_name || "Neznámý dodavatel"}
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="text"
-                          value={currentCode || ""}
-                          onChange={(e) =>
-                            handleCodeChange(code.id, e.target.value)
-                          }
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && hasChanges) {
-                              handleSaveChanges(code, ingredient.name);
-                            }
-                          }}
-                          className={`font-mono w-28 h-8 text-xs ${
-                            codeChanged ? "border-orange-500" : ""
-                          }`}
-                          disabled={isSaving}
-                          placeholder="Kód"
-                        />
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {code.supplier_ingredient_name || "-"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={currentPrice}
-                            onChange={(e) =>
-                              handlePriceChange(code.id, e.target.value)
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && hasChanges) {
-                                handleSaveChanges(code, ingredient.name);
-                              }
-                            }}
-                            className={`no-spinner w-24 h-8 text-right ${
-                              priceChanged
-                                ? "border-orange-500"
-                                : "border-sky-900"
-                            }`}
-                            disabled={isSaving}
-                          />
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            Kč/{ingredient.unit}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {(() => {
-                          const currentBasePrice =
-                            editedBasePrices[ingredient.id] !== undefined
-                              ? editedBasePrices[ingredient.id]
-                              : (ingredient.price ?? 0);
-                          const basePriceChanged =
-                            editedBasePrices[ingredient.id] !== undefined &&
-                            editedBasePrices[ingredient.id] !==
-                              ingredient.price;
-                          const isSavingBase = savingIds.has(ingredient.id);
+                    </TableRow>
 
-                          return (
-                            <div className="text-xs space-y-1">
-                              <div className="flex items-center gap-1">
-                                <span className="text-muted-foreground whitespace-nowrap">
-                                  Základ:
-                                </span>
+                    {/* Ingredients in this category */}
+                    {groupedByCategory[categoryName].map(
+                      ({ ingredient, code }) => {
+                        const supplier = supplierUsers?.find(
+                          (s) => s.id === code.supplier_id
+                        );
+                        const currentPrice =
+                          editedPrices[code.id] !== undefined
+                            ? editedPrices[code.id]
+                            : code.price;
+                        const currentCode =
+                          editedCodes[code.id] !== undefined
+                            ? editedCodes[code.id]
+                            : code.product_code;
+                        const currentPackage =
+                          editedPackages[code.id] !== undefined
+                            ? editedPackages[code.id]
+                            : code.package;
+                        const priceChanged =
+                          editedPrices[code.id] !== undefined &&
+                          editedPrices[code.id] !== code.price;
+                        const codeChanged =
+                          editedCodes[code.id] !== undefined &&
+                          editedCodes[code.id] !== code.product_code;
+                        const packageChanged =
+                          editedPackages[code.id] !== undefined &&
+                          editedPackages[code.id] !== code.package;
+                        const hasChanges =
+                          priceChanged || codeChanged || packageChanged;
+                        const isSaving = savingIds.has(code.id);
+
+                        return (
+                          <TableRow key={code.id}>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                {code.is_active && (
+                                  <Star className="h-4 w-4 text-yellow-500 fill-current flex-shrink-0" />
+                                )}
+                                <div>
+                                  {ingredient.name}
+                                  <span className="text-xs text-muted-foreground ml-1">
+                                    ({ingredient.unit})
+                                  </span>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {supplier?.full_name || "Neznámý dodavatel"}
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="text"
+                                value={currentCode || ""}
+                                onChange={(e) =>
+                                  handleCodeChange(code.id, e.target.value)
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" && hasChanges) {
+                                    handleSaveChanges(code, ingredient.name);
+                                  }
+                                }}
+                                className={`font-mono w-28 h-8 text-xs ${
+                                  codeChanged ? "border-orange-500" : ""
+                                }`}
+                                disabled={isSaving}
+                                placeholder="Kód"
+                              />
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {code.supplier_ingredient_name || "-"}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
                                 <Input
                                   type="number"
                                   step="0.01"
-                                  value={currentBasePrice}
+                                  value={currentPrice}
                                   onChange={(e) =>
-                                    handleBasePriceChange(
-                                      ingredient.id,
-                                      e.target.value
-                                    )
+                                    handlePriceChange(code.id, e.target.value)
                                   }
                                   onKeyDown={(e) => {
-                                    if (e.key === "Enter" && basePriceChanged) {
-                                      handleSaveBasePrice(
-                                        ingredient.id,
-                                        ingredient.name,
-                                        ingredient.price ?? null
-                                      );
+                                    if (e.key === "Enter" && hasChanges) {
+                                      handleSaveChanges(code, ingredient.name);
                                     }
                                   }}
-                                  className={`no-spinner w-16 h-6 text-xs ${
-                                    basePriceChanged
-                                      ? "border-blue-500"
-                                      : "border-orange-500"
+                                  className={`no-spinner w-24 h-8 text-right ${
+                                    priceChanged
+                                      ? "border-orange-500"
+                                      : "border-sky-900"
                                   }`}
-                                  disabled={isSavingBase}
+                                  disabled={isSaving}
                                 />
-                                <span className="text-muted-foreground">
-                                  Kč
+                                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                  Kč/{ingredient.unit}
                                 </span>
-                                {basePriceChanged && (
-                                  <Button
-                                    size="sm"
-                                    onClick={() =>
-                                      handleSaveBasePrice(
-                                        ingredient.id,
-                                        ingredient.name,
-                                        ingredient.price ?? null
-                                      )
-                                    }
-                                    disabled={isSavingBase}
-                                    className="h-6 px-2 bg-blue-600 hover:bg-blue-700"
-                                  >
-                                    {isSavingBase ? (
-                                      <Loader2 className="h-3 w-3 animate-spin" />
-                                    ) : (
-                                      <Save className="h-3 w-3" />
-                                    )}
-                                  </Button>
-                                )}
                               </div>
-                              {currentBasePrice > 0 && (
-                                <>
-                                  {(() => {
-                                    const diff =
-                                      currentPrice - currentBasePrice;
-                                    const diffPercent = (
-                                      (diff / currentBasePrice) *
-                                      100
-                                    ).toFixed(0);
-                                    const isHigher = diff > 0;
-                                    const isLower = diff < 0;
-                                    return (
-                                      <div
-                                        className={`font-medium ${
-                                          isHigher
-                                            ? "text-red-600"
-                                            : isLower
-                                              ? "text-green-600"
-                                              : "text-gray-600"
+                            </TableCell>
+                            <TableCell>
+                              {(() => {
+                                const currentBasePrice =
+                                  editedBasePrices[ingredient.id] !== undefined
+                                    ? editedBasePrices[ingredient.id]
+                                    : (ingredient.price ?? 0);
+                                const basePriceChanged =
+                                  editedBasePrices[ingredient.id] !==
+                                    undefined &&
+                                  editedBasePrices[ingredient.id] !==
+                                    ingredient.price;
+                                const isSavingBase = savingIds.has(
+                                  ingredient.id
+                                );
+
+                                return (
+                                  <div className="text-xs space-y-1">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-muted-foreground whitespace-nowrap">
+                                        Základ:
+                                      </span>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        value={currentBasePrice}
+                                        onChange={(e) =>
+                                          handleBasePriceChange(
+                                            ingredient.id,
+                                            e.target.value
+                                          )
+                                        }
+                                        onKeyDown={(e) => {
+                                          if (
+                                            e.key === "Enter" &&
+                                            basePriceChanged
+                                          ) {
+                                            handleSaveBasePrice(
+                                              ingredient.id,
+                                              ingredient.name,
+                                              ingredient.price ?? null
+                                            );
+                                          }
+                                        }}
+                                        className={`no-spinner w-16 h-6 text-xs ${
+                                          basePriceChanged
+                                            ? "border-blue-500"
+                                            : "border-orange-500"
                                         }`}
-                                      >
-                                        {isHigher && "↑ "}
-                                        {isLower && "↓ "}
-                                        {diff > 0 ? "+" : ""}
-                                        {diff.toFixed(2)} Kč ({diffPercent}%)
-                                      </div>
-                                    );
-                                  })()}
-                                </>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            step="0.1"
-                            value={currentPackage ?? ""}
-                            onChange={(e) =>
-                              handlePackageChange(code.id, e.target.value)
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && hasChanges) {
-                                handleSaveChanges(code, ingredient.name);
-                              }
-                            }}
-                            className={`no-spinner w-20 h-8 text-sm text-right ${
-                              packageChanged ? "border-orange-500" : ""
-                            }`}
-                            disabled={isSaving}
-                            placeholder="0"
-                          />
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            {ingredient.unit}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-xs text-muted-foreground">
-                          {code.updated_at ? (
-                            <>
-                              <div>
-                                {new Date(code.updated_at).toLocaleDateString(
-                                  "cs-CZ",
-                                  {
-                                    day: "numeric",
-                                    month: "numeric",
-                                    year: "numeric",
+                                        disabled={isSavingBase}
+                                      />
+                                      <span className="text-muted-foreground">
+                                        Kč
+                                      </span>
+                                      {basePriceChanged && (
+                                        <Button
+                                          size="sm"
+                                          onClick={() =>
+                                            handleSaveBasePrice(
+                                              ingredient.id,
+                                              ingredient.name,
+                                              ingredient.price ?? null
+                                            )
+                                          }
+                                          disabled={isSavingBase}
+                                          className="h-6 px-2 bg-blue-600 hover:bg-blue-700"
+                                        >
+                                          {isSavingBase ? (
+                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                          ) : (
+                                            <Save className="h-3 w-3" />
+                                          )}
+                                        </Button>
+                                      )}
+                                    </div>
+                                    {currentBasePrice > 0 && (
+                                      <>
+                                        {(() => {
+                                          const diff =
+                                            currentPrice - currentBasePrice;
+                                          const diffPercent = (
+                                            (diff / currentBasePrice) *
+                                            100
+                                          ).toFixed(0);
+                                          const isHigher = diff > 0;
+                                          const isLower = diff < 0;
+                                          return (
+                                            <div
+                                              className={`font-medium ${
+                                                isHigher
+                                                  ? "text-red-600"
+                                                  : isLower
+                                                    ? "text-green-600"
+                                                    : "text-gray-600"
+                                              }`}
+                                            >
+                                              {isHigher && "↑ "}
+                                              {isLower && "↓ "}
+                                              {diff > 0 ? "+" : ""}
+                                              {diff.toFixed(2)} Kč (
+                                              {diffPercent}%)
+                                            </div>
+                                          );
+                                        })()}
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  step="0.1"
+                                  value={currentPackage ?? ""}
+                                  onChange={(e) =>
+                                    handlePackageChange(code.id, e.target.value)
                                   }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" && hasChanges) {
+                                      handleSaveChanges(code, ingredient.name);
+                                    }
+                                  }}
+                                  className={`no-spinner w-20 h-8 text-sm text-right ${
+                                    packageChanged ? "border-orange-500" : ""
+                                  }`}
+                                  disabled={isSaving}
+                                  placeholder="0"
+                                />
+                                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                  {ingredient.unit}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-xs text-muted-foreground">
+                                {code.updated_at ? (
+                                  <>
+                                    <div>
+                                      {new Date(
+                                        code.updated_at
+                                      ).toLocaleDateString("cs-CZ", {
+                                        day: "numeric",
+                                        month: "numeric",
+                                        year: "numeric",
+                                      })}
+                                    </div>
+                                    <div className="text-[10px] text-gray-400">
+                                      {new Date(
+                                        code.updated_at
+                                      ).toLocaleTimeString("cs-CZ", {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })}
+                                    </div>
+                                  </>
+                                ) : (
+                                  "-"
                                 )}
                               </div>
-                              <div className="text-[10px] text-gray-400">
-                                {new Date(code.updated_at).toLocaleTimeString(
-                                  "cs-CZ",
-                                  {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  }
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  handleSaveChanges(code, ingredient.name)
+                                }
+                                disabled={!hasChanges || isSaving}
+                                className="bg-orange-600 hover:bg-orange-700 h-8"
+                              >
+                                {isSaving ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <>
+                                    <Save className="h-3 w-3 mr-1" />
+                                    Uložit
+                                  </>
                                 )}
-                              </div>
-                            </>
-                          ) : (
-                            "-"
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          onClick={() =>
-                            handleSaveChanges(code, ingredient.name)
-                          }
-                          disabled={!hasChanges || isSaving}
-                          className="bg-orange-600 hover:bg-orange-700 h-8"
-                        >
-                          {isSaving ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              <Save className="h-3 w-3 mr-1" />
-                              Uložit
-                            </>
-                          )}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }
+                    )}
+                  </>
+                ))}
               </TableBody>
             </Table>
           </CardContent>
