@@ -10,7 +10,7 @@
 ```
 
 ## Pattern Structure:
-1. **číslo zboží**: 6 digits (e.g., `482670`)
+1. **číslo zboží**: 4-7 digits (e.g., `482670`, `0682`)
 2. **počet**: number with comma separator (e.g., `1,000`)
 3. **název zboží**: description, may contain unit at end (e.g., `MALINY VANIČKA 125g`)
 4. **zákl. cena**: base price (e.g., `53,70`)
@@ -28,7 +28,7 @@
 - `([\d,]+)` → `([\d,\s]+)` to handle both comma (`,`) and space (` `) as thousand separators (e.g., `1 080,52`)
 
 ### Capture Groups (10):
-1. `(\d+)` - product code (6 digits)
+1. `(\d+)` - product code (4-7 digits)
 2. `([\d,\s]+)` - quantity (with comma and/or space separators)
 3. `(\S.*?)` - description (non-greedy, starts with non-whitespace, includes unit at end)
 4. `([\d,\s]+)` - base price (zákl. cena)

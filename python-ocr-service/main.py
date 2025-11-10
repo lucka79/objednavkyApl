@@ -611,10 +611,10 @@ def extract_line_items(
     else:
         # Auto-detect Makro by looking for characteristic patterns:
         # 1. "MAKRO" company name in text
-        # 2. Lines matching Makro format: 6-7 digit code followed by decimal quantity
+        # 2. Lines matching Makro format: 4-7 digit code followed by decimal quantity
         makro_indicators = [
             'makro' in raw_text.lower(),
-            re.search(r'^\d{6,7}\s+[\d,\.]+\s+', raw_text, re.MULTILINE) is not None
+            re.search(r'^\d{4,7}\s+[\d,\.]+\s+', raw_text, re.MULTILINE) is not None
         ]
         if any(makro_indicators):
             is_makro_invoice = True
@@ -626,11 +626,11 @@ def extract_line_items(
         # Format handles two types:
         # - Format A: Regular items with package weight (e.g., "100g 12x")
         # - Format B: Items sold by weight (description starts with "*")
-        # Pattern captures: code(6-7 digits), quantity/weight(decimal), description(any text), base_price, units_in_mu, price_per_mu, total, vat_rate, vat_amount, total_with_vat
+        # Pattern captures: code(4-7 digits), quantity/weight(decimal), description(any text), base_price, units_in_mu, price_per_mu, total, vat_rate, vat_amount, total_with_vat
         # Note: VAT rate can be "12,0" or "21,0" (with decimal), so using [\d,\.]+ instead of \d+
         # Description: Match until we see a decimal price pattern (e.g., "42,90" or "42.90") followed by space and integer
         # This pattern identifies the start of base_price field (first numeric field after description)
-        table_columns['line_pattern'] = r'^(\d{6,7})\s+([\d,\.]+)\s+([*]?(?:(?!\s+\d+[,\.]\d{1,2}\s+\d+).)+?)\s+([\d,\.]+)\s+(\d+)\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)'
+        table_columns['line_pattern'] = r'^(\d{4,7})\s+([\d,\.]+)\s+([*]?(?:(?!\s+\d+[,\.]\d{1,2}\s+\d+).)+?)\s+([\d,\.]+)\s+(\d+)\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)'
         logger.info(f"   Using Makro line_pattern (10 groups, stops at decimal price pattern): {table_columns['line_pattern']}")
     elif display_layout.lower() == 'dekos':
         logger.info("🔧 Dekos display_layout detected - using proven Dekos table/line patterns")
