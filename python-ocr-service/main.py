@@ -2074,17 +2074,13 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     unit_of_measure = None  # Will be set for pieces format
                     unit_price = None  # Will be set for pieces format or use original
                     
-                    # Check for pieces patterns in description
-                    # Pattern 1: multiplication pattern (e.g., "500x4g" = 500 pieces)
-                    # Pattern 2: direct KS pattern (e.g., "100KS", "10ks" = 100 or 10 pieces)
-                    # For these patterns, treat as pieces (ks) and calculate price per piece
+                    # Check for multiplication pattern in description (e.g., "500x4g" = 500 pieces)
+                    # Pattern: number x number + unit (e.g., "500x4g", "12x100g", "24x50g")
+                    # For this pattern, treat as pieces (ks) and calculate price per piece
                     multiplication_pattern = r'(\d+)\s*x\s*(\d+)\s*(kg|g|l|ml)\b'
                     mult_match = re.search(multiplication_pattern, description, re.IGNORECASE)
                     is_pieces_format = False
-                    count = None
-                    
                     if mult_match:
-                        # Pattern 1: "500x4g" format
                         count = int(mult_match.group(1))
                         weight_value = float(mult_match.group(2))
                         unit = mult_match.group(3).lower()
@@ -2097,31 +2093,10 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         # Calculate price per piece: line_total / count
                         if line_total > 0 and count > 0:
                             unit_price = line_total / count
-                            logger.info(f"Extracted multiplication pieces pattern from description '{description}': {count} ks, unit_price = {line_total} / {count} = {unit_price:.4f} Kč/ks")
+                            logger.info(f"Extracted pieces pattern from description '{description}': {count} ks, unit_price = {line_total} / {count} = {unit_price:.4f} Kč/ks")
                         else:
                             unit_price = extract_number(groups[5]) if len(groups) > 5 else 0
-                            logger.info(f"Extracted multiplication pieces pattern from description '{description}': {count} ks, using original unit_price = {unit_price}")
-                    else:
-                        # Pattern 2: Direct KS pattern (e.g., "100KS", "10ks", "100ks")
-                        # Match number followed by KS or ks (case-insensitive)
-                        # Make sure it's not part of a larger word (use word boundary)
-                        ks_pattern = r'(\d+)\s*(?:KS|ks)\b'
-                        ks_match = re.search(ks_pattern, description, re.IGNORECASE)
-                        if ks_match:
-                            count = int(ks_match.group(1))
-                            
-                            # Treat as pieces (ks): quantity = count, unit_price = line_total / count
-                            quantity = count
-                            unit_of_measure = "ks"
-                            is_pieces_format = True
-                            
-                            # Calculate price per piece: line_total / count
-                            if line_total > 0 and count > 0:
-                                unit_price = line_total / count
-                                logger.info(f"Extracted KS pieces pattern from description '{description}': {count} ks, unit_price = {line_total} / {count} = {unit_price:.4f} Kč/ks")
-                            else:
-                                unit_price = extract_number(groups[5]) if len(groups) > 5 else 0
-                                logger.info(f"Extracted KS pieces pattern from description '{description}': {count} ks, using original unit_price = {unit_price}")
+                            logger.info(f"Extracted pieces pattern from description '{description}': {count} ks, using original unit_price = {unit_price}")
                     
                     if is_pieces_format:
                         # Pieces format: quantity and unit_price already set from multiplication pattern
