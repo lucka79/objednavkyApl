@@ -89,10 +89,26 @@ export function MakroInvoiceLayout({
                 {/* celk. hmot. (total weight) */}
                 <td className="p-2 text-right text-xs text-green-600 font-medium">
                   {calculatedTotalWeight
-                    ? `${calculatedTotalWeight.toLocaleString("cs-CZ", {
-                        minimumFractionDigits: 3,
-                        maximumFractionDigits: 3,
-                      })} kg`
+                    ? (() => {
+                        // Check if ingredient unit is "ks" (pieces)
+                        const ingredientUnit =
+                          item.ingredientUnit || item.ingredient_unit;
+                        const isKsUnit = ingredientUnit?.toLowerCase() === "ks";
+
+                        if (isKsUnit) {
+                          // For ks units, display as whole number without decimals
+                          return `${Math.round(calculatedTotalWeight).toLocaleString("cs-CZ")} ks`;
+                        } else {
+                          // For kg units, display with 3 decimals
+                          return `${calculatedTotalWeight.toLocaleString(
+                            "cs-CZ",
+                            {
+                              minimumFractionDigits: 3,
+                              maximumFractionDigits: 3,
+                            }
+                          )} kg`;
+                        }
+                      })()
                     : "-"}
                 </td>
                 {/* zákl. cena (base price per package OR price per kg for * items) */}

@@ -2072,12 +2072,35 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     price_per_kg = None
                     quantity = quantity_field
                     
+                    # Check for multiplication pattern in description (e.g., "500x4g" = 500 * 4g = 2000g = 2.00kg)
+                    # Pattern: number x number + unit (e.g., "500x4g", "12x100g", "24x50g")
+                    multiplication_pattern = r'(\d+)\s*x\s*(\d+)\s*(kg|g|l|ml)\b'
+                    mult_match = re.search(multiplication_pattern, description, re.IGNORECASE)
+                    if mult_match:
+                        count = int(mult_match.group(1))
+                        weight_value = float(mult_match.group(2))
+                        unit = mult_match.group(3).lower()
+                        
+                        # Convert unit to kg
+                        if unit in ['g', 'ml']:
+                            weight_value = weight_value / 1000
+                        
+                        # Calculate total weight: count * weight_value
+                        calculated_total_weight = count * weight_value
+                        total_weight_kg = calculated_total_weight
+                        logger.info(f"Extracted multiplication pattern from description '{description}': {count} × {mult_match.group(2)}{unit} = {calculated_total_weight:.3f} kg")
+                    
                     if is_weight_format:
                         # Format B: quantity field is actually total weight in kg
                         total_weight_kg = quantity_field
                         price_per_kg = base_price_val  # base_price is actually price per kg
                         quantity = 1  # No package count, just weight
                         logger.info(f"Format B (by weight): total_weight={total_weight_kg} kg, price_per_kg={price_per_kg} Kč/kg")
+                    elif total_weight_kg:
+                        # Total weight already calculated from multiplication pattern
+                        if line_total > 0:
+                            price_per_kg = line_total / total_weight_kg
+                            logger.info(f"Calculated price per kg from multiplication pattern: {price_per_kg:.2f} Kč/kg (total: {line_total}, weight: {total_weight_kg:.3f} kg)")
                     elif package_weight_kg:
                         # Format A: calculate total weight based on units_in_mu or quantity
                         # If units_in_mu > 1, it means multiple units per package (e.g., "100g 12x" = 1.2 kg)
