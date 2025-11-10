@@ -182,9 +182,11 @@ async def process_invoice(request: ProcessInvoiceRequest):
         display_layout = request.template_config.get('display_layout', '')
         if display_layout.lower() == 'makro':
             logger.info("🔧 Makro display_layout detected - overriding invoice_number pattern")
-            # Makro invoice number format: "Faktura č./VS: 0875300275"
-            # Pattern handles variations in spacing and different invoice number lengths
-            patterns['invoice_number'] = r'Faktura\s+č\./VS:\s*(\d{8,10})'
+            # Makro invoice number format: "Faktura č./ VS: 0874100615" or "Faktura č./VS: 0875300275"
+            # Pattern handles variations in spacing around "/" and different invoice number lengths
+            # OCR may have: "č./ VS:" (space after /), "č./VS:" (no space), "č. / VS:" (space before /), "č. /VS:" (space before /, no space after)
+            # Also handle cases where "/" might be missing: "č. VS:" or "č. VS:"
+            patterns['invoice_number'] = r'Faktura\s+č\.\s*/?\s*VS:\s*(\d{8,10})'
             logger.info(f"   Using Makro invoice_number: {patterns['invoice_number']}")
         elif display_layout.lower() == 'dekos':
             logger.info("🔧 Dekos display_layout detected - overriding invoice_number pattern")

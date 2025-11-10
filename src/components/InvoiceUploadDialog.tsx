@@ -1154,17 +1154,11 @@ export function InvoiceUploadDialog() {
                   : (editedQuantities[item.id] ?? item.quantity); // Fallback to počet MU (use edited value if available)
             }
 
-            // Determine what is displayed in Cena/kg column
+            // Always use Cena/kg for Makro supplier (regardless of checkbox state)
             let displayedUnitPrice: number;
-            if (item.ingredientUnit === "ks" && isCheckboxChecked) {
-              // Checkbox checked: display shows zákl. cena
-              displayedUnitPrice = item.basePrice || item.price || 0;
-            } else {
-              // Checkbox unchecked or not ks: display shows Cena/kg
-              displayedUnitPrice =
-                editedPricePerKg[item.id] ??
-                (item.pricePerKg || item.price || 0);
-            }
+            displayedUnitPrice =
+              editedPricePerKg[item.id] ??
+              (item.pricePerKg || item.basePrice || item.price || 0);
 
             quantity = displayedQuantity;
             unitPrice = displayedUnitPrice;
@@ -1267,12 +1261,7 @@ export function InvoiceUploadDialog() {
                   : `totalWeightKg: ${editedTotalWeights[item.id] ?? item.totalWeightKg}${editedTotalWeights[item.id] !== undefined ? " (edited)" : ""}`
                 : null,
               displayedInCenaKg: isMakro
-                ? item.ingredientUnit === "ks" &&
-                  (ksUnitChecked[item.id] !== undefined
-                    ? ksUnitChecked[item.id]
-                    : true)
-                  ? `zákl. cena: ${item.basePrice || item.price}`
-                  : `Cena/kg: ${editedPricePerKg[item.id] ?? item.pricePerKg}`
+                ? `Cena/kg: ${editedPricePerKg[item.id] ?? item.pricePerKg ?? item.basePrice ?? item.price}`
                 : null,
               savedQuantity: quantity,
               savedUnitPrice: unitPrice,
@@ -2294,8 +2283,8 @@ export function InvoiceUploadDialog() {
                             <div className="text-blue-600">
                               • počet MU → quantity
                             </div>
-                            <div className="text-purple-600">
-                              • zákl. cena → unit_price
+                            <div className="text-orange-600">
+                              • Cena/kg → unit_price (vždy)
                             </div>
                             <div className="text-gray-600">
                               • původní jednotka → unit_of_measure
@@ -2312,7 +2301,7 @@ export function InvoiceUploadDialog() {
                               • počet MU → quantity (záložní)
                             </div>
                             <div className="text-orange-600">
-                              • Cena/kg → unit_price
+                              • Cena/kg → unit_price (vždy)
                             </div>
                             <div className="text-gray-600">
                               • "kg" → unit_of_measure
@@ -2363,9 +2352,6 @@ export function InvoiceUploadDialog() {
 
                               <th className="text-right p-2 text-xs">
                                 zákl. cena
-                                <div className="text-xs text-purple-600 font-medium">
-                                  → unit_price (checkbox)
-                                </div>
                               </th>
 
                               <th className="text-right p-2 text-xs">
@@ -2386,7 +2372,7 @@ export function InvoiceUploadDialog() {
                                   <Pencil className="w-3 h-3 text-gray-400" />
                                 </div>
                                 <div className="text-xs text-orange-600 font-medium">
-                                  → unit_price (no checkbox)
+                                  → unit_price (vždy)
                                 </div>
                               </th>
 
