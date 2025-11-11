@@ -1440,9 +1440,34 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     currency = groups[10] if len(groups) > 10 else None
                     vat_rate = extract_number(groups[11]) if len(groups) > 11 else None
                     
+                    # Zeelandia Special Case: Weight in Description with "pce" unit
+                    # Example: "Vařená vejce loup M 10kg" with obsah "1,00 pce"
+                    # This means: 1 piece = 10 kg, so we need to extract weight from description
+                    weight_per_piece_kg = None
+                    if package_weight_unit == 'PCE' and description:
+                        # Extract weight from description (e.g., "10kg" from "Vařená vejce loup M 10kg")
+                        weight_in_desc_pattern = r'(\d+(?:[,\.]\d+)?)\s*(kg|g)\b'
+                        weight_match = re.search(weight_in_desc_pattern, description, re.IGNORECASE)
+                        if weight_match:
+                            weight_value = float(weight_match.group(1).replace(',', '.'))
+                            weight_unit = weight_match.group(2).lower()
+                            
+                            # Convert to kg if needed
+                            if weight_unit == 'g':
+                                weight_value = weight_value / 1000
+                            
+                            # This weight represents the weight per piece
+                            weight_per_piece_kg = weight_value
+                            logger.info(f"🔍 Zeelandia piece-based item: Description '{description}' indicates {weight_per_piece_kg} kg per piece")
+                            
+                            # Calculate total weight: quantity × weight_per_piece
+                            calculated_total_weight_kg = quantity * weight_per_piece_kg if quantity else weight_per_piece_kg
+                            total_weight_kg = calculated_total_weight_kg
+                            logger.info(f"   Total weight: {quantity} BKT/BAG × {weight_per_piece_kg} kg/piece = {total_weight_kg} kg")
+                    
                     # Zeelandia OCR Error Fix: Validate total_weight against quantity × package_weight
                     # This handles OCR errors where leading digits are dropped (e.g., "12,00" → "2,00")
-                    if quantity and package_weight:
+                    if quantity and package_weight and not weight_per_piece_kg:
                         calculated_total_weight = quantity * package_weight
                         
                         # If total_weight is missing, zero, or significantly different from calculation, use calculated value
@@ -1454,6 +1479,18 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             logger.warning(f"⚠️ OCR Error Detected: total_weight {total_weight} != expected {calculated_total_weight} (diff: {abs(total_weight - calculated_total_weight)})")
                             logger.info(f"   Correcting: {total_weight} → {calculated_total_weight} (using quantity × package_weight)")
                             total_weight = calculated_total_weight
+                    
+                    # Calculate price_per_kg for Zeelandia items
+                    price_per_kg = None
+                    if weight_per_piece_kg and unit_price:
+                        # For piece-based items with weight in description
+                        # unit_price is per piece, so price_per_kg = unit_price / weight_per_piece
+                        price_per_kg = unit_price / weight_per_piece_kg
+                        logger.info(f"   Price per kg: {unit_price} Kč/piece ÷ {weight_per_piece_kg} kg/piece = {price_per_kg:.2f} Kč/kg")
+                    elif total_weight_kg and total_weight_kg > 0 and line_total > 0:
+                        # Standard calculation: price_per_kg = line_total / total_weight_kg
+                        price_per_kg = line_total / total_weight_kg
+                        logger.info(f"   Price per kg: {line_total} Kč ÷ {total_weight_kg} kg = {price_per_kg:.2f} Kč/kg")
                     
                     # Calculate line_total from total_weight * unit_price for more accuracy
                     # This avoids OCR errors in the total price field
@@ -1475,8 +1512,9 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         unit_of_measure=unit_of_measure,
                         unit_price=unit_price,
                         line_total=calculated_line_total,
-                        package_weight_kg=package_weight if package_weight_unit == 'KG' else None,
-                        total_weight_kg=total_weight if total_weight_unit == 'KG' else None,
+                        package_weight_kg=weight_per_piece_kg if weight_per_piece_kg else (package_weight if package_weight_unit == 'KG' else None),
+                        total_weight_kg=total_weight_kg if total_weight_kg else (total_weight if total_weight_unit == 'KG' else None),
+                        price_per_kg=price_per_kg,
                         package_weight=package_weight,
                         package_weight_unit=package_weight_unit,
                         total_weight=total_weight,
@@ -2071,38 +2109,27 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     total_weight_kg = None
                     price_per_kg = None
                     quantity = quantity_field
-                    unit_of_measure = None  # Will be set for pieces format
-                    unit_price = None  # Will be set for pieces format or use original
                     
-                    # Check for multiplication pattern in description (e.g., "500x4g" = 500 pieces)
+                    # Check for multiplication pattern in description (e.g., "500x4g" to calculate total weight)
                     # Pattern: number x number + unit (e.g., "500x4g", "12x100g", "24x50g")
-                    # For this pattern, treat as pieces (ks) and calculate price per piece
+                    # Calculate total weight = count × weight (e.g., 500 × 4g = 2.00 kg)
                     multiplication_pattern = r'(\d+)\s*x\s*(\d+)\s*(kg|g|l|ml)\b'
                     mult_match = re.search(multiplication_pattern, description, re.IGNORECASE)
-                    is_pieces_format = False
                     if mult_match:
                         count = int(mult_match.group(1))
                         weight_value = float(mult_match.group(2))
                         unit = mult_match.group(3).lower()
                         
-                        # Treat as pieces (ks): quantity = count, unit_price = line_total / count
-                        quantity = count
-                        unit_of_measure = "ks"
-                        is_pieces_format = True
+                        # Convert to kg if needed
+                        if unit in ['g', 'ml']:
+                            weight_value = weight_value / 1000
                         
-                        # Calculate price per piece: line_total / count
-                        if line_total > 0 and count > 0:
-                            unit_price = line_total / count
-                            logger.info(f"Extracted pieces pattern from description '{description}': {count} ks, unit_price = {line_total} / {count} = {unit_price:.4f} Kč/ks")
-                        else:
-                            unit_price = extract_number(groups[5]) if len(groups) > 5 else 0
-                            logger.info(f"Extracted pieces pattern from description '{description}': {count} ks, using original unit_price = {unit_price}")
+                        # Calculate total weight in kg
+                        calculated_total_weight = count * weight_value
+                        total_weight_kg = calculated_total_weight
+                        logger.info(f"Extracted multiplication pattern from description '{description}': {count} × {mult_match.group(2)}{unit} = {calculated_total_weight:.3f} kg")
                     
-                    if is_pieces_format:
-                        # Pieces format: quantity and unit_price already set from multiplication pattern
-                        # Skip weight calculations
-                        logger.info(f"Pieces format detected: quantity={quantity} ks, unit_price={unit_price:.4f} Kč/ks")
-                    elif is_weight_format:
+                    if is_weight_format:
                         # Format B: quantity field is actually total weight in kg
                         total_weight_kg = quantity_field
                         price_per_kg = base_price_val  # base_price is actually price per kg
@@ -2131,18 +2158,14 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     description_corrections = table_columns.get('description_corrections', {})
                     corrected_description = apply_description_corrections(description, description_corrections) if description else None
                     
-                    # Determine unit_of_measure and unit_price based on format
-                    final_unit_of_measure = unit_of_measure if is_pieces_format else None  # Unit is in description for other formats
-                    final_unit_price = unit_price if is_pieces_format else (extract_number(groups[5]) if len(groups) > 5 else 0)
-                    
                     return InvoiceItem(
                         product_code=corrected_code,
                         quantity=quantity,
                         description=corrected_description,
-                        unit_of_measure=final_unit_of_measure,
+                        unit_of_measure=None,  # Unit is in description, not separate
                         base_price=base_price_val,
                         units_in_mu=units_in_mu_val,
-                        unit_price=final_unit_price,
+                        unit_price=extract_number(groups[5]) if len(groups) > 5 else 0,
                         line_total=line_total,
                         vat_rate=extract_number(groups[7]) if len(groups) > 7 else None,
                         vat_amount=extract_number(groups[8]) if len(groups) > 8 else None,

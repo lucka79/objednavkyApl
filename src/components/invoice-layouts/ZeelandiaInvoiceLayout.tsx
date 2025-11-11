@@ -42,6 +42,9 @@ export function ZeelandiaInvoiceLayout({
               Cena/jed
             </th>
             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+              Cena/kg
+            </th>
+            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
               Cena celkem
             </th>
             <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700">
@@ -112,6 +115,19 @@ export function ZeelandiaInvoiceLayout({
                     maximumFractionDigits: 2,
                   })}{" "}
                   Kč
+                </td>
+                <td className="px-3 py-2 text-right text-sm text-blue-700 border-r border-gray-200">
+                  {item.price_per_kg ? (
+                    <>
+                      {item.price_per_kg.toLocaleString("cs-CZ", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}{" "}
+                      Kč/kg
+                    </>
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  )}
                 </td>
                 <td className="px-3 py-2 text-right text-sm font-medium text-gray-900 border-r border-gray-200">
                   {priceTotal.toLocaleString("cs-CZ", {

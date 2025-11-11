@@ -302,6 +302,10 @@ function TemplateForm({
           // Groups:    1       2                          3   4   5      6   7      8   9     10       11 12
           // Description pattern: letters + optional weight (e.g. "Bolognese 5kg", "Rosette 1")
           // Note: Cena/jed (group 9) is saved as unit_price in items_received table
+          // Special handling: When obsah_unit is "pce" and description contains weight (e.g., "10kg"),
+          //   system extracts weight from description and calculates:
+          //   - total_weight_kg = quantity × weight_per_piece (e.g., 10 BKT × 10kg = 100 kg)
+          //   - price_per_kg = unit_price / weight_per_piece (e.g., 839 Kč / 10 kg = 83,9 Kč/kg)
           line_pattern:
             "^(\\d{7})\\s+([A-Za-zá-žÁ-Ž]+(?:\\s+[A-Za-zá-žÁ-Ž]+)*(?:\\s+\\d+[a-zA-Z]+)?)\\s+(\\d+)\\s+(BAG|BKT|PCE)\\s+([\\d,\\s]+)\\s+(KG|PCE)\\s+([\\d,\\s]+)\\s+(KG|PCE)\\s+([\\d,\\s]+)\\s+([\\d,\\s]+)\\s+([A-Z]+)\\s+(\\d+)%",
 
