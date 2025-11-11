@@ -1440,10 +1440,14 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                     currency = groups[10] if len(groups) > 10 else None
                     vat_rate = extract_number(groups[11]) if len(groups) > 11 else None
                     
+                    # Initialize variables for weight calculations
+                    weight_per_piece_kg = None
+                    total_weight_kg = None
+                    price_per_kg = None
+                    
                     # Zeelandia Special Case: Weight in Description with "pce" unit
                     # Example: "Vařená vejce loup M 10kg" with obsah "1,00 pce"
                     # This means: 1 piece = 10 kg, so we need to extract weight from description
-                    weight_per_piece_kg = None
                     if package_weight_unit == 'PCE' and description:
                         # Extract weight from description (e.g., "10kg" from "Vařená vejce loup M 10kg")
                         weight_in_desc_pattern = r'(\d+(?:[,\.]\d+)?)\s*(kg|g)\b'
@@ -1479,9 +1483,16 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                             logger.warning(f"⚠️ OCR Error Detected: total_weight {total_weight} != expected {calculated_total_weight} (diff: {abs(total_weight - calculated_total_weight)})")
                             logger.info(f"   Correcting: {total_weight} → {calculated_total_weight} (using quantity × package_weight)")
                             total_weight = calculated_total_weight
+                        
+                        # Set total_weight_kg for normal items (when unit is KG)
+                        if package_weight_unit == 'KG':
+                            total_weight_kg = total_weight
+                    
+                    # Fallback: Set total_weight_kg from total_weight if not set yet and unit is KG
+                    if total_weight_kg is None and total_weight and total_weight_unit == 'KG':
+                        total_weight_kg = total_weight
                     
                     # Calculate price_per_kg for Zeelandia items
-                    price_per_kg = None
                     if weight_per_piece_kg and unit_price:
                         # For piece-based items with weight in description
                         # unit_price is per piece, so price_per_kg = unit_price / weight_per_piece
