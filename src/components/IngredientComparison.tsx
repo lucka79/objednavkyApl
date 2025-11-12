@@ -23,6 +23,7 @@ import {
   Minus,
   Download,
   Tag,
+  Printer,
 } from "lucide-react";
 
 export function IngredientComparison() {
@@ -158,14 +159,17 @@ export function IngredientComparison() {
         ? allSuppliers.filter((supplier) => selectedSuppliers.has(supplier.id))
         : allSuppliers;
 
-    // Create matrix: ingredient_id -> supplier_id -> code data
-    const matrix: Record<number, Record<string, any>> = {};
+    // Create matrix: ingredient_id -> supplier_id -> array of codes
+    const matrix: Record<number, Record<string, any[]>> = {};
 
     allSupplierCodes.forEach((code) => {
       if (!matrix[code.ingredient_id]) {
         matrix[code.ingredient_id] = {};
       }
-      matrix[code.ingredient_id][code.supplier_id] = code;
+      if (!matrix[code.ingredient_id][code.supplier_id]) {
+        matrix[code.ingredient_id][code.supplier_id] = [];
+      }
+      matrix[code.ingredient_id][code.supplier_id].push(code);
     });
 
     // Find ingredients without any supplier codes
@@ -183,15 +187,17 @@ export function IngredientComparison() {
       );
     }
 
-    // If suppliers are selected, show only ingredients that ALL selected suppliers have
+    // If suppliers are selected, show ingredients that ANY selected supplier has
     if (selectedSuppliers.size > 0) {
       ingredients = ingredients.filter((ingredient) => {
         if (!matrix[ingredient.id]) return false;
 
-        // Check if this ingredient has codes for ALL selected suppliers
+        // Check if this ingredient has codes for ANY selected supplier
         const selectedSupplierIds = Array.from(selectedSuppliers);
-        return selectedSupplierIds.every(
-          (supplierId) => matrix[ingredient.id][supplierId]
+        return selectedSupplierIds.some(
+          (supplierId) =>
+            matrix[ingredient.id][supplierId] &&
+            matrix[ingredient.id][supplierId].length > 0
         );
       });
     }
@@ -241,6 +247,219 @@ export function IngredientComparison() {
     }
   };
 
+  // Print function
+  const handlePrint = () => {
+    if (!matrixData.ingredients.length || !matrixData.suppliers.length) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    // Group ingredients by category
+    const groupedByCategory = matrixData.ingredients.reduce(
+      (acc, ingredient) => {
+        const categoryName =
+          ingredient.ingredient_categories?.name || "Bez kategorie";
+        if (!acc[categoryName]) {
+          acc[categoryName] = [];
+        }
+        acc[categoryName].push(ingredient);
+        return acc;
+      },
+      {} as Record<string, typeof matrixData.ingredients>
+    );
+
+    const sortedCategories = Object.keys(groupedByCategory).sort();
+
+    // Generate table rows
+    const tableRows = sortedCategories
+      .map((categoryName) => {
+        const categoryRows = groupedByCategory[categoryName]
+          .map((ingredient) => {
+            // Build ingredient name cell with price
+            let ingredientCell = `
+              <td style="font-weight: 600; padding: 8px;">
+                <div>${ingredient.name}</div>
+                <div style="font-size: 11px; color: #666;">${ingredient.unit}`;
+            if (ingredient.package) {
+              ingredientCell += ` | Balení: ${ingredient.package} ${ingredient.unit}`;
+            }
+            ingredientCell += `</div>`;
+            if (ingredient.price) {
+              ingredientCell += `<div style="font-size: 11px; font-weight: 600; color: #333; margin-top: 4px;">Hlavní cena: ${ingredient.price.toFixed(2)} Kč</div>`;
+            }
+            ingredientCell += `</td>`;
+
+            // Build supplier cells
+            const supplierCells = matrixData.suppliers
+              .map((supplier) => {
+                const codes =
+                  matrixData.matrix[ingredient.id]?.[supplier.id] || [];
+
+                if (codes.length === 0) {
+                  return '<td style="text-align: center; padding: 8px;">—</td>';
+                }
+
+                // Check if any code is cheapest
+                const comparison = priceComparisons[ingredient.id];
+                const hasCheapestCode = codes.some(
+                  (code) =>
+                    comparison && code && code.price === comparison.minPrice
+                );
+
+                const cellStyle = hasCheapestCode
+                  ? "background-color: #dcfce7; border: 2px solid #4ade80; text-align: center; padding: 8px;"
+                  : "text-align: center; padding: 8px;";
+
+                const codesHtml = codes
+                  .map((code, codeIndex) => {
+                    const isCheapest =
+                      comparison && code && code.price === comparison.minPrice;
+
+                    const isLastCode = codeIndex === codes.length - 1;
+                    const codeStyle = isCheapest
+                      ? `background-color: #bbf7d0; padding: 4px; border-radius: 4px; margin-bottom: ${isLastCode ? "0" : "8px"}; ${!isLastCode ? "border-bottom: 1px solid #d1d5db; padding-bottom: 8px;" : ""}`
+                      : codes.length > 1 && !isLastCode
+                        ? "margin-bottom: 8px; border-bottom: 1px solid #d1d5db; padding-bottom: 8px;"
+                        : "margin-bottom: 4px;";
+
+                    let codeHtml = `<div style="${codeStyle}">`;
+                    codeHtml += `<div style="font-size: 11px; font-weight: 500;">`;
+                    if (code.product_code) {
+                      codeHtml += `<code style="font-family: monospace; background: #f3f4f6; padding: 2px 4px; border-radius: 2px;">${code.product_code}</code> `;
+                    }
+                    codeHtml += `${code.supplier_ingredient_name || ingredient.name}`;
+                    if (code.package) {
+                      codeHtml += ` (${code.package} ${ingredient.unit})`;
+                    }
+                    codeHtml += `</div>`;
+                    codeHtml += `<div style="font-weight: 600; font-size: 12px; color: ${
+                      isCheapest ? "#15803d" : "#1f2937"
+                    };">${code.price ? `${code.price.toFixed(2)} Kč` : "—"}</div>`;
+                    if (code.updated_at) {
+                      codeHtml += `<div style="font-size: 10px; color: #666;">${new Date(
+                        code.updated_at
+                      ).toLocaleDateString("cs-CZ", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "2-digit",
+                      })}</div>`;
+                    }
+                    codeHtml += `</div>`;
+                    return codeHtml;
+                  })
+                  .join("");
+
+                return `<td style="${cellStyle}">${codesHtml}</td>`;
+              })
+              .join("");
+
+            return `<tr>${ingredientCell}${supplierCells}</tr>`;
+          })
+          .join("");
+
+        // Category header row
+        const categoryHeader = `
+          <tr style="background-color: #f3f4f6;">
+            <td colspan="${
+              matrixData.suppliers.length + 1
+            }" style="font-weight: 600; padding: 12px 8px; font-size: 14px;">
+              ${categoryName} (${groupedByCategory[categoryName].length} surovin)
+            </td>
+          </tr>
+        `;
+
+        return categoryHeader + categoryRows;
+      })
+      .join("");
+
+    // Build supplier headers
+    const supplierHeaders = matrixData.suppliers
+      .map(
+        (supplier) => `
+      <th style="text-align: center; padding: 8px; background-color: #f9fafb; font-weight: 600; border: 1px solid #e5e7eb;">
+        ${supplier.full_name}
+      </th>
+    `
+      )
+      .join("");
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Porovnání dodavatelů surovin</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              padding: 20px;
+            }
+            h1 {
+              margin-bottom: 10px;
+            }
+            .subtitle {
+              color: #666;
+              margin-bottom: 20px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 20px;
+            }
+            th, td {
+              border: 1px solid #e5e7eb;
+              padding: 8px;
+            }
+            th {
+              background-color: #f9fafb;
+              font-weight: bold;
+            }
+            tr:nth-child(even) {
+              background-color: #f9fafb;
+            }
+            @media print {
+              body {
+                padding: 10px;
+              }
+              button {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Porovnání dodavatelů surovin</h1>
+          <div class="subtitle">
+            Vygenerováno: ${new Date().toLocaleString("cs-CZ")}
+            ${
+              selectedSuppliers.size > 0
+                ? ` | Vybráno dodavatelů: ${selectedSuppliers.size}`
+                : " | Všichni dodavatelé"
+            }
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align: left; padding: 8px; background-color: #f9fafb; font-weight: 600; border: 1px solid #e5e7eb;">Surovina</th>
+                ${supplierHeaders}
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   // CSV export function
   const exportToCSV = () => {
     if (!matrixData.ingredients.length || !matrixData.suppliers.length) return;
@@ -256,6 +475,9 @@ export function IngredientComparison() {
       ),
       ...matrixData.suppliers.map((supplier) => `${supplier.full_name} (Kód)`),
       ...matrixData.suppliers.map((supplier) => `${supplier.full_name} (Cena)`),
+      ...matrixData.suppliers.map(
+        (supplier) => `${supplier.full_name} (Balení)`
+      ),
       ...matrixData.suppliers.map(
         (supplier) => `${supplier.full_name} (Aktualizováno)`
       ),
@@ -276,30 +498,57 @@ export function IngredientComparison() {
 
       // Add supplier ingredient names for each supplier
       matrixData.suppliers.forEach((supplier) => {
-        const code = matrixData.matrix[ingredient.id]?.[supplier.id];
-        row.push(code?.supplier_ingredient_name || ingredient.name);
+        const codes = matrixData.matrix[ingredient.id]?.[supplier.id] || [];
+        const names = codes
+          .map((code) => code?.supplier_ingredient_name || ingredient.name)
+          .join("; ");
+        row.push(names || "");
       });
 
       // Add supplier product codes for each supplier
       matrixData.suppliers.forEach((supplier) => {
-        const code = matrixData.matrix[ingredient.id]?.[supplier.id];
-        row.push(code?.product_code || "");
+        const codes = matrixData.matrix[ingredient.id]?.[supplier.id] || [];
+        const productCodes = codes
+          .map((code) => code?.product_code || "")
+          .filter(Boolean)
+          .join("; ");
+        row.push(productCodes || "");
       });
 
       // Add supplier prices for each supplier
       matrixData.suppliers.forEach((supplier) => {
-        const code = matrixData.matrix[ingredient.id]?.[supplier.id];
-        row.push(code?.price ? `${code.price.toFixed(2)} Kč` : "");
+        const codes = matrixData.matrix[ingredient.id]?.[supplier.id] || [];
+        const prices = codes
+          .map((code) => (code?.price ? `${code.price.toFixed(2)} Kč` : ""))
+          .filter(Boolean)
+          .join("; ");
+        row.push(prices || "");
+      });
+
+      // Add supplier packages for each supplier
+      matrixData.suppliers.forEach((supplier) => {
+        const codes = matrixData.matrix[ingredient.id]?.[supplier.id] || [];
+        const packages = codes
+          .map((code) =>
+            code?.package ? `${code.package} ${ingredient.unit}` : ""
+          )
+          .filter(Boolean)
+          .join("; ");
+        row.push(packages || "");
       });
 
       // Add supplier update dates for each supplier
       matrixData.suppliers.forEach((supplier) => {
-        const code = matrixData.matrix[ingredient.id]?.[supplier.id];
-        row.push(
-          code?.updated_at
-            ? new Date(code.updated_at).toLocaleDateString("cs-CZ")
-            : ""
-        );
+        const codes = matrixData.matrix[ingredient.id]?.[supplier.id] || [];
+        const dates = codes
+          .map((code) =>
+            code?.updated_at
+              ? new Date(code.updated_at).toLocaleDateString("cs-CZ")
+              : ""
+          )
+          .filter(Boolean)
+          .join("; ");
+        row.push(dates || "");
       });
 
       // Add main price data if ingredient has no suppliers
@@ -509,15 +758,26 @@ export function IngredientComparison() {
               <ArrowRightLeft className="h-5 w-5" />
               Přehled dodavatelů a surovin
             </CardTitle>
-            <Button
-              onClick={exportToCSV}
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Export CSV
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={exportToCSV}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Export CSV
+              </Button>
+              <Button
+                onClick={handlePrint}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Printer className="h-4 w-4" />
+                Tisknout
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -637,162 +897,179 @@ export function IngredientComparison() {
                                     </span>
                                   )}
                                 </div>
+                                {ingredient.price && (
+                                  <div className="text-xs font-semibold text-gray-700 mt-1">
+                                    Hlavní cena: {ingredient.price.toFixed(2)}{" "}
+                                    Kč
+                                  </div>
+                                )}
                               </div>
                             </TableCell>
                             {matrixData.suppliers.map((supplier) => {
-                              const code =
-                                matrixData.matrix[ingredient.id]?.[supplier.id];
+                              const codes =
+                                matrixData.matrix[ingredient.id]?.[
+                                  supplier.id
+                                ] || [];
                               const comparison =
                                 priceComparisons[ingredient.id];
-                              const isCheapest =
-                                comparison &&
-                                code &&
-                                code.price === comparison.minPrice;
-                              const isMostExpensive =
-                                comparison &&
-                                code &&
-                                code.price === comparison.maxPrice;
+
+                              // Check if any code in this supplier is the cheapest
+                              const hasCheapestCode = codes.some(
+                                (code) =>
+                                  comparison &&
+                                  code &&
+                                  code.price === comparison.minPrice
+                              );
 
                               return (
                                 <TableCell
                                   key={supplier.id}
                                   className={`text-center ${
-                                    isCheapest
-                                      ? "bg-green-50 border-2 border-green-300"
+                                    hasCheapestCode
+                                      ? "bg-green-50 border-2 border-green-400"
                                       : ""
                                   }`}
                                 >
-                                  {code ? (
-                                    <div className="space-y-2">
-                                      <div className="flex flex-col items-center gap-1">
-                                        {/* Supplier ingredient name - Always show */}
-                                        <div
-                                          className={`text-xs font-medium mb-1 px-2 py-1 rounded w-full text-center ${
-                                            isCheapest
-                                              ? "bg-green-200 text-green-900 font-semibold"
-                                              : code.supplier_ingredient_name
-                                                ? "bg-blue-50 text-blue-800"
-                                                : "bg-gray-50 text-gray-600"
-                                          }`}
-                                          title={
-                                            code.supplier_ingredient_name ||
-                                            ingredient.name
-                                          }
-                                        >
-                                          {code.supplier_ingredient_name ||
-                                            ingredient.name}
-                                        </div>
-                                        <code
-                                          className={`px-2 py-1 rounded text-xs font-mono ${
-                                            isCheapest
-                                              ? "bg-green-100 text-green-800 font-semibold"
-                                              : "bg-gray-100"
-                                          }`}
-                                        >
-                                          {code.product_code || "—"}
-                                        </code>
-                                        <div
-                                          className={`font-bold text-base ${
-                                            isCheapest
-                                              ? "text-green-700"
-                                              : isMostExpensive
-                                                ? "text-red-600"
-                                                : code.is_active
-                                                  ? "text-blue-600"
-                                                  : "text-gray-500"
-                                          }`}
-                                        >
-                                          {code.price
-                                            ? `${code.price.toFixed(2)} Kč`
-                                            : "—"}
-                                        </div>
-                                        {code.updated_at && (
-                                          <div className="text-xs text-muted-foreground">
-                                            <div>
-                                              {new Date(
-                                                code.updated_at
-                                              ).toLocaleDateString("cs-CZ", {
-                                                day: "2-digit",
-                                                month: "2-digit",
-                                                year: "2-digit",
-                                              })}
-                                            </div>
-                                            <div
-                                              className={`text-xs ${
-                                                Math.floor(
-                                                  (Date.now() -
-                                                    new Date(
-                                                      code.updated_at
-                                                    ).getTime()) /
-                                                    (1000 * 60 * 60 * 24)
-                                                ) > 30
-                                                  ? "text-red-600"
-                                                  : Math.floor(
-                                                        (Date.now() -
-                                                          new Date(
-                                                            code.updated_at
-                                                          ).getTime()) /
-                                                          (1000 * 60 * 60 * 24)
-                                                      ) > 7
-                                                    ? "text-orange-600"
-                                                    : "text-green-600"
-                                              }`}
-                                            >
-                                              {Math.floor(
-                                                (Date.now() -
-                                                  new Date(
+                                  {codes.length > 0 ? (
+                                    <div className="space-y-1.5">
+                                      {codes.map((code, codeIndex) => {
+                                        const isCheapest =
+                                          comparison &&
+                                          code &&
+                                          code.price === comparison.minPrice;
+                                        const isMostExpensive =
+                                          comparison &&
+                                          code &&
+                                          code.price === comparison.maxPrice;
+
+                                        return (
+                                          <div
+                                            key={codeIndex}
+                                            className={`space-y-1 ${
+                                              codes.length > 1
+                                                ? "border-b border-gray-200 pb-1.5 last:border-0 last:pb-0"
+                                                : ""
+                                            } ${
+                                              isCheapest
+                                                ? "bg-green-100 rounded p-1"
+                                                : ""
+                                            }`}
+                                          >
+                                            <div className="flex flex-col items-center gap-0.5">
+                                              {/* Product code, name and package - All on same row */}
+                                              <div
+                                                className={`text-xs font-medium px-1.5 py-0.5 rounded w-full text-center ${
+                                                  isCheapest
+                                                    ? "bg-green-200 text-green-900 font-semibold"
+                                                    : code.supplier_ingredient_name
+                                                      ? "bg-blue-50 text-blue-800"
+                                                      : "bg-gray-50 text-gray-600"
+                                                }`}
+                                                title={
+                                                  code.supplier_ingredient_name ||
+                                                  ingredient.name
+                                                }
+                                              >
+                                                <div className="flex items-center justify-center gap-1 flex-wrap">
+                                                  {code.product_code && (
+                                                    <code
+                                                      className={`font-mono ${
+                                                        isCheapest
+                                                          ? "text-green-800 font-semibold"
+                                                          : ""
+                                                      }`}
+                                                    >
+                                                      {code.product_code}
+                                                    </code>
+                                                  )}
+                                                  <span>
+                                                    {code.supplier_ingredient_name ||
+                                                      ingredient.name}
+                                                  </span>
+                                                  {code.package && (
+                                                    <span className="text-muted-foreground">
+                                                      ({code.package}{" "}
+                                                      {ingredient.unit})
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              <div
+                                                className={`font-bold text-sm ${
+                                                  isCheapest
+                                                    ? "text-green-700"
+                                                    : isMostExpensive
+                                                      ? "text-red-600"
+                                                      : code.is_active
+                                                        ? "text-blue-600"
+                                                        : "text-gray-500"
+                                                }`}
+                                              >
+                                                {code.price
+                                                  ? `${code.price.toFixed(2)} Kč`
+                                                  : "—"}
+                                              </div>
+                                              {code.updated_at && (
+                                                <div className="text-xs text-muted-foreground">
+                                                  {new Date(
                                                     code.updated_at
-                                                  ).getTime()) /
-                                                  (1000 * 60 * 60 * 24)
-                                              )}{" "}
-                                              dní
-                                            </div>
-                                          </div>
-                                        )}
-                                        {comparison &&
-                                          comparison.codes.length > 1 && (
-                                            <div className="flex items-center justify-center">
-                                              {isCheapest ? (
-                                                <div className="flex items-center gap-1 text-green-700 bg-green-100 px-2 py-1 rounded-full">
-                                                  <TrendingDown className="h-3 w-3 font-bold" />
-                                                  <span className="text-xs font-semibold">
-                                                    Nejlevnější
-                                                  </span>
-                                                </div>
-                                              ) : isMostExpensive ? (
-                                                <div className="flex items-center gap-1 text-red-600">
-                                                  <TrendingUp className="h-3 w-3" />
-                                                  <span className="text-xs">
-                                                    Nejdražší
-                                                  </span>
-                                                </div>
-                                              ) : (
-                                                <div className="flex items-center gap-1 text-gray-500">
-                                                  <Minus className="h-3 w-3" />
-                                                  <span className="text-xs">
-                                                    Průměr
-                                                  </span>
+                                                  ).toLocaleDateString(
+                                                    "cs-CZ",
+                                                    {
+                                                      day: "2-digit",
+                                                      month: "2-digit",
+                                                      year: "2-digit",
+                                                    }
+                                                  )}
                                                 </div>
                                               )}
+                                              {comparison &&
+                                                comparison.codes.length > 1 && (
+                                                  <div className="flex items-center justify-center">
+                                                    {isCheapest ? (
+                                                      <div className="flex items-center gap-1 text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">
+                                                        <TrendingDown className="h-3 w-3 font-bold" />
+                                                        <span className="text-xs font-semibold">
+                                                          Nejlevnější
+                                                        </span>
+                                                      </div>
+                                                    ) : isMostExpensive ? (
+                                                      <div className="flex items-center gap-1 text-red-600">
+                                                        <TrendingUp className="h-3 w-3" />
+                                                        <span className="text-xs">
+                                                          Nejdražší
+                                                        </span>
+                                                      </div>
+                                                    ) : (
+                                                      <div className="flex items-center gap-1 text-gray-500">
+                                                        <Minus className="h-3 w-3" />
+                                                        <span className="text-xs">
+                                                          Průměr
+                                                        </span>
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                )}
                                             </div>
-                                          )}
-                                      </div>
-                                      <Badge
-                                        variant={
-                                          code.is_active
-                                            ? "default"
-                                            : "secondary"
-                                        }
-                                        className={`text-xs pointer-events-none ${
-                                          code.is_active
-                                            ? "bg-green-100 text-green-800 hover:bg-green-100"
-                                            : "bg-gray-100 text-gray-600 hover:bg-gray-100"
-                                        }`}
-                                      >
-                                        {code.is_active
-                                          ? "Aktivní"
-                                          : "Neaktivní"}
-                                      </Badge>
+                                            <Badge
+                                              variant={
+                                                code.is_active
+                                                  ? "default"
+                                                  : "secondary"
+                                              }
+                                              className={`text-xs pointer-events-none ${
+                                                code.is_active
+                                                  ? "bg-green-100 text-green-800 hover:bg-green-100"
+                                                  : "bg-gray-100 text-gray-600 hover:bg-gray-100"
+                                              }`}
+                                            >
+                                              {code.is_active
+                                                ? "Aktivní"
+                                                : "Neaktivní"}
+                                            </Badge>
+                                          </div>
+                                        );
+                                      })}
                                     </div>
                                   ) : (
                                     <div className="text-muted-foreground text-sm">
@@ -821,49 +1098,13 @@ export function IngredientComparison() {
                                       </div>
                                       {(ingredient as any).updated_at && (
                                         <div className="text-xs text-muted-foreground">
-                                          <div>
-                                            {new Date(
-                                              (ingredient as any).updated_at
-                                            ).toLocaleDateString("cs-CZ", {
-                                              day: "2-digit",
-                                              month: "2-digit",
-                                              year: "2-digit",
-                                            })}
-                                          </div>
-                                          <div
-                                            className={`text-xs ${
-                                              Math.floor(
-                                                (Date.now() -
-                                                  new Date(
-                                                    (
-                                                      ingredient as any
-                                                    ).updated_at
-                                                  ).getTime()) /
-                                                  (1000 * 60 * 60 * 24)
-                                              ) > 30
-                                                ? "text-red-600"
-                                                : Math.floor(
-                                                      (Date.now() -
-                                                        new Date(
-                                                          (
-                                                            ingredient as any
-                                                          ).updated_at
-                                                        ).getTime()) /
-                                                        (1000 * 60 * 60 * 24)
-                                                    ) > 7
-                                                  ? "text-orange-600"
-                                                  : "text-green-600"
-                                            }`}
-                                          >
-                                            {Math.floor(
-                                              (Date.now() -
-                                                new Date(
-                                                  (ingredient as any).updated_at
-                                                ).getTime()) /
-                                                (1000 * 60 * 60 * 24)
-                                            )}{" "}
-                                            dní
-                                          </div>
+                                          {new Date(
+                                            (ingredient as any).updated_at
+                                          ).toLocaleDateString("cs-CZ", {
+                                            day: "2-digit",
+                                            month: "2-digit",
+                                            year: "2-digit",
+                                          })}
                                         </div>
                                       )}
                                     </div>

@@ -208,14 +208,18 @@ async def process_invoice(request: ProcessInvoiceRequest):
             # 4th: Payment type - word after all dates, not "DIČ" (look for Czech payment terms)
             patterns['payment_type'] = r'(?:\d{1,2}\.\d{1,2}\.\d{4})\s+([A-ZÁ-Žá-žů][a-zá-žů]+(?:\s+[a-zá-žů]+)?)'
             
+            # Hardcode supplier for Zeelandia
+            patterns['supplier_override'] = 'zeelandia'
+            
             logger.info(f"   Using Zeelandia invoice_number (pure sequence): {patterns['invoice_number']}")
             logger.info(f"   Using Zeelandia total_amount (pure sequence): {patterns['total_amount']}")
             logger.info(f"   Using Zeelandia date (pure sequence): {patterns['date']}")
             logger.info(f"   Using Zeelandia payment_type (pure sequence): {patterns['payment_type']}")
+            logger.info(f"   Using Zeelandia hardcoded supplier: zeelandia")
         
         invoice_number = extract_pattern(raw_text_display, patterns.get('invoice_number'))
         date = extract_pattern(raw_text_display, patterns.get('date'))
-        supplier = extract_pattern(raw_text_display, patterns.get('supplier'))
+        supplier = patterns.get('supplier_override') or extract_pattern(raw_text_display, patterns.get('supplier'))
         
         # Extract total amount with detailed logging
         total_amount_pattern = patterns.get('total_amount')
@@ -699,10 +703,14 @@ def extract_line_items(
         # 4th: Payment type - word after all dates, not "DIČ" (look for Czech payment terms)
         patterns['payment_type'] = r'(?:\d{1,2}\.\d{1,2}\.\d{4})\s+([A-ZÁ-Žá-žů][a-zá-žů]+(?:\s+[a-zá-žů]+)?)'
         
+        # Hardcode supplier for Zeelandia
+        patterns['supplier_override'] = 'zeelandia'
+        
         logger.info(f"   Using Zeelandia invoice_number (pure sequence): {patterns['invoice_number']}")
         logger.info(f"   Using Zeelandia total_amount (pure sequence): {patterns['total_amount']}")
         logger.info(f"   Using Zeelandia date (pure sequence): {patterns['date']}")
         logger.info(f"   Using Zeelandia payment_type (pure sequence): {patterns['payment_type']}")
+        logger.info(f"   Using Zeelandia hardcoded supplier: zeelandia")
         
         # Zeelandia pattern: 12 groups (single-line format with detailed packaging info)
         # Format: Code Description Quantity Unit Obsah Obsah_Unit Fakt.mn Fakt.mn_Unit UnitPrice TotalPrice Currency VAT%
@@ -719,9 +727,11 @@ def extract_line_items(
             'replace_pattern': [
                 {'pattern': r'^Rosette 1$', 'replacement': 'Rosette 1L'},
                 {'pattern': r'^Rosette 1\s', 'replacement': 'Rosette 1L '},
+                {'pattern': r'^Carlo 15!$', 'replacement': 'Carlo 15L'},
+                {'pattern': r'^Carlo 15!\s', 'replacement': 'Carlo 15L '},
             ]
         }
-        logger.info("   Applied Zeelandia description corrections: Rosette 1 → Rosette 1L")
+        logger.info("   Applied Zeelandia description corrections: Rosette 1 → Rosette 1L, Carlo 15! → Carlo 15L")
     
     # Find table start and end
     table_start_pattern = patterns.get('table_start')

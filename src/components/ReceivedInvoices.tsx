@@ -525,6 +525,7 @@ export function ReceivedInvoices() {
     invoice_number: "",
     receiver_id: "",
     total_amount: 0,
+    invoice_due: "",
   });
   const [isEditItemDialogOpen, setIsEditItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -646,16 +647,17 @@ export function ReceivedInvoices() {
 
   const handleViewInvoice = async (invoice: ReceivedInvoice) => {
     setSelectedInvoice(invoice);
+    const invoiceAny = invoice as any;
     setEditForm({
       invoice_number: invoice.invoice_number || "",
       receiver_id: invoice.receiver_id || "",
       total_amount: invoice.total_amount || 0,
+      invoice_due: invoiceAny.invoice_due || "",
     });
     setIsEditing(false);
     setIsDetailDialogOpen(true);
 
     // Try to get file URL if file_path exists
-    const invoiceAny = invoice as any;
     if (
       invoiceAny.file_path ||
       invoiceAny.storage_path ||
@@ -704,10 +706,12 @@ export function ReceivedInvoices() {
     setIsEditing(!isEditing);
     if (isEditing) {
       // Reset form when canceling edit
+      const invoiceAny = selectedInvoice as any;
       setEditForm({
         invoice_number: selectedInvoice?.invoice_number || "",
         receiver_id: selectedInvoice?.receiver_id || "",
         total_amount: selectedInvoice?.total_amount || 0,
+        invoice_due: invoiceAny?.invoice_due || "",
       });
     }
   };
@@ -716,12 +720,19 @@ export function ReceivedInvoices() {
     if (!selectedInvoice) return;
 
     try {
-      await updateInvoiceMutation.mutateAsync({
+      const updateData: any = {
         id: selectedInvoice.id,
         invoice_number: editForm.invoice_number,
         receiver_id: editForm.receiver_id,
         total_amount: editForm.total_amount,
-      });
+      };
+
+      // Add invoice_due if it exists
+      if (editForm.invoice_due) {
+        updateData.invoice_due = editForm.invoice_due;
+      }
+
+      await updateInvoiceMutation.mutateAsync(updateData);
 
       // Update the selected invoice with new data
       setSelectedInvoice({
@@ -729,6 +740,8 @@ export function ReceivedInvoices() {
         invoice_number: editForm.invoice_number,
         receiver_id: editForm.receiver_id,
         total_amount: editForm.total_amount,
+        ...(editForm.invoice_due &&
+          ({ invoice_due: editForm.invoice_due } as any)),
       });
 
       setIsEditing(false);
@@ -1316,6 +1329,7 @@ export function ReceivedInvoices() {
                     <TableHead>Dodavatel</TableHead>
                     <TableHead>Příjemce</TableHead>
                     <TableHead>Datum přijetí</TableHead>
+                    <TableHead>Datum splatnosti</TableHead>
                     <TableHead>Částka bez DPH</TableHead>
                     {/* <TableHead>Status</TableHead> */}
                     <TableHead>Položky</TableHead>
@@ -1355,6 +1369,43 @@ export function ReceivedInvoices() {
                                 "cs-CZ"
                               )
                             : "Neznámé datum"}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          {(() => {
+                            const invoiceAny = invoice as any;
+                            const dueDate = invoiceAny.invoice_due;
+                            if (!dueDate)
+                              return <span className="text-gray-400">—</span>;
+
+                            const dueDateObj = new Date(dueDate);
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            dueDateObj.setHours(0, 0, 0, 0);
+
+                            const isOverdue = dueDateObj < today;
+                            const isDueSoon =
+                              dueDateObj <=
+                                new Date(
+                                  today.getTime() + 7 * 24 * 60 * 60 * 1000
+                                ) && !isOverdue;
+
+                            return (
+                              <span
+                                className={
+                                  isOverdue
+                                    ? "text-red-600 font-semibold"
+                                    : isDueSoon
+                                      ? "text-orange-600 font-semibold"
+                                      : ""
+                                }
+                              >
+                                {dueDateObj.toLocaleDateString("cs-CZ")}
+                              </span>
+                            );
+                          })()}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -1571,6 +1622,65 @@ export function ReceivedInvoices() {
                     </div>
                     <div>
                       <Label className="text-sm font-medium">
+                        Datum splatnosti
+                      </Label>
+                      {isEditing ? (
+                        <Input
+                          type="date"
+                          value={editForm.invoice_due}
+                          onChange={(e) =>
+                            setEditForm((prev) => ({
+                              ...prev,
+                              invoice_due: e.target.value,
+                            }))
+                          }
+                          className="text-lg"
+                        />
+                      ) : (
+                        <p>
+                          {(() => {
+                            const invoiceAny = selectedInvoice as any;
+                            const dueDate = invoiceAny.invoice_due;
+                            if (!dueDate)
+                              return (
+                                <span className="text-gray-400">
+                                  Není nastaveno
+                                </span>
+                              );
+
+                            const dueDateObj = new Date(dueDate);
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            dueDateObj.setHours(0, 0, 0, 0);
+
+                            const isOverdue = dueDateObj < today;
+                            const isDueSoon =
+                              dueDateObj <=
+                                new Date(
+                                  today.getTime() + 7 * 24 * 60 * 60 * 1000
+                                ) && !isOverdue;
+
+                            return (
+                              <span
+                                className={
+                                  isOverdue
+                                    ? "text-red-600 font-semibold"
+                                    : isDueSoon
+                                      ? "text-orange-600 font-semibold"
+                                      : ""
+                                }
+                              >
+                                {dueDateObj.toLocaleDateString("cs-CZ")}
+                                {isOverdue && " (Po splatnosti)"}
+                                {isDueSoon && " (Splatnost brzy)"}
+                              </span>
+                            );
+                          })()}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">
                         Celková částka bez DPH
                       </Label>
                       <p className="text-lg font-semibold text-gray-700">
@@ -1613,13 +1723,21 @@ export function ReceivedInvoices() {
                         <div className="flex items-center gap-3">
                           <p className="text-lg font-semibold text-green-600">
                             {(() => {
-                              const total = selectedInvoice.total_amount || 0;
-                              const isPesek =
-                                selectedInvoice.supplier_id ===
-                                PESEK_SUPPLIER_ID;
-                              return total.toLocaleString("cs-CZ", {
-                                minimumFractionDigits: isPesek ? 2 : 0,
-                                maximumFractionDigits: isPesek ? 2 : 0,
+                              // Calculate total with VAT (same as table "Celkem s DPH")
+                              const totalWithVAT = (
+                                selectedInvoice.items || []
+                              ).reduce((sum, item) => {
+                                const lineTotal = item.line_total || 0;
+                                const vatRate =
+                                  item.tax_rate ?? item.ingredient?.vat ?? 12;
+                                const vatMultiplier = 1 + vatRate / 100;
+                                const itemWithVat = lineTotal * vatMultiplier;
+                                return sum + itemWithVat;
+                              }, 0);
+
+                              return totalWithVAT.toLocaleString("cs-CZ", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
                               });
                             })()}{" "}
                             Kč

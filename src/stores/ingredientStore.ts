@@ -176,6 +176,19 @@ export const useIngredientStore = create<IngredientStore>((set, get) => ({
         console.log("Ingredient ID:", id);
         console.log("Supplier codes to update:", supplier_codes);
         
+        // Get existing codes first to handle deletions
+        const { data: existingCodes, error: fetchError } = await supabase
+          .from("ingredient_supplier_codes")
+          .select("id, ingredient_id, supplier_id, product_code")
+          .eq("ingredient_id", id);
+
+        if (fetchError) {
+          console.error("=== DEBUG STORE: Fetch existing codes error ===", fetchError);
+          throw new Error(`Chyba při načítání existujících kódů: ${fetchError.message}`);
+        }
+
+        console.log("=== DEBUG STORE: Existing codes found ===", existingCodes);
+        
         if (supplier_codes && supplier_codes.length > 0) {
           // Validate all codes before proceeding
           const codesToUpsert = supplier_codes.map((code: any) => ({
@@ -205,18 +218,22 @@ export const useIngredientStore = create<IngredientStore>((set, get) => ({
           console.log("=== DEBUG STORE: Validation passed, proceeding with upsert ===");
           console.log("Mapped codes to upsert:", codesToUpsert);
 
-          // Get existing codes to identify which ones to update vs insert
-          const { data: existingCodes, error: fetchError } = await supabase
-            .from("ingredient_supplier_codes")
-            .select("id, ingredient_id, supplier_id, product_code")
-            .eq("ingredient_id", id);
-
-          if (fetchError) {
-            console.error("=== DEBUG STORE: Fetch existing codes error ===", fetchError);
-            throw new Error(`Chyba při načítání existujících kódů: ${fetchError.message}`);
+          // Find codes to delete (exist in DB but not in new codes array)
+          const codesToDelete: any[] = [];
+          if (existingCodes) {
+            for (const existingCode of existingCodes) {
+              const stillExists = codesToUpsert.some(
+                (newCode: any) =>
+                  newCode.supplier_id === existingCode.supplier_id &&
+                  ((!existingCode.product_code && !newCode.product_code) || 
+                   (existingCode.product_code === newCode.product_code))
+              );
+              
+              if (!stillExists) {
+                codesToDelete.push(existingCode);
+              }
+            }
           }
-
-          console.log("=== DEBUG STORE: Existing codes found ===", existingCodes);
 
           // Separate codes into updates and inserts
           const codesToUpdate: any[] = [];
@@ -246,8 +263,24 @@ export const useIngredientStore = create<IngredientStore>((set, get) => ({
             }
           }
 
+          console.log("=== DEBUG STORE: Codes to delete ===", codesToDelete);
           console.log("=== DEBUG STORE: Codes to update ===", codesToUpdate);
           console.log("=== DEBUG STORE: Codes to insert ===", codesToInsert);
+
+          // Delete removed codes
+          if (codesToDelete.length > 0) {
+            const idsToDelete = codesToDelete.map((code) => code.id);
+            const { error: deleteError } = await supabase
+              .from("ingredient_supplier_codes")
+              .delete()
+              .in("id", idsToDelete);
+
+            if (deleteError) {
+              console.error("=== DEBUG STORE: Delete error ===", deleteError);
+              throw new Error(`Chyba při mazání kódů dodavatelů: ${deleteError.message}`);
+            }
+            console.log("=== DEBUG STORE: Codes deleted successfully ===", idsToDelete);
+          }
 
           // Update existing codes
           if (codesToUpdate.length > 0) {
@@ -279,11 +312,23 @@ export const useIngredientStore = create<IngredientStore>((set, get) => ({
             console.log("=== DEBUG STORE: New codes inserted successfully ===");
           }
 
-          console.log("=== DEBUG STORE: Supplier codes upserted successfully ===");
-          console.log(`Updated: ${codesToUpdate.length}, Inserted: ${codesToInsert.length}`);
+          console.log("=== DEBUG STORE: Supplier codes synchronized successfully ===");
+          console.log(`Deleted: ${codesToDelete.length}, Updated: ${codesToUpdate.length}, Inserted: ${codesToInsert.length}`);
+        } else if (supplier_codes.length === 0 && existingCodes && existingCodes.length > 0) {
+          // If supplier_codes is empty but there are existing codes, delete all of them
+          const idsToDelete = existingCodes.map((code: any) => code.id);
+          const { error: deleteError } = await supabase
+            .from("ingredient_supplier_codes")
+            .delete()
+            .in("id", idsToDelete);
+
+          if (deleteError) {
+            console.error("=== DEBUG STORE: Delete all codes error ===", deleteError);
+            throw new Error(`Chyba při mazání všech kódů dodavatelů: ${deleteError.message}`);
+          }
+          console.log("=== DEBUG STORE: All codes deleted successfully ===", idsToDelete);
+          console.log(`Deleted: ${idsToDelete.length}, Updated: 0, Inserted: 0`);
         }
-        // Note: We don't delete any codes - all existing codes are preserved
-        // Only codes explicitly in the form are updated/inserted
       }
 
       // Refresh ingredients list

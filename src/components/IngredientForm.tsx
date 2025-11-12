@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -155,19 +156,8 @@ export function IngredientForm() {
   }, [fetchCategories]);
 
   // Load products that use this ingredient
-  const loadProductsUsingIngredient = async (
-    ingredientId: number,
-    ingredientName?: string,
-    ingredientUnit?: string
-  ) => {
-    console.log("=== DEBUG: LOADING PRODUCTS FOR INGREDIENT ===");
-    console.log("Ingredient ID:", ingredientId);
-    console.log("Ingredient Name:", ingredientName || formData.name || "N/A");
-    console.log("Ingredient Unit:", ingredientUnit || formData.unit || "N/A");
-
+  const loadProductsUsingIngredient = async (ingredientId: number) => {
     if (!ingredientId) {
-      console.error("=== DEBUG: INVALID INGREDIENT ID ===");
-      console.error("Ingredient ID is null, undefined, or 0");
       toast({
         title: "Chyba",
         description: "Neplatné ID suroviny",
@@ -178,12 +168,6 @@ export function IngredientForm() {
 
     setLoadingProducts(true);
     try {
-      console.log("=== DEBUG: STARTING DATABASE QUERY FOR PRODUCTS ===");
-      console.log("Query params:", {
-        table: "product_parts",
-        ingredient_id: ingredientId,
-      });
-
       const { data: productParts, error } = await supabase
         .from("product_parts")
         .select(
@@ -200,64 +184,29 @@ export function IngredientForm() {
         .eq("ingredient_id", ingredientId)
         .not("products", "is", null);
 
-      console.log("=== DEBUG: QUERY COMPLETE ===");
-      console.log("Error:", error);
-      console.log("Data:", productParts);
-
       if (error) {
-        console.error("=== DEBUG: DATABASE ERROR DETECTED ===");
-        console.error("Error object:", error);
-        console.error("Error message:", error.message);
         throw error;
       }
 
-      console.log("=== DEBUG: RAW PRODUCT PARTS DATA ===");
-      console.log(
-        "Total product_parts records found:",
-        productParts?.length || 0
-      );
-      console.log("Raw data:", productParts);
-
       if (productParts && productParts.length > 0) {
-        console.log("=== DEBUG: PROCESSING PRODUCT PARTS ===");
-
         const productsWithQuantity = productParts
           .map((pp) => {
             const product = pp.products as any;
-            const processed = {
+            return {
               id: product.id,
               name: product.name,
               quantity: pp.quantity,
               category_id: product.category_id,
             };
-
-            console.log("Processed product:", processed);
-            return processed;
           })
           .filter((product) => product !== null && "name" in product)
           .sort((a, b) => a.name.localeCompare(b.name, "cs"));
 
-        console.log("=== DEBUG: FINAL PRODUCTS LIST ===");
-        console.log(
-          "Total products after processing:",
-          productsWithQuantity.length
-        );
-        console.log("Sorted products:", productsWithQuantity);
-
         setProductsUsingIngredient(productsWithQuantity);
-        console.log("=== DEBUG: PRODUCTS STATE UPDATED ===");
       } else {
-        console.log("=== DEBUG: NO PRODUCTS FOUND ===");
-        console.log("This ingredient is not used in any products");
         setProductsUsingIngredient([]);
       }
-
-      console.log("=== DEBUG: END LOADING PRODUCTS ===");
     } catch (error: any) {
-      console.error("=== DEBUG: CATCH BLOCK ERROR ===");
-      console.error("Error:", error);
-      console.error("Error message:", error?.message);
-
       toast({
         title: "Chyba",
         description: `Nepodařilo se načíst produkty používající tuto surovinu: ${error?.message || "Neznámá chyba"}`,
@@ -265,24 +214,12 @@ export function IngredientForm() {
       });
     } finally {
       setLoadingProducts(false);
-      console.log("=== DEBUG: LOADING COMPLETE ===");
     }
   };
 
   // Load recipes that use this ingredient
-  const loadRecipesUsingIngredient = async (
-    ingredientId: number,
-    ingredientName?: string,
-    ingredientUnit?: string
-  ) => {
-    console.log("=== DEBUG: LOADING RECIPES FOR INGREDIENT ===");
-    console.log("Ingredient ID:", ingredientId);
-    console.log("Ingredient Name:", ingredientName || formData.name || "N/A");
-    console.log("Ingredient Unit:", ingredientUnit || formData.unit || "N/A");
-
+  const loadRecipesUsingIngredient = async (ingredientId: number) => {
     if (!ingredientId) {
-      console.error("=== DEBUG: INVALID INGREDIENT ID ===");
-      console.error("Ingredient ID is null, undefined, or 0");
       toast({
         title: "Chyba",
         description: "Neplatné ID suroviny",
@@ -293,12 +230,6 @@ export function IngredientForm() {
 
     setLoadingRecipes(true);
     try {
-      console.log("=== DEBUG: STARTING DATABASE QUERY ===");
-      console.log("Query params:", {
-        table: "recipe_ingredients",
-        ingredient_id: ingredientId,
-      });
-
       const { data: recipeIngredients, error } = await supabase
         .from("recipe_ingredients")
         .select(
@@ -320,42 +251,15 @@ export function IngredientForm() {
         .eq("ingredient_id", ingredientId)
         .not("recipes", "is", null);
 
-      console.log("=== DEBUG: QUERY COMPLETE ===");
-      console.log("Error:", error);
-      console.log("Data:", recipeIngredients);
-
       if (error) {
-        console.error("=== DEBUG: DATABASE ERROR DETECTED ===");
-        console.error("Error object:", error);
-        console.error("Error message:", error.message);
-        console.error("Error details:", error.details);
-        console.error("Error hint:", error.hint);
-        console.error("Error code:", error.code);
         throw error;
       }
 
-      console.log("=== DEBUG: RAW RECIPE INGREDIENTS DATA ===");
-      console.log(
-        "Total recipe_ingredients records found:",
-        recipeIngredients?.length || 0
-      );
-      console.log("Raw data:", recipeIngredients);
-
       if (recipeIngredients && recipeIngredients.length > 0) {
-        console.log("=== DEBUG: PROCESSING RECIPE INGREDIENTS ===");
-
-        recipeIngredients.forEach((ri, index) => {
-          console.log(`Recipe Ingredient ${index + 1}:`, {
-            recipe_id: ri.recipe_id,
-            quantity: ri.quantity,
-            recipe: ri.recipes,
-          });
-        });
-
         const recipesWithQuantity = recipeIngredients
           .map((ri) => {
             const recipe = ri.recipes as any;
-            const processed = {
+            return {
               id: recipe.id,
               name: recipe.name,
               quantity: ri.quantity,
@@ -366,56 +270,15 @@ export function IngredientForm() {
               test: recipe.test,
               category_id: recipe.category_id,
             };
-
-            console.log("Processed recipe:", processed);
-            return processed;
           })
           .filter((recipe) => recipe !== null && "name" in recipe)
           .sort((a, b) => a.name.localeCompare(b.name, "cs"));
 
-        console.log("=== DEBUG: FINAL RECIPES LIST ===");
-        console.log(
-          "Total recipes after processing:",
-          recipesWithQuantity.length
-        );
-        console.log("Sorted recipes:", recipesWithQuantity);
-
-        recipesWithQuantity.forEach((recipe, index) => {
-          const unit = ingredientUnit || formData.unit || "jednotka";
-          console.log(`Recipe ${index + 1}:`, {
-            id: recipe.id,
-            name: recipe.name,
-            quantity: `${recipe.quantity} ${unit}`,
-            types: [
-              recipe.baker && "Pekař",
-              recipe.pastry && "Cukrář",
-              recipe.donut && "Donut",
-              recipe.store && "Prodejna",
-              recipe.test && "Test",
-            ]
-              .filter(Boolean)
-              .join(", "),
-          });
-        });
-
         setRecipesUsingIngredient(recipesWithQuantity);
-        console.log("=== DEBUG: RECIPES STATE UPDATED ===");
       } else {
-        console.log("=== DEBUG: NO RECIPES FOUND ===");
-        console.log("This ingredient is not used in any recipes");
         setRecipesUsingIngredient([]);
       }
-
-      console.log("=== DEBUG: END LOADING RECIPES ===");
     } catch (error: any) {
-      console.error("=== DEBUG: CATCH BLOCK ERROR ===");
-      console.error("Error type:", typeof error);
-      console.error("Error:", error);
-      console.error("Error name:", error?.name);
-      console.error("Error message:", error?.message);
-      console.error("Error stack:", error?.stack);
-      console.error("Full error object:", JSON.stringify(error, null, 2));
-
       toast({
         title: "Chyba",
         description: `Nepodařilo se načíst recepty používající tuto surovinu: ${error?.message || "Neznámá chyba"}`,
@@ -423,58 +286,13 @@ export function IngredientForm() {
       });
     } finally {
       setLoadingRecipes(false);
-      console.log("=== DEBUG: LOADING COMPLETE ===");
     }
   };
 
   // Reset form when opening/closing
   useEffect(() => {
     if (isFormOpen) {
-      console.log("=== FORM OPENED ===");
-      console.log("isEditMode:", isEditMode);
-      console.log("isLoading:", isLoading);
-
-      // Check if form element exists
-      setTimeout(() => {
-        const formElement = document.getElementById("ingredient-form");
-        console.log("Form element exists:", !!formElement);
-        console.log("Form element:", formElement);
-      }, 100);
-
       if (isEditMode && selectedIngredient) {
-        console.log("Loading ingredient for edit:", selectedIngredient);
-        console.log(
-          "Supplier codes from ingredient:",
-          selectedIngredient.ingredient_supplier_codes
-        );
-
-        // Debug supplier code prices vs main price
-        if (
-          selectedIngredient.ingredient_supplier_codes &&
-          selectedIngredient.ingredient_supplier_codes.length > 0
-        ) {
-          console.log("=== PRICE COMPARISON ===");
-          console.log(
-            "Main ingredient price:",
-            selectedIngredient.price,
-            "Kč per",
-            selectedIngredient.unit
-          );
-          console.log("Unit:", selectedIngredient.unit);
-          console.log("Kilo per unit:", selectedIngredient.kiloPerUnit);
-          selectedIngredient.ingredient_supplier_codes.forEach(
-            (code: any, index: number) => {
-              console.log(`Supplier code #${index + 1}:`, {
-                supplier_id: code.supplier_id,
-                price: code.price,
-                is_active: code.is_active,
-                product_code: code.product_code,
-              });
-            }
-          );
-          console.log("=== END PRICE COMPARISON ===");
-        }
-
         setFormData({
           name: selectedIngredient.name,
           category_id: selectedIngredient.category_id,
@@ -511,17 +329,9 @@ export function IngredientForm() {
             is_active: code.is_active,
           })),
         });
-        // Load recipes and products that use this ingredient (pass ingredient data directly since state hasn't updated yet)
-        loadRecipesUsingIngredient(
-          selectedIngredient.id,
-          selectedIngredient.name,
-          selectedIngredient.unit
-        );
-        loadProductsUsingIngredient(
-          selectedIngredient.id,
-          selectedIngredient.name,
-          selectedIngredient.unit
-        );
+        // Load recipes and products that use this ingredient
+        loadRecipesUsingIngredient(selectedIngredient.id);
+        loadProductsUsingIngredient(selectedIngredient.id);
       } else {
         setFormData(initialFormData);
         setRecipesUsingIngredient([]);
@@ -579,12 +389,9 @@ export function IngredientForm() {
   // Price and supplier codes are now managed independently through the UI
 
   const validateForm = (): boolean => {
-    console.log("=== VALIDATE FORM CALLED ===");
-    console.log("Current form data:", formData);
     const errors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
-      console.log("Validation error: Name is empty");
       errors.name = "Název je povinný";
     }
 
@@ -615,73 +422,29 @@ export function IngredientForm() {
 
     // Validate supplier codes before submission to prevent data loss
     if (formData.supplier_codes && formData.supplier_codes.length > 0) {
-      console.log("Validating supplier codes:", formData.supplier_codes);
       formData.supplier_codes.forEach((code, index) => {
         if (!code.supplier_id) {
-          console.log(`Supplier code ${index}: Missing supplier_id`);
           errors[`supplier_code_${index}_supplier`] =
             `Kód dodavatele #${index + 1}: Musí být vybrán dodavatel`;
         }
-        // Product code is optional - removed validation
-        // if (!code.product_code || code.product_code.trim() === "") {
-        //   console.log(`Supplier code ${index}: Missing or empty product_code`);
-        //   errors[`supplier_code_${index}_code`] =
-        //     `Kód dodavatele #${index + 1}: Musí být vyplněn kód produktu`;
-        // }
         if (code.price === null || code.price === undefined || code.price < 0) {
-          console.log(`Supplier code ${index}: Invalid price (${code.price})`);
           errors[`supplier_code_${index}_price`] =
             `Kód dodavatele #${index + 1}: Musí být vyplněna platná cena (≥ 0)`;
         }
       });
     }
 
-    console.log("=== VALIDATION COMPLETE ===");
-    console.log("Total errors found:", Object.keys(errors).length);
-    console.log("Errors:", errors);
-
     setValidationErrors(errors);
-    const isValid = Object.keys(errors).length === 0;
-    console.log("Returning validation result:", isValid);
-    return isValid;
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    console.log("=== HANDLE SUBMIT CALLED ===");
-    console.log("Event:", e);
-    console.log("Event type:", e.type);
-    console.log("isEditMode:", isEditMode);
-    console.log("selectedIngredient:", selectedIngredient);
-
     e.preventDefault();
-    console.log("After preventDefault");
 
-    console.log("=== STARTING VALIDATION ===");
     const isValid = validateForm();
-    console.log("Validation result:", isValid);
-    console.log("Validation errors:", validationErrors);
-
     if (!isValid) {
-      console.log("=== VALIDATION FAILED - STOPPING ===");
-      console.log("Errors:", validationErrors);
       return;
     }
-
-    console.log("=== VALIDATION PASSED ===");
-
-    console.log("=== DEBUG: SAVING INGREDIENT ===");
-    console.log("Form data:", formData);
-    console.log("Supplier codes:", formData.supplier_codes);
-    formData.supplier_codes.forEach((code, index) => {
-      console.log(`Supplier code ${index}:`, {
-        supplier_id: code.supplier_id,
-        product_code: code.product_code,
-        supplier_ingredient_name: code.supplier_ingredient_name,
-        price: code.price,
-        package: code.package,
-        is_active: code.is_active,
-      });
-    });
 
     try {
       // Additional validation for supplier codes to prevent data loss
@@ -715,9 +478,6 @@ export function IngredientForm() {
 
       // If there's an active supplier, update main ingredient data to match
       if (activeSupplier) {
-        console.log("=== DEBUG: SYNCING WITH ACTIVE SUPPLIER ===");
-        console.log("Active supplier:", activeSupplier);
-
         dataToSave.supplier_id = activeSupplier.supplier_id;
 
         // Update package if supplier has one
@@ -729,66 +489,24 @@ export function IngredientForm() {
         if (activeSupplier.supplier_ingredient_name) {
           dataToSave.name = activeSupplier.supplier_ingredient_name;
         }
-
-        console.log("Updated main ingredient data:", {
-          supplier_id: dataToSave.supplier_id,
-          package: dataToSave.package,
-          name: dataToSave.name,
-        });
       }
 
       if (isEditMode && selectedIngredient) {
-        console.log("=== UPDATING EXISTING INGREDIENT ===");
-        console.log("Ingredient ID:", selectedIngredient.id);
-        console.log("Data to save:", dataToSave);
+        await updateIngredient(selectedIngredient.id, dataToSave);
 
-        try {
-          const result = await updateIngredient(
-            selectedIngredient.id,
-            dataToSave
-          );
-          console.log("Update result:", result);
-
-          toast({
-            title: "Úspěch",
-            description: "Ingredience byla úspěšně upravena",
-          });
-          console.log("=== UPDATE SUCCESS ===");
-        } catch (updateError) {
-          console.error("=== UPDATE ERROR ===", updateError);
-          throw updateError;
-        }
+        toast({
+          title: "Úspěch",
+          description: "Ingredience byla úspěšně upravena",
+        });
       } else {
-        console.log("=== CREATING NEW INGREDIENT ===");
-        console.log("Data to save:", dataToSave);
+        await createIngredient(dataToSave);
 
-        try {
-          const result = await createIngredient(dataToSave);
-          console.log("Create result:", result);
-
-          toast({
-            title: "Úspěch",
-            description: "Ingredience byla úspěšně vytvořena",
-          });
-          console.log("=== CREATE SUCCESS ===");
-        } catch (createError) {
-          console.error("=== CREATE ERROR ===", createError);
-          throw createError;
-        }
+        toast({
+          title: "Úspěch",
+          description: "Ingredience byla úspěšně vytvořena",
+        });
       }
-      console.log("=== DEBUG: SAVE COMPLETE ===");
     } catch (error) {
-      console.error("=== DEBUG: SAVE FAILED ===");
-      console.error("Error object:", error);
-      console.error("Error type:", typeof error);
-      console.error(
-        "Error message:",
-        error instanceof Error ? error.message : String(error)
-      );
-      console.error(
-        "Error stack:",
-        error instanceof Error ? error.stack : "N/A"
-      );
       const errorMessage =
         error instanceof Error
           ? error.message
@@ -802,10 +520,6 @@ export function IngredientForm() {
 
       // If we're in edit mode and there was an error, don't close the form
       // so user can see the error and try again
-      if (isEditMode && selectedIngredient) {
-        // Keep form open so user can retry
-        console.log("Form kept open due to error - user can retry");
-      }
     }
   };
 
@@ -857,11 +571,9 @@ export function IngredientForm() {
       <DialogContent
         className="max-w-2xl max-h-[90vh] overflow-y-auto"
         onInteractOutside={(e) => {
-          console.log("=== INTERACT OUTSIDE DIALOG ===");
           e.preventDefault();
         }}
         onEscapeKeyDown={(e) => {
-          console.log("=== ESCAPE KEY PRESSED ===");
           e.preventDefault();
         }}
       >
@@ -880,11 +592,12 @@ export function IngredientForm() {
                 </>
               )}
             </div>
-            {/* <div className="text-xs text-muted-foreground font-normal flex items-center gap-1">
-              <Save className="h-3 w-3" />
-              Tlačítko uložit je dole
-            </div> */}
           </DialogTitle>
+          <DialogDescription>
+            {isEditMode
+              ? "Upravte informace o surovině, včetně dodavatelů a cen."
+              : "Vytvořte novou surovinu s informacemi o dodavatelích a cenách."}
+          </DialogDescription>
         </DialogHeader>
 
         <form
@@ -1453,6 +1166,60 @@ export function IngredientForm() {
                                             variant="ghost"
                                             size="sm"
                                             onClick={() => {
+                                              // If deleting the active code, make another code active first
+                                              const codeToDelete =
+                                                formData.supplier_codes[
+                                                  originalIndex
+                                                ];
+                                              if (codeToDelete.is_active) {
+                                                // Find another code from the same supplier to make active
+                                                const otherMainCode =
+                                                  mainSupplierCodes.find(
+                                                    (code) => {
+                                                      const idx =
+                                                        formData.supplier_codes.findIndex(
+                                                          (c) => c === code
+                                                        );
+                                                      return (
+                                                        idx !== originalIndex
+                                                      );
+                                                    }
+                                                  );
+
+                                                if (otherMainCode) {
+                                                  const otherIndex =
+                                                    formData.supplier_codes.findIndex(
+                                                      (c) => c === otherMainCode
+                                                    );
+                                                  const newCodes =
+                                                    formData.supplier_codes.map(
+                                                      (code, i) => ({
+                                                        ...code,
+                                                        is_active:
+                                                          i === otherIndex,
+                                                      })
+                                                    );
+                                                  // Remove the code
+                                                  const finalCodes =
+                                                    newCodes.filter(
+                                                      (_, i) =>
+                                                        i !== originalIndex
+                                                    );
+                                                  handleInputChange(
+                                                    "supplier_codes",
+                                                    finalCodes
+                                                  );
+
+                                                  toast({
+                                                    title: "Kód smazán",
+                                                    description:
+                                                      "Aktivní dodavatel byl přepnut na jiný kód.",
+                                                  });
+                                                  return;
+                                                }
+                                              }
+
+                                              // Regular deletion (not active code)
                                               const newCodes =
                                                 formData.supplier_codes.filter(
                                                   (_, i) => i !== originalIndex
@@ -1461,6 +1228,12 @@ export function IngredientForm() {
                                                 "supplier_codes",
                                                 newCodes
                                               );
+
+                                              toast({
+                                                title: "Kód smazán",
+                                                description:
+                                                  "Kód dodavatele byl úspěšně odebrán.",
+                                              });
                                             }}
                                             className="text-red-600 hover:text-red-800"
                                           >
@@ -1591,11 +1364,77 @@ export function IngredientForm() {
                               variant="ghost"
                               size="sm"
                               onClick={() => {
+                                // Check if any of the codes being deleted is active
+                                const hasActiveCode = codes.some(
+                                  (c) =>
+                                    formData.supplier_codes[c.originalIndex]
+                                      ?.is_active
+                                );
+
+                                if (hasActiveCode) {
+                                  // Find another code not in this group to make active
+                                  const remainingCode =
+                                    formData.supplier_codes.find(
+                                      (_, i) =>
+                                        !codes.some(
+                                          (c) => c.originalIndex === i
+                                        )
+                                    );
+
+                                  if (remainingCode) {
+                                    const remainingIndex =
+                                      formData.supplier_codes.findIndex(
+                                        (c) => c === remainingCode
+                                      );
+                                    const newCodes = formData.supplier_codes
+                                      .map((code, i) => ({
+                                        ...code,
+                                        is_active: i === remainingIndex,
+                                      }))
+                                      .filter(
+                                        (_, i) =>
+                                          !codes.some(
+                                            (c) => c.originalIndex === i
+                                          )
+                                      );
+
+                                    handleInputChange(
+                                      "supplier_codes",
+                                      newCodes
+                                    );
+
+                                    // Update main supplier_id to match the new active code
+                                    const newActiveCode = newCodes.find(
+                                      (c) => c.is_active
+                                    );
+                                    if (newActiveCode) {
+                                      handleInputChange(
+                                        "supplier_id",
+                                        newActiveCode.supplier_id
+                                      );
+                                    }
+
+                                    toast({
+                                      title: "Dodavatel odebrán",
+                                      description:
+                                        "Aktivní dodavatel byl přepnut na jiný kód.",
+                                    });
+                                    return;
+                                  }
+                                }
+
+                                // Regular deletion (no active codes in this group)
                                 const newCodes = formData.supplier_codes.filter(
                                   (_, i) =>
                                     !codes.some((c) => c.originalIndex === i)
                                 );
                                 handleInputChange("supplier_codes", newCodes);
+
+                                toast({
+                                  title: "Dodavatel odebrán",
+                                  description:
+                                    "Všechny kódy dodavatele byly odstraněny.",
+                                });
                               }}
                               className="text-red-600 hover:text-red-800"
                             >
@@ -1758,6 +1597,67 @@ export function IngredientForm() {
                                           variant="ghost"
                                           size="sm"
                                           onClick={() => {
+                                            // If deleting the active code, make another code active first
+                                            const codeToDelete =
+                                              formData.supplier_codes[
+                                                supplierCode.originalIndex
+                                              ];
+                                            if (codeToDelete.is_active) {
+                                              // Find another code from any supplier to make active
+                                              const otherCode =
+                                                formData.supplier_codes.find(
+                                                  (_, i) =>
+                                                    i !==
+                                                    supplierCode.originalIndex
+                                                );
+
+                                              if (otherCode) {
+                                                const otherIndex =
+                                                  formData.supplier_codes.findIndex(
+                                                    (c) => c === otherCode
+                                                  );
+                                                const newCodes =
+                                                  formData.supplier_codes.map(
+                                                    (code, i) => ({
+                                                      ...code,
+                                                      is_active:
+                                                        i === otherIndex,
+                                                    })
+                                                  );
+                                                // Remove the code
+                                                const finalCodes =
+                                                  newCodes.filter(
+                                                    (_, i) =>
+                                                      i !==
+                                                      supplierCode.originalIndex
+                                                  );
+                                                handleInputChange(
+                                                  "supplier_codes",
+                                                  finalCodes
+                                                );
+
+                                                // Update main supplier_id to match the new active code
+                                                const newActiveCode =
+                                                  finalCodes.find(
+                                                    (c) => c.is_active
+                                                  );
+                                                if (newActiveCode) {
+                                                  handleInputChange(
+                                                    "supplier_id",
+                                                    newActiveCode.supplier_id
+                                                  );
+                                                }
+
+                                                toast({
+                                                  title: "Kód smazán",
+                                                  description:
+                                                    "Aktivní dodavatel byl přepnut na jiný kód.",
+                                                });
+                                                return;
+                                              }
+                                            }
+
+                                            // Regular deletion (not active code)
                                             const newCodes =
                                               formData.supplier_codes.filter(
                                                 (_, i) =>
@@ -1768,6 +1668,12 @@ export function IngredientForm() {
                                               "supplier_codes",
                                               newCodes
                                             );
+
+                                            toast({
+                                              title: "Kód smazán",
+                                              description:
+                                                "Kód dodavatele byl úspěšně odebrán.",
+                                            });
                                           }}
                                           className="text-red-600 hover:text-red-800"
                                         >
@@ -2367,15 +2273,6 @@ export function IngredientForm() {
               form="ingredient-form"
               disabled={isLoading}
               className="bg-orange-600 hover:bg-orange-700"
-              onClick={(e) => {
-                console.log("=== BUTTON CLICKED ===");
-                console.log("Button type:", e.currentTarget.type);
-                console.log("Button disabled:", e.currentTarget.disabled);
-                console.log("isLoading:", isLoading);
-                console.log("isEditMode:", isEditMode);
-                console.log("Form ID:", e.currentTarget.form?.id);
-                console.log("=== END BUTTON CLICK ===");
-              }}
             >
               <Save className="h-4 w-4 mr-2" />
               {isLoading

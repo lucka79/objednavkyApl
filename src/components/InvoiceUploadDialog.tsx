@@ -1154,7 +1154,7 @@ export function InvoiceUploadDialog() {
                   : (editedQuantities[item.id] ?? item.quantity); // Fallback to počet MU (use edited value if available)
             }
 
-            // Always use Cena/kg for Makro supplier (regardless of checkbox state)
+            // For Makro: ALWAYS use Cena/kg column for unit_price (regardless of format)
             let displayedUnitPrice: number;
             displayedUnitPrice =
               editedPricePerKg[item.id] ??
@@ -1261,7 +1261,7 @@ export function InvoiceUploadDialog() {
                   : `totalWeightKg: ${editedTotalWeights[item.id] ?? item.totalWeightKg}${editedTotalWeights[item.id] !== undefined ? " (edited)" : ""}`
                 : null,
               displayedInCenaKg: isMakro
-                ? `Cena/kg: ${editedPricePerKg[item.id] ?? item.pricePerKg ?? item.basePrice ?? item.price}`
+                ? `Cena/kg: ${editedPricePerKg[item.id] ?? item.pricePerKg ?? item.basePrice ?? item.price} (vždy)`
                 : null,
               savedQuantity: quantity,
               savedUnitPrice: unitPrice,
