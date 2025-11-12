@@ -46,6 +46,7 @@ class InvoiceItem(BaseModel):
     unit_of_measure: Optional[str] = None
     unit_price: float = 0
     line_total: float = 0
+    line_amount: Optional[float] = None  # LE-CO: Celkem (amount without VAT: quantity × unit_price)
     line_number: int = 0
     base_price: Optional[float] = None  # MAKRO: zákl. cena (base price per package)
     units_in_mu: Optional[float] = None  # MAKRO: jedn. v MU (units in measurement unit)
@@ -250,7 +251,7 @@ async def process_invoice(request: ProcessInvoiceRequest):
             # Remove any trailing non-digit characters that might have been captured
             total_amount_str = re.sub(r'[^\d\s,\.]+$', '', total_amount_str).strip()
             total_amount = extract_number(total_amount_str)
-            # Round to 2 decimal places for currency (especially important for Le-co "ZBÝVÁ K ÚHRADĚ")
+            # Round to 2 decimal places for currency (especially important for Le-co "CELKEM")
             total_amount = round(total_amount, 2)
             logger.info(f"💰 Total amount extracted: '{total_amount_str}' (cleaned) -> {total_amount}")
         else:
@@ -2090,20 +2091,24 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         
                         # If we found product_code or at least some fields, use this format
                         if product_code or description or quantity > 0:
-                            # For Leco format (9 groups), calculate line_total with VAT: quantity * unit_price * (1 + vat_rate/100)
+                            # For Leco format (9 groups), calculate line_amount (without VAT) and line_total (with VAT)
+                            # line_amount = quantity * unit_price (Celkem column)
+                            # line_total = line_amount * (1 + vat_rate/100) (Celkem s DPH column)
                             # This is more accurate than OCR extraction because Czech space thousands separators are problematic
+                            line_amount = None
                             if len(groups) == 9 and quantity > 0 and unit_price > 0 and vat_rate:
-                                calculated_line_total_no_vat = quantity * unit_price
-                                calculated_line_total_with_vat = calculated_line_total_no_vat * (1 + vat_rate / 100)
-                                logger.info(f"Leco format detected (9 groups) - calculating line_total with VAT: {quantity} * {unit_price} * (1 + {vat_rate}/100) = {calculated_line_total_with_vat:.2f} (was: {line_total})")
+                                line_amount = quantity * unit_price
+                                calculated_line_total_with_vat = line_amount * (1 + vat_rate / 100)
+                                logger.info(f"Leco format detected (9 groups) - calculating line_amount: {quantity} * {unit_price} = {line_amount:.2f}")
+                                logger.info(f"Leco format detected (9 groups) - calculating line_total with VAT: {line_amount:.2f} * (1 + {vat_rate}/100) = {calculated_line_total_with_vat:.2f} (was: {line_total})")
                                 line_total = calculated_line_total_with_vat
                             elif len(groups) == 9 and quantity > 0 and unit_price > 0 and not vat_rate:
                                 # Fallback: calculate without VAT if vat_rate is missing
-                                calculated_line_total = quantity * unit_price
-                                logger.warning(f"Leco format detected (9 groups) but vat_rate missing - calculating line_total without VAT: {quantity} * {unit_price} = {calculated_line_total} (was: {line_total})")
-                                line_total = calculated_line_total
+                                line_amount = quantity * unit_price
+                                logger.warning(f"Leco format detected (9 groups) but vat_rate missing - calculating line_amount: {quantity} * {unit_price} = {line_amount:.2f}")
+                                line_total = line_amount
                             
-                            logger.info(f"Extracting interactive labeling format ({len(groups)} groups) - code: {product_code}, description: {description}, quantity: {quantity} {unit_of_measure}, unit_price: {unit_price}, total: {line_total}, vat_rate: {vat_rate}, vat_amount: {vat_amount}, total_with_vat: {total_with_vat}")
+                            logger.info(f"Extracting interactive labeling format ({len(groups)} groups) - code: {product_code}, description: {description}, quantity: {quantity} {unit_of_measure}, unit_price: {unit_price}, line_amount: {line_amount}, total: {line_total}, vat_rate: {vat_rate}, vat_amount: {vat_amount}, total_with_vat: {total_with_vat}")
                             
                             # Apply code corrections if configured
                             corrected_code = apply_code_corrections(product_code, code_corrections) if product_code else None
@@ -2119,6 +2124,7 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                                 unit_of_measure=unit_of_measure,
                                 unit_price=unit_price,
                                 line_total=line_total,
+                                line_amount=line_amount,
                                 vat_rate=vat_rate,
                                 vat_amount=vat_amount,
                                 total_with_vat=total_with_vat,
