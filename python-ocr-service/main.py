@@ -658,7 +658,10 @@ def extract_line_items(
     elif display_layout.lower() in ['leco', 'le-co']:
         logger.info("🔧 Le-co display_layout detected - using proven Le-co patterns")
         # Le-co pattern: 9 groups (code, description, quantity, unit, unit_price, line_total, vat_rate, vat_amount, total_with_vat)
-        table_columns['line_pattern'] = r'^(\d+)\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\s.,%()-]+?)\s+(\d[\d,\.]*)\s+([A-Za-z]{1,5})\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+(\d+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)'
+        # Czech number format: "1 603,50" (space as thousands separator, comma as decimal separator)
+        # Pattern for Czech numbers: \d+(?:,\d+)? (e.g., "106,90" or "15")
+        # Pattern for Czech numbers with spaces: \d{1,3}(?:\s\d{3})*(?:,\d+)? (e.g., "1 603,50" or "192,42")
+        table_columns['line_pattern'] = r'^(\d+)\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\s.,%()-]+?)\s+(\d+(?:,\d+)?)\s+([A-Za-z]{1,5})\s+(\d+(?:,\d+)?)\s+(\d{1,3}(?:\s\d{3})*(?:,\d+)?)\s+(\d+)\s+(\d{1,3}(?:\s\d{3})*(?:,\d+)?)\s+(\d{1,3}(?:\s\d{3})*(?:,\d+)?)'
         logger.info(f"   Using Le-co line_pattern (9 groups): {table_columns['line_pattern']}")
         
         # Le-co total amount pattern: "CELKEM" with space thousands separator
@@ -1412,11 +1415,14 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
             
             # If primary pattern doesn't match, try Le-co fallback pattern (9 groups format)
             # Le-co format: code, description, quantity, unit, unit_price, line_total, vat_rate, vat_amount, total_with_vat
-            # Example: "486510 BORŮVKY KANADSKÉ VAN. 125g 1,000 BAG 53,70 53,70 12 6,44 60,14"
+            # Example: "717 Šunka vepřová plátkovaná 1000g 15 ks 106,90 1 603,50 12 192,42 1 795,92"
+            # Czech number format: "1 603,50" (space as thousands separator, comma as decimal separator)
             if not match:
                 # Check if line starts with product code (digits) and might be Le-co format
                 # Le-co pattern: KÓD POPIS MNOŽSTVÍ JEDNOTKA CENA/J CELKEM DPH% DPH_ČÁSTKA CELKEM_S_DPH
-                leco_pattern = r'^(\d+)\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\s.,%()-]+?)\s+(\d[\d,\.]*)\s+([A-Za-z]{1,5})\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+(\d+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)'
+                # Pattern for Czech numbers: \d+(?:,\d+)? (e.g., "106,90" or "15")
+                # Pattern for Czech numbers with spaces: \d{1,3}(?:\s\d{3})*(?:,\d+)? (e.g., "1 603,50" or "192,42")
+                leco_pattern = r'^(\d+)\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\s.,%()-]+?)\s+(\d+(?:,\d+)?)\s+([A-Za-z]{1,5})\s+(\d+(?:,\d+)?)\s+(\d{1,3}(?:\s\d{3})*(?:,\d+)?)\s+(\d+)\s+(\d{1,3}(?:\s\d{3})*(?:,\d+)?)\s+(\d{1,3}(?:\s\d{3})*(?:,\d+)?)'
                 leco_match = re.match(leco_pattern, line)
                 if leco_match and len(leco_match.groups()) == 9:
                     # Use Le-co pattern as fallback only if main pattern didn't match
