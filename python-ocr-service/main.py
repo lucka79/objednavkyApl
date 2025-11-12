@@ -303,6 +303,15 @@ async def process_invoice(request: ProcessInvoiceRequest):
             else:
                 logger.warning(f"⚠️ Total amount is 0.00 and cannot be calculated from line items (no valid line_total values)")
         
+        # Le-co specific: Round up total amount to whole crowns (Czech rounding practice for cash payments)
+        display_layout = request.template_config.get('display_layout', '')
+        if display_layout.lower() in ['leco', 'le-co'] and total_amount > 0:
+            original_total = total_amount
+            import math
+            total_amount = math.ceil(total_amount)
+            if total_amount != original_total:
+                logger.info(f"💰 Le-co rounding: {original_total:.2f} Kč -> {total_amount:.2f} Kč (rounded up to whole crowns)")
+        
         # Calculate confidence based on extracted data
         confidence = calculate_confidence({
             'invoice_number': invoice_number,
