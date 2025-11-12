@@ -294,6 +294,15 @@ async def process_invoice(request: ProcessInvoiceRequest):
             for qr in qr_codes:
                 logger.info(f"  Page {qr.page}: {qr.type} - {qr.data[:100]}...")
         
+        # Fallback: If total_amount is 0 or very small, calculate from line items (with VAT included)
+        if total_amount <= 0.01 and items:
+            calculated_total = sum(item.line_total for item in items if item.line_total > 0)
+            if calculated_total > 0:
+                total_amount = round(calculated_total, 2)
+                logger.info(f"💰 Total amount was 0.00, calculated from line items: {calculated_total:.2f} -> {total_amount}")
+            else:
+                logger.warning(f"⚠️ Total amount is 0.00 and cannot be calculated from line items (no valid line_total values)")
+        
         # Calculate confidence based on extracted data
         confidence = calculate_confidence({
             'invoice_number': invoice_number,
