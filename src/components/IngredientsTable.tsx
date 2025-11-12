@@ -721,6 +721,9 @@ export function IngredientsTable() {
       className="cursor-pointer hover:bg-orange-50 transition-colors"
       style={{ userSelect: "none" }}
     >
+      <TableCell className="w-[60px]">
+        <span className="text-xs text-gray-500 font-mono">{ingredient.id}</span>
+      </TableCell>
       <TableCell className="font-medium w-[200px]">
         <div className="flex flex-col gap-0.5">
           {(() => {
@@ -1294,6 +1297,7 @@ export function IngredientsTable() {
                       <Table>
                         <TableHeader>
                           <TableRow>
+                            <TableHead className="w-[60px]">ID</TableHead>
                             <TableHead className="w-[200px]">Název</TableHead>
                             <TableHead className="w-[150px]">
                               Dodavatel
@@ -1327,7 +1331,7 @@ export function IngredientsTable() {
                           {/* Add fake empty row to help with border display */}
                           <TableRow className="h-0">
                             <TableCell
-                              colSpan={14}
+                              colSpan={15}
                               className="p-0 border-0"
                             ></TableCell>
                           </TableRow>
@@ -1351,6 +1355,7 @@ export function IngredientsTable() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[60px]">ID</TableHead>
                       <TableHead className="w-[200px]">Název</TableHead>
                       <TableHead className="w-[150px]">Dodavatel</TableHead>
                       <TableHead className="w-[120px]">Kód</TableHead>
@@ -1380,7 +1385,7 @@ export function IngredientsTable() {
                     {/* Add fake empty row to help with border display */}
                     <TableRow className="h-0">
                       <TableCell
-                        colSpan={14}
+                        colSpan={15}
                         className="p-0 border-0"
                       ></TableCell>
                     </TableRow>
@@ -1401,6 +1406,7 @@ export function IngredientsTable() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[60px]">ID</TableHead>
                       <TableHead className="w-[200px]">Název</TableHead>
                       <TableHead className="w-[150px]">Dodavatel</TableHead>
                       <TableHead className="w-[120px]">Kód</TableHead>
@@ -1430,7 +1436,7 @@ export function IngredientsTable() {
                     {/* Add fake empty row to help with border display */}
                     <TableRow className="h-0">
                       <TableCell
-                        colSpan={14}
+                        colSpan={15}
                         className="p-0 border-0"
                       ></TableCell>
                     </TableRow>

@@ -657,6 +657,11 @@ def extract_line_items(
         # Le-co pattern: 9 groups (code, description, quantity, unit, unit_price, line_total, vat_rate, vat_amount, total_with_vat)
         table_columns['line_pattern'] = r'^(\d+)\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\s.,%()-]+?)\s+(\d[\d,\.]*)\s+([A-Za-z]{1,5})\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+(\d+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)'
         logger.info(f"   Using Le-co line_pattern (9 groups): {table_columns['line_pattern']}")
+        
+        # Le-co total amount pattern: "ZBÝVÁ K ÚHRADĚ" with space thousands separator
+        # Example: "ZBÝVÁ K ÚHRADĚ 1 796,00 Kč" -> captures "1 796,00"
+        patterns['total_amount'] = r'ZBÝVÁ K ÚHRADĚ\s+(\d{1,3}(?:\s\d{3})*,\d{2})\s*(?:Kč|CZK)'
+        logger.info(f"   Using Le-co total_amount: {patterns['total_amount']}")
     elif display_layout.lower() == 'pesek':
         logger.info("🔧 Pešek display_layout detected - using proven Pešek multi-line patterns")
         # Pešek pattern: 6 groups (multi-line format)
@@ -2083,10 +2088,17 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         
                         # If we found product_code or at least some fields, use this format
                         if product_code or description or quantity > 0:
-                            # For Leco format (9 groups), calculate line_total = quantity * unit_price for accuracy
-                            if len(groups) == 9 and quantity > 0 and unit_price > 0:
+                            # For Leco format (9 groups), calculate line_total with VAT: quantity * unit_price * (1 + vat_rate/100)
+                            # This is more accurate than OCR extraction because Czech space thousands separators are problematic
+                            if len(groups) == 9 and quantity > 0 and unit_price > 0 and vat_rate:
+                                calculated_line_total_no_vat = quantity * unit_price
+                                calculated_line_total_with_vat = calculated_line_total_no_vat * (1 + vat_rate / 100)
+                                logger.info(f"Leco format detected (9 groups) - calculating line_total with VAT: {quantity} * {unit_price} * (1 + {vat_rate}/100) = {calculated_line_total_with_vat:.2f} (was: {line_total})")
+                                line_total = calculated_line_total_with_vat
+                            elif len(groups) == 9 and quantity > 0 and unit_price > 0 and not vat_rate:
+                                # Fallback: calculate without VAT if vat_rate is missing
                                 calculated_line_total = quantity * unit_price
-                                logger.info(f"Leco format detected (9 groups) - calculating line_total: {quantity} * {unit_price} = {calculated_line_total} (was: {line_total})")
+                                logger.warning(f"Leco format detected (9 groups) but vat_rate missing - calculating line_total without VAT: {quantity} * {unit_price} = {calculated_line_total} (was: {line_total})")
                                 line_total = calculated_line_total
                             
                             logger.info(f"Extracting interactive labeling format ({len(groups)} groups) - code: {product_code}, description: {description}, quantity: {quantity} {unit_of_measure}, unit_price: {unit_price}, total: {line_total}, vat_rate: {vat_rate}, vat_amount: {vat_amount}, total_with_vat: {total_with_vat}")

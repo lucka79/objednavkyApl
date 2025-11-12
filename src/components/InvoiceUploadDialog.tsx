@@ -232,7 +232,12 @@ export function InvoiceUploadDialog() {
       return parsedInvoice.items.reduce((sum, item) => {
         const finalTotalWeight =
           editedTotalWeights[item.id] ?? item.totalWeightKg ?? 0;
-        const finalPrice = editedPrices[item.id] ?? item.price ?? 0;
+        // Use pricePerKg if available (calculated from description weight by Python service)
+        const calculatedPricePerKg = item.pricePerKg ?? item.price ?? 0;
+        const finalPrice =
+          editedPricePerKg[item.id] ??
+          editedPrices[item.id] ??
+          calculatedPricePerKg;
         return (
           sum +
           parseFloat((Math.floor(finalTotalWeight) * finalPrice).toFixed(2))
@@ -642,6 +647,22 @@ export function InvoiceUploadDialog() {
               calculated_totalWeightKg: mappedItem.totalWeightKg,
               calculated_pricePerKgWithoutVat: mappedItem.pricePerKgWithoutVat,
             });
+          }
+
+          // Debug log for Zeelandia items with calculated pricePerKg
+          if (item.price_per_kg && item.price_per_kg !== item.unit_price) {
+            console.log(
+              `🟢 Zeelandia item ${index + 1} - Weight extracted from description:`,
+              {
+                description: item.description,
+                unit_price: item.unit_price,
+                calculated_pricePerKg: item.price_per_kg,
+                total_weight_kg: item.total_weight_kg,
+                package_weight: item.package_weight,
+                package_weight_unit: item.package_weight_unit,
+                calculation: `${item.unit_price} Kč / weight in description = ${item.price_per_kg} Kč/kg`,
+              }
+            );
           }
 
           return mappedItem;
@@ -1163,15 +1184,23 @@ export function InvoiceUploadDialog() {
             quantity = displayedQuantity;
             unitPrice = displayedUnitPrice;
           } else if (isZeelandia) {
-            // For Zeelandia: use total_weight (with units) as quantity (preserve decimals)
-            // Support both KG and PCE units
+            // For Zeelandia: use totalWeightKg (calculated, e.g., 100 kg) as quantity
+            // When weight is in description (e.g., "10kg"), totalWeightKg = quantity × weight
             const rawTotalWeight =
               editedTotalWeights[item.id] ??
-              item.total_weight ??
-              item.totalWeightKg;
+              item.totalWeightKg ??
+              item.total_weight;
             quantity = parseFloat(rawTotalWeight?.toString() || "0");
+            // Use pricePerKg (calculated, e.g., 83.9 Kč/kg) as unit_price
+            // When weight is in description, pricePerKg = unit_price / weight
             unitPrice = parseFloat(
-              ((editedPrices[item.id] ?? item.price) || 0).toString()
+              (
+                (editedPricePerKg[item.id] ??
+                  editedPrices[item.id] ??
+                  item.pricePerKg ??
+                  item.price) ||
+                0
+              ).toString()
             ); // Zeelandia uses decimal prices
           } else if (isDekos) {
             // For Dekos: calculate total quantity in pieces and price per piece
@@ -1266,7 +1295,7 @@ export function InvoiceUploadDialog() {
               savedQuantity: quantity,
               savedUnitPrice: unitPrice,
               savedUnitOfMeasure: isZeelandia
-                ? (item.total_weight_unit || item.unit || "kg").toLowerCase()
+                ? "kg" // Zeelandia: always "kg" since we treat PCE as kg
                 : isMakro
                   ? item.ingredientUnit === "ks" &&
                     (ksUnitChecked[item.id] !== undefined
@@ -1300,7 +1329,7 @@ export function InvoiceUploadDialog() {
             line_number: index + 1,
 
             unit_of_measure: isZeelandia
-              ? (item.total_weight_unit || item.unit || "kg").toLowerCase()
+              ? "kg" // Zeelandia: always use "kg" since we treat PCE as kg
               : isMakro
                 ? // For Makro: determine unit based on what quantity represents
                   item.ingredientUnit === "ks" &&
@@ -1961,7 +1990,13 @@ export function InvoiceUploadDialog() {
                             <th className="text-left px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
                               Název
                             </th>
+                            <th className="text-center px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              MJ
+                            </th>
                             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
+                              Obsah
+                            </th>
+                            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200 bg-green-50">
                               <div className="flex items-center justify-end gap-1">
                                 Fakt. mn.
                                 <Pencil className="w-3 h-3 text-gray-400" />
@@ -1969,7 +2004,13 @@ export function InvoiceUploadDialog() {
                             </th>
                             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
                               <div className="flex items-center justify-end gap-1">
-                                Cena/jed → unit_price
+                                Cena/jed
+                                <Pencil className="w-3 h-3 text-gray-400" />
+                              </div>
+                            </th>
+                            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200 bg-green-50">
+                              <div className="flex items-center justify-end gap-1">
+                                Cena/kg
                                 <Pencil className="w-3 h-3 text-gray-400" />
                               </div>
                             </th>
@@ -1983,19 +2024,24 @@ export function InvoiceUploadDialog() {
                         </thead>
                         <tbody className="bg-white">
                           {parsedInvoice.items.map((item: any) => {
-                            // Get unit information - prioritize new fields with units
+                            // For Zeelandia: prioritize totalWeightKg (calculated) over total_weight
+                            // When weight is extracted from description (e.g., "10kg"), totalWeightKg is correct
                             const totalWeightValue =
-                              (item.total_weight || item.totalWeightKg) ?? 0;
-                            const totalWeightUnit = (
-                              item.total_weight_unit ||
-                              (item.totalWeightKg ? "KG" : "")
-                            ).toLowerCase();
+                              item.totalWeightKg ?? item.total_weight ?? 0;
+                            const totalWeightUnit = "kg"; // Always kg for Zeelandia
+
+                            // For Zeelandia: use pricePerKg if available (calculated from description weight)
+                            // Example: "Vejce 10kg" → pricePerKg = unit_price / 10
+                            const calculatedPricePerKg =
+                              item.pricePerKg ?? item.price ?? 0;
 
                             // Calculate price total using edited values if available
                             const finalTotalWeight =
                               editedTotalWeights[item.id] ?? totalWeightValue;
                             const finalPrice =
-                              editedPrices[item.id] ?? item.price ?? 0;
+                              editedPricePerKg[item.id] ??
+                              editedPrices[item.id] ??
+                              calculatedPricePerKg;
                             const priceTotal = parseFloat(
                               (
                                 Math.floor(finalTotalWeight) * finalPrice
@@ -2022,6 +2068,35 @@ export function InvoiceUploadDialog() {
                                 {/* Název */}
                                 <td className="px-3 py-2 text-sm text-gray-900 border-r border-gray-200">
                                   {item.name || "-"}
+                                </td>
+                                {/* MJ (Unit of measure) */}
+                                <td className="px-3 py-2 text-center text-xs text-gray-600 border-r border-gray-200">
+                                  {item.quantity
+                                    ? `${item.quantity.toLocaleString("cs-CZ")} ${
+                                        item.unit || ""
+                                      }`
+                                    : "-"}
+                                </td>
+                                {/* Obsah (Package weight) */}
+                                <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
+                                  {item.package_weight &&
+                                  item.package_weight_unit
+                                    ? `${item.package_weight.toLocaleString(
+                                        "cs-CZ",
+                                        {
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2,
+                                        }
+                                      )} ${item.package_weight_unit.toLowerCase()}`
+                                    : item.packageWeightKg
+                                      ? `${item.packageWeightKg.toLocaleString(
+                                          "cs-CZ",
+                                          {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          }
+                                        )} kg`
+                                      : "-"}
                                 </td>
                                 {/* Fakt. mn. - This will be saved as quantity */}
                                 <td className="px-3 py-2 text-right text-sm text-gray-900 border-r border-gray-200">
@@ -2099,20 +2174,29 @@ export function InvoiceUploadDialog() {
                                 {/* Cena/jed - This will be saved as unit_price */}
                                 <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
                                   {editingItemId === item.id &&
-                                  editingField === "price" ? (
+                                  (editingField === "price" ||
+                                    editingField === "pricePerKg") ? (
                                     <Input
                                       type="number"
                                       step="0.01"
                                       value={
-                                        editedPrices[item.id] !== undefined
-                                          ? editedPrices[item.id].toString()
-                                          : (item.price ?? 0).toString()
+                                        editedPricePerKg[item.id] !== undefined
+                                          ? editedPricePerKg[item.id].toString()
+                                          : editedPrices[item.id] !== undefined
+                                            ? editedPrices[item.id].toString()
+                                            : calculatedPricePerKg.toString()
                                       }
                                       onChange={(e) => {
                                         const value = e.target.value;
+                                        const parsedValue =
+                                          parseFloat(value) || 0;
+                                        setEditedPricePerKg((prev) => ({
+                                          ...prev,
+                                          [item.id]: parsedValue,
+                                        }));
                                         setEditedPrices((prev) => ({
                                           ...prev,
-                                          [item.id]: parseFloat(value) || 0,
+                                          [item.id]: parsedValue,
                                         }));
                                       }}
                                       onBlur={() => {
@@ -2126,6 +2210,11 @@ export function InvoiceUploadDialog() {
                                         }
                                         if (e.key === "Escape") {
                                           setEditedPrices((prev) => {
+                                            const newState = { ...prev };
+                                            delete newState[item.id];
+                                            return newState;
+                                          });
+                                          setEditedPricePerKg((prev) => {
                                             const newState = { ...prev };
                                             delete newState[item.id];
                                             return newState;
@@ -2148,17 +2237,96 @@ export function InvoiceUploadDialog() {
                                         setEditingField("price");
                                       }}
                                       className="cursor-pointer hover:bg-gray-100 px-1 rounded"
-                                      title="Klikněte pro úpravu"
+                                      title="Klikněte pro úpravu (stejné jako Cena/kg)"
                                     >
                                       {(
+                                        editedPricePerKg[item.id] ??
                                         editedPrices[item.id] ??
-                                        item.price ??
-                                        0
+                                        calculatedPricePerKg
                                       ).toLocaleString("cs-CZ", {
                                         minimumFractionDigits: 2,
                                         maximumFractionDigits: 2,
                                       })}{" "}
                                       Kč
+                                    </span>
+                                  )}
+                                </td>
+                                {/* Cena/kg - Same as Cena/jed (PCE = kg) */}
+                                <td className="px-3 py-2 text-right text-sm text-green-600 font-medium border-r border-gray-200 bg-green-50">
+                                  {editingItemId === item.id &&
+                                  (editingField === "price" ||
+                                    editingField === "pricePerKg") ? (
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={
+                                        editedPricePerKg[item.id] !== undefined
+                                          ? editedPricePerKg[item.id].toString()
+                                          : editedPrices[item.id] !== undefined
+                                            ? editedPrices[item.id].toString()
+                                            : calculatedPricePerKg.toString()
+                                      }
+                                      onChange={(e) => {
+                                        const value = e.target.value;
+                                        const parsedValue =
+                                          parseFloat(value) || 0;
+                                        setEditedPricePerKg((prev) => ({
+                                          ...prev,
+                                          [item.id]: parsedValue,
+                                        }));
+                                        setEditedPrices((prev) => ({
+                                          ...prev,
+                                          [item.id]: parsedValue,
+                                        }));
+                                      }}
+                                      onBlur={() => {
+                                        setEditingItemId(null);
+                                        setEditingField(null);
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          setEditingItemId(null);
+                                          setEditingField(null);
+                                        }
+                                        if (e.key === "Escape") {
+                                          setEditedPrices((prev) => {
+                                            const newState = { ...prev };
+                                            delete newState[item.id];
+                                            return newState;
+                                          });
+                                          setEditedPricePerKg((prev) => {
+                                            const newState = { ...prev };
+                                            delete newState[item.id];
+                                            return newState;
+                                          });
+                                          setEditingItemId(null);
+                                          setEditingField(null);
+                                        }
+                                      }}
+                                      onFocus={(e) => {
+                                        e.target.select();
+                                      }}
+                                      autoFocus
+                                      className="h-7 text-sm text-right w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                  ) : (
+                                    <span
+                                      onClick={() => {
+                                        setEditingItemId(item.id);
+                                        setEditingField("pricePerKg");
+                                      }}
+                                      className="cursor-pointer hover:bg-gray-100 px-1 rounded"
+                                      title="Klikněte pro úpravu (stejné jako Cena/jed, PCE = kg)"
+                                    >
+                                      {(
+                                        editedPricePerKg[item.id] ??
+                                        editedPrices[item.id] ??
+                                        calculatedPricePerKg
+                                      ).toLocaleString("cs-CZ", {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}{" "}
+                                      Kč/kg
                                     </span>
                                   )}
                                 </td>
@@ -2248,8 +2416,12 @@ export function InvoiceUploadDialog() {
                                 const finalTotalWeight =
                                   editedTotalWeights[item.id] ??
                                   totalWeightValue;
+                                const calculatedPricePerKg =
+                                  item.pricePerKg ?? item.price ?? 0;
                                 const finalPrice =
-                                  editedPrices[item.id] ?? item.price ?? 0;
+                                  editedPricePerKg[item.id] ??
+                                  editedPrices[item.id] ??
+                                  calculatedPricePerKg;
                                 const priceTotal = parseFloat(
                                   (
                                     Math.floor(finalTotalWeight) * finalPrice

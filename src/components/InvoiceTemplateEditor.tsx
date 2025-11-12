@@ -278,6 +278,7 @@ function TemplateForm({
           date: "Datum uskutečnění plnění:\\s*(\\d{1,2}\\.\\d{1,2}\\.\\d{4})",
           total_amount:
             "Celková částka\\s*(?:\\([^)]+\\))?\\s*:\\s*([\\d ,]+?)(?:\\n|\\r|$)",
+          // Le-co specific: Use "ZBÝVÁ K ÚHRADĚ\\s+(\\d{1,3}(?:\\s\\d{3})*,\\d{2})\\s*(?:Kč|CZK)" for Le-co invoices
           payment_type: "Způsob platby:\\s*([a-zA-Zá-žÁ-Ž]+)",
           table_start: "Označení dodávky",
         },
@@ -288,10 +289,14 @@ function TemplateForm({
           // Format: Description \n Code Quantity+Unit Price VAT% Total
           // line_pattern: "^([^\\n]+?)\\s*\\n\\s*(\\d+)\\s+([\\d,]+)\\s*([a-zA-Z]{1,5})\\s+([\\d,\\s]+)\\s+\\d+\\s*%?\\s*\\d*\\s+([\\d,\\.\\s]+)"
 
-          // ========== PATTERN B: Tab-separated with package quantity ==========
-          // Format: CODE \t PACKAGE_QTY NAME WEIGHT \t PRICE ... \t VAT_AMOUNT
-          // Example: "486510\t1,000 BORŮVKY KANADSKÉ VAN. 125g\t53.7 1 53,70 53,70 12,0\t6,44"
-          // line_pattern: "^(\\d+)\\s+([\\d,]+)\\s+(.+?)\\s+(\\d+[a-zA-Z]+)\\s+([\\d,]+)"
+          // ========== PATTERN B: Le-co (9 fields) ==========
+          // Format: CODE DESCRIPTION QUANTITY UNIT UNIT_PRICE LINE_TOTAL VAT_RATE VAT_AMOUNT TOTAL_WITH_VAT
+          // Example: "486510 BORŮVKY KANADSKÉ VAN. 125g 1,000 BAG 53,70 53,70 12 6,44 60,14"
+          // line_pattern: "^(\\d+)\\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\\s.,%()-]+?)\\s+(\\d[\\d,\\.]*)\\s+([A-Za-z]{1,5})\\s+([\\d\\s,\\.]+)\\s+([\\d\\s,\\.]+)\\s+(\\d+)\\s+([\\d\\s,\\.]+)\\s+([\\d\\s,\\.]+)"
+          // IMPORTANT: For Le-co, also set total_amount pattern to: "ZBÝVÁ K ÚHRADĚ\\s+(\\d{1,3}(?:\\s\\d{3})*,\\d{2})\\s*(?:Kč|CZK)"
+          // This handles Czech number format with space thousands separator (e.g., "1 796,00")
+          // NOTE: Line total (Celkem s DPH) is CALCULATED as: Množství * Cena/jednotka * (1 + DPH%/100)
+          // This avoids OCR issues with Czech space thousands separators
 
           // ========== PATTERN C: Zeelandia (single-line) ==========
           // Format: CODE Description Quantity+Unit Obsah Fakt.mn UnitPrice TotalPrice Currency VAT%
@@ -302,6 +307,8 @@ function TemplateForm({
           // Groups:    1       2                          3   4   5      6   7      8   9     10       11 12
           // Description pattern: letters + optional weight (e.g. "Bolognese 5kg", "Rosette 1")
           // Note: Cena/jed (group 9) is saved as unit_price in items_received table
+          // Le-co Note: For Le-co format (9 groups), line_total is CALCULATED as: quantity * unit_price * (1 + vat_rate/100)
+          //   This avoids OCR errors with Czech space thousands separators in "Celkem s DPH" column
           // Special handling: When obsah_unit is "pce" and description contains weight (e.g., "10kg"),
           //   system extracts weight from description and calculates:
           //   - total_weight_kg = quantity × weight_per_piece (e.g., 10 BKT × 10kg = 100 kg)
@@ -541,8 +548,8 @@ function TemplateForm({
                 Albert (bez kódů, jen názvy)
               </SelectItem>
               <SelectItem value="leco">
-                Le-co (9 polí: kód, popis, množství, jednotka, cena/jed, celkem,
-                DPH%, DPH částka, celkem s DPH)
+                Le-co (9 polí, "ZBÝVÁ K ÚHRADĚ" + vypočítaná řádková částka s
+                DPH)
               </SelectItem>
               <SelectItem value="goodmills">
                 Goodmills (multi-line: data + popis)
