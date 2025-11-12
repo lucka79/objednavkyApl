@@ -665,8 +665,9 @@ def extract_line_items(
         logger.info(f"   Using Le-co line_pattern (9 groups): {table_columns['line_pattern']}")
         
         # Le-co total amount pattern: "CELKEM" with space thousands separator
-        # Example: "CELKEM 1 796,00 Kč" -> captures "1 796,00"
-        patterns['total_amount'] = r'CELKEM\s+(\d{1,3}(?:\s\d{3})*,\d{2})\s*(?:Kč|CZK)'
+        # Example: "Vystavil(a): Michala Dobešová CELKEM 1 796,00 Kč" -> captures "1 796,00"
+        # Use word boundary to ensure we match "CELKEM" as a whole word
+        patterns['total_amount'] = r'\bCELKEM\s+(\d{1,3}(?:\s\d{3})*,\d{2})\s*(?:Kč|CZK)'
         logger.info(f"   Using Le-co total_amount: {patterns['total_amount']}")
     elif display_layout.lower() == 'pesek':
         logger.info("🔧 Pešek display_layout detected - using proven Pešek multi-line patterns")
