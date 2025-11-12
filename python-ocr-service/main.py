@@ -250,6 +250,8 @@ async def process_invoice(request: ProcessInvoiceRequest):
             # Remove any trailing non-digit characters that might have been captured
             total_amount_str = re.sub(r'[^\d\s,\.]+$', '', total_amount_str).strip()
             total_amount = extract_number(total_amount_str)
+            # Round to 2 decimal places for currency (especially important for Le-co "ZBÝVÁ K ÚHRADĚ")
+            total_amount = round(total_amount, 2)
             logger.info(f"💰 Total amount extracted: '{total_amount_str}' (cleaned) -> {total_amount}")
         else:
             total_amount = 0
@@ -658,9 +660,9 @@ def extract_line_items(
         table_columns['line_pattern'] = r'^(\d+)\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\s.,%()-]+?)\s+(\d[\d,\.]*)\s+([A-Za-z]{1,5})\s+([\d\s,\.]+)\s+([\d\s,\.]+)\s+(\d+)\s+([\d\s,\.]+)\s+([\d\s,\.]+)'
         logger.info(f"   Using Le-co line_pattern (9 groups): {table_columns['line_pattern']}")
         
-        # Le-co total amount pattern: "ZBÝVÁ K ÚHRADĚ" with space thousands separator
-        # Example: "ZBÝVÁ K ÚHRADĚ 1 796,00 Kč" -> captures "1 796,00"
-        patterns['total_amount'] = r'ZBÝVÁ K ÚHRADĚ\s+(\d{1,3}(?:\s\d{3})*,\d{2})\s*(?:Kč|CZK)'
+        # Le-co total amount pattern: "CELKEM" with space thousands separator
+        # Example: "CELKEM 1 796,00 Kč" -> captures "1 796,00"
+        patterns['total_amount'] = r'CELKEM\s+(\d{1,3}(?:\s\d{3})*,\d{2})\s*(?:Kč|CZK)'
         logger.info(f"   Using Le-co total_amount: {patterns['total_amount']}")
     elif display_layout.lower() == 'pesek':
         logger.info("🔧 Pešek display_layout detected - using proven Pešek multi-line patterns")
