@@ -504,6 +504,7 @@ function TemplateForm({
                 "dekos",
                 "backaldrin",
                 "albert",
+                "fabio",
                 "leco",
                 "goodmills",
               ].includes(formData.display_layout)
@@ -524,6 +525,7 @@ function TemplateForm({
                     "dekos",
                     "backaldrin",
                     "albert",
+                    "fabio",
                     "leco",
                     "goodmills",
                   ].includes(formData.display_layout)
@@ -578,6 +580,7 @@ function TemplateForm({
             "dekos",
             "backaldrin",
             "albert",
+            "fabio",
             "leco",
             "goodmills",
           ].includes(formData.display_layout) && (
