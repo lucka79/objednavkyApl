@@ -331,27 +331,35 @@ export function IngredientMapping({
                 const similarity = ingredient.similarity || 0;
                 const isTopMatch = idx === 0 && similarity > 0.5;
                 const hasExactCode = ingredient.hasExactCode;
+                const isInactive = ingredient.active === false;
 
                 return (
                   <SelectItem
                     key={ingredient.id}
                     value={ingredient.id.toString()}
                     className={`text-xs ${
-                      hasExactCode
-                        ? "bg-green-50 font-semibold"
-                        : isTopMatch
-                          ? "bg-blue-50 font-semibold"
-                          : ""
+                      isInactive
+                        ? "bg-gray-100 text-gray-600"
+                        : hasExactCode
+                          ? "bg-green-50 font-semibold"
+                          : isTopMatch
+                            ? "bg-blue-50 font-semibold"
+                            : ""
                     }`}
                   >
-                    {hasExactCode && (
+                    {hasExactCode && !isInactive && (
                       <span className="text-green-600 mr-1">✓</span>
                     )}
-                    {!hasExactCode && isTopMatch && (
+                    {!hasExactCode && isTopMatch && !isInactive && (
                       <span className="text-blue-600 mr-1">⭐</span>
                     )}
                     {ingredient.name}
-                    {similarity > 0.5 && !hasExactCode && (
+                    {isInactive && (
+                      <span className="ml-2 text-xs text-gray-500 italic">
+                        (neaktivní)
+                      </span>
+                    )}
+                    {similarity > 0.5 && !hasExactCode && !isInactive && (
                       <span className="ml-2 text-xs text-blue-600">
                         {Math.round(similarity * 100)}%
                       </span>
