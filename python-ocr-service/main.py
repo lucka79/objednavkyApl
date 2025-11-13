@@ -359,6 +359,11 @@ def fix_ocr_errors(text: str) -> str:
     # This corrects OCR error where lowercase "l" should be uppercase "L" for liters
     text = re.sub(r'(\d+)l(?=\s|$|,)', r'\1L', text)
     
+    # Fix 2.7: "5bkg" or "8bkg" should be "5 kg" or "8 kg" (Backaldrin format)
+    # OCR error: space between number and unit is read as "b"
+    # Pattern: digit(s) + "b" + unit (kg, ks, g)
+    text = re.sub(r'(\d+)b(kg|ks|g)(?=\s|$|,)', r'\1 \2', text)
+    
     # Fix 3: VAT percentage - "12 5" should be "12 %"
     # Only in table rows (NOT after ":" to avoid fixing amounts like "95 223,00")
     # Match when: 1-2 digits + optional space + "5" + space + digits + comma/space (table format)
@@ -652,12 +657,13 @@ def extract_line_items(
         # Backaldrin pattern: 9 groups (with optional pipe separator before VAT)
         # Format: CODE DESCRIPTION QTY1 UNIT1 QTY2 UNIT2 UNIT_PRICE TOTAL VAT%
         # Example: "02289250 Růhrmix LC 25 kg 25 kg 91,400 2 285,00 12%"
-        # Note: Description can contain letters, numbers, spaces (e.g., "Růhrmix LC", "Cortina Spezial SG 15 kg")
+        # Example: "02550250 Maková náplň standard 25 kg 75kg 69,200 5 190,00 12%"
+        # Note: Description can contain package size (e.g., "standard 25 kg", "Blue 8 kg")
         # Pattern captures: code(8 digits), description, qty1, unit1, qty2, unit2, unit_price, total, vat_percent
         # Czech number format: "2 285,00" (space as thousands separator, comma as decimal separator)
         # Optional pipe "|" before VAT% (some invoices have it, some don't)
-        # Description: Allow letters, numbers, spaces, but stop before first standalone number (qty1)
-        table_columns['line_pattern'] = r'^(\d{8})\s+([A-Za-zá-žÁ-Ž0-9\s]+?)\s+(\d+)\s+(kg|ks|l|g)\s+(\d+)\s+(kg|ks|l|g)\s+([\d,]+)\s+([\d\s,]+)\s*\|?\s*(\d+)%'
+        # Description: Use negative lookahead to stop before "DIGIT UNIT DIGIT UNIT PRICE" pattern
+        table_columns['line_pattern'] = r'^(\d{8})\s+(.+?)\s+(\d+)\s*(kg|ks|l|g)\s+(\d+)\s*(kg|ks|l|g)\s+([\d,]+)\s+([\d\s,]+)\s*\|?\s*(\d+)%'
         logger.info(f"   Using Backaldrin line_pattern (9 groups): {table_columns['line_pattern']}")
         
         # Backaldrin table boundaries
