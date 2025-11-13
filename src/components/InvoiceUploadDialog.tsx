@@ -60,6 +60,7 @@ import { AddReceivedInvoiceForm } from "./AddReceivedInvoiceForm";
 import {
   PesekLineInvoiceLayout,
   DekosInvoiceLayout,
+  BackaldrinInvoiceLayout,
   AlbertInvoiceLayout,
   LeCoInvoiceLayout,
   FabioInvoiceLayout,
@@ -3462,6 +3463,30 @@ export function InvoiceUploadDialog() {
                         setEditingItemId={setEditingItemId}
                         editingField={editingField}
                         setEditingField={setEditingField}
+                      />
+                    </div>
+                  ) : /* Backaldrin layout for Backaldrin supplier - check by template display_layout */
+                  (() => {
+                      const supplierId = selectedSupplier || invoiceSupplier;
+                      // Check if supplier has a template with display_layout: "backaldrin"
+                      const backaldrinTemplate = templates?.find(
+                        (t: any) =>
+                          t.supplier_id === supplierId &&
+                          t.is_active &&
+                          t.config?.display_layout === "backaldrin"
+                      );
+                      const isBackaldrin = !!backaldrinTemplate;
+                      if (isBackaldrin) {
+                        console.log("✅ Using Backaldrin layout", {
+                          backaldrinTemplate: backaldrinTemplate?.template_name,
+                        });
+                      }
+                      return isBackaldrin;
+                    })() ? (
+                    <div className="mt-2">
+                      <BackaldrinInvoiceLayout
+                        items={parsedInvoice.items}
+                        onUnmap={handleUnmapItem}
                       />
                     </div>
                   ) : (
