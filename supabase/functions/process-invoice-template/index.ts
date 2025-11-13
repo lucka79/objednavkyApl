@@ -362,41 +362,79 @@ async function matchIngredientsWithCodes(
 
       console.log(`📦 Found ${supplierIngredients?.length || 0} ingredient mappings for this supplier`);
 
-      // Simple similarity matching: remove diacritics and compare
+      // Enhanced similarity matching with better normalization
       const normalize = (str: string) => str
         .toLowerCase()
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[\u0300-\u036f]/g, "")  // Remove diacritics
+        .replace(/\([^)]*\)/g, '')  // Remove content in parentheses like "(006)"
+        .replace(/\d+\s*(kg|g|l|ml|ks|pce|bkt|bag|krt)/gi, '')  // Remove quantity+unit patterns
+        .replace(/\s+/g, ' ')  // Normalize whitespace
         .trim();
 
+      // Create variations of the description for better matching
       const normalizedDesc = normalize(description);
+      const descWords = normalizedDesc.split(/\s+/).filter(w => w.length > 2);  // Words longer than 2 chars
+      
+      console.log(`  Normalized description: "${normalizedDesc}"`);
+      console.log(`  Key words: ${descWords.join(', ')}`);
+
       let bestMatch = null;
       let bestScore = 0;
 
       for (const mapping of supplierIngredients || []) {
-        // Check both product_code and ingredient name
         const normalizedCode = normalize(mapping.product_code || '');
         const normalizedName = normalize(mapping.ingredients.name || '');
         
-        // Check if description contains the code/name or vice versa
-        if (normalizedDesc.includes(normalizedCode) || normalizedCode.includes(normalizedDesc)) {
-          const score = Math.max(normalizedCode.length / normalizedDesc.length, normalizedDesc.length / normalizedCode.length);
-          if (score > bestScore) {
-            bestScore = score;
-            bestMatch = mapping;
+        let score = 0;
+        
+        // Method 1: Exact normalized match
+        if (normalizedDesc === normalizedCode) {
+          score = 1.0;
+        }
+        // Method 2: One contains the other (after normalization)
+        else if (normalizedDesc.includes(normalizedCode) && normalizedCode.length > 5) {
+          score = 0.95;
+        }
+        else if (normalizedCode.includes(normalizedDesc) && normalizedDesc.length > 5) {
+          score = 0.95;
+        }
+        // Method 3: Word overlap scoring (better for descriptions with different word order)
+        else {
+          const codeWords = normalizedCode.split(/\s+/).filter(w => w.length > 2);
+          const nameWords = normalizedName.split(/\s+/).filter(w => w.length > 2);
+          
+          // Count matching words with either product_code or ingredient name
+          let matchingWordsCode = 0;
+          for (const word of descWords) {
+            if (codeWords.some(cw => cw.includes(word) || word.includes(cw))) {
+              matchingWordsCode++;
+            }
           }
+          
+          let matchingWordsName = 0;
+          for (const word of descWords) {
+            if (nameWords.some(nw => nw.includes(word) || word.includes(nw))) {
+              matchingWordsName++;
+            }
+          }
+          
+          // Calculate scores for both product_code and ingredient name
+          const codeScore = descWords.length > 0 ? matchingWordsCode / descWords.length : 0;
+          const nameScore = descWords.length > 0 ? matchingWordsName / descWords.length : 0;
+          
+          // Use the better score
+          score = Math.max(codeScore, nameScore);
         }
         
-        if (normalizedDesc.includes(normalizedName) || normalizedName.includes(normalizedDesc)) {
-          const score = Math.max(normalizedName.length / normalizedDesc.length, normalizedDesc.length / normalizedName.length);
-          if (score > bestScore) {
-            bestScore = score;
-            bestMatch = mapping;
-          }
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = mapping;
+          console.log(`  → Better match: "${mapping.product_code}" (score: ${score.toFixed(2)})`);
         }
       }
 
-      if (bestMatch && bestScore > 0.5) {
+      if (bestMatch && bestScore > 0.4) {  // Lowered threshold from 0.5 to 0.4
         console.log(`✅ Fuzzy match found: "${description}" → "${bestMatch.ingredients.name}" (score: ${bestScore.toFixed(2)})`);
         matchedItems.push({
           ...item,
@@ -410,6 +448,9 @@ async function matchIngredientsWithCodes(
         continue;
       } else {
         console.log(`❌ No match found for: "${description}" (best score: ${bestScore.toFixed(2)})`);
+        if (bestMatch) {
+          console.log(`   Best candidate was: "${bestMatch.product_code}" → "${bestMatch.ingredients.name}"`);
+        }
         matchedItems.push({ ...item, match_status: 'no_code' });
         continue;
       }
