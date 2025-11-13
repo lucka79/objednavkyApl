@@ -301,7 +301,8 @@ function TemplateForm({
           // ========== PATTERN C: FABIO (7 fields) ==========
           // Format: DESCRIPTION QUANTITY UNIT UNIT_PRICE LINE_AMOUNT VAT_RATE LINE_TOTAL
           // Example: "Řepkový rafinovaný olej 580 kg kontejner (006) 1,00 ks 19 082,0000 19082,00 12 21 371,84"
-          // line_pattern: "^(.+?)\\s+(\\d+,\\d{2})\\s+(ks|kg|I|KRT|l)\\s+(\\d{1,3}(?:\\s\\d{3})*,\\d{4})\\s+(\\d+,\\d{2})\\s+(\\d{1,2})\\s+(\\d{1,3}(?:\\s\\d{3})*,\\d{2})"
+          // Example: "TATRA smetana na šleh.živočišná 35% 1 I 24,00 ks 95,0000 2 280,00 12 2 553,60"
+          // line_pattern: "^(.+?)\\s+(\\d+,\\d{2})\\s+(ks|kg|I|KRT|l)\\s+(\\d+(?:\\s\\d{3})*,\\d{4})\\s+(\\d+(?:\\s\\d{3})*,\\d{2})\\s+(\\d{1,2})\\s+(\\d+(?:\\s\\d{3})*,\\d{2})"
           // IMPORTANT: For FABIO, set:
           // - invoice_number: "(\\d{5,})" - matches any 5+ digit number
           // - date: "Datum uskutečnění zdanitelného plnění:\\s*©?\\s*(\\d{1,2}\\.\\d{1,2}\\.\\d{4})"
@@ -309,7 +310,8 @@ function TemplateForm({
           // - payment_type: "Forma úhrady:\\s*©?\\s*(.+?)(?:\\s+\\d+\\s*[a-zA-Zá-žÁ-Ž]+)?"
           // - table_start: "Dodací\\s+list"
           // - table_end: "Fakturace\\s+celkem"
-          // NOTE: FABIO doesn't use product codes, LINE_AMOUNT is total without VAT (space optional), LINE_TOTAL is total with VAT
+          // NOTE: FABIO doesn't use product codes. Description can contain package sizes like "10 kg", "1 I".
+          // LINE_AMOUNT/LINE_TOTAL can be with/without space separators: "19082,00" or "2 280,00"
 
           // ========== PATTERN D: Zeelandia (single-line) ==========
           // Format: CODE Description Quantity+Unit Obsah Fakt.mn UnitPrice TotalPrice Currency VAT%
