@@ -629,13 +629,50 @@ def extract_line_items(
     # This ensures proven patterns are always used, regardless of template configuration
     display_layout = template_config.get('display_layout', '')
     
+    # Auto-detect Backaldrin invoices FIRST (before Makro) to prevent false positives
+    # Backaldrin has 8-digit codes, Makro has 4-7 digit codes
+    is_backaldrin_invoice = False
+    if display_layout.lower() == 'backaldrin':
+        is_backaldrin_invoice = True
+        logger.info("🔧 Backaldrin display_layout detected")
+    else:
+        # Auto-detect Backaldrin by looking for characteristic patterns:
+        # 1. "backaldrin" company name in text
+        # 2. Lines matching Backaldrin format: 8-digit code followed by description and prices
+        backaldrin_indicators = [
+            'backaldrin' in raw_text.lower(),
+            re.search(r'^\d{8}\s+[A-Za-zá-žÁ-Ž]+.*?\d+,\d+\s+\d+%', raw_text, re.MULTILINE) is not None
+        ]
+        if any(backaldrin_indicators):
+            is_backaldrin_invoice = True
+            logger.info("🔧 Backaldrin invoice auto-detected from invoice content")
+    
+    if is_backaldrin_invoice:
+        logger.info("🔧 Using proven Backaldrin patterns (permanent)")
+        # Backaldrin pattern: 9 groups (with optional pipe separator before VAT)
+        # Format: CODE DESCRIPTION QTY1 UNIT1 QTY2 UNIT2 UNIT_PRICE TOTAL VAT%
+        # Example: "02289250 Růhrmix LC 25 kg 25 kg 91,400 2 285,00 12%"
+        # Note: Description can contain "20 %" as part of product name (e.g., "Kobliha 20 %")
+        # Pattern captures: code(8 digits), description, qty1, unit1, qty2, unit2, unit_price, total, vat_percent
+        # Czech number format: "2 285,00" (space as thousands separator, comma as decimal separator)
+        # Optional pipe "|" before VAT% (some invoices have it, some don't)
+        table_columns['line_pattern'] = r'^(\d{8})\s+([A-Za-zá-žÁ-Ž]+(?:\s+[A-Za-zá-žÁ-Ž]+)*(?:\s+\d+\s*%)?)\s+([\d,]+)\s+([a-zA-Z]{1,5})\s+([\d,\s]+)\s+([a-zA-Z]{1,5})\s+([\d,\s]+)\s+([\d\s,]+)\s*\|?\s*(\d+)%'
+        logger.info(f"   Using Backaldrin line_pattern (9 groups): {table_columns['line_pattern']}")
+        
+        # Backaldrin table boundaries
+        patterns['table_start'] = r'Předmět\s+zdanitelného\s+plnění'
+        patterns['table_end'] = r'(?:Částky\s+v\s+CZK|Dodací\s+listy)'
+        logger.info(f"   Using Backaldrin table_start: {patterns['table_start']}")
+        logger.info(f"   Using Backaldrin table_end: {patterns['table_end']}")
+    
     # Auto-detect Makro invoices by checking for Makro-specific patterns in the text
     # This makes the Makro pattern permanent - it will always be applied for Makro invoices
+    # Check Makro AFTER Backaldrin to avoid false positives
     is_makro_invoice = False
-    if display_layout.lower() == 'makro':
+    if not is_backaldrin_invoice and display_layout.lower() == 'makro':
         is_makro_invoice = True
         logger.info("🔧 Makro display_layout detected")
-    else:
+    elif not is_backaldrin_invoice:
         # Auto-detect Makro by looking for characteristic patterns:
         # 1. "MAKRO" company name in text
         # 2. Lines matching Makro format: 4-7 digit code followed by decimal quantity
@@ -709,23 +746,6 @@ def extract_line_items(
         # Pattern captures: code, vat_rate, quantity, unit, unit_price, line_total, description
         table_columns['line_pattern'] = r'^(\d{6})\s+(\d+)%\s+([\d\.]+)\s+([A-Z]{2,4})\s+([\d\.]+)\s+([\d\.]+)\s*\n\s*(.+?)(?:\n|$)'
         logger.info(f"   Using Goodmills multi-line pattern (7 groups): {table_columns['line_pattern']}")
-    elif display_layout.lower() == 'backaldrin':
-        logger.info("🔧 Backaldrin display_layout detected - using proven Backaldrin patterns")
-        # Backaldrin pattern: 9 groups (with optional pipe separator before VAT)
-        # Format: CODE DESCRIPTION QTY1 UNIT1 QTY2 UNIT2 UNIT_PRICE TOTAL VAT%
-        # Example: "02289250 Růhrmix LC 25 kg 25 kg 91,400 2 285,00 12%"
-        # Note: Description can contain "20 %" as part of product name (e.g., "Kobliha 20 %")
-        # Pattern captures: code(8 digits), description, qty1, unit1, qty2, unit2, unit_price, total, vat_percent
-        # Czech number format: "2 285,00" (space as thousands separator, comma as decimal separator)
-        # Optional pipe "|" before VAT% (some invoices have it, some don't)
-        table_columns['line_pattern'] = r'^(\d{8})\s+([A-Za-zá-žÁ-Ž]+(?:\s+[A-Za-zá-žÁ-Ž]+)*(?:\s+\d+\s*%)?)\s+([\d,]+)\s+([a-zA-Z]{1,5})\s+([\d,\s]+)\s+([a-zA-Z]{1,5})\s+([\d,\s]+)\s+([\d\s,]+)\s*\|?\s*(\d+)%'
-        logger.info(f"   Using Backaldrin pattern (9 groups): {table_columns['line_pattern']}")
-        
-        # Backaldrin table boundaries
-        patterns['table_start'] = r'Předmět\s+zdanitelného\s+plnění'
-        patterns['table_end'] = r'(?:Částky\s+v\s+CZK|Dodací\s+listy)'
-        logger.info(f"   Using Backaldrin table_start: {patterns['table_start']}")
-        logger.info(f"   Using Backaldrin table_end: {patterns['table_end']}")
     elif display_layout.lower() == 'albert':
         logger.info("🔧 Albert display_layout detected - using proven Albert patterns")
         # Albert pattern: 4 groups (retail format without product codes)
