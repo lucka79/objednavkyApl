@@ -23,6 +23,7 @@ import {
   DekosInvoiceLayout,
   BackaldrinInvoiceLayout,
   AlbertInvoiceLayout,
+  FabioInvoiceLayout,
   LeCoInvoiceLayout,
   GoodmillsInvoiceLayout,
 } from "@/components/invoice-layouts";
@@ -2708,6 +2709,16 @@ function InvoiceTestUpload({ supplierId }: { supplierId: string }) {
                       items={result.items}
                       supplierId={supplierId}
                       onItemMapped={handleItemMapped}
+                    />
+                  );
+                } else if (layout === "fabio") {
+                  return (
+                    <FabioInvoiceLayout
+                      items={result.items}
+                      supplierId={supplierId}
+                      onUnmap={handleUnmap}
+                      onItemMapped={handleItemMapped}
+                      supplierIngredients={ingredients}
                     />
                   );
                 } else if (layout === "leco" || layout === "le-co") {

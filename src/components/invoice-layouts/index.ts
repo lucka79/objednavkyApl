@@ -4,6 +4,7 @@ export { ZeelandiaInvoiceLayout } from "./ZeelandiaInvoiceLayout";
 export { DekosInvoiceLayout } from "./DekosInvoiceLayout";
 export { BackaldrinInvoiceLayout } from "./BackaldrinInvoiceLayout";
 export { AlbertInvoiceLayout } from "./AlbertInvoiceLayout";
+export { FabioInvoiceLayout } from "./FabioInvoiceLayout";
 export { LeCoInvoiceLayout } from "./LeCoInvoiceLayout";
 export { GoodmillsInvoiceLayout } from "./GoodmillsInvoiceLayout";
 export { IngredientMapping } from "./IngredientMapping";
