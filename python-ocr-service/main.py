@@ -719,6 +719,27 @@ def extract_line_items(
         # Weight corrections applied via description_corrections (e.g., "1250" → "125g")
         table_columns['line_pattern'] = r'^(?:[A-Z]\s+)?([A-ZĚŠČŘŽÝÁÍÉÚŮĎŤŇĹ\s]+?)\s+(\d{3,5})\s+([\d,]+)\s+([A-D])\s*$'
         logger.info(f"   Using Albert pattern (4 groups, no product codes): {table_columns['line_pattern']}")
+    elif display_layout.lower() == 'fabio':
+        logger.info("🔧 FABIO display_layout detected - using proven FABIO patterns")
+        # FABIO pattern: 7 groups (description, quantity, unit, unit_price, line_total_no_vat, vat_rate, line_total_with_vat)
+        # Format: Description Quantity Unit UnitPrice LineTotal VATRate LineTotalWithVAT
+        # Example: "Řepkový rafinovaný olej 580 kg kontejner (006) 1,00 ks 19 082,0000 19082,00 12 21 371,84"
+        # Example: "CARLA Fondán blok 15 kg 5,00 ks 435,0000 2 175,00 12 2 436,00"
+        # Czech number format: space as thousands separator, comma as decimal separator
+        # Pattern for Czech numbers with 4 decimals: \d{1,3}(?:\s\d{3})*,\d{4}
+        # Pattern for Czech numbers with 2 decimals: \d{1,3}(?:\s\d{3})*,\d{2}
+        table_columns['line_pattern'] = r'^(.+?)\s+(\d+,\d{2})\s+(ks|kg|I|KRT|l)\s+(\d{1,3}(?:\s\d{3})*,\d{4})\s+(\d{1,3}(?:\s\d{3})*,\d{2})\s+(\d{1,2})\s+(\d{1,3}(?:\s\d{3})*,\d{2})'
+        logger.info(f"   Using FABIO line_pattern (7 groups): {table_columns['line_pattern']}")
+        
+        # FABIO patterns
+        patterns['invoice_number'] = r'Variabilní symbol:\s*(\d+)'
+        patterns['date'] = r'Datum uskutečnění zdanitelného plnění:\s*©?\s*(\d{1,2}\.\d{1,2}\.\d{4})'
+        patterns['total_amount'] = r'Fakturace celkem CZK\s+(\d{1,3}(?:\s\d{3})*,\d{2})'
+        patterns['payment_type'] = r'Forma úhrady:\s*©?\s*([^\n]+)'
+        logger.info(f"   Using FABIO invoice_number: {patterns['invoice_number']}")
+        logger.info(f"   Using FABIO date: {patterns['date']}")
+        logger.info(f"   Using FABIO total_amount: {patterns['total_amount']}")
+        logger.info(f"   Using FABIO payment_type: {patterns['payment_type']}")
     elif display_layout.lower() == 'zeelandia':
         logger.info("🔧 Zeelandia display_layout detected - using pure sequence patterns")
         # Zeelandia: Labels and values are SEPARATED (labels first, values after)
@@ -2242,9 +2263,44 @@ def extract_item_from_line(line: str, table_columns: Dict, line_number: int) -> 
                         price_per_kg=price_per_kg,
                     )
                 elif len(groups) >= 7:
+                    # Check if this is FABIO format (7 groups: description, quantity, unit, unit_price, line_amount, vat_rate, line_total)
+                    # FABIO format: no product code, starts with description, unit in group 2
+                    first_group = groups[0] if len(groups) > 0 else ""
+                    third_group = groups[2] if len(groups) > 2 else ""
+                    is_fabio_format = (len(groups) == 7 and 
+                                      third_group and str(third_group).strip().lower() in ['ks', 'kg', 'i', 'krt', 'l'])
+                    
+                    if is_fabio_format:
+                        # FABIO format: description, quantity, unit, unit_price, line_amount, vat_rate, line_total
+                        logger.info(f"Detected FABIO format (7 groups) - line: {line[:80]}")
+                        description = groups[0].strip() if len(groups) > 0 else None
+                        quantity = extract_number(groups[1]) if len(groups) > 1 else 0
+                        unit_of_measure = groups[2].strip().lower() if len(groups) > 2 else None
+                        unit_price = extract_number(groups[3]) if len(groups) > 3 else 0
+                        line_amount = extract_number(groups[4]) if len(groups) > 4 else 0  # Amount without VAT
+                        vat_rate = extract_number(groups[5]) if len(groups) > 5 else None
+                        line_total = extract_number(groups[6]) if len(groups) > 6 else 0  # Amount with VAT
+                        
+                        logger.info(f"Extracting FABIO format - description: {description[:50] if description else None}, quantity: {quantity} {unit_of_measure}, unit_price: {unit_price}, line_amount: {line_amount}, vat_rate: {vat_rate}, line_total: {line_total}")
+                        
+                        # Apply description corrections if configured
+                        description_corrections = table_columns.get('description_corrections', {})
+                        corrected_description = apply_description_corrections(description, description_corrections) if description else None
+                        
+                        return InvoiceItem(
+                            product_code=None,  # FABIO doesn't use product codes
+                            description=corrected_description,
+                            quantity=quantity,
+                            unit_of_measure=unit_of_measure,
+                            unit_price=unit_price,
+                            line_total=line_total,
+                            line_amount=line_amount,
+                            vat_rate=vat_rate,
+                            line_number=line_number,
+                        )
+                    
                     # Check if this is Dekos format (code contains dot, e.g., "35.0400" or "8.5340-1")
                     # Dekos format should use interactive labeling, not MAKRO format
-                    first_group = groups[0] if len(groups) > 0 else ""
                     # Support codes with dot only (e.g., "35.0400") or with dot and dash (e.g., "8.5340-1")
                     is_dekos_format = first_group and '.' in str(first_group) and re.match(r'^\d+\.\d+(-?\d*)?$', str(first_group))
                     
