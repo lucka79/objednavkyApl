@@ -291,14 +291,22 @@ function TemplateForm({
 
           // ========== PATTERN B: Le-co (9 fields) ==========
           // Format: CODE DESCRIPTION QUANTITY UNIT UNIT_PRICE LINE_TOTAL VAT_RATE VAT_AMOUNT TOTAL_WITH_VAT
-          // Example: "486510 BORŮVKY KANADSKÉ VAN. 125g 1,000 BAG 53,70 53,70 12 6,44 60,14"
-          // line_pattern: "^(\\d+)\\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\\s.,%()-]+?)\\s+(\\d[\\d,\\.]*)\\s+([A-Za-z]{1,5})\\s+([\\d\\s,\\.]+)\\s+([\\d\\s,\\.]+)\\s+(\\d+)\\s+([\\d\\s,\\.]+)\\s+([\\d\\s,\\.]+)"
-          // IMPORTANT: For Le-co, also set total_amount pattern to: "ZBÝVÁ K ÚHRADĚ\\s+(\\d{1,3}(?:\\s\\d{3})*,\\d{2})\\s*(?:Kč|CZK)"
+          // Example: "717 Šunka vepřová plátkovaná 1000g 15 ks 106,90 1 603,50 12 192,42 1 795,92"
+          // line_pattern: "^(\\d+)\\s+([A-Za-zá-žÁ-Ž][A-Za-zá-žÁ-Ž0-9\\s.,%()-]+?)\\s+(\\d+(?:,\\d+)?)\\s+([A-Za-z]{1,5})\\s+(\\d+(?:,\\d+)?)\\s+(\\d{1,3}(?:\\s\\d{3})*(?:,\\d+)?)\\s+(\\d+)\\s+(\\d{1,3}(?:\\s\\d{3})*(?:,\\d+)?)\\s+(\\d{1,3}(?:\\s\\d{3})*(?:,\\d+)?)"
+          // IMPORTANT: For Le-co, also set total_amount pattern to: "\\bCELKEM\\s+(\\d{1,3}(?:\\s\\d{3})*,\\d{2})\\s*(?:Kč|CZK)"
           // This handles Czech number format with space thousands separator (e.g., "1 796,00")
-          // NOTE: Line total (Celkem s DPH) is CALCULATED as: Množství * Cena/jednotka * (1 + DPH%/100)
-          // This avoids OCR issues with Czech space thousands separators
+          // NOTE: Line amount (Celkem) = Množství * Cena/jednotka, Line total (Celkem s DPH) = Line amount * (1 + DPH%/100)
+          // Invoice total is rounded up to whole crowns for cash payments
 
-          // ========== PATTERN C: Zeelandia (single-line) ==========
+          // ========== PATTERN C: FABIO (7 fields) ==========
+          // Format: DESCRIPTION QUANTITY UNIT UNIT_PRICE LINE_AMOUNT VAT_RATE LINE_TOTAL
+          // Example: "Řepkový rafinovaný olej 580 kg kontejner (006) 1,00 ks 19 082,0000 19082,00 12 21 371,84"
+          // line_pattern: "^(.+?)\\s+(\\d+,\\d{2})\\s+(ks|kg|I|KRT|l)\\s+(\\d{1,3}(?:\\s\\d{3})*,\\d{4})\\s+(\\d{1,3}(?:\\s\\d{3})*,\\d{2})\\s+(\\d{1,2})\\s+(\\d{1,3}(?:\\s\\d{3})*,\\d{2})"
+          // IMPORTANT: For FABIO, set invoice_number: "Variabilní symbol:\\s*(\\d+)", date: "Datum uskutečnění zdanitelného plnění:\\s*©?\\s*(\\d{1,2}\\.\\d{1,2}\\.\\d{4})"
+          // total_amount: "Fakturace celkem CZK\\s+(\\d{1,3}(?:\\s\\d{3})*,\\d{2})", payment_type: "Forma úhrady:\\s*©?\\s*([^\\n]+)"
+          // NOTE: FABIO doesn't use product codes, LINE_AMOUNT is total without VAT, LINE_TOTAL is total with VAT
+
+          // ========== PATTERN D: Zeelandia (single-line) ==========
           // Format: CODE Description Quantity+Unit Obsah Fakt.mn UnitPrice TotalPrice Currency VAT%
           // Example: "10000891 ON Hruška gel 1kg 12 BAG 1,00 KG 12,00 KG 64,00 768,00 CZ 2%"
           // Zeelandia pattern - 12 groups total
@@ -547,9 +555,11 @@ function TemplateForm({
               <SelectItem value="albert">
                 Albert (bez kódů, jen názvy)
               </SelectItem>
+              <SelectItem value="fabio">
+                FABIO (7 polí, bez kódů produktů, s celkem bez/s DPH)
+              </SelectItem>
               <SelectItem value="leco">
-                Le-co (9 polí, "ZBÝVÁ K ÚHRADĚ" + vypočítaná řádková částka s
-                DPH)
+                Le-co (9 polí, "CELKEM" + vypočítaná řádková částka s DPH)
               </SelectItem>
               <SelectItem value="goodmills">
                 Goodmills (multi-line: data + popis)
