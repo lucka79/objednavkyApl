@@ -726,9 +726,10 @@ def extract_line_items(
         # Example: "Řepkový rafinovaný olej 580 kg kontejner (006) 1,00 ks 19 082,0000 19082,00 12 21 371,84"
         # Example: "CARLA Fondán blok 15 kg 5,00 ks 435,0000 2 175,00 12 2 436,00"
         # Czech number format: space as thousands separator, comma as decimal separator
-        # Pattern for Czech numbers with 4 decimals: \d{1,3}(?:\s\d{3})*,\d{4}
-        # Pattern for Czech numbers with 2 decimals: \d{1,3}(?:\s\d{3})*,\d{2}
-        table_columns['line_pattern'] = r'^(.+?)\s+(\d+,\d{2})\s+(ks|kg|I|KRT|l)\s+(\d{1,3}(?:\s\d{3})*,\d{4})\s+(\d{1,3}(?:\s\d{3})*,\d{2})\s+(\d{1,2})\s+(\d{1,3}(?:\s\d{3})*,\d{2})'
+        # Pattern for Czech numbers with 4 decimals: \d{1,3}(?:\s\d{3})*,\d{4} (e.g., "19 082,0000")
+        # Pattern for line_amount: \d+,\d{2} (space optional, e.g., "19082,00" or "2 175,00")
+        # Pattern for line_total: \d{1,3}(?:\s\d{3})*,\d{2} (with space, e.g., "21 371,84")
+        table_columns['line_pattern'] = r'^(.+?)\s+(\d+,\d{2})\s+(ks|kg|I|KRT|l)\s+(\d{1,3}(?:\s\d{3})*,\d{4})\s+(\d+,\d{2})\s+(\d{1,2})\s+(\d{1,3}(?:\s\d{3})*,\d{2})'
         logger.info(f"   Using FABIO line_pattern (7 groups): {table_columns['line_pattern']}")
         
         # FABIO patterns
