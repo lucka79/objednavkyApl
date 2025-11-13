@@ -652,11 +652,12 @@ def extract_line_items(
         # Backaldrin pattern: 9 groups (with optional pipe separator before VAT)
         # Format: CODE DESCRIPTION QTY1 UNIT1 QTY2 UNIT2 UNIT_PRICE TOTAL VAT%
         # Example: "02289250 Růhrmix LC 25 kg 25 kg 91,400 2 285,00 12%"
-        # Note: Description can contain "20 %" as part of product name (e.g., "Kobliha 20 %")
+        # Note: Description can contain letters, numbers, spaces (e.g., "Růhrmix LC", "Cortina Spezial SG 15 kg")
         # Pattern captures: code(8 digits), description, qty1, unit1, qty2, unit2, unit_price, total, vat_percent
         # Czech number format: "2 285,00" (space as thousands separator, comma as decimal separator)
         # Optional pipe "|" before VAT% (some invoices have it, some don't)
-        table_columns['line_pattern'] = r'^(\d{8})\s+([A-Za-zá-žÁ-Ž]+(?:\s+[A-Za-zá-žÁ-Ž]+)*(?:\s+\d+\s*%)?)\s+([\d,]+)\s+([a-zA-Z]{1,5})\s+([\d,\s]+)\s+([a-zA-Z]{1,5})\s+([\d,\s]+)\s+([\d\s,]+)\s*\|?\s*(\d+)%'
+        # Description: Allow letters, numbers, spaces, but stop before first standalone number (qty1)
+        table_columns['line_pattern'] = r'^(\d{8})\s+([A-Za-zá-žÁ-Ž0-9\s]+?)\s+(\d+)\s+(kg|ks|l|g)\s+(\d+)\s+(kg|ks|l|g)\s+([\d,]+)\s+([\d\s,]+)\s*\|?\s*(\d+)%'
         logger.info(f"   Using Backaldrin line_pattern (9 groups): {table_columns['line_pattern']}")
         
         # Backaldrin table boundaries
