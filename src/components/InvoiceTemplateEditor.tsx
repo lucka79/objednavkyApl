@@ -302,8 +302,13 @@ function TemplateForm({
           // Format: DESCRIPTION QUANTITY UNIT UNIT_PRICE LINE_AMOUNT VAT_RATE LINE_TOTAL
           // Example: "Řepkový rafinovaný olej 580 kg kontejner (006) 1,00 ks 19 082,0000 19082,00 12 21 371,84"
           // line_pattern: "^(.+?)\\s+(\\d+,\\d{2})\\s+(ks|kg|I|KRT|l)\\s+(\\d{1,3}(?:\\s\\d{3})*,\\d{4})\\s+(\\d+,\\d{2})\\s+(\\d{1,2})\\s+(\\d{1,3}(?:\\s\\d{3})*,\\d{2})"
-          // IMPORTANT: For FABIO, set invoice_number: "Variabilní symbol:\\s*(\\d+)", date: "Datum uskutečnění zdanitelného plnění:\\s*©?\\s*(\\d{1,2}\\.\\d{1,2}\\.\\d{4})"
-          // total_amount: "Fakturace celkem CZK\\s+(\\d{1,3}(?:\\s\\d{3})*,\\d{2})", payment_type: "Forma úhrady:\\s*©?\\s*([^\\n]+)"
+          // IMPORTANT: For FABIO, set:
+          // - invoice_number: "(\\d{5,})" - matches any 5+ digit number
+          // - date: "Datum uskutečnění zdanitelného plnění:\\s*©?\\s*(\\d{1,2}\\.\\d{1,2}\\.\\d{4})"
+          // - total_amount: "Fakturace celkem CZK\\s+([\\d\\s,\\.]+)"
+          // - payment_type: "Forma úhrady:\\s*©?\\s*(.+?)(?:\\s+\\d+\\s*[a-zA-Zá-žÁ-Ž]+)?"
+          // - table_start: "Dodací\\s+list"
+          // - table_end: "Fakturace\\s+celkem"
           // NOTE: FABIO doesn't use product codes, LINE_AMOUNT is total without VAT (space optional), LINE_TOTAL is total with VAT
 
           // ========== PATTERN D: Zeelandia (single-line) ==========

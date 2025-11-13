@@ -733,14 +733,18 @@ def extract_line_items(
         logger.info(f"   Using FABIO line_pattern (7 groups): {table_columns['line_pattern']}")
         
         # FABIO patterns
-        patterns['invoice_number'] = r'Variabilní symbol:\s*(\d+)'
+        patterns['invoice_number'] = r'(\d{5,})'  # Matches any 5+ digit number (variable symbol)
         patterns['date'] = r'Datum uskutečnění zdanitelného plnění:\s*©?\s*(\d{1,2}\.\d{1,2}\.\d{4})'
-        patterns['total_amount'] = r'Fakturace celkem CZK\s+(\d{1,3}(?:\s\d{3})*,\d{2})'
-        patterns['payment_type'] = r'Forma úhrady:\s*©?\s*([^\n]+)'
+        patterns['total_amount'] = r'Fakturace celkem CZK\s+([\d\s,\.]+)'
+        patterns['payment_type'] = r'Forma úhrady:\s*©?\s*(.+?)(?:\s+\d+\s*[a-zA-Zá-žÁ-Ž]+)?'  # Captures payment type
+        patterns['table_start'] = r'Dodací\s+list'
+        patterns['table_end'] = r'Fakturace\s+celkem'
         logger.info(f"   Using FABIO invoice_number: {patterns['invoice_number']}")
         logger.info(f"   Using FABIO date: {patterns['date']}")
         logger.info(f"   Using FABIO total_amount: {patterns['total_amount']}")
         logger.info(f"   Using FABIO payment_type: {patterns['payment_type']}")
+        logger.info(f"   Using FABIO table_start: {patterns['table_start']}")
+        logger.info(f"   Using FABIO table_end: {patterns['table_end']}")
     elif display_layout.lower() == 'zeelandia':
         logger.info("🔧 Zeelandia display_layout detected - using pure sequence patterns")
         # Zeelandia: Labels and values are SEPARATED (labels first, values after)
