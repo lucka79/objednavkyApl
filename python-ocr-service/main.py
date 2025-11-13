@@ -709,6 +709,23 @@ def extract_line_items(
         # Pattern captures: code, vat_rate, quantity, unit, unit_price, line_total, description
         table_columns['line_pattern'] = r'^(\d{6})\s+(\d+)%\s+([\d\.]+)\s+([A-Z]{2,4})\s+([\d\.]+)\s+([\d\.]+)\s*\n\s*(.+?)(?:\n|$)'
         logger.info(f"   Using Goodmills multi-line pattern (7 groups): {table_columns['line_pattern']}")
+    elif display_layout.lower() == 'backaldrin':
+        logger.info("🔧 Backaldrin display_layout detected - using proven Backaldrin patterns")
+        # Backaldrin pattern: 9 groups (with optional pipe separator before VAT)
+        # Format: CODE DESCRIPTION QTY1 UNIT1 QTY2 UNIT2 UNIT_PRICE TOTAL VAT%
+        # Example: "02289250 Růhrmix LC 25 kg 25 kg 91,400 2 285,00 12%"
+        # Note: Description can contain "20 %" as part of product name (e.g., "Kobliha 20 %")
+        # Pattern captures: code(8 digits), description, qty1, unit1, qty2, unit2, unit_price, total, vat_percent
+        # Czech number format: "2 285,00" (space as thousands separator, comma as decimal separator)
+        # Optional pipe "|" before VAT% (some invoices have it, some don't)
+        table_columns['line_pattern'] = r'^(\d{8})\s+([A-Za-zá-žÁ-Ž]+(?:\s+[A-Za-zá-žÁ-Ž]+)*(?:\s+\d+\s*%)?)\s+([\d,]+)\s+([a-zA-Z]{1,5})\s+([\d,\s]+)\s+([a-zA-Z]{1,5})\s+([\d,\s]+)\s+([\d\s,]+)\s*\|?\s*(\d+)%'
+        logger.info(f"   Using Backaldrin pattern (9 groups): {table_columns['line_pattern']}")
+        
+        # Backaldrin table boundaries
+        patterns['table_start'] = r'Předmět\s+zdanitelného\s+plnění'
+        patterns['table_end'] = r'(?:Částky\s+v\s+CZK|Dodací\s+listy)'
+        logger.info(f"   Using Backaldrin table_start: {patterns['table_start']}")
+        logger.info(f"   Using Backaldrin table_end: {patterns['table_end']}")
     elif display_layout.lower() == 'albert':
         logger.info("🔧 Albert display_layout detected - using proven Albert patterns")
         # Albert pattern: 4 groups (retail format without product codes)
