@@ -89,12 +89,9 @@ export function IngredientMapping({
   const getFilteredIngredients = () => {
     let filtered = [...(supplierIngredients || [])];
 
-    // Filter by supplier if provided
-    if (supplierId) {
-      filtered = filtered.filter((ing: any) => {
-        return !ing.supplier_id || ing.supplier_id === supplierId;
-      });
-    }
+    // Show ALL ingredients regardless of supplier for better suggestions
+    // Users can map any ingredient even if it's from a different supplier
+    // (Removed supplier filtering to show all available ingredients)
 
     if (searchTerm) {
       // User is searching - filter by search term

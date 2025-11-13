@@ -345,22 +345,20 @@ async function matchIngredientsWithCodes(
       }
 
       // STEP 3: Get all ingredient mappings for similarity-based fuzzy matching
-      const { data: supplierIngredients, error } = await supabase
-        .from('ingredient_supplier_codes')
-        .select(`
-          ingredient_id,
-          product_code,
-          ingredients!inner(id, name, unit, category_id)
-        `)
-        .eq('supplier_id', supplierId);
+      // Search ALL suppliers for better suggestions (not just current supplier)
+      const { data: allIngredients, error: allError } = await supabase
+        .from('ingredients')
+        .select(`id, name, unit, category_id`)
+        .eq('active', true)
+        .order('name');
 
-      if (error) {
-        console.error(`❌ Error fetching supplier ingredients:`, error);
+      if (allError) {
+        console.error(`❌ Error fetching ingredients:`, allError);
         matchedItems.push({ ...item, match_status: 'no_code' });
         continue;
       }
 
-      console.log(`📦 Found ${supplierIngredients?.length || 0} ingredient mappings for this supplier`);
+      console.log(`📦 Found ${allIngredients?.length || 0} active ingredients in database (all suppliers)`);
 
       // Enhanced similarity matching with better normalization
       const normalize = (str: string) => str
@@ -382,36 +380,27 @@ async function matchIngredientsWithCodes(
       let bestMatch = null;
       let bestScore = 0;
 
-      for (const mapping of supplierIngredients || []) {
-        const normalizedCode = normalize(mapping.product_code || '');
-        const normalizedName = normalize(mapping.ingredients.name || '');
+      for (const ingredient of allIngredients || []) {
+        const normalizedName = normalize(ingredient.name || '');
         
         let score = 0;
         
         // Method 1: Exact normalized match
-        if (normalizedDesc === normalizedCode) {
+        if (normalizedDesc === normalizedName) {
           score = 1.0;
         }
         // Method 2: One contains the other (after normalization)
-        else if (normalizedDesc.includes(normalizedCode) && normalizedCode.length > 5) {
+        else if (normalizedDesc.includes(normalizedName) && normalizedName.length > 5) {
           score = 0.95;
         }
-        else if (normalizedCode.includes(normalizedDesc) && normalizedDesc.length > 5) {
+        else if (normalizedName.includes(normalizedDesc) && normalizedDesc.length > 5) {
           score = 0.95;
         }
         // Method 3: Word overlap scoring (better for descriptions with different word order)
         else {
-          const codeWords = normalizedCode.split(/\s+/).filter(w => w.length > 2);
           const nameWords = normalizedName.split(/\s+/).filter(w => w.length > 2);
           
-          // Count matching words with either product_code or ingredient name
-          let matchingWordsCode = 0;
-          for (const word of descWords) {
-            if (codeWords.some(cw => cw.includes(word) || word.includes(cw))) {
-              matchingWordsCode++;
-            }
-          }
-          
+          // Count matching words with ingredient name
           let matchingWordsName = 0;
           for (const word of descWords) {
             if (nameWords.some(nw => nw.includes(word) || word.includes(nw))) {
@@ -419,37 +408,31 @@ async function matchIngredientsWithCodes(
             }
           }
           
-          // Calculate scores for both product_code and ingredient name
-          const codeScore = descWords.length > 0 ? matchingWordsCode / descWords.length : 0;
-          const nameScore = descWords.length > 0 ? matchingWordsName / descWords.length : 0;
-          
-          // Use the better score
-          score = Math.max(codeScore, nameScore);
+          // Calculate score based on word overlap
+          score = descWords.length > 0 ? matchingWordsName / descWords.length : 0;
         }
         
         if (score > bestScore) {
           bestScore = score;
-          bestMatch = mapping;
-          console.log(`  → Better match: "${mapping.product_code}" (score: ${score.toFixed(2)})`);
+          bestMatch = ingredient;
+          console.log(`  → Better match: "${ingredient.name}" (score: ${score.toFixed(2)})`);
         }
       }
 
       if (bestMatch && bestScore > 0.4) {  // Lowered threshold from 0.5 to 0.4
-        console.log(`✅ Fuzzy match found: "${description}" → "${bestMatch.ingredients.name}" (score: ${bestScore.toFixed(2)})`);
+        console.log(`✅ Fuzzy match found: "${description}" → "${bestMatch.name}" (score: ${bestScore.toFixed(2)})`);
         matchedItems.push({
           ...item,
-          matched_ingredient_id: bestMatch.ingredients.id,
-          matched_ingredient_name: bestMatch.ingredients.name,
-          matched_ingredient_unit: bestMatch.ingredients.unit,
-          matched_ingredient_category: bestMatch.ingredients.category_id,
-          match_status: 'fuzzy_name',
+          suggested_ingredient_id: bestMatch.id,
+          suggested_ingredient_name: bestMatch.name,
+          match_status: 'suggested',
           match_confidence: bestScore,
         });
         continue;
       } else {
         console.log(`❌ No match found for: "${description}" (best score: ${bestScore.toFixed(2)})`);
         if (bestMatch) {
-          console.log(`   Best candidate was: "${bestMatch.product_code}" → "${bestMatch.ingredients.name}"`);
+          console.log(`   Best candidate was: "${bestMatch.name}" (score: ${bestScore.toFixed(2)})`);
         }
         matchedItems.push({ ...item, match_status: 'no_code' });
         continue;
