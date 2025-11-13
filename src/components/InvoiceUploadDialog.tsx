@@ -62,6 +62,7 @@ import {
   DekosInvoiceLayout,
   AlbertInvoiceLayout,
   LeCoInvoiceLayout,
+  FabioInvoiceLayout,
 } from "@/components/invoice-layouts";
 
 interface ParsedInvoiceItem {
@@ -117,6 +118,14 @@ interface ParsedInvoiceItem {
   // Le-co-specific fields
   vatAmount?: number; // DPH částka (for Le-co)
   totalWithVat?: number; // Celkem s DPH (for Le-co)
+
+  // FABIO-specific fields (raw OCR fields)
+  unit_of_measure?: string; // MJ (for FABIO)
+  unit_price?: number; // Cena/jedn (for FABIO)
+  line_amount?: number; // Celkem without VAT (for FABIO)
+  vat_rate?: number; // DPH% (for FABIO)
+  line_total?: number; // Celkem s DPH (for FABIO)
+  product_code?: string; // Product code (for FABIO)
 }
 
 interface ParsedInvoice {
@@ -165,6 +174,9 @@ const ALBERT_SUPPLIER_ID = "cf433a0c-f55d-4935-8941-043b13cea7a3";
 // Le-co supplier ID (Le-co-specific layout with 9 fields)
 const LECO_SUPPLIER_ID = ""; // TODO: Replace with actual Le-co supplier ID
 
+// FABIO supplier ID (FABIO-specific layout)
+const FABIO_SUPPLIER_ID = "e5f66406-c4aa-4af3-b2fe-7cc63ece5194";
+
 export function InvoiceUploadDialog() {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -209,6 +221,12 @@ export function InvoiceUploadDialog() {
     [key: string]: number;
   }>({});
   const [editedUnitPrices, setEditedUnitPrices] = useState<{
+    [key: string]: number;
+  }>({});
+  const [editedFabioQuantities, setEditedFabioQuantities] = useState<{
+    [key: string]: number;
+  }>({});
+  const [editedFabioPrices, setEditedFabioPrices] = useState<{
     [key: string]: number;
   }>({});
   const [ksUnitChecked, setKsUnitChecked] = useState<{
@@ -631,7 +649,33 @@ export function InvoiceUploadDialog() {
             // Le-co-specific fields
             vatAmount: item.vat_amount,
             totalWithVat: item.total_with_vat,
+
+            // FABIO-specific fields (preserve raw OCR fields)
+            unit_of_measure: item.unit_of_measure,
+            unit_price: item.unit_price,
+            line_amount: item.line_amount,
+            vat_rate: item.vat_rate,
+            line_total: item.line_total,
+            product_code: item.product_code,
           };
+
+          // Debug log for FABIO items
+          if (item.line_amount !== undefined) {
+            console.log(`🍞 FABIO item ${index + 1} mapping:`, {
+              description: item.description,
+              quantity: item.quantity,
+              unit_of_measure: item.unit_of_measure,
+              unit_price: item.unit_price,
+              line_amount: item.line_amount,
+              vat_rate: item.vat_rate,
+              line_total: item.line_total,
+              mapped_unit_of_measure: mappedItem.unit_of_measure,
+              mapped_unit_price: mappedItem.unit_price,
+              mapped_line_amount: mappedItem.line_amount,
+              mapped_vat_rate: mappedItem.vat_rate,
+              mapped_line_total: mappedItem.line_total,
+            });
+          }
 
           // Debug log for Albert items
           if (item.item_weight || item.vat_rate) {
@@ -1033,10 +1077,10 @@ export function InvoiceUploadDialog() {
       );
 
       if (matchedItems.length > 0) {
-        // Fetch product codes for all matched ingredients
+        // Fetch product codes, package sizes, and prices for all matched ingredients
         const { data: supplierCodes, error: codesError } = await supabase
           .from("ingredient_supplier_codes")
-          .select("ingredient_id, supplier_id, product_code")
+          .select("ingredient_id, supplier_id, product_code, package, price")
           .in(
             "ingredient_id",
             matchedItems.map((item) => item.ingredientId!).filter(Boolean)
@@ -1044,14 +1088,22 @@ export function InvoiceUploadDialog() {
           .eq("supplier_id", supplierId);
 
         if (codesError) {
-          console.warn("Error fetching product codes:", codesError);
+          console.warn("Error fetching supplier codes:", codesError);
         }
 
-        // Create a map of ingredient_id -> product_code for quick lookup
+        // Create maps for quick lookup
         const productCodeMap = new Map<number, string>();
+        const packageSizeMap = new Map<number, number>();
+        const supplierPriceMap = new Map<number, number>();
         if (supplierCodes) {
           supplierCodes.forEach((code: any) => {
             productCodeMap.set(code.ingredient_id, code.product_code);
+            if (code.package) {
+              packageSizeMap.set(code.ingredient_id, parseFloat(code.package));
+            }
+            if (code.price) {
+              supplierPriceMap.set(code.ingredient_id, parseFloat(code.price));
+            }
           });
         }
 
@@ -1101,6 +1153,9 @@ export function InvoiceUploadDialog() {
           const isAlbert =
             selectedSupplier === ALBERT_SUPPLIER_ID ||
             invoiceSupplier === ALBERT_SUPPLIER_ID;
+          const isFabio =
+            selectedSupplier === FABIO_SUPPLIER_ID ||
+            invoiceSupplier === FABIO_SUPPLIER_ID;
           // Check if Dekos supplier (by template display_layout or supplier ID)
           const dekosTemplate = templates?.find(
             (t: any) =>
@@ -1251,6 +1306,58 @@ export function InvoiceUploadDialog() {
               savedQuantity: quantity,
               savedUnitPrice: unitPrice,
             });
+          } else if (isFabio) {
+            // For FABIO: Calculate "Množství celkem" and "Cena/jedn" (same logic as FabioInvoiceLayout)
+            let calculatedTotalQuantity = item.quantity ?? 0;
+            let calculatedPricePerKg = item.price ?? 0;
+
+            // Get package size from ingredient_supplier_codes
+            const packageSize = item.ingredientId
+              ? packageSizeMap.get(item.ingredientId)
+              : null;
+
+            // Calculate total quantity based on unit_of_measure
+            if (item.quantity && item.unit_of_measure) {
+              const unitLower = item.unit_of_measure.toLowerCase();
+              if (unitLower === "ks" && packageSize) {
+                // For "ks" units: totalQuantity = quantity × packageSize
+                calculatedTotalQuantity = item.quantity * packageSize;
+              } else if (unitLower === "kg" || unitLower === "krt") {
+                // For "kg" or "krt" units: totalQuantity = quantity as-is
+                calculatedTotalQuantity = item.quantity;
+              }
+            }
+
+            // Calculate price per kg from line_amount / totalQuantity
+            if (
+              calculatedTotalQuantity &&
+              calculatedTotalQuantity > 0 &&
+              item.line_amount
+            ) {
+              calculatedPricePerKg = item.line_amount / calculatedTotalQuantity;
+            }
+
+            // Use edited values if available, otherwise use calculated values
+            quantity =
+              editedFabioQuantities[item.id] ?? calculatedTotalQuantity ?? 0;
+            unitPrice = editedFabioPrices[item.id] ?? calculatedPricePerKg ?? 0;
+
+            // Debug logging for FABIO items
+            console.log(`🍞 Processing FABIO item:`, {
+              itemId: item.id,
+              description: item.name,
+              unit_of_measure: item.unit_of_measure,
+              ocrQuantity: item.quantity,
+              packageSize: packageSize,
+              calculatedTotalQuantity: calculatedTotalQuantity,
+              editedQuantity: editedFabioQuantities[item.id],
+              finalQuantity: quantity,
+              ocrUnitPrice: item.price,
+              line_amount: item.line_amount,
+              calculatedPricePerKg: calculatedPricePerKg,
+              editedPrice: editedFabioPrices[item.id],
+              finalUnitPrice: unitPrice,
+            });
           } else {
             // For other suppliers: use regular quantity
             quantity = item.quantity;
@@ -1269,7 +1376,9 @@ export function InvoiceUploadDialog() {
                     ? "Dekos"
                     : isAlbert
                       ? "Albert"
-                      : "Other",
+                      : isFabio
+                        ? "FABIO"
+                        : "Other",
               displayedInCelkHmot: isMakro
                 ? item.ingredientUnit === "ks" &&
                   (ksUnitChecked[item.id] !== undefined
@@ -1342,7 +1451,9 @@ export function InvoiceUploadDialog() {
                   ? "ks" // Dekos always saves total quantity in pieces
                   : isAlbert
                     ? "kg" // Albert always saves total weight in kg
-                    : item.unit,
+                    : isFabio
+                      ? "kg" // FABIO uses kg for total quantity
+                      : item.unit,
 
             matching_confidence: item.confidence || 100,
           };
@@ -1977,9 +2088,57 @@ export function InvoiceUploadDialog() {
                     </AlertDescription>
                   </Alert>
 
+                  {/* Debug: Log layout detection */}
+                  {(() => {
+                    const supplierId = selectedSupplier || invoiceSupplier;
+                    console.log(
+                      "🔍 InvoiceUploadDialog - Layout Detection START:",
+                      {
+                        selectedSupplier,
+                        invoiceSupplier,
+                        supplierId,
+                        supplierIDs: {
+                          ZEELANDIA: ZEELANDIA_SUPPLIER_ID,
+                          MAKRO: MAKRO_SUPPLIER_ID,
+                          PESEK: PESEK_SUPPLIER_ID,
+                          DEKOS: DEKOS_SUPPLIER_ID,
+                          ALBERT: ALBERT_SUPPLIER_ID,
+                          LECO: LECO_SUPPLIER_ID,
+                          FABIO: FABIO_SUPPLIER_ID,
+                        },
+                        checks: {
+                          isZeelandia: supplierId === ZEELANDIA_SUPPLIER_ID,
+                          isMakro: supplierId === MAKRO_SUPPLIER_ID,
+                          isPesek: supplierId === PESEK_SUPPLIER_ID,
+                          isDekos: supplierId === DEKOS_SUPPLIER_ID,
+                          isAlbert: supplierId === ALBERT_SUPPLIER_ID,
+                          isLeco: supplierId === LECO_SUPPLIER_ID,
+                          isFabio: supplierId === FABIO_SUPPLIER_ID,
+                        },
+                        allTemplates: templates?.map((t: any) => ({
+                          name: t.template_name,
+                          supplier_id: t.supplier_id,
+                          display_layout: t.config?.display_layout,
+                          is_active: t.is_active,
+                          matchesFabio:
+                            t.supplier_id === FABIO_SUPPLIER_ID &&
+                            t.config?.display_layout === "fabio",
+                        })),
+                      }
+                    );
+                    return null;
+                  })()}
+
                   {/* Zeelandia layout */}
-                  {selectedSupplier === ZEELANDIA_SUPPLIER_ID ||
-                  invoiceSupplier === ZEELANDIA_SUPPLIER_ID ? (
+                  {(() => {
+                    const isZeelandia =
+                      selectedSupplier === ZEELANDIA_SUPPLIER_ID ||
+                      invoiceSupplier === ZEELANDIA_SUPPLIER_ID;
+                    if (isZeelandia) {
+                      console.log("✅ Using Zeelandia layout");
+                    }
+                    return isZeelandia;
+                  })() ? (
                     <div className="mt-2 overflow-x-auto border rounded-md">
                       <table className="w-full text-sm border-collapse">
                         <thead>
@@ -2439,8 +2598,15 @@ export function InvoiceUploadDialog() {
                       </div>
                     </div>
                   ) : /* Weight-based layout for MAKRO */
-                  selectedSupplier === MAKRO_SUPPLIER_ID ||
-                    invoiceSupplier === MAKRO_SUPPLIER_ID ? (
+                  (() => {
+                      const isMakro =
+                        selectedSupplier === MAKRO_SUPPLIER_ID ||
+                        invoiceSupplier === MAKRO_SUPPLIER_ID;
+                      if (isMakro) {
+                        console.log("✅ Using MAKRO layout");
+                      }
+                      return isMakro;
+                    })() ? (
                     <div className="mt-2 space-y-2">
                       {/* Mapping Legend */}
                       <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
@@ -3098,8 +3264,15 @@ export function InvoiceUploadDialog() {
                       </div>
                     </div>
                   ) : /* pesek layout for Pešek supplier */
-                  selectedSupplier === PESEK_SUPPLIER_ID ||
-                    invoiceSupplier === PESEK_SUPPLIER_ID ? (
+                  (() => {
+                      const isPesek =
+                        selectedSupplier === PESEK_SUPPLIER_ID ||
+                        invoiceSupplier === PESEK_SUPPLIER_ID;
+                      if (isPesek) {
+                        console.log("✅ Using Pešek layout");
+                      }
+                      return isPesek;
+                    })() ? (
                     <div className="mt-2">
                       <PesekLineInvoiceLayout
                         items={parsedInvoice.items}
@@ -3116,11 +3289,16 @@ export function InvoiceUploadDialog() {
                           t.is_active &&
                           t.config?.display_layout === "dekos"
                       );
-                      return (
+                      const isDekos =
                         selectedSupplier === DEKOS_SUPPLIER_ID ||
                         invoiceSupplier === DEKOS_SUPPLIER_ID ||
-                        dekosTemplate
-                      );
+                        !!dekosTemplate;
+                      if (isDekos) {
+                        console.log("✅ Using Dekos layout", {
+                          dekosTemplate: dekosTemplate?.template_name,
+                        });
+                      }
+                      return isDekos;
                     })() ? (
                     <div className="mt-2">
                       <DekosInvoiceLayout
@@ -3168,11 +3346,16 @@ export function InvoiceUploadDialog() {
                           t.is_active &&
                           t.config?.display_layout === "albert"
                       );
-                      return (
+                      const isAlbert =
                         selectedSupplier === ALBERT_SUPPLIER_ID ||
                         invoiceSupplier === ALBERT_SUPPLIER_ID ||
-                        albertTemplate
-                      );
+                        !!albertTemplate;
+                      if (isAlbert) {
+                        console.log("✅ Using Albert layout", {
+                          albertTemplate: albertTemplate?.template_name,
+                        });
+                      }
+                      return isAlbert;
                     })() ? (
                     <div className="mt-2">
                       <AlbertInvoiceLayout
@@ -3192,11 +3375,16 @@ export function InvoiceUploadDialog() {
                           (t.config?.display_layout === "leco" ||
                             t.config?.display_layout === "le-co")
                       );
-                      return (
+                      const isLeco =
                         selectedSupplier === LECO_SUPPLIER_ID ||
                         invoiceSupplier === LECO_SUPPLIER_ID ||
-                        lecoTemplate
-                      );
+                        !!lecoTemplate;
+                      if (isLeco) {
+                        console.log("✅ Using Le-co layout", {
+                          lecoTemplate: lecoTemplate?.template_name,
+                        });
+                      }
+                      return isLeco;
                     })() ? (
                     <div className="mt-2">
                       <LeCoInvoiceLayout
@@ -3204,14 +3392,93 @@ export function InvoiceUploadDialog() {
                         onUnmap={handleUnmapItem}
                       />
                     </div>
-                  ) : (
-                    /* Standard table layout for other suppliers */
+                  ) : /* FABIO layout for FABIO supplier - check by template display_layout or supplier ID */
+                  (() => {
+                      const supplierId = selectedSupplier || invoiceSupplier;
+                      // Check if supplier has a template with display_layout: "fabio"
+                      const fabioTemplate = templates?.find(
+                        (t: any) =>
+                          t.supplier_id === supplierId &&
+                          t.is_active &&
+                          t.config?.display_layout === "fabio"
+                      );
+                      const isFabio =
+                        selectedSupplier === FABIO_SUPPLIER_ID ||
+                        invoiceSupplier === FABIO_SUPPLIER_ID ||
+                        !!fabioTemplate;
+
+                      console.log("🔍 FABIO Layout Check:", {
+                        supplierId,
+                        FABIO_SUPPLIER_ID,
+                        selectedSupplier,
+                        invoiceSupplier,
+                        supplierIdMatch: supplierId === FABIO_SUPPLIER_ID,
+                        fabioTemplate: fabioTemplate?.template_name,
+                        fabioTemplateDisplayLayout:
+                          fabioTemplate?.config?.display_layout,
+                        isFabio,
+                      });
+
+                      if (isFabio) {
+                        console.log("✅ Using FABIO layout", {
+                          fabioTemplate: fabioTemplate?.template_name,
+                        });
+                      }
+                      return isFabio;
+                    })() ? (
                     <div className="mt-2">
-                      <PesekLineInvoiceLayout
+                      <FabioInvoiceLayout
                         items={parsedInvoice.items}
                         onUnmap={handleUnmapItem}
+                        supplierId={selectedSupplier || invoiceSupplier}
+                        onItemMapped={(
+                          itemId: string,
+                          ingredientId: number
+                        ) => {
+                          const ingredient = ingredients.find(
+                            (ing) => ing.id === ingredientId
+                          );
+                          if (!ingredient || !parsedInvoice) return;
+
+                          setParsedInvoice({
+                            ...parsedInvoice,
+                            items: parsedInvoice.items.map((item) =>
+                              item.id === itemId
+                                ? {
+                                    ...item,
+                                    ingredientId: ingredient.id,
+                                    ingredientName: ingredient.name,
+                                  }
+                                : item
+                            ),
+                          });
+                        }}
+                        supplierIngredients={ingredients}
+                        editedFabioQuantities={editedFabioQuantities}
+                        setEditedFabioQuantities={setEditedFabioQuantities}
+                        editedFabioPrices={editedFabioPrices}
+                        setEditedFabioPrices={setEditedFabioPrices}
+                        editingItemId={editingItemId}
+                        setEditingItemId={setEditingItemId}
+                        editingField={editingField}
+                        setEditingField={setEditingField}
                       />
                     </div>
+                  ) : (
+                    /* Standard table layout for other suppliers */
+                    (() => {
+                      console.log(
+                        "⚠️ Using default Pešek layout (no specific layout matched)"
+                      );
+                      return (
+                        <div className="mt-2">
+                          <PesekLineInvoiceLayout
+                            items={parsedInvoice.items}
+                            onUnmap={handleUnmapItem}
+                          />
+                        </div>
+                      );
+                    })()
                   )}
                 </div>
 

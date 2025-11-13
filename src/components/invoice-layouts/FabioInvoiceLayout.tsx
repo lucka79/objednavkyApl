@@ -1,4 +1,6 @@
 import { IngredientMapping } from "./IngredientMapping";
+import { Input } from "@/components/ui/input";
+import { Pencil } from "lucide-react";
 
 interface FabioInvoiceLayoutProps {
   items: any[];
@@ -6,6 +8,22 @@ interface FabioInvoiceLayoutProps {
   supplierId?: string;
   onItemMapped?: (itemId: string, ingredientId: number) => void;
   supplierIngredients?: any[];
+  editedFabioQuantities?: { [key: string]: number };
+  setEditedFabioQuantities?: (
+    value:
+      | { [key: string]: number }
+      | ((prev: { [key: string]: number }) => { [key: string]: number })
+  ) => void;
+  editedFabioPrices?: { [key: string]: number };
+  setEditedFabioPrices?: (
+    value:
+      | { [key: string]: number }
+      | ((prev: { [key: string]: number }) => { [key: string]: number })
+  ) => void;
+  editingItemId?: string | null;
+  setEditingItemId?: (value: string | null) => void;
+  editingField?: string | null;
+  setEditingField?: (value: string | null) => void;
 }
 
 export function FabioInvoiceLayout({
@@ -14,9 +32,23 @@ export function FabioInvoiceLayout({
   supplierId,
   onItemMapped,
   supplierIngredients,
+  editedFabioQuantities = {},
+  setEditedFabioQuantities,
+  editedFabioPrices = {},
+  setEditedFabioPrices,
+  editingItemId,
+  setEditingItemId,
+  editingField,
+  setEditingField,
 }: FabioInvoiceLayoutProps) {
-  console.log("Using FABIO layout, items:", items);
-  console.log("Items count:", items?.length);
+  console.log("🍞 FabioInvoiceLayout Props:", {
+    itemsCount: items?.length,
+    supplierId,
+    supplierIngredientsCount: supplierIngredients?.length,
+    firstItemHasIngredientId:
+      items?.[0]?.matched_ingredient_id || items?.[0]?.ingredientId,
+    firstItem: items?.[0],
+  });
 
   return (
     <div className="overflow-x-auto border border-gray-300 rounded-lg">
@@ -33,10 +65,16 @@ export function FabioInvoiceLayout({
               MJ
             </th>
             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200">
-              Cena/jedn
+              <div className="flex items-center justify-end gap-1">
+                Cena/jedn
+                <Pencil className="w-3 h-3 text-gray-400" />
+              </div>
             </th>
             <th className="text-center px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200 bg-yellow-50">
-              Množství celkem
+              <div className="flex items-center justify-center gap-1">
+                Množství celkem
+                <Pencil className="w-3 h-3 text-gray-400" />
+              </div>
             </th>
             <th className="text-right px-3 py-2 text-xs font-semibold text-gray-700 border-r border-gray-200 bg-green-50">
               Celkem
@@ -66,21 +104,39 @@ export function FabioInvoiceLayout({
             let totalQuantity = null;
             let calculatedPricePerKg = null;
 
-            if (item.matched_ingredient_id && supplierIngredients) {
+            const matchedIngredientId =
+              item.matched_ingredient_id || item.ingredientId;
+
+            if (matchedIngredientId && supplierIngredients) {
               // Find the matched ingredient
               const ingredient = supplierIngredients.find(
-                (ing: any) => ing.id === item.matched_ingredient_id
+                (ing: any) => ing.id === matchedIngredientId
               );
 
               if (ingredient) {
                 ingredientUnit = ingredient.unit; // e.g., "kg", "ks", "l"
 
-                // Get price and package from supplier codes
+                // For FABIO: Get price and package from supplier codes
+                // The product_code in ingredient_supplier_codes contains the description (since FABIO has no codes)
                 const supplierCode = ingredient.ingredient_supplier_codes?.find(
-                  (code: any) =>
-                    code.supplier_id === supplierId &&
-                    (code.product_code === item.description ||
-                      code.product_code === item.product_code)
+                  (code: any) => code.supplier_id === supplierId
+                );
+
+                console.log(
+                  `🔍 FABIO Item "${item.description}" package lookup:`,
+                  {
+                    itemDescription: item.description,
+                    itemProductCode: item.product_code,
+                    ingredientId: ingredient.id,
+                    ingredientName: ingredient.name,
+                    ingredientUnit: ingredient.unit,
+                    supplierCodesCount:
+                      ingredient.ingredient_supplier_codes?.length,
+                    supplierCode: supplierCode,
+                    supplierCodeProductCode: supplierCode?.product_code,
+                    supplierCodePrice: supplierCode?.price,
+                    supplierCodePackage: supplierCode?.package,
+                  }
                 );
 
                 supplierPrice = supplierCode?.price
@@ -93,6 +149,25 @@ export function FabioInvoiceLayout({
                   : ingredient.package
                     ? parseFloat(ingredient.package)
                     : null;
+              } else {
+                console.warn(
+                  `⚠️ FABIO Item "${item.description}" - ingredient not found in supplierIngredients!`,
+                  {
+                    matchedIngredientId,
+                    supplierIngredientsCount: supplierIngredients?.length,
+                  }
+                );
+              }
+            } else {
+              if (!matchedIngredientId) {
+                console.warn(
+                  `⚠️ FABIO Item "${item.description}" - no matched_ingredient_id/ingredientId!`
+                );
+              }
+              if (!supplierIngredients) {
+                console.warn(
+                  `⚠️ FABIO Item "${item.description}" - supplierIngredients is null/undefined!`
+                );
               }
             }
 
@@ -144,69 +219,185 @@ export function FabioInvoiceLayout({
                   {item.unit_of_measure || "-"}
                 </td>
                 <td className="px-3 py-2 text-right text-sm text-gray-700 border-r border-gray-200">
-                  {calculatedPricePerKg ? (
-                    <div>
-                      <div className="text-sm font-bold text-purple-700">
-                        {calculatedPricePerKg.toLocaleString("cs-CZ", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        Kč
-                      </div>
-                      {ingredientUnit && (
-                        <div className="text-xs text-gray-500">
-                          /{ingredientUnit}
-                        </div>
-                      )}
-                      {supplierPrice && (
-                        <div className="text-xs text-gray-500">
-                          DB: {supplierPrice.toLocaleString("cs-CZ")} Kč
-                        </div>
-                      )}
-                    </div>
+                  {editingItemId === item.id &&
+                  editingField === "fabioPrice" ? (
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={
+                        editedFabioPrices[item.id] !== undefined
+                          ? editedFabioPrices[item.id].toString()
+                          : (calculatedPricePerKg || 0).toString()
+                      }
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        const parsedValue = parseFloat(value) || 0;
+                        if (setEditedFabioPrices) {
+                          setEditedFabioPrices((prev) => ({
+                            ...prev,
+                            [item.id]: parsedValue,
+                          }));
+                        }
+                      }}
+                      onBlur={() => {
+                        if (setEditingItemId) setEditingItemId(null);
+                        if (setEditingField) setEditingField(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          if (setEditingItemId) setEditingItemId(null);
+                          if (setEditingField) setEditingField(null);
+                        }
+                        if (e.key === "Escape") {
+                          if (setEditedFabioPrices) {
+                            setEditedFabioPrices((prev) => {
+                              const newState = { ...prev };
+                              delete newState[item.id];
+                              return newState;
+                            });
+                          }
+                          if (setEditingItemId) setEditingItemId(null);
+                          if (setEditingField) setEditingField(null);
+                        }
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      autoFocus
+                      className="h-7 text-sm text-right w-24 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
                   ) : (
-                    <span className="text-gray-400 text-xs">-</span>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-center text-sm font-semibold text-gray-900 border-r border-gray-200 bg-yellow-50/50">
-                  {item.quantity && item.unit_of_measure ? (
-                    <div>
-                      {item.unit_of_measure.toLowerCase() === "ks" &&
-                      packageSize ? (
-                        // For "ks" unit: multiply by package size
-                        <>
-                          <div className="text-sm font-bold text-green-700">
-                            {(item.quantity * packageSize).toLocaleString(
-                              "cs-CZ",
-                              {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              }
-                            )}{" "}
-                            {ingredientUnit || ""}
+                    <div
+                      onClick={() => {
+                        if (setEditingItemId) setEditingItemId(item.id);
+                        if (setEditingField) setEditingField("fabioPrice");
+                      }}
+                      className="cursor-pointer hover:bg-gray-100 px-1 rounded"
+                      title="Klikněte pro úpravu"
+                    >
+                      {(editedFabioPrices[item.id] ?? calculatedPricePerKg) ? (
+                        <div>
+                          <div className="text-sm font-bold text-purple-700">
+                            {(
+                              editedFabioPrices[item.id] ?? calculatedPricePerKg
+                            ).toLocaleString("cs-CZ", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}{" "}
+                            Kč
                           </div>
-                          <div className="text-xs text-gray-500">
-                            {item.quantity.toLocaleString("cs-CZ")} ks ×{" "}
-                            {packageSize.toLocaleString("cs-CZ")}{" "}
-                            {ingredientUnit}
-                          </div>
-                        </>
-                      ) : item.unit_of_measure.toLowerCase() === "kg" ||
-                        item.unit_of_measure.toLowerCase() === "krt" ? (
-                        // For "kg" or "krt" unit: use quantity as-is
-                        <div className="text-sm font-bold text-green-700">
-                          {item.quantity.toLocaleString("cs-CZ", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{" "}
-                          {item.unit_of_measure.toLowerCase()}
+                          {ingredientUnit && (
+                            <div className="text-xs text-gray-500">
+                              /{ingredientUnit}
+                            </div>
+                          )}
+                          {supplierPrice && (
+                            <div className="text-xs text-gray-500">
+                              DB: {supplierPrice.toLocaleString("cs-CZ")} Kč
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <span className="text-gray-400 text-xs">-</span>
                       )}
                     </div>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-center text-sm font-semibold text-gray-900 border-r border-gray-200 bg-yellow-50/50">
+                  {editingItemId === item.id &&
+                  editingField === "fabioQuantity" ? (
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={
+                        editedFabioQuantities[item.id] !== undefined
+                          ? editedFabioQuantities[item.id].toString()
+                          : (totalQuantity || 0).toString()
+                      }
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        const parsedValue = parseFloat(value) || 0;
+                        if (setEditedFabioQuantities) {
+                          setEditedFabioQuantities((prev) => ({
+                            ...prev,
+                            [item.id]: parsedValue,
+                          }));
+                        }
+                      }}
+                      onBlur={() => {
+                        if (setEditingItemId) setEditingItemId(null);
+                        if (setEditingField) setEditingField(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          if (setEditingItemId) setEditingItemId(null);
+                          if (setEditingField) setEditingField(null);
+                        }
+                        if (e.key === "Escape") {
+                          if (setEditedFabioQuantities) {
+                            setEditedFabioQuantities((prev) => {
+                              const newState = { ...prev };
+                              delete newState[item.id];
+                              return newState;
+                            });
+                          }
+                          if (setEditingItemId) setEditingItemId(null);
+                          if (setEditingField) setEditingField(null);
+                        }
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      autoFocus
+                      className="h-7 text-sm text-center w-24 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
                   ) : (
-                    <span className="text-gray-400 text-xs">-</span>
+                    <div
+                      onClick={() => {
+                        if (setEditingItemId) setEditingItemId(item.id);
+                        if (setEditingField) setEditingField("fabioQuantity");
+                      }}
+                      className="cursor-pointer hover:bg-gray-100 px-1 rounded inline-block"
+                      title="Klikněte pro úpravu"
+                    >
+                      {item.quantity && item.unit_of_measure ? (
+                        <div>
+                          {item.unit_of_measure.toLowerCase() === "ks" &&
+                          packageSize ? (
+                            // For "ks" unit: multiply by package size
+                            <>
+                              <div className="text-sm font-bold text-green-700">
+                                {(
+                                  editedFabioQuantities[item.id] ??
+                                  item.quantity * packageSize
+                                ).toLocaleString("cs-CZ", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}{" "}
+                                {ingredientUnit || "kg"}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {item.quantity.toLocaleString("cs-CZ")} ks ×{" "}
+                                {packageSize.toLocaleString("cs-CZ")}{" "}
+                                {ingredientUnit}
+                              </div>
+                            </>
+                          ) : item.unit_of_measure.toLowerCase() === "kg" ||
+                            item.unit_of_measure.toLowerCase() === "krt" ? (
+                            // For "kg" or "krt" unit: use quantity as-is
+                            <div className="text-sm font-bold text-green-700">
+                              {(
+                                editedFabioQuantities[item.id] ?? item.quantity
+                              ).toLocaleString("cs-CZ", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}{" "}
+                              {item.unit_of_measure.toLowerCase()}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 text-xs">-</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-xs">-</span>
+                      )}
+                    </div>
                   )}
                 </td>
                 <td className="px-3 py-2 text-right text-sm text-green-700 border-r border-gray-200 bg-green-50/50 font-medium">

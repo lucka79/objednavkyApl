@@ -7,6 +7,7 @@ export interface ReceivedInvoice {
   supplier_id: string | null;
   receiver_id: string | null;
   invoice_date: string | null;
+  invoice_due?: string | null; // Due date for the invoice
   total_amount: number | null;
   processing_status: string | null;
   supplier_name: string | null;
@@ -181,11 +182,13 @@ export const useUpdateReceivedInvoice = () => {
       receiver_id,
       total_amount,
       invoice_number,
+      invoice_due,
     }: {
       id: string;
       receiver_id?: string;
       total_amount?: number;
       invoice_number?: string;
+      invoice_due?: string | null;
     }) => {
       const updateData: any = {};
       
@@ -201,7 +204,11 @@ export const useUpdateReceivedInvoice = () => {
         updateData.invoice_number = invoice_number;
       }
 
-      console.log("Updating invoice:", { id, updateData });
+      if (invoice_due !== undefined) {
+        updateData.invoice_due = invoice_due;
+      }
+
+      console.log("🔄 useUpdateReceivedInvoice - Updating invoice:", { id, updateData });
 
       const { data: invoice, error } = await supabase
         .from("invoices_received")
@@ -211,11 +218,11 @@ export const useUpdateReceivedInvoice = () => {
         .single();
 
       if (error) {
-        console.error("Error updating invoice:", error);
+        console.error("❌ Error updating invoice:", error);
         throw error;
       }
       
-      console.log("Invoice updated successfully:", invoice);
+      console.log("✅ Invoice updated successfully in DB:", invoice);
       return invoice;
     },
     onSuccess: () => {

@@ -36,6 +36,8 @@ import {
   BookOpen,
   ShieldAlert,
   TriangleAlert,
+  Printer,
+  Download,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
@@ -1368,15 +1370,1007 @@ export function ProductPartsModal({
     });
   };
 
+  // Handle printing product information
+  const handlePrint = () => {
+    // Collect composition
+    const ingredientsWithElements: Array<{
+      ingredient: any;
+      quantity: number;
+    }> = [];
+
+    productParts.forEach((part) => {
+      if (part.productOnly) return;
+
+      if (part.ingredient_id) {
+        const ingredient = ingredients.find((i) => i.id === part.ingredient_id);
+        if (
+          ingredient &&
+          ingredient.element &&
+          ingredient.element.trim() !== ""
+        ) {
+          ingredientsWithElements.push({
+            ingredient,
+            quantity: part.quantity,
+          });
+        }
+      }
+
+      if (part.recipe_id) {
+        const recipe = recipes.find((r) => r.id === part.recipe_id);
+        if (recipe && recipe.recipe_ingredients) {
+          recipe.recipe_ingredients.forEach((recipeIng: any) => {
+            if (
+              recipeIng.ingredient &&
+              recipeIng.ingredient.element &&
+              recipeIng.ingredient.element.trim() !== ""
+            ) {
+              const usedQuantity = recipeIng.quantity * part.quantity;
+              ingredientsWithElements.push({
+                ingredient: recipeIng.ingredient,
+                quantity: usedQuantity,
+              });
+            }
+          });
+        }
+      }
+
+      if (part.pastry_id) {
+        const product = products.find((p) => p.id === part.pastry_id);
+        if (product && product.parts && product.parts.trim() !== "") {
+          const elements = product.parts
+            .split(",")
+            .map((el: string) => el.trim());
+          elements.forEach((element: string) => {
+            if (element && element.trim() !== "") {
+              const pseudoIngredient = {
+                name: element,
+                element: element,
+              };
+              ingredientsWithElements.push({
+                ingredient: pseudoIngredient,
+                quantity: part.quantity,
+              });
+            }
+          });
+        }
+      }
+    });
+
+    // Calculate composition
+    const normalizeElement = (element: string): string => {
+      return element
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .replace(/\s*\.\s*/g, ".")
+        .replace(/\s*,\s*/g, ",")
+        .replace(/\s*;\s*/g, ";")
+        .replace(/\s*:\s*/g, ":")
+        .replace(/\s*-\s*/g, "-")
+        .replace(/\s*\/\s*/g, "/")
+        .replace(/\s*\(\s*/g, "(")
+        .replace(/\s*\)\s*/g, ")")
+        .replace(/[.,;:]+$/, "")
+        .trim();
+    };
+
+    const getDeduplicatedElements = (
+      ingredients: Array<{ ingredient: any; quantity: number }>
+    ) => {
+      const elementMap = new Map<string, string>();
+      const elementTotalQuantities = new Map<string, number>();
+
+      ingredients.forEach(({ ingredient, quantity }) => {
+        const originalElement = ingredient.element.trim();
+        const normalizedElement = normalizeElement(originalElement);
+        elementTotalQuantities.set(
+          normalizedElement,
+          (elementTotalQuantities.get(normalizedElement) || 0) + quantity
+        );
+        if (!elementMap.has(normalizedElement)) {
+          elementMap.set(normalizedElement, originalElement);
+        }
+      });
+
+      const uniqueElements = Array.from(elementMap.values());
+      const sortedElements = uniqueElements.sort((a, b) => {
+        const aNormalized = normalizeElement(a);
+        const bNormalized = normalizeElement(b);
+        const aQuantity = elementTotalQuantities.get(aNormalized) || 0;
+        const bQuantity = elementTotalQuantities.get(bNormalized) || 0;
+        return bQuantity - aQuantity;
+      });
+
+      const finalElements: string[] = [];
+      const seenNormalized = new Set<string>();
+      for (const element of sortedElements) {
+        const normalizedElement = normalizeElement(element);
+        if (!seenNormalized.has(normalizedElement)) {
+          seenNormalized.add(normalizedElement);
+          finalElements.push(element);
+        }
+      }
+      return finalElements.join(", ");
+    };
+
+    const composition =
+      ingredientsWithElements.length > 0
+        ? getDeduplicatedElements(ingredientsWithElements)
+        : "Složení není k dispozici";
+
+    // Calculate nutritional values
+    let totalKJ = 0;
+    let totalKcal = 0;
+    let totalWeightKg = 0;
+    let totalFat = 0;
+    let totalSaturates = 0;
+    let totalCarbohydrate = 0;
+    let totalSugars = 0;
+    let totalProtein = 0;
+    let totalFibre = 0;
+    let totalSalt = 0;
+
+    productParts.forEach((part) => {
+      if (part.productOnly) return;
+
+      if (part.recipe_id) {
+        const recipe = recipes.find((r) => r.id === part.recipe_id);
+        if (recipe && recipe.recipe_ingredients) {
+          let recipeWeightKg = 0;
+          let recipeKJ = 0;
+          let recipeKcal = 0;
+          let recipeFat = 0;
+          let recipeSaturates = 0;
+          let recipeCarbohydrate = 0;
+          let recipeSugars = 0;
+          let recipeProtein = 0;
+          let recipeFibre = 0;
+          let recipeSalt = 0;
+
+          recipe.recipe_ingredients.forEach((recipeIng: any) => {
+            if (recipeIng.ingredient) {
+              const ingredient = recipeIng.ingredient;
+              const weightInKg = recipeIng.quantity * ingredient.kiloPerUnit;
+              recipeWeightKg += weightInKg;
+              const factor = weightInKg * 10;
+              recipeKJ += ingredient.kJ * factor;
+              recipeKcal += ingredient.kcal * factor;
+              recipeFat += ingredient.fat * factor;
+              recipeSaturates += ingredient.saturates * factor;
+              recipeCarbohydrate += ingredient.carbohydrate * factor;
+              recipeSugars += ingredient.sugars * factor;
+              recipeProtein += ingredient.protein * factor;
+              recipeFibre += ingredient.fibre * factor;
+              recipeSalt += ingredient.salt * factor;
+            }
+          });
+
+          if (recipeWeightKg > 0) {
+            const proportion = part.quantity / recipeWeightKg;
+            totalWeightKg += part.quantity;
+            totalKJ += recipeKJ * proportion;
+            totalKcal += recipeKcal * proportion;
+            totalFat += recipeFat * proportion;
+            totalSaturates += recipeSaturates * proportion;
+            totalCarbohydrate += recipeCarbohydrate * proportion;
+            totalSugars += recipeSugars * proportion;
+            totalProtein += recipeProtein * proportion;
+            totalFibre += recipeFibre * proportion;
+            totalSalt += recipeSalt * proportion;
+          }
+        }
+      }
+
+      if (part.ingredient_id) {
+        const ingredient = ingredients.find((i) => i.id === part.ingredient_id);
+        if (ingredient) {
+          const weightInKg = part.quantity * ingredient.kiloPerUnit;
+          const factor = weightInKg * 10;
+          totalWeightKg += weightInKg;
+          totalKJ += ingredient.kJ * factor;
+          totalKcal += ingredient.kcal * factor;
+          totalFat += ingredient.fat * factor;
+          totalSaturates += ingredient.saturates * factor;
+          totalCarbohydrate += ingredient.carbohydrate * factor;
+          totalSugars += ingredient.sugars * factor;
+          totalProtein += ingredient.protein * factor;
+          totalFibre += ingredient.fibre * factor;
+          totalSalt += ingredient.salt * factor;
+        }
+      }
+
+      if (part.pastry_id) {
+        const product = products.find((p) => p.id === part.pastry_id);
+        if (product) {
+          let weightPerPiece = 0.15;
+          const calculatedWeight = calculatedWeights.get(product.id);
+          if (calculatedWeight && calculatedWeight > 0) {
+            weightPerPiece = calculatedWeight;
+          }
+          const partWeightKg = part.quantity * weightPerPiece;
+          const calculatedEnergetic = calculatedEnergeticValues.get(product.id);
+          if (calculatedEnergetic) {
+            const quantityMultiplier = part.quantity;
+            totalWeightKg += partWeightKg;
+            totalKJ += calculatedEnergetic.kJ * quantityMultiplier;
+            totalKcal += calculatedEnergetic.kcal * quantityMultiplier;
+            totalFat += calculatedEnergetic.fat * quantityMultiplier;
+            totalSaturates +=
+              calculatedEnergetic.saturates * quantityMultiplier;
+            totalCarbohydrate +=
+              calculatedEnergetic.carbohydrate * quantityMultiplier;
+            totalSugars += calculatedEnergetic.sugars * quantityMultiplier;
+            totalProtein += calculatedEnergetic.protein * quantityMultiplier;
+            totalFibre += calculatedEnergetic.fibre * quantityMultiplier;
+            totalSalt += calculatedEnergetic.salt * quantityMultiplier;
+          } else {
+            totalWeightKg += partWeightKg;
+            const factor = partWeightKg * 10;
+            totalKJ += (1200 * factor) / 10;
+            totalKcal += (280 * factor) / 10;
+            totalFat += (3 * factor) / 10;
+            totalSaturates += (1 * factor) / 10;
+            totalCarbohydrate += (55 * factor) / 10;
+            totalSugars += (3 * factor) / 10;
+            totalProtein += (9 * factor) / 10;
+            totalFibre += (3 * factor) / 10;
+            totalSalt += (1 * factor) / 10;
+          }
+        }
+      }
+    });
+
+    // Calculate per 100g values
+    const energyPer100gKJ =
+      totalWeightKg > 0 ? (totalKJ / totalWeightKg) * 0.1 : 0;
+    const energyPer100gKcal =
+      totalWeightKg > 0 ? (totalKcal / totalWeightKg) * 0.1 : 0;
+    const fatPer100g = totalWeightKg > 0 ? (totalFat / totalWeightKg) * 0.1 : 0;
+    const saturatesPer100g =
+      totalWeightKg > 0 ? (totalSaturates / totalWeightKg) * 0.1 : 0;
+    const carbohydratePer100g =
+      totalWeightKg > 0 ? (totalCarbohydrate / totalWeightKg) * 0.1 : 0;
+    const sugarsPer100g =
+      totalWeightKg > 0 ? (totalSugars / totalWeightKg) * 0.1 : 0;
+    const proteinPer100g =
+      totalWeightKg > 0 ? (totalProtein / totalWeightKg) * 0.1 : 0;
+    const fibrePer100g =
+      totalWeightKg > 0 ? (totalFibre / totalWeightKg) * 0.1 : 0;
+    const saltPer100g =
+      totalWeightKg > 0 ? (totalSalt / totalWeightKg) * 0.1 : 0;
+
+    // Create print window
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>${productName} - Složení a Výživové hodnoty</title>
+            <style>
+              @page {
+                margin: 1cm;
+                size: A4 portrait;
+              }
+              * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+              }
+              body {
+                font-family: Arial, sans-serif;
+                line-height: 1.3;
+                color: #333;
+                font-size: 11pt;
+                padding: 0;
+              }
+              .company-header {
+                text-align: center;
+                margin-bottom: 16px;
+                padding-bottom: 10px;
+                border-bottom: 1px solid #ddd;
+              }
+              .company-name {
+                font-size: 14pt;
+                font-weight: bold;
+                color: #ea580c;
+                margin-bottom: 4px;
+              }
+              .company-details {
+                font-size: 9pt;
+                color: #666;
+                line-height: 1.4;
+              }
+              h1 {
+                color: #ea580c;
+                border-bottom: 2px solid #ea580c;
+                padding-bottom: 6px;
+                margin-bottom: 12px;
+                font-size: 18pt;
+              }
+              h2 {
+                color: #ea580c;
+                margin-top: 14px;
+                margin-bottom: 8px;
+                font-size: 13pt;
+              }
+              .section {
+                margin-bottom: 14px;
+                page-break-inside: avoid;
+              }
+              .composition {
+                background: #f0f9ff;
+                border: 1px solid #bfdbfe;
+                border-radius: 4px;
+                padding: 10px;
+                margin: 8px 0;
+                line-height: 1.4;
+                font-size: 10pt;
+              }
+              .nutrition-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 8px 0;
+                font-size: 10pt;
+              }
+              .nutrition-table th,
+              .nutrition-table td {
+                border: 1px solid #ddd;
+                padding: 6px 8px;
+                text-align: left;
+              }
+              .nutrition-table th {
+                background-color: #ea580c;
+                color: white;
+                font-weight: bold;
+                font-size: 10pt;
+              }
+              .nutrition-table tr:nth-child(even) {
+                background-color: #f9fafb;
+              }
+              .footer-note {
+                font-size: 9pt;
+                color: #666;
+                margin-top: 8px;
+                font-style: italic;
+              }
+              .contact-footer {
+                text-align: center;
+                margin-top: 20px;
+                padding-top: 12px;
+                border-top: 1px solid #ddd;
+                font-size: 9pt;
+                color: #ea580c;
+              }
+              @media print {
+                body {
+                  padding: 0;
+                }
+                .no-print {
+                  display: none;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="company-header">
+              <div class="company-name">APLICA s.r.o.</div>
+              <div class="company-details">
+                Veleslavínova 2045/7, 400 11 Ústí nad Labem<br/>
+                DIČ: CZ00555801
+              </div>
+            </div>
+            
+            <h1>${productName}</h1>
+            
+            <div class="section">
+              <h2>Složení</h2>
+              <div class="composition">
+                ${composition}
+              </div>
+            </div>
+            
+            <div class="section">
+              <h2>Výživové hodnoty na 100g</h2>
+              <table class="nutrition-table">
+                <thead>
+                  <tr>
+                    <th>Nutrient</th>
+                    <th>Na 100g</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Energie</strong></td>
+                    <td>${energyPer100gKcal.toFixed(0)} kcal (${energyPer100gKJ.toFixed(0)} kJ)</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Tuky</strong></td>
+                    <td>${fatPer100g.toFixed(1)}g</td>
+                  </tr>
+                  <tr>
+                    <td>&nbsp;&nbsp;z toho nasycené mastné kyseliny</td>
+                    <td>${saturatesPer100g.toFixed(1)}g</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Sacharidy</strong></td>
+                    <td>${carbohydratePer100g.toFixed(1)}g</td>
+                  </tr>
+                  <tr>
+                    <td>&nbsp;&nbsp;z toho cukry</td>
+                    <td>${sugarsPer100g.toFixed(1)}g</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Bílkoviny</strong></td>
+                    <td>${proteinPer100g.toFixed(1)}g</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Vláknina</strong></td>
+                    <td>${fibrePer100g.toFixed(1)}g</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Sůl</strong></td>
+                    <td>${saltPer100g.toFixed(1)}g</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <div class="footer-note">
+              Vytištěno: ${new Date().toLocaleString("cs-CZ")}
+            </div>
+            
+            <div class="contact-footer">
+              aplica.cz | aplica.kancelar@seznam.cz | mob: 734 447 939
+            </div>
+            
+            <script>
+              window.onload = function() {
+                window.print();
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+  };
+
+  // Handle downloading as PDF
+  const handleDownloadPDF = () => {
+    // Collect composition
+    const ingredientsWithElements: Array<{
+      ingredient: any;
+      quantity: number;
+    }> = [];
+
+    productParts.forEach((part) => {
+      if (part.productOnly) return;
+
+      if (part.ingredient_id) {
+        const ingredient = ingredients.find((i) => i.id === part.ingredient_id);
+        if (
+          ingredient &&
+          ingredient.element &&
+          ingredient.element.trim() !== ""
+        ) {
+          ingredientsWithElements.push({
+            ingredient,
+            quantity: part.quantity,
+          });
+        }
+      }
+
+      if (part.recipe_id) {
+        const recipe = recipes.find((r) => r.id === part.recipe_id);
+        if (recipe && recipe.recipe_ingredients) {
+          recipe.recipe_ingredients.forEach((recipeIng: any) => {
+            if (
+              recipeIng.ingredient &&
+              recipeIng.ingredient.element &&
+              recipeIng.ingredient.element.trim() !== ""
+            ) {
+              const usedQuantity = recipeIng.quantity * part.quantity;
+              ingredientsWithElements.push({
+                ingredient: recipeIng.ingredient,
+                quantity: usedQuantity,
+              });
+            }
+          });
+        }
+      }
+
+      if (part.pastry_id) {
+        const product = products.find((p) => p.id === part.pastry_id);
+        if (product && product.parts && product.parts.trim() !== "") {
+          const elements = product.parts
+            .split(",")
+            .map((el: string) => el.trim());
+          elements.forEach((element: string) => {
+            if (element && element.trim() !== "") {
+              const pseudoIngredient = {
+                name: element,
+                element: element,
+              };
+              ingredientsWithElements.push({
+                ingredient: pseudoIngredient,
+                quantity: part.quantity,
+              });
+            }
+          });
+        }
+      }
+    });
+
+    // Calculate composition
+    const normalizeElement = (element: string): string => {
+      return element
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .replace(/\s*\.\s*/g, ".")
+        .replace(/\s*,\s*/g, ",")
+        .replace(/\s*;\s*/g, ";")
+        .replace(/\s*:\s*/g, ":")
+        .replace(/\s*-\s*/g, "-")
+        .replace(/\s*\/\s*/g, "/")
+        .replace(/\s*\(\s*/g, "(")
+        .replace(/\s*\)\s*/g, ")")
+        .replace(/[.,;:]+$/, "")
+        .trim();
+    };
+
+    const getDeduplicatedElements = (
+      ingredients: Array<{ ingredient: any; quantity: number }>
+    ) => {
+      const elementMap = new Map<string, string>();
+      const elementTotalQuantities = new Map<string, number>();
+
+      ingredients.forEach(({ ingredient, quantity }) => {
+        const originalElement = ingredient.element.trim();
+        const normalizedElement = normalizeElement(originalElement);
+        elementTotalQuantities.set(
+          normalizedElement,
+          (elementTotalQuantities.get(normalizedElement) || 0) + quantity
+        );
+        if (!elementMap.has(normalizedElement)) {
+          elementMap.set(normalizedElement, originalElement);
+        }
+      });
+
+      const uniqueElements = Array.from(elementMap.values());
+      const sortedElements = uniqueElements.sort((a, b) => {
+        const aNormalized = normalizeElement(a);
+        const bNormalized = normalizeElement(b);
+        const aQuantity = elementTotalQuantities.get(aNormalized) || 0;
+        const bQuantity = elementTotalQuantities.get(bNormalized) || 0;
+        return bQuantity - aQuantity;
+      });
+
+      const finalElements: string[] = [];
+      const seenNormalized = new Set<string>();
+      for (const element of sortedElements) {
+        const normalizedElement = normalizeElement(element);
+        if (!seenNormalized.has(normalizedElement)) {
+          seenNormalized.add(normalizedElement);
+          finalElements.push(element);
+        }
+      }
+      return finalElements.join(", ");
+    };
+
+    const composition =
+      ingredientsWithElements.length > 0
+        ? getDeduplicatedElements(ingredientsWithElements)
+        : "Složení není k dispozici";
+
+    // Calculate nutritional values
+    let totalKJ = 0;
+    let totalKcal = 0;
+    let totalWeightKg = 0;
+    let totalFat = 0;
+    let totalSaturates = 0;
+    let totalCarbohydrate = 0;
+    let totalSugars = 0;
+    let totalProtein = 0;
+    let totalFibre = 0;
+    let totalSalt = 0;
+
+    productParts.forEach((part) => {
+      if (part.productOnly) return;
+
+      if (part.recipe_id) {
+        const recipe = recipes.find((r) => r.id === part.recipe_id);
+        if (recipe && recipe.recipe_ingredients) {
+          let recipeWeightKg = 0;
+          let recipeKJ = 0;
+          let recipeKcal = 0;
+          let recipeFat = 0;
+          let recipeSaturates = 0;
+          let recipeCarbohydrate = 0;
+          let recipeSugars = 0;
+          let recipeProtein = 0;
+          let recipeFibre = 0;
+          let recipeSalt = 0;
+
+          recipe.recipe_ingredients.forEach((recipeIng: any) => {
+            if (recipeIng.ingredient) {
+              const ingredient = recipeIng.ingredient;
+              const weightInKg = recipeIng.quantity * ingredient.kiloPerUnit;
+              recipeWeightKg += weightInKg;
+              const factor = weightInKg * 10;
+              recipeKJ += ingredient.kJ * factor;
+              recipeKcal += ingredient.kcal * factor;
+              recipeFat += ingredient.fat * factor;
+              recipeSaturates += ingredient.saturates * factor;
+              recipeCarbohydrate += ingredient.carbohydrate * factor;
+              recipeSugars += ingredient.sugars * factor;
+              recipeProtein += ingredient.protein * factor;
+              recipeFibre += ingredient.fibre * factor;
+              recipeSalt += ingredient.salt * factor;
+            }
+          });
+
+          if (recipeWeightKg > 0) {
+            const proportion = part.quantity / recipeWeightKg;
+            totalWeightKg += part.quantity;
+            totalKJ += recipeKJ * proportion;
+            totalKcal += recipeKcal * proportion;
+            totalFat += recipeFat * proportion;
+            totalSaturates += recipeSaturates * proportion;
+            totalCarbohydrate += recipeCarbohydrate * proportion;
+            totalSugars += recipeSugars * proportion;
+            totalProtein += recipeProtein * proportion;
+            totalFibre += recipeFibre * proportion;
+            totalSalt += recipeSalt * proportion;
+          }
+        }
+      }
+
+      if (part.ingredient_id) {
+        const ingredient = ingredients.find((i) => i.id === part.ingredient_id);
+        if (ingredient) {
+          const weightInKg = part.quantity * ingredient.kiloPerUnit;
+          const factor = weightInKg * 10;
+          totalWeightKg += weightInKg;
+          totalKJ += ingredient.kJ * factor;
+          totalKcal += ingredient.kcal * factor;
+          totalFat += ingredient.fat * factor;
+          totalSaturates += ingredient.saturates * factor;
+          totalCarbohydrate += ingredient.carbohydrate * factor;
+          totalSugars += ingredient.sugars * factor;
+          totalProtein += ingredient.protein * factor;
+          totalFibre += ingredient.fibre * factor;
+          totalSalt += ingredient.salt * factor;
+        }
+      }
+
+      if (part.pastry_id) {
+        const product = products.find((p) => p.id === part.pastry_id);
+        if (product) {
+          let weightPerPiece = 0.15;
+          const calculatedWeight = calculatedWeights.get(product.id);
+          if (calculatedWeight && calculatedWeight > 0) {
+            weightPerPiece = calculatedWeight;
+          }
+          const partWeightKg = part.quantity * weightPerPiece;
+          const calculatedEnergetic = calculatedEnergeticValues.get(product.id);
+          if (calculatedEnergetic) {
+            const quantityMultiplier = part.quantity;
+            totalWeightKg += partWeightKg;
+            totalKJ += calculatedEnergetic.kJ * quantityMultiplier;
+            totalKcal += calculatedEnergetic.kcal * quantityMultiplier;
+            totalFat += calculatedEnergetic.fat * quantityMultiplier;
+            totalSaturates +=
+              calculatedEnergetic.saturates * quantityMultiplier;
+            totalCarbohydrate +=
+              calculatedEnergetic.carbohydrate * quantityMultiplier;
+            totalSugars += calculatedEnergetic.sugars * quantityMultiplier;
+            totalProtein += calculatedEnergetic.protein * quantityMultiplier;
+            totalFibre += calculatedEnergetic.fibre * quantityMultiplier;
+            totalSalt += calculatedEnergetic.salt * quantityMultiplier;
+          } else {
+            totalWeightKg += partWeightKg;
+            const factor = partWeightKg * 10;
+            totalKJ += (1200 * factor) / 10;
+            totalKcal += (280 * factor) / 10;
+            totalFat += (3 * factor) / 10;
+            totalSaturates += (1 * factor) / 10;
+            totalCarbohydrate += (55 * factor) / 10;
+            totalSugars += (3 * factor) / 10;
+            totalProtein += (9 * factor) / 10;
+            totalFibre += (3 * factor) / 10;
+            totalSalt += (1 * factor) / 10;
+          }
+        }
+      }
+    });
+
+    // Calculate per 100g values
+    const energyPer100gKJ =
+      totalWeightKg > 0 ? (totalKJ / totalWeightKg) * 0.1 : 0;
+    const energyPer100gKcal =
+      totalWeightKg > 0 ? (totalKcal / totalWeightKg) * 0.1 : 0;
+    const fatPer100g = totalWeightKg > 0 ? (totalFat / totalWeightKg) * 0.1 : 0;
+    const saturatesPer100g =
+      totalWeightKg > 0 ? (totalSaturates / totalWeightKg) * 0.1 : 0;
+    const carbohydratePer100g =
+      totalWeightKg > 0 ? (totalCarbohydrate / totalWeightKg) * 0.1 : 0;
+    const sugarsPer100g =
+      totalWeightKg > 0 ? (totalSugars / totalWeightKg) * 0.1 : 0;
+    const proteinPer100g =
+      totalWeightKg > 0 ? (totalProtein / totalWeightKg) * 0.1 : 0;
+    const fibrePer100g =
+      totalWeightKg > 0 ? (totalFibre / totalWeightKg) * 0.1 : 0;
+    const saltPer100g =
+      totalWeightKg > 0 ? (totalSalt / totalWeightKg) * 0.1 : 0;
+
+    // Create print window with PDF-friendly title
+    const pdfWindow = window.open("", "_blank");
+    if (pdfWindow) {
+      pdfWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>${productName} - Složení a Výživové hodnoty</title>
+            <style>
+              @page {
+                margin: 1cm;
+                size: A4 portrait;
+              }
+              * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+              }
+              body {
+                font-family: Arial, sans-serif;
+                line-height: 1.3;
+                color: #333;
+                font-size: 11pt;
+                padding: 0;
+              }
+              .company-header {
+                text-align: center;
+                margin-bottom: 16px;
+                padding-bottom: 10px;
+                border-bottom: 1px solid #ddd;
+              }
+              .company-name {
+                font-size: 14pt;
+                font-weight: bold;
+                color: #ea580c;
+                margin-bottom: 4px;
+              }
+              .company-details {
+                font-size: 9pt;
+                color: #666;
+                line-height: 1.4;
+              }
+              h1 {
+                color: #ea580c;
+                border-bottom: 2px solid #ea580c;
+                padding-bottom: 6px;
+                margin-bottom: 12px;
+                font-size: 18pt;
+              }
+              h2 {
+                color: #ea580c;
+                margin-top: 14px;
+                margin-bottom: 8px;
+                font-size: 13pt;
+              }
+              .section {
+                margin-bottom: 14px;
+                page-break-inside: avoid;
+              }
+              .composition {
+                background: #f0f9ff;
+                border: 1px solid #bfdbfe;
+                border-radius: 4px;
+                padding: 10px;
+                margin: 8px 0;
+                line-height: 1.4;
+                font-size: 10pt;
+              }
+              .nutrition-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 8px 0;
+                font-size: 10pt;
+              }
+              .nutrition-table th,
+              .nutrition-table td {
+                border: 1px solid #ddd;
+                padding: 6px 8px;
+                text-align: left;
+              }
+              .nutrition-table th {
+                background-color: #ea580c;
+                color: white;
+                font-weight: bold;
+                font-size: 10pt;
+              }
+              .nutrition-table tr:nth-child(even) {
+                background-color: #f9fafb;
+              }
+              .footer-note {
+                font-size: 9pt;
+                color: #666;
+                margin-top: 8px;
+                font-style: italic;
+              }
+              .contact-footer {
+                text-align: center;
+                margin-top: 20px;
+                padding-top: 12px;
+                border-top: 1px solid #ddd;
+                font-size: 9pt;
+                color: #ea580c;
+              }
+              .pdf-notice {
+                background: #fef3c7;
+                border: 1px solid #fbbf24;
+                border-radius: 4px;
+                padding: 8px;
+                margin: 10px 0;
+                font-size: 9pt;
+                color: #92400e;
+                text-align: center;
+              }
+              @media print {
+                body {
+                  padding: 0;
+                }
+                .no-print, .pdf-notice {
+                  display: none;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="pdf-notice no-print">
+              💡 Pro uložení jako PDF: Ctrl+P nebo Cmd+P → vyberte "Uložit jako PDF" → Uložit
+            </div>
+            
+            <div class="company-header">
+              <div class="company-name">APLICA s.r.o.</div>
+              <div class="company-details">
+                Veleslavínova 2045/7, 400 11 Ústí nad Labem<br/>
+                DIČ: CZ00555801
+              </div>
+            </div>
+            
+            <h1>${productName}</h1>
+            
+            <div class="section">
+              <h2>Složení</h2>
+              <div class="composition">
+                ${composition}
+              </div>
+            </div>
+            
+            <div class="section">
+              <h2>Výživové hodnoty na 100g</h2>
+              <table class="nutrition-table">
+                <thead>
+                  <tr>
+                    <th>Nutrient</th>
+                    <th>Na 100g</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Energie</strong></td>
+                    <td>${energyPer100gKcal.toFixed(0)} kcal (${energyPer100gKJ.toFixed(0)} kJ)</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Tuky</strong></td>
+                    <td>${fatPer100g.toFixed(1)}g</td>
+                  </tr>
+                  <tr>
+                    <td>&nbsp;&nbsp;z toho nasycené mastné kyseliny</td>
+                    <td>${saturatesPer100g.toFixed(1)}g</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Sacharidy</strong></td>
+                    <td>${carbohydratePer100g.toFixed(1)}g</td>
+                  </tr>
+                  <tr>
+                    <td>&nbsp;&nbsp;z toho cukry</td>
+                    <td>${sugarsPer100g.toFixed(1)}g</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Bílkoviny</strong></td>
+                    <td>${proteinPer100g.toFixed(1)}g</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Vláknina</strong></td>
+                    <td>${fibrePer100g.toFixed(1)}g</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Sůl</strong></td>
+                    <td>${saltPer100g.toFixed(1)}g</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <div class="footer-note">
+              Vytištěno: ${new Date().toLocaleString("cs-CZ")}
+            </div>
+            
+            <div class="contact-footer">
+              aplica.cz | aplica.kancelar@seznam.cz | mob: 734 447 939
+            </div>
+            
+            <script>
+              window.onload = function() {
+                // Automatically open print dialog for PDF saving
+                setTimeout(function() {
+                  window.print();
+                }, 500);
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      pdfWindow.document.close();
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
+    <Dialog open={open}>
+      <DialogContent
+        className="max-w-6xl max-h-[95vh] overflow-y-auto [&>button]:hidden"
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
             Části produktu: {productName}
           </DialogTitle>
         </DialogHeader>
+
+        {/* All Buttons in One Row */}
+        <div className="flex items-center justify-between gap-3 pb-4 border-b">
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handlePrint}
+              size="sm"
+              variant="outline"
+              className="flex items-center gap-2"
+              disabled={productParts.length === 0}
+            >
+              <Printer className="h-4 w-4" />
+              Tisknout
+            </Button>
+            <Button
+              onClick={handleDownloadPDF}
+              size="sm"
+              variant="outline"
+              className="flex items-center gap-2"
+              disabled={productParts.length === 0}
+            >
+              <Download className="h-4 w-4" />
+              PDF
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={onClose} disabled={isSaving}>
+              Zrušit
+            </Button>
+            <Button
+              onClick={saveProductParts}
+              disabled={isSaving}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {isSaving ? "Ukládám..." : "Uložit změny"}
+            </Button>
+          </div>
+        </div>
 
         {/* Product Diversification Section */}
         <Card className="mb-4">
@@ -3067,20 +4061,6 @@ Celková hmotnost produktu: ${totalWeightKg.toFixed(3)} kg`;
             </CardContent>
           </Card>
         )}
-
-        <div className="flex justify-end gap-3 pt-4">
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>
-            Zrušit
-          </Button>
-          <Button
-            onClick={saveProductParts}
-            disabled={isSaving}
-            className="bg-orange-600 hover:bg-orange-700"
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {isSaving ? "Ukládám..." : "Uložit změny"}
-          </Button>
-        </div>
       </DialogContent>
       <PartPickerModal
         open={isPickerOpen}

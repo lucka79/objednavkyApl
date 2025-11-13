@@ -576,7 +576,20 @@ export function ReceivedInvoices() {
 
   // Console log received invoices data
   useEffect(() => {
-    // Debug logging removed
+    if (invoices && invoices.length > 0) {
+      console.log("📋 Received Invoices Data:", {
+        count: invoices.length,
+        firstInvoice: invoices[0],
+        allInvoices: invoices.map((inv) => ({
+          id: inv.id,
+          invoice_number: inv.invoice_number,
+          invoice_date: inv.invoice_date,
+          invoice_due: (inv as any).invoice_due,
+          supplier: inv.supplier?.full_name,
+          total_amount: inv.total_amount,
+        })),
+      });
+    }
   }, [invoices]);
   const deleteInvoiceMutation = useDeleteReceivedInvoice();
   const updateInvoiceMutation = useUpdateReceivedInvoice();
@@ -719,6 +732,11 @@ export function ReceivedInvoices() {
   const handleUpdateInvoice = async () => {
     if (!selectedInvoice) return;
 
+    console.log("🔍 handleUpdateInvoice - START", {
+      selectedInvoice,
+      editForm,
+    });
+
     try {
       const updateData: any = {
         id: selectedInvoice.id,
@@ -727,10 +745,17 @@ export function ReceivedInvoices() {
         total_amount: editForm.total_amount,
       };
 
-      // Add invoice_due if it exists
-      if (editForm.invoice_due) {
+      // Add invoice_due if it exists and is not empty (PostgreSQL doesn't accept empty strings for date fields)
+      if (editForm.invoice_due && editForm.invoice_due.trim() !== "") {
         updateData.invoice_due = editForm.invoice_due;
+        console.log("✅ Adding invoice_due to update:", editForm.invoice_due);
+      } else {
+        // If empty, explicitly set to null to clear the due date
+        updateData.invoice_due = null;
+        console.log("⚠️ Setting invoice_due to null (empty field)");
       }
+
+      console.log("📤 Sending update data:", updateData);
 
       await updateInvoiceMutation.mutateAsync(updateData);
 
@@ -740,8 +765,14 @@ export function ReceivedInvoices() {
         invoice_number: editForm.invoice_number,
         receiver_id: editForm.receiver_id,
         total_amount: editForm.total_amount,
-        ...(editForm.invoice_due &&
-          ({ invoice_due: editForm.invoice_due } as any)),
+        invoice_due: editForm.invoice_due || null,
+      });
+
+      console.log("✅ Local state updated:", {
+        invoice_number: editForm.invoice_number,
+        receiver_id: editForm.receiver_id,
+        total_amount: editForm.total_amount,
+        invoice_due: editForm.invoice_due || null,
       });
 
       setIsEditing(false);
