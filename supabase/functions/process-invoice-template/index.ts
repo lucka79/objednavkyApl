@@ -283,7 +283,7 @@ async function matchIngredientsWithCodes(
     const productCode = item.product_code?.trim();
     const description = item.description?.trim();
     
-    // For items without product_code (e.g., Albert retail), try matching by description
+    // For items without product_code (e.g., FABIO, Albert), try matching by description
     if (!productCode) {
       if (!description) {
         matchedItems.push({ ...item, match_status: 'no_code' });
@@ -292,7 +292,59 @@ async function matchIngredientsWithCodes(
 
       console.log(`\n🔍 Matching by description: "${description}"`);
 
-      // Get all ingredient mappings for this supplier
+      // STEP 1: Try exact match on product_code field (for FABIO items, description is saved as product_code)
+      const { data: exactMatch, error: exactError } = await supabase
+        .from('ingredient_supplier_codes')
+        .select(`
+          ingredient_id,
+          product_code,
+          ingredients!inner(id, name, unit, category_id)
+        `)
+        .eq('supplier_id', supplierId)
+        .eq('product_code', description.trim())
+        .maybeSingle();
+
+      if (exactMatch) {
+        console.log(`✅ Exact match found: "${description}" → "${exactMatch.ingredients.name}"`);
+        matchedItems.push({
+          ...item,
+          matched_ingredient_id: exactMatch.ingredients.id,
+          matched_ingredient_name: exactMatch.ingredients.name,
+          matched_ingredient_unit: exactMatch.ingredients.unit,
+          matched_ingredient_category: exactMatch.ingredients.category_id,
+          match_status: 'exact',
+          match_confidence: 1.0,
+        });
+        continue;
+      }
+
+      // STEP 2: Try case-insensitive exact match
+      const { data: caseInsensitiveMatch, error: caseError } = await supabase
+        .from('ingredient_supplier_codes')
+        .select(`
+          ingredient_id,
+          product_code,
+          ingredients!inner(id, name, unit, category_id)
+        `)
+        .eq('supplier_id', supplierId)
+        .ilike('product_code', description.trim())
+        .maybeSingle();
+
+      if (caseInsensitiveMatch) {
+        console.log(`✅ Case-insensitive match found: "${description}" → "${caseInsensitiveMatch.ingredients.name}"`);
+        matchedItems.push({
+          ...item,
+          matched_ingredient_id: caseInsensitiveMatch.ingredients.id,
+          matched_ingredient_name: caseInsensitiveMatch.ingredients.name,
+          matched_ingredient_unit: caseInsensitiveMatch.ingredients.unit,
+          matched_ingredient_category: caseInsensitiveMatch.ingredients.category_id,
+          match_status: 'exact',
+          match_confidence: 1.0,
+        });
+        continue;
+      }
+
+      // STEP 3: Get all ingredient mappings for similarity-based fuzzy matching
       const { data: supplierIngredients, error } = await supabase
         .from('ingredient_supplier_codes')
         .select(`
@@ -345,14 +397,14 @@ async function matchIngredientsWithCodes(
       }
 
       if (bestMatch && bestScore > 0.5) {
-        console.log(`✅ Match found: "${description}" → "${bestMatch.ingredients.name}" (score: ${bestScore.toFixed(2)})`);
+        console.log(`✅ Fuzzy match found: "${description}" → "${bestMatch.ingredients.name}" (score: ${bestScore.toFixed(2)})`);
         matchedItems.push({
           ...item,
           matched_ingredient_id: bestMatch.ingredients.id,
           matched_ingredient_name: bestMatch.ingredients.name,
           matched_ingredient_unit: bestMatch.ingredients.unit,
           matched_ingredient_category: bestMatch.ingredients.category_id,
-          match_status: 'exact',
+          match_status: 'fuzzy_name',
           match_confidence: bestScore,
         });
         continue;
