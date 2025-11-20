@@ -145,6 +145,10 @@ export interface Product {
     oz_new: boolean;
     mo_partners: boolean;
     ico?: string;
+    lat?: number;
+    lng?: number;
+    formatted_address?: string;
+    place_id?: string;
   };
 
   

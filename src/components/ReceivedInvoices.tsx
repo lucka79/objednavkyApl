@@ -1702,8 +1702,6 @@ export function ReceivedInvoices() {
                                 }
                               >
                                 {dueDateObj.toLocaleDateString("cs-CZ")}
-                                {isOverdue && " (Po splatnosti)"}
-                                {isDueSoon && " (Splatnost brzy)"}
                               </span>
                             );
                           })()}

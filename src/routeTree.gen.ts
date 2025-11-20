@@ -33,6 +33,7 @@ import { Route as AdminTransfersImport } from './routes/admin.transfers'
 import { Route as AdminReportsImport } from './routes/admin.reports'
 import { Route as AdminRecipesImport } from './routes/admin.recipes'
 import { Route as AdminProductsImport } from './routes/admin.products'
+import { Route as AdminOrdersMapImport } from './routes/admin.orders-map'
 import { Route as AdminOrdersImport } from './routes/admin.orders'
 import { Route as AdminNotificationSettingsImport } from './routes/admin.notification-settings'
 import { Route as AdminInvoicesImport } from './routes/admin.invoices'
@@ -152,6 +153,11 @@ const AdminRecipesRoute = AdminRecipesImport.update({
 
 const AdminProductsRoute = AdminProductsImport.update({
   path: '/admin/products',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const AdminOrdersMapRoute = AdminOrdersMapImport.update({
+  path: '/admin/orders-map',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -300,6 +306,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/orders'
       fullPath: '/admin/orders'
       preLoaderRoute: typeof AdminOrdersImport
+      parentRoute: typeof rootRoute
+    }
+    '/admin/orders-map': {
+      id: '/admin/orders-map'
+      path: '/admin/orders-map'
+      fullPath: '/admin/orders-map'
+      preLoaderRoute: typeof AdminOrdersMapImport
       parentRoute: typeof rootRoute
     }
     '/admin/products': {
@@ -453,6 +466,7 @@ export interface FileRoutesByFullPath {
   '/admin/invoices': typeof AdminInvoicesRoute
   '/admin/notification-settings': typeof AdminNotificationSettingsRoute
   '/admin/orders': typeof AdminOrdersRoute
+  '/admin/orders-map': typeof AdminOrdersMapRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
   '/admin/recipes': typeof AdminRecipesRoute
   '/admin/reports': typeof AdminReportsRoute
@@ -487,6 +501,7 @@ export interface FileRoutesByTo {
   '/admin/invoices': typeof AdminInvoicesRoute
   '/admin/notification-settings': typeof AdminNotificationSettingsRoute
   '/admin/orders': typeof AdminOrdersRoute
+  '/admin/orders-map': typeof AdminOrdersMapRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
   '/admin/recipes': typeof AdminRecipesRoute
   '/admin/reports': typeof AdminReportsRoute
@@ -522,6 +537,7 @@ export interface FileRoutesById {
   '/admin/invoices': typeof AdminInvoicesRoute
   '/admin/notification-settings': typeof AdminNotificationSettingsRoute
   '/admin/orders': typeof AdminOrdersRoute
+  '/admin/orders-map': typeof AdminOrdersMapRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
   '/admin/recipes': typeof AdminRecipesRoute
   '/admin/reports': typeof AdminReportsRoute
@@ -558,6 +574,7 @@ export interface FileRouteTypes {
     | '/admin/invoices'
     | '/admin/notification-settings'
     | '/admin/orders'
+    | '/admin/orders-map'
     | '/admin/products'
     | '/admin/recipes'
     | '/admin/reports'
@@ -591,6 +608,7 @@ export interface FileRouteTypes {
     | '/admin/invoices'
     | '/admin/notification-settings'
     | '/admin/orders'
+    | '/admin/orders-map'
     | '/admin/products'
     | '/admin/recipes'
     | '/admin/reports'
@@ -624,6 +642,7 @@ export interface FileRouteTypes {
     | '/admin/invoices'
     | '/admin/notification-settings'
     | '/admin/orders'
+    | '/admin/orders-map'
     | '/admin/products'
     | '/admin/recipes'
     | '/admin/reports'
@@ -659,6 +678,7 @@ export interface RootRouteChildren {
   AdminInvoicesRoute: typeof AdminInvoicesRoute
   AdminNotificationSettingsRoute: typeof AdminNotificationSettingsRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
+  AdminOrdersMapRoute: typeof AdminOrdersMapRoute
   AdminProductsRoute: typeof AdminProductsRouteWithChildren
   AdminRecipesRoute: typeof AdminRecipesRoute
   AdminReportsRoute: typeof AdminReportsRoute
@@ -692,6 +712,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminInvoicesRoute: AdminInvoicesRoute,
   AdminNotificationSettingsRoute: AdminNotificationSettingsRoute,
   AdminOrdersRoute: AdminOrdersRoute,
+  AdminOrdersMapRoute: AdminOrdersMapRoute,
   AdminProductsRoute: AdminProductsRouteWithChildren,
   AdminRecipesRoute: AdminRecipesRoute,
   AdminReportsRoute: AdminReportsRoute,
@@ -736,6 +757,7 @@ export const routeTree = rootRoute
         "/admin/invoices",
         "/admin/notification-settings",
         "/admin/orders",
+        "/admin/orders-map",
         "/admin/products",
         "/admin/recipes",
         "/admin/reports",
@@ -795,6 +817,9 @@ export const routeTree = rootRoute
     },
     "/admin/orders": {
       "filePath": "admin.orders.tsx"
+    },
+    "/admin/orders-map": {
+      "filePath": "admin.orders-map.tsx"
     },
     "/admin/products": {
       "filePath": "admin.products.tsx",

@@ -140,6 +140,12 @@ export function Navbar() {
                     <Link to="/admin/orders" className="hover:text-gray-300">
                       Objednávky
                     </Link>
+                    <Link
+                      to="/admin/orders-map"
+                      className="hover:text-gray-300"
+                    >
+                      Mapa
+                    </Link>
                     <Link to="/admin/create" className="hover:text-gray-300">
                       Výrobky
                     </Link>

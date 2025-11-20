@@ -27,14 +27,8 @@ import { useOrderStore } from "@/providers/orderStore";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar } from "@/components/ui/calendar";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  CalendarIcon,
   Container,
   Printer,
   FileText,
@@ -43,7 +37,6 @@ import {
   Unlock,
   TriangleAlert,
 } from "lucide-react";
-import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -71,7 +64,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useDriverUsers } from "@/hooks/useProfiles";
 import { useAuthStore } from "@/lib/supabase";
-import { cs } from "date-fns/locale";
 
 import { ProductSummaryPrint } from "./ProductSummaryPrint";
 import { OrderPrint } from "./OrderPrint";
@@ -1438,29 +1430,12 @@ export function OrdersTable({
             }}
           >
             <div className="flex items-center gap-4 mb-4 print:hidden">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "w-[150px] justify-start text-left font-normal",
-                      !date && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? format(date, "PPP") : <span>Vyberte datum</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={setDate}
-                    initialFocus
-                    locale={cs}
-                  />
-                </PopoverContent>
-              </Popover>
+              <DatePicker
+                date={date}
+                onSelect={setDate}
+                placeholder="Vyberte datum"
+                className="w-[150px]"
+              />
               <TabsList>
                 {[
                   { value: "tomorrow", label: "Zítra" },
