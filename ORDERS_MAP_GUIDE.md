@@ -11,6 +11,13 @@ The Orders Map component displays all orders with geolocated addresses on an int
 - Click on any marker to see order details
 - Markers are grouped by location
 - Numbers on markers indicate multiple orders at the same location
+- **Warehouse Marker**: Black marker labeled "SKLAD" shows the warehouse location (Výstupní 8, Ústí nad Labem-Neštěmice)
+  - All routes start and end at the warehouse
+- **Route Optimization**: Toggle "Zobrazit trasy" to see optimized delivery routes for drivers
+  - Routes start from warehouse, visit all delivery locations, and return to warehouse
+  - Routes are automatically optimized for the shortest path
+  - Each driver gets a unique color-coded route
+  - Shows total distance and estimated time for each route
 
 ### 2. **Filtering**
 - **Date Filter**: Select a specific date for orders
@@ -65,6 +72,8 @@ VITE_GOOGLE_MAPS_API_KEY=your_api_key_here
 
 If not configured, follow the setup guide in `GEOCODING_SETUP.md`.
 
+**Note**: The Directions API is included in the Maps JavaScript API, so no additional API key or setup is required for route optimization.
+
 ### 2. Geocoded Addresses
 For orders to appear on the map, the corresponding user profiles must have:
 - `lat` (latitude)
@@ -114,7 +123,11 @@ The component relies on these fields:
 
 ## Usage Tips
 
-1. **Plan Delivery Routes**: Use the driver filter to see all orders assigned to a specific driver for route planning
+1. **Plan Delivery Routes**: 
+   - Select a specific driver to see their orders
+   - Toggle "Zobrazit trasy" to see the optimized route
+   - Routes show the shortest path between all delivery locations
+   - Check the legend for route distance and estimated time
 
 2. **Track Specific Status**: Filter by status to see orders in a specific stage of processing
 
@@ -122,7 +135,15 @@ The component relies on these fields:
 
 4. **Find Unassigned Orders**: Select "Bez řidiče" (Without driver) to see orders that still need driver assignment
 
-5. **Reset Filters**: Use the "Reset Filters" button to quickly return to default view (tomorrow, all drivers, all statuses)
+5. **Route Optimization**: 
+   - All routes start and end at the warehouse (Výstupní 8, Ústí nad Labem-Neštěmice)
+   - Routes are automatically optimized using Google's waypoint optimization
+   - Each driver's route is color-coded for easy identification
+   - Routes only show when "Zobrazit trasy" is enabled
+   - When a specific driver is selected, only that driver's route is shown
+   - The warehouse is marked with a black "SKLAD" marker on the map
+
+6. **Reset Filters**: Use the "Reset Filters" button to quickly return to default view (tomorrow, all drivers, all statuses, routes hidden)
 
 ## Troubleshooting
 
@@ -144,12 +165,13 @@ The component relies on these fields:
 ## Future Enhancements
 
 Possible improvements for this feature:
-- Route optimization for delivery planning
+- ✅ Route optimization for delivery planning (Implemented!)
 - Heatmap view for delivery density
 - Clustering for better performance with many markers
-- Export delivery routes
-- Color-coded markers by driver
+- Export delivery routes to GPS devices
 - Real-time order status updates
 - Date range selection (from/to dates)
-- Driver route comparison
+- Driver route comparison side-by-side
+- Route editing (drag to reorder stops)
+- Estimated delivery times per stop
 
